@@ -53,6 +53,23 @@ export const isFlowFeedbackKey = (key: string) => key.startsWith(FLOW_FEEDBACK_P
  *  any other key, so `Number.isInteger` is the test for "this one names an email". */
 export const flowFeedbackSlot = (key: string) => (isFlowFeedbackKey(key) ? Number(key.slice(FLOW_FEEDBACK_PREFIX.length)) : NaN);
 
+/* ── Landing-page feedback ──
+   The same thing for Marketing → Landing page, under its own prefix so the two never mix.
+   One note per person for the page as a whole: "landingPage.all".
+
+   This is deliberately NOT the Approve / Request changes gate in landing-page-section.tsx.
+   That one is a decision — it closes, and once a client has approved they have no way to
+   say anything more. This is the open-ended channel that stays available either side of
+   that decision (2026-09-10).
+
+   Like the flow keys, parseKey knows nothing about these, so applySuggestion returns null
+   and a note can never be "accepted" into the Master Brand Document. */
+
+export const LANDING_FEEDBACK_PREFIX = "landingPage.";
+/** The one key a landing-page note is stored under. */
+export const LANDING_FEEDBACK_KEY = `${LANDING_FEEDBACK_PREFIX}all`;
+export const isLandingFeedbackKey = (key: string) => key.startsWith(LANDING_FEEDBACK_PREFIX);
+
 /** One proposed edit, as the client's browser sends it to the create action. */
 export interface SuggestionItem {
     fieldKey: string;

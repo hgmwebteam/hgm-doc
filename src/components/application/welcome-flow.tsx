@@ -1,9 +1,9 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy01, Image01, Mail01, Monitor01, Phone01, SearchSm, Settings01, XClose } from "@untitledui/icons";
 import { AnimatePresence, motion } from "motion/react";
-import { Button } from "@/components/base/buttons/button";
 import { supabase } from "@/lib/supabase";
-import { type Suggestion, flowFeedbackSlot } from "@/pages/client/dashboard/suggestions-model";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
+import { flowFeedbackSlot } from "@/pages/client/dashboard/suggestions-model";
 import { cx } from "@/utils/cx";
 
 /**
@@ -546,30 +546,8 @@ const NEW_ITEMS: Record<string, () => unknown> = {
 
 /* ── Client feedback ─────────────────────────────────────────────── */
 
-/**
- * What the dashboard page hands this section so a client can comment on an email and
- * the team can read and close the comment. Rows are dashboard_suggestions entries
- * keyed "welcomeFlow.{slot}" (see suggestions-model.ts); the page owns the fetching
- * and every write, this section only renders and calls back.
- */
-export interface FlowFeedbackProps {
-    /** "client" = may send; "review" = team reads and resolves; "off" = nothing shown. */
-    mode: "off" | "client" | "review";
-    /** Every feedback row for this dashboard, newest first, pending and resolved alike. */
-    items: Suggestion[];
-    /** The address a new comment is stamped with; empty means the viewer can't send. */
-    author: string;
-    /** Sends (or replaces) the author's one note on the flow. */
-    send: (text: string) => Promise<void>;
-    withdraw: (s: Suggestion) => Promise<void>;
-    /** "accepted" reads as done, "declined" as dismissed — nothing is applied anywhere. */
-    resolve: (s: Suggestion, status: "accepted" | "declined") => Promise<void>;
-}
-
-const shortDate = (iso: string) => {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-};
+/** Client feedback wiring — now shared with the Landing page, see client-feedback.tsx. */
+export type FlowFeedbackProps = ClientFeedbackProps;
 
 /** The two previews, in display order — mobile first. */
 const DEVICES = [
@@ -903,39 +881,11 @@ export const WelcomeFlowSection = ({
     const previewText = source === "finished" ? dbEmail!.preview : "";
 
     /* ── Client feedback on the flow ──
-       One note per person for all nine emails, not one per tab, so none of this depends
-       on `tab` any more. Legacy per-email rows still arrive in `items` and still show in
-       the team's list below, labelled with the email they were written about. */
+       One note per person for all nine emails, not one per tab, so none of this depends on
+       `tab`. The box and the team's list are the shared ones; this only decides whether
+       they appear. Legacy per-email rows still arrive in `items` and are labelled with the
+       email they were written about. */
     const fb = feedback && feedback.mode !== "off" ? feedback : null;
-    const fbPending = (fb?.items ?? []).filter((s) => s.status === "pending");
-    /** The viewer's own open note — the box edits it in place. */
-    const fbMine = fb ? fbPending.find((s) => s.suggested_by === fb.author) : undefined;
-    /** The viewer's most recent closed note, for the "what happened" line. */
-    const fbResolved = fb ? fb.items.find((s) => s.status !== "pending" && s.suggested_by === fb.author) : undefined;
-    const [fbText, setFbText] = useState("");
-    const [fbState, setFbState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-    const [fbError, setFbError] = useState("");
-    // The box tracks the viewer's open note, which changes right after a send (the
-    // refresh brings the new row back). Keyed on the row id alone so re-typing is never
-    // interrupted, and so the send's own refresh doesn't wipe the "Sent" confirmation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-        setFbText(fbMine?.suggested_value ?? "");
-    }, [fbMine?.id]);
-    const sendFeedback = async () => {
-        const text = fbText.trim();
-        if (!fb || !text) return;
-        setFbState("sending");
-        setFbError("");
-        try {
-            await fb.send(text);
-            setFbState("sent");
-            window.setTimeout(() => setFbState((s) => (s === "sent" ? "idle" : s)), 6000);
-        } catch (err) {
-            setFbError(err instanceof Error ? err.message : "Something went wrong. Nothing was sent.");
-            setFbState("error");
-        }
-    };
     // Recompute only on tab switch / structural change / lock toggle — inline text
     // edits keep the iframe document alive so typing never flickers. dbEmails isn't a
     // dep because loading it bumps rev.
@@ -1011,54 +961,9 @@ export const WelcomeFlowSection = ({
        replaces it, and the team reads it in the review card above. Null for the team and
        for a viewer who can't send. */
     const fbRail =
-        fb?.mode === "client" && flowHasAnything ? (
-            <aside className="w-full shrink-0 @min-[1012px]:sticky @min-[1012px]:top-4 @min-[1012px]:w-[340px]">
-                <div className="rounded-2xl bg-primary p-4 ring-1 ring-secondary md:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-primary">Your feedback</p>
-                        {fbMine && (
-                            <span className="rounded-full bg-warning-primary px-2.5 py-1 text-xs font-medium text-warning-primary">Awaiting review</span>
-                        )}
-                    </div>
-                    <textarea
-                        rows={6}
-                        value={fbText}
-                        onChange={(e) => setFbText(e.target.value)}
-                        placeholder="Your feedback on the welcome emails…"
-                        className="mt-3 w-full resize-y rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
-                    />
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <Button
-                            size="sm"
-                            color="primary"
-                            onClick={() => void sendFeedback()}
-                            isDisabled={!fbText.trim() || fbText.trim() === (fbMine?.suggested_value ?? "")}
-                            isLoading={fbState === "sending"}
-                            showTextWhileLoading
-                        >
-                            {fbMine ? "Update feedback" : "Send feedback"}
-                        </Button>
-                        {fbMine && (
-                            <button
-                                type="button"
-                                onClick={() => void fb.withdraw(fbMine).catch(() => undefined)}
-                                className="text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:text-error-primary"
-                            >
-                                Withdraw
-                            </button>
-                        )}
-                    </div>
-                    {/* Status sits under the button rather than beside it — at rail width a
-                        sentence next to the button wrapped to three lines. */}
-                    {fbState === "sent" && <p className="mt-2.5 text-sm text-success-primary">Sent — thank you. Your account manager will follow up.</p>}
-                    {fbState === "error" && <p className="mt-2.5 text-sm text-error-primary">{fbError}</p>}
-                    {fbState === "idle" && !fbMine && fbResolved && (
-                        <p className="mt-2.5 text-xs text-quaternary">
-                            Your note from {shortDate(fbResolved.created_at)} was marked {fbResolved.status === "accepted" ? "done" : "closed"}
-                            {fbResolved.resolved_at ? ` on ${shortDate(fbResolved.resolved_at)}` : ""}.
-                        </p>
-                    )}
-                </div>
+        fb && flowHasAnything ? (
+            <aside className="w-full shrink-0 empty:hidden @min-[1012px]:sticky @min-[1012px]:top-4 @min-[1012px]:w-[340px]">
+                <ClientFeedbackBox feedback={fb} placeholder="Your feedback on the welcome emails…" />
             </aside>
         ) : null;
 
@@ -1108,25 +1013,12 @@ export const WelcomeFlowSection = ({
 
             {/* Team review — every open client note on the flow, read and closed here. A note
                 written before the box was combined names the email it was about. */}
-            {fb?.mode === "review" && fbPending.length > 0 && (
-                <div className="mt-4 flex flex-col gap-2">
-                    {fbPending.map((s) => (
-                        <div key={s.id} className="rounded-xl bg-brand-primary p-3.5 ring-1 ring-secondary">
-                            <p className="text-xs font-medium text-secondary">
-                                Client feedback · {s.suggested_by} · {shortDate(s.created_at)}
-                                {Number.isInteger(flowFeedbackSlot(s.field_key)) && <span> · on {stepLabel(flowFeedbackSlot(s.field_key))}</span>}
-                            </p>
-                            <p className="mt-1 text-sm whitespace-pre-wrap text-primary">{s.suggested_value}</p>
-                            <div className="mt-2.5 flex items-center gap-2">
-                                <Button size="sm" color="primary" onClick={() => void fb.resolve(s, "accepted")}>
-                                    Mark as done
-                                </Button>
-                                <Button size="sm" color="secondary" onClick={() => void fb.resolve(s, "declined")}>
-                                    Dismiss
-                                </Button>
-                            </div>
-                        </div>
-                    ))}
+            {fb?.mode === "review" && (
+                <div className="mt-4">
+                    <ClientFeedbackReview
+                        feedback={fb}
+                        labelFor={(s) => (Number.isInteger(flowFeedbackSlot(s.field_key)) ? `on ${stepLabel(flowFeedbackSlot(s.field_key))}` : null)}
+                    />
                 </div>
             )}
 

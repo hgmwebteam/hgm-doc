@@ -161,10 +161,12 @@ import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pag
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
     FLOW_FEEDBACK_KEY,
+    LANDING_FEEDBACK_KEY,
     type Suggestion,
     type SuggestionItem,
     applySuggestion,
     isFlowFeedbackKey,
+    isLandingFeedbackKey,
     labelForKey,
     valueForKey,
 } from "@/pages/client/dashboard/suggestions-model";
@@ -838,17 +840,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [refreshSuggestions]);
 
     /* The table carries three kinds of row: Master Brand Document edits, welcome-email
-       feedback under `welcomeFlow.*`, and Pinned Posts feedback under `pinnedposts.*`. Split
-       them here so no section counts, lists or orphans another's. */
+       feedback under `welcomeFlow.*`, Landing page feedback under `landingPage.*`, and
+       Pinned Posts feedback under `pinnedposts.*`. Split them here so no section counts,
+       lists or orphans another's — a feedback key resolves to no document field, so one left
+       in would show up as a pending edit and then as an orphan. */
     const pinnedFeedback = suggestions.filter((s) => isPinnedKey(s.field_key));
-    const pendingSuggestions = suggestions.filter((s) => s.status === "pending" && !isPinnedKey(s.field_key) && !isFlowFeedbackKey(s.field_key));
+    const pendingSuggestions = suggestions.filter(
+        (s) => s.status === "pending" && !isPinnedKey(s.field_key) && !isFlowFeedbackKey(s.field_key) && !isLandingFeedbackKey(s.field_key),
+    );
     const pendingByKey = new Map<string, Suggestion[]>();
     for (const s of pendingSuggestions) pendingByKey.set(s.field_key, [...(pendingByKey.get(s.field_key) ?? []), s]);
     const resolvedByKey = new Map<string, Suggestion>();
     for (const s of suggestions) if (s.status !== "pending" && !resolvedByKey.has(s.field_key)) resolvedByKey.set(s.field_key, s);
     /** Pending rows whose key no longer resolves (their row was deleted) — surfaced to
      *  the team above the document, since no field exists to hang them on. */
-    const orphanedPending = isTeam ? pendingSuggestions.filter((s) => !isFlowFeedbackKey(s.field_key) && valueForKey(foundation, s.field_key) === null) : [];
+    const orphanedPending = isTeam
+        ? pendingSuggestions.filter(
+              (s) => !isFlowFeedbackKey(s.field_key) && !isLandingFeedbackKey(s.field_key) && valueForKey(foundation, s.field_key) === null,
+          )
+        : [];
 
     const acceptSuggestion = (s: Suggestion) => {
         const patch = applySuggestion(foundation, s.field_key, s.suggested_value);
@@ -1039,19 +1049,55 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
         await refreshSuggestions();
     };
-    const withdrawFlowFeedback = async (s: Suggestion) => {
+    /** Withdraw / resolve act on a row id, so both feedback families share them. */
+    const withdrawFeedback = async (s: Suggestion) => {
         if (!slug) return;
         if (identityEmail) await withdrawSuggestion(slug, identityEmail, s.id);
         else if (signedInAsTeam) await supabase.from("dashboard_suggestions").delete().eq("id", s.id).eq("status", "pending");
         await refreshSuggestions();
     };
     /** Feedback is never "applied" anywhere — done or dismissed is the whole outcome. */
-    const resolveFlowFeedback = async (s: Suggestion, status: "accepted" | "declined") => {
+    const resolveFeedback = async (s: Suggestion, status: "accepted" | "declined") => {
         await supabase
             .from("dashboard_suggestions")
             .update({ status, resolved_by: user?.email ?? "", resolved_at: new Date().toISOString() })
             .eq("id", s.id)
             .eq("status", "pending");
+        await refreshSuggestions();
+    };
+
+    /* ── Client feedback on the landing page ──
+       The same three calls again under LANDING_FEEDBACK_KEY. Separate from the Approve /
+       Request changes verdict in landing-page-section.tsx, which lives in landing_pages:
+       that one closes, this one stays open either side of it. */
+    const landingFeedback = suggestions.filter((s) => isLandingFeedbackKey(s.field_key));
+    const landingRevealed = (content.client_visible ?? DEFAULT_CLIENT_VISIBLE).includes("landing");
+    const canLandingFeedback = !isTeam && !isTemplate && landingRevealed && !!suggestAuthor;
+    const sendLandingFeedback = async (text: string) => {
+        if (!slug || !suggestAuthor) throw new Error("Sign in with your email to send feedback.");
+        const item = { fieldKey: LANDING_FEEDBACK_KEY, fieldLabel: "Landing page · feedback", currentValue: "", suggestedValue: text };
+        if (identityEmail) {
+            await sendSuggestions(slug, identityEmail, [item]);
+        } else {
+            // Team member previewing as the client — as themselves, so the function's
+            // one-open-note-per-author rule has to be reproduced by hand here.
+            await supabase
+                .from("dashboard_suggestions")
+                .delete()
+                .eq("slug", slug)
+                .eq("suggested_by", suggestAuthor)
+                .eq("status", "pending")
+                .eq("field_key", item.fieldKey);
+            const { error } = await supabase.from("dashboard_suggestions").insert({
+                slug,
+                field_key: item.fieldKey,
+                field_label: item.fieldLabel,
+                current_value: item.currentValue,
+                suggested_value: item.suggestedValue,
+                suggested_by: suggestAuthor,
+            });
+            if (error) throw new Error(error.message);
+        }
         await refreshSuggestions();
     };
 
@@ -3168,6 +3214,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 isTemplate={isTemplate}
                                                                 teamName={user?.name ?? user?.email ?? ""}
                                                                 clientEmail={identityEmail}
+                                                                feedback={{
+                                                                    mode: isTeam ? "review" : canLandingFeedback ? "client" : "off",
+                                                                    items: landingFeedback,
+                                                                    author: suggestAuthor,
+                                                                    send: sendLandingFeedback,
+                                                                    withdraw: withdrawFeedback,
+                                                                    resolve: resolveFeedback,
+                                                                }}
                                                             />
                                                         </div>
                                                     </>
@@ -3225,8 +3279,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     items: flowFeedback,
                                                                     author: suggestAuthor,
                                                                     send: sendFlowFeedback,
-                                                                    withdraw: withdrawFlowFeedback,
-                                                                    resolve: resolveFlowFeedback,
+                                                                    withdraw: withdrawFeedback,
+                                                                    resolve: resolveFeedback,
                                                                 }}
                                                             />
                                                         </div>

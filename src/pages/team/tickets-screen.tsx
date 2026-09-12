@@ -33,7 +33,7 @@ import { useAuthUser } from "@/hooks/use-auth-user";
 import { supabase } from "@/lib/supabase";
 import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics } from "@/pages/client/help/help-api";
 import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
-import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatStampShort, priorityMeta } from "@/pages/client/help/help-model";
+import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatDayShort, formatStampShort, priorityMeta } from "@/pages/client/help/help-model";
 import {
     ErrorNote,
     Eyebrow,
@@ -144,8 +144,12 @@ const matches = (t: Ticket, f: (typeof LIST_FILTERS)[number]["key"]) => (f === "
 const dueLine = (t: Ticket): string => {
     if (t.status === "withdrawn") return t.withdrawn_at ? `Withdrawn ${formatStampShort(t.withdrawn_at)}` : "Withdrawn";
     if (t.status === "completed") return t.completed_at ? `Completed ${formatStampShort(t.completed_at)}` : "Completed";
-    if (t.promised_date) return `Due ${formatStampShort(t.promised_date)}`;
-    return t.needed_by ? `Asked for by ${formatStampShort(t.needed_by)}` : "";
+    // promised_date and needed_by are plain DATE columns. Read as a timestamp
+    // they are UTC midnight, which in New York is the evening before: REQ-2664
+    // asked for 29 September and the list said 28. formatDayShort parses a
+    // day as a local day.
+    if (t.promised_date) return `Due ${formatDayShort(t.promised_date)}`;
+    return t.needed_by ? `Asked for by ${formatDayShort(t.needed_by)}` : "";
 };
 
 export const TeamTicketsScreen = () => {

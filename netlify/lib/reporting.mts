@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isStaffUser } from "./staff.mts";
 
 /**
  * Shared server side for the help centre: the reporting database, and the check
@@ -83,9 +84,44 @@ export interface Caller {
     name: string;
 }
 
+/**
+ * HOW the caller got in, and every endpoint must say what it does with each.
+ *
+ * "allowlist" is a client, listed on the dashboard by their account manager.
+ * "staff" is a HiddenGem employee (see staff.mts for what that takes). The two
+ * are deliberately not interchangeable: an endpoint that reads `gate.caller`
+ * and never looks at `via` is granting staff whatever it grants a client, by
+ * omission. The platform paid for that exact omission once - staff-domain.ts
+ * there opens by recording that 43 routes treated "has a session" as their
+ * whole authorisation check. So the type carries it, and ticket-create and
+ * ticket-withdraw refuse it explicitly rather than by accident of a later line.
+ */
+export type Via = "allowlist" | "staff";
+
+/**
+ * A machine-readable reason beside the sentence, because the screen has to
+ * pick a next action and cannot do that from prose.
+ *
+ *   not_listed       the session is fine; this address is not on this
+ *                    dashboard's list, OR the dashboard has no list, OR there
+ *                    is no such dashboard. ONE reason for all three on purpose:
+ *                    telling them apart is a slug-existence oracle.
+ *   staff_read_only  staff may look and may not act. Only create and withdraw
+ *                    return it.
+ */
+export type RefusalReason = "not_listed" | "staff_read_only";
+
 export type GateResult =
-    | { ok: true; caller: Caller }
-    | { ok: false; status: number; error: string };
+    | {
+          ok: true;
+          caller: Caller;
+          via: Via;
+          /** Staff only: the dashboard exists and nobody is listed on it, so no
+           *  client can use this help centre until somebody is. The staff view
+           *  says so, and says where to fix it. Always false for a client. */
+          accessListEmpty: boolean;
+      }
+    | { ok: false; status: number; error: string; reason?: RefusalReason };
 
 /** The slugs this app serves dashboards at. Checked before any lookup. */
 export const isDashboardSlug = (slug: string): boolean =>
@@ -136,10 +172,19 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
         .eq("slug", slug)
         .maybeSingle();
 
-    // A missing dashboard and an address that is not listed give the same
-    // answer on purpose: a different one would let anyone enumerate which
-    // client slugs exist.
-    if (error || !row) return { ok: false, status: 403, error: "Not authorised." };
+    // ONE REFUSAL FOR EVERY WAY OF NOT BEING LET IN. A missing dashboard, a
+    // dashboard with nobody on its list, and an address that is not on the
+    // list all answer with this exact object - status, sentence and reason,
+    // byte for byte. The first version gave the empty-list case its own
+    // sentence ("This dashboard has no access list yet ...") so a client would
+    // know what to ask for, and that sentence was a slug-existence oracle: it
+    // only ever appeared for a dashboard that exists, which on the measured
+    // numbers is 48 of 54. The screen now shows the helpful version of the
+    // message for not_listed regardless, worded so it is true in all three
+    // cases; the one caller who is told the precise situation is staff, who
+    // can already read every slug off the team dashboard.
+    const NOT_LISTED = { ok: false as const, status: 403, error: "Not authorised.", reason: "not_listed" as const };
+    if (error || !row) return NOT_LISTED;
 
     const content = (row.data ?? {}) as {
         dashboard_users?: DashboardUser[];
@@ -148,33 +193,99 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     };
     const users: DashboardUser[] =
         content.dashboard_users ?? (content.allowed_emails ?? []).map((e) => ({ email: e }));
+    const clientName = (content.client_name ?? "").trim() || slug.replace(/-dashboard$/, "");
 
-    // ARMED means somebody is listed. It no longer asks whether they have a
-    // password, because a password is no longer what gets anyone in. A
-    // dashboard with an empty list is deliberately open by URL for its
+    // LISTED means somebody has an email on the row. It does not ask whether
+    // they have a password, because a password is no longer what gets anyone
+    // in. A dashboard with an empty list is deliberately open by URL for its
     // marketing content; inheriting that here would publish every request a
     // client has ever raised to anyone who guesses the slug.
     const listed = users.filter((u) => u.email.trim());
-    if (listed.length === 0) {
+
+    // STAFF, decided before the list is consulted, because staff are on no
+    // client's list and should not be. The three tests are in staff.mts. They
+    // may LOOK - list and detail, scoped to this one slug - and ticket-create
+    // and ticket-withdraw refuse `via: "staff"` outright. An empty list does
+    // not keep staff out: it is the thing they most need to see, and the view
+    // says so.
+    if (isStaffUser(authData?.user)) {
         return {
-            ok: false,
-            status: 403,
-            error: "This dashboard has no access list yet, so its help centre is closed. Ask your account manager to add you.",
+            ok: true,
+            via: "staff",
+            accessListEmpty: listed.length === 0,
+            caller: { slug, clientName, email: who, name: who.split("@")[0] },
         };
     }
 
+    if (listed.length === 0) return NOT_LISTED;
     const user = listed.find((u) => normEmail(u.email) === who);
-    if (!user) return { ok: false, status: 403, error: "Not authorised." };
+    if (!user) return NOT_LISTED;
 
     return {
         ok: true,
+        via: "allowlist",
+        accessListEmpty: false,
         caller: {
             slug,
-            clientName: (content.client_name ?? "").trim() || slug.replace(/-dashboard$/, ""),
+            clientName,
             email: who,
             name: (user.name ?? "").trim() || who.split("@")[0],
         },
     };
+};
+
+/**
+ * What the screen is told about who is looking. Enough to announce a staff
+ * view and to say, on an empty dashboard, that no client can use it yet - and
+ * nothing a client should not see about themselves.
+ */
+export const viewerOf = (gate: Extract<GateResult, { ok: true }>) => ({
+    via: gate.via,
+    email: gate.caller.email,
+    clientName: gate.caller.clientName,
+    accessListEmpty: gate.accessListEmpty,
+});
+
+/**
+ * The refusal an endpoint sends when a caller may look but may not act.
+ * Reason-coded so the screen can say the right thing rather than "not
+ * authorised" to somebody who is, in fact, authorised to be there.
+ */
+export const staffReadOnly = (what: string): Response =>
+    Response.json(
+        { error: `As HiddenGem staff you can read this client's requests, but ${what} has to come from the client themselves.`, reason: "staff_read_only" satisfies RefusalReason },
+        { status: 403 },
+    );
+
+/**
+ * A read by somebody who is not the client, on the record.
+ *
+ * Until staff access existed, the record of who may read a client's requests
+ * WAS their dashboard's access list - per client, inspectable, small. One
+ * global grant replaces that, and then the only remaining control on "who read
+ * this client's history" is a log of the reads. Netlify keeps function logs for
+ * minutes and they carry no caller, so a console line is not a record;
+ * ticket_access_log in the reporting project is. Its own header says why it is
+ * not a ticket_events kind: those are served to the client.
+ *
+ * BEST EFFORT. The read has already been decided by the time this runs, and
+ * the rule everywhere in the help centre is that nothing past the decision may
+ * turn into an error the caller sees. A failed write is loud in the log.
+ */
+export const recordAccess = async (gate: Extract<GateResult, { ok: true }>, endpoint: string, reference: string | null = null): Promise<void> => {
+    if (gate.via !== "staff") return;
+    try {
+        const { error } = await reportingDb().from("ticket_access_log").insert({
+            actor_email: gate.caller.email,
+            via: gate.via,
+            client_slug: gate.caller.slug,
+            endpoint,
+            reference,
+        });
+        if (error) console.error("[help-centre] access log write failed", error.message, gate.caller.email, gate.caller.slug, endpoint);
+    } catch (err) {
+        console.error("[help-centre] access log write threw", err instanceof Error ? err.message : String(err), gate.caller.slug, endpoint);
+    }
 };
 
 /**
@@ -196,7 +307,8 @@ export const accessTokenFrom = (req: Request, body: unknown): string => {
 
 /* ── shared request helpers ──────────────────────────────────────────────── */
 
-export const jsonError = (status: number, error: string) => Response.json({ error }, { status });
+export const jsonError = (status: number, error: string, reason?: RefusalReason) =>
+    Response.json(reason ? { error, reason } : { error }, { status });
 
 /**
  * Reads and shape-checks a JSON body.

@@ -1,4 +1,4 @@
-import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller } from "../lib/reporting.mts";
+import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, viewerOf } from "../lib/reporting.mts";
 
 /**
  * The topics a client may raise a request against.
@@ -39,7 +39,7 @@ export default async (req: Request) => {
 
     try {
         const gate = await verifyCaller(String(parsed.body.slug ?? ""), accessTokenFrom(req, parsed.body));
-        if (!gate.ok) return jsonError(gate.status, gate.error);
+        if (!gate.ok) return jsonError(gate.status, gate.error, gate.reason);
 
         const { data, error } = await reportingDb().from("ticket_topics").select(TOPIC_COLUMNS).eq("is_active", true).order("sort_order", { ascending: true });
 
@@ -48,7 +48,7 @@ export default async (req: Request) => {
             return jsonError(500, "Could not load the request types.");
         }
 
-        return Response.json({ topics: data ?? [] });
+        return Response.json({ viewer: viewerOf(gate), topics: data ?? [] });
     } catch (err) {
         // A missing environment variable is the one failure worth naming out loud: it is
         // ours, it is the same on every call, and "try again" is the wrong advice for it.

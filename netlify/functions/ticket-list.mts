@@ -1,4 +1,4 @@
-import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller } from "../lib/reporting.mts";
+import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
 
 /**
  * Every request one client has raised, newest first.
@@ -43,9 +43,15 @@ export default async (req: Request) => {
 
     try {
         const gate = await verifyCaller(String(parsed.body.slug ?? ""), accessTokenFrom(req, parsed.body));
-        if (!gate.ok) return jsonError(gate.status, gate.error);
+        if (!gate.ok) return jsonError(gate.status, gate.error, gate.reason);
 
         const db = reportingDb();
+
+        // Staff may read, scoped to this ONE slug exactly as a client is, and the
+        // read goes on the record. Nothing else about the query changes for
+        // them: the scope is gate.caller.slug either way, which is the whole
+        // point of deciding identity in one place.
+        await recordAccess(gate, "ticket-list");
 
         const [{ data, error, count }, openResult] = await Promise.all([
             db
@@ -65,6 +71,7 @@ export default async (req: Request) => {
         const tickets = data ?? [];
 
         return Response.json({
+            viewer: viewerOf(gate),
             tickets,
             counts: {
                 // `count` is the number of rows that MATCHED, not the number returned, so the

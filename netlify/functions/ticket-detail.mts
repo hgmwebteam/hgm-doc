@@ -1,4 +1,4 @@
-import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller } from "../lib/reporting.mts";
+import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
 
 /**
  * One request and its full history.
@@ -52,7 +52,7 @@ export default async (req: Request) => {
 
     try {
         const gate = await verifyCaller(String(parsed.body.slug ?? ""), accessTokenFrom(req, parsed.body));
-        if (!gate.ok) return jsonError(gate.status, gate.error);
+        if (!gate.ok) return jsonError(gate.status, gate.error, gate.reason);
 
         const reference = cleanText(parsed.body.reference, 40).toUpperCase();
         if (!REFERENCE.test(reference)) return jsonError(400, "That is not a request reference.");
@@ -87,7 +87,12 @@ export default async (req: Request) => {
             console.error("[ticket-detail] timeline read failed", eventsErr.message, reference);
         }
 
-        return Response.json({ ticket, events: events ?? [] });
+        // On the record for staff, with the reference, so "who read REQ-2418"
+        // has an answer. After the 404 decision, so a probe for a reference
+        // that is not this client's records nothing.
+        await recordAccess(gate, "ticket-detail", String((ticket as { reference?: unknown }).reference ?? "") || null);
+
+        return Response.json({ viewer: viewerOf(gate), ticket, events: events ?? [] });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-detail] not configured", err.message);

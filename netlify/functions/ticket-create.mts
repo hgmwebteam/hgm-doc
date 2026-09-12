@@ -10,7 +10,7 @@ import {
     portalDb,
     readJson,
     reportingDb,
-    accessTokenFrom, verifyCaller,
+    accessTokenFrom, verifyCaller, staffReadOnly,
 } from "../lib/reporting.mts";
 
 /**
@@ -321,7 +321,14 @@ export default async (req: Request) => {
 
     try {
         const gate = await verifyCaller(String(parsed.body.slug ?? ""), accessTokenFrom(req, parsed.body));
-        if (!gate.ok) return jsonError(gate.status, gate.error);
+        if (!gate.ok) return jsonError(gate.status, gate.error, gate.reason);
+        // STAFF MAY NOT RAISE A REQUEST ON A CLIENT'S BEHALF. A ticket is the
+        // client's own record of what they asked for; one raised by us would
+        // sit in their history under a hiddengem.media address, they could not
+        // withdraw it (only the person who raised it may), and the brain would
+        // DM the account manager about a request the account manager wrote.
+        // Refused by name, not by falling through a later check.
+        if (gate.via === "staff") return staffReadOnly("raising a request");
         const caller = gate.caller;
 
         /* ── what they typed ─────────────────────────────────────────────── */

@@ -149,7 +149,7 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
     } catch {
         // fetch only rejects on a transport failure, so this is genuinely the network and
         // not an error status. Saying so stops a client retrying a request that did land.
-        throw new HelpApiError(0, "We could not reach HiddenGem just then. Check your connection and try again.");
+        throw new HelpApiError(0, "We could not reach HiddenGem Media just then. Check your connection and try again.");
     }
 
     const payload = (await res.json().catch(() => null)) as { error?: string; reason?: string } | null;

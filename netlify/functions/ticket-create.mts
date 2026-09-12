@@ -484,12 +484,42 @@ export default async (req: Request) => {
                     // the response itself, all inside the platform's 26s.
                     deadline: startedAt + IMAGE_BUDGET_MS,
                 });
+                // ONE ROW PER FILE, BEFORE THE COUNT. The brain reads these rows when
+                // it creates the Asana task and puts each file on it (attachments.ts
+                // over there); a count alone left the task saying "1 image" over
+                // nothing. Written before the ticket's own patch so that by the time
+                // image_count says N, N rows exist. A row that fails to insert is a
+                // file the task will not carry, and the note says so - the bytes are
+                // still where the note says they are.
+                let recorded = 0;
+                if (stored.files.length) {
+                    const { error: attErr } = await db.from("ticket_attachments").insert(
+                        stored.files.map((f) => ({
+                            ticket_id: row.id,
+                            store: f.store,
+                            bucket: f.store === "portal" ? f.bucket : null,
+                            path: f.store === "portal" ? f.path : null,
+                            drive_file_id: f.store === "drive" ? f.driveFileId : null,
+                            drive_url: f.store === "drive" ? f.driveUrl : null,
+                            file_name: f.fileName,
+                            mime: f.mime,
+                            bytes: f.bytes,
+                        })),
+                    );
+                    if (attErr) console.error("[ticket-create] could not record the attachments", attErr.message, row.reference);
+                    else recorded = stored.files.length;
+                }
+                const unrecorded = stored.files.length - recorded;
+
                 const patch: Record<string, unknown> = { image_count: stored.uploaded, updated_at: new Date().toISOString() };
                 if (stored.folderUrl) patch.drive_folder_url = stored.folderUrl;
                 // A human step is owed only when something is not where it should be. The
                 // note joins whatever resolveIdentity already left, so one field answers
                 // "what does somebody have to do about this ticket".
-                if (stored.note) patch.intake_notes = asNote([...identity.notes, stored.note]);
+                const attachmentNote = unrecorded
+                    ? `${unrecorded} stored image(s) could not be listed on the ticket, so the Asana task will not carry them; they are still where the images for this request are kept.`
+                    : "";
+                if (stored.note || attachmentNote) patch.intake_notes = asNote([...identity.notes, stored.note, attachmentNote]);
 
                 const { error: patchErr } = await db.from("tickets").update(patch).eq("id", row.id);
                 if (patchErr) {

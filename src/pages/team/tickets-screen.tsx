@@ -73,8 +73,7 @@ const TeamShell = ({ email, children }: { email: string; children: React.ReactNo
                     <Link to="/dashboard" className={cx("inline-flex h-11 items-center gap-2.5 rounded", FOCUS)} aria-label="Back to the team dashboard">
                         <GemMark />
                         <span className={cx(T.label, "text-primary")}>
-                            <span className="sm:hidden">HiddenGem</span>
-                            <span className="hidden sm:inline">HiddenGem Media</span>
+                            HiddenGem Media
                         </span>
                         <span className={cx(T.label, "text-tertiary")} aria-hidden="true">
                             /
@@ -108,7 +107,7 @@ const TeamGate = () => {
             <div className="w-full max-w-sm rounded-2xl bg-primary p-8 text-center shadow-2xl ring-1 ring-secondary">
                 <img src="/hgm logo/Favicon ON LIGHT.svg" alt="HiddenGem Media" className="mx-auto size-11" draggable={false} />
                 <h1 className={cx(T.section, "mt-5 text-primary")}>Team sign-in</h1>
-                <p className={cx(T.helper, "mt-2 text-pretty text-tertiary")}>Client requests are for the HiddenGem team. Sign in with your hiddengem.media Google account.</p>
+                <p className={cx(T.helper, "mt-2 text-pretty text-tertiary")}>Client requests are for the HiddenGem Media team. Sign in with your hiddengem.media Google account.</p>
                 <PrimaryButton onClick={signIn} disabled={busy} className="mt-6 w-full">
                     {busy ? "Opening Google..." : "Sign in with Google"}
                 </PrimaryButton>

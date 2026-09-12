@@ -157,7 +157,7 @@ const HelpGate = ({
                 <img src="/hgm logo/Favicon ON LIGHT.svg" alt="HiddenGem Media" className="mx-auto size-11" draggable={false} />
                 <h1 className="mt-5 text-center text-lg font-semibold text-primary">Your requests are private</h1>
                 <p className="mt-2 text-center text-sm text-pretty text-tertiary">
-                    Sign in with the Google account your HiddenGem team added to this dashboard.
+                    Sign in with the Google account your HiddenGem Media team added to this dashboard.
                 </p>
 
                 {notice && (
@@ -216,7 +216,7 @@ const SUPPORT_EMAIL = "anhtuan@hiddengem.media";
  * THE WORDS ARE TRUE IN ALL THREE CASES. The server answers "not_listed" for an
  * unlisted address, an empty list and a dashboard that does not exist, and does
  * not say which - telling them apart would let anyone with a session learn
- * which slugs exist. "Your HiddenGem team has not added that address" holds
+ * which slugs exist. "Your HiddenGem Media team has not added that address" holds
  * whichever it was.
  */
 const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: string; clientName: string; slug: string; backgroundUrl?: string }) => {
@@ -248,7 +248,7 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
                     This address is not on the list
                 </h1>
                 <p className="mt-2 text-center text-sm text-pretty text-tertiary">
-                    You are signed in as <span className="font-medium text-secondary">{email}</span>. Your HiddenGem team has not added
+                    You are signed in as <span className="font-medium text-secondary">{email}</span>. Your HiddenGem Media team has not added
                     that address to {whose}, so there is nothing we can show you here.
                 </p>
 
@@ -284,7 +284,7 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
 /**
  * A staff view announces itself, persistently, above everything.
  *
- * A HiddenGem employee reading a client's request history on a call, on a
+ * A HiddenGem Media employee reading a client's request history on a call, on a
  * screen-share, or with the client beside them needs the page to say whose it
  * is and what they are looking at, or the first time anyone finds out is when
  * it is already on the wrong screen. It also says what they cannot do, so the
@@ -319,7 +319,8 @@ const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
  * mark in brand gold, "HiddenGem Media" in label/field, a "/" in text/tertiary, and the app
  * name in the brand colour. Right: "{client} · {person}" in body/helper (hidden on a phone,
  * as the mobile frame has it) and a 32px avatar with the initial on a brand tint. On a
- * phone the brand reads "HiddenGem".
+ * phone the brand still reads "HiddenGem Media": the company is named in full everywhere
+ * on the help centre, by the owner's instruction (12 Sep 2026).
  *
  * The mark is a link back to the dashboard, because the old chrome's one job was that
  * link and it should not be lost; the avatar is named "Account, {person}" (build notes).
@@ -340,8 +341,7 @@ const TopBar = ({ slug, clientName, email, name }: { slug: string; clientName: s
                 <Link to={`/${slug}`} className={cx("inline-flex h-11 items-center gap-2.5 rounded", FOCUS)} aria-label="Back to the dashboard">
                     <GemMark />
                     <span className={cx(T.label, "text-primary")}>
-                        <span className="sm:hidden">HiddenGem</span>
-                        <span className="hidden sm:inline">HiddenGem Media</span>
+                        HiddenGem Media
                     </span>
                     <span className={cx(T.label, "text-tertiary")} aria-hidden="true">
                         /

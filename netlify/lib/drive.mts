@@ -109,11 +109,26 @@ export interface TicketImage {
     dataBase64: string;
 }
 
+/**
+ * One stored file and exactly where it is.
+ *
+ * Written to `ticket_attachments` by ticket-create, one row each, and read by
+ * the brain when it creates the Asana task: a Drive file goes on the task as a
+ * link, a portal-bucket file is downloaded and uploaded. Before this the
+ * ticket carried only a count, and the task said "Attachments: 1 image" over
+ * nothing.
+ */
+export type StoredFile =
+    | { store: "portal"; bucket: string; path: string; fileName: string; mime: string; bytes: number }
+    | { store: "drive"; driveFileId: string; driveUrl: string; fileName: string; mime: string; bytes: number };
+
 export interface TicketImageResult {
     /** The Drive folder, or null when the images are waiting in Storage. */
     folderUrl: string | null;
-    /** How many images were persisted somewhere. Never a guess. */
+    /** How many images were persisted somewhere. Never a guess. Always files.length. */
     uploaded: number;
+    /** Each persisted image, where it is. */
+    files: StoredFile[];
     /** True when any image is somewhere other than Drive and a human step is owed. */
     pending: boolean;
     /** For the team, not the client. Empty when there is nothing to say. */
@@ -381,9 +396,10 @@ const driveTarget = async (clientName: string): Promise<DriveTarget> => {
  * request: without it, the fourth request's "kitchen.jpg" sits beside the first
  * request's "kitchen.jpg" with nothing to say which is which.
  */
-const driveUpload = async (token: string, folderId: string, reference: string, index: number, image: PreparedImage): Promise<boolean> => {
+const driveUpload = async (token: string, folderId: string, reference: string, index: number, image: PreparedImage): Promise<StoredFile | null> => {
     const boundary = `hgm-${randomUUID()}`;
-    const metadata = { name: `${reference}-${String(index + 1).padStart(2, "0")}-${image.fileName}`, parents: [folderId] };
+    const name = `${reference}-${String(index + 1).padStart(2, "0")}-${image.fileName}`;
+    const metadata = { name, parents: [folderId] };
     const body = Buffer.concat([
         Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`, "utf8"),
         Buffer.from(`--${boundary}\r\nContent-Type: ${image.mime}\r\n\r\n`, "utf8"),
@@ -392,14 +408,23 @@ const driveUpload = async (token: string, folderId: string, reference: string, i
     ]);
 
     try {
-        const res = await driveFetch(token, `${DRIVE_UPLOAD}?uploadType=multipart&fields=id&supportsAllDrives=true`, {
+        const res = await driveFetch(token, `${DRIVE_UPLOAD}?uploadType=multipart&fields=${encodeURIComponent("id,webViewLink")}&supportsAllDrives=true`, {
             method: "POST",
             headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
             body: new Uint8Array(body),
         });
-        return res.status < 400 && typeof res.json.id === "string";
+        if (res.status >= 400 || typeof res.json.id !== "string") return null;
+        const id = res.json.id;
+        return {
+            store: "drive",
+            driveFileId: id,
+            driveUrl: typeof res.json.webViewLink === "string" ? res.json.webViewLink : `https://drive.google.com/file/d/${id}/view`,
+            fileName: name,
+            mime: image.mime,
+            bytes: image.bytes.length,
+        };
     } catch {
-        return false;
+        return null;
     }
 };
 
@@ -441,25 +466,24 @@ const ensureBucket = async (): Promise<boolean> => {
  *  so a change to the layout cannot leave them looking in different places. */
 const storagePrefix = (clientName: string, reference: string) => `${slugify(clientName)}/${safeReference(reference)}`;
 
-const storeInPortal = async (clientName: string, reference: string, images: { index: number; image: PreparedImage }[]): Promise<number> => {
-    if (images.length === 0) return 0;
-    if (!(await ensureBucket())) return 0;
+const storeInPortal = async (clientName: string, reference: string, images: { index: number; image: PreparedImage }[]): Promise<StoredFile[]> => {
+    if (images.length === 0) return [];
+    if (!(await ensureBucket())) return [];
 
     const prefix = storagePrefix(clientName, reference);
-    let stored = 0;
+    const stored: StoredFile[] = [];
     for (const { index, image } of images) {
+        const path = `${prefix}/${String(index + 1).padStart(2, "0")}-${image.fileName}`;
         try {
-            const { error } = await portalDb()
-                .storage.from(BUCKET)
-                .upload(`${prefix}/${String(index + 1).padStart(2, "0")}-${image.fileName}`, image.bytes, {
-                    contentType: image.mime,
-                    // A retried ticket-create should overwrite its own bytes rather
-                    // than fail on a key that is already there.
-                    upsert: true,
-                });
-            if (!error) stored += 1;
+            const { error } = await portalDb().storage.from(BUCKET).upload(path, image.bytes, {
+                contentType: image.mime,
+                // A retried ticket-create should overwrite its own bytes rather
+                // than fail on a key that is already there.
+                upsert: true,
+            });
+            if (!error) stored.push({ store: "portal", bucket: BUCKET, path, fileName: image.fileName, mime: image.mime, bytes: image.bytes.length });
         } catch {
-            // Counted as not stored. The note says so.
+            // Not in the list. The note says so.
         }
     }
     return stored;
@@ -516,7 +540,7 @@ export const uploadTicketImages = async (opts: {
 }): Promise<TicketImageResult> => {
     const { clientName, reference } = opts;
     const incoming = Array.isArray(opts.images) ? opts.images : [];
-    if (incoming.length === 0) return { folderUrl: null, uploaded: 0, pending: false, note: "" };
+    if (incoming.length === 0) return { folderUrl: null, uploaded: 0, files: [], pending: false, note: "" };
 
     /* What arrived, and what was not usable. Rejections are counted rather than
        thrown so one bad file cannot cost a client the other four. */
@@ -553,18 +577,19 @@ export const uploadTicketImages = async (opts: {
 
     const rejectedNote = rejected.length ? ` ${rejected.length} image(s) were not stored: ${[...new Set(rejected)].join(", ")}.` : "";
     if (prepared.length === 0) {
-        return { folderUrl: null, uploaded: 0, pending: false, note: trimNote(`No images could be stored.${rejectedNote}`) };
+        return { folderUrl: null, uploaded: 0, files: [], pending: false, note: trimNote(`No images could be stored.${rejectedNote}`) };
     }
 
     const target = await driveTarget(clientName);
 
     /* Path 2: no Drive. Everything goes to Storage and the note names the step. */
     if (!target.ok) {
-        const stored = await storeInPortal(
+        const files = await storeInPortal(
             clientName,
             reference,
             prepared.map((image, index) => ({ index, image })),
         );
+        const stored = files.length;
         const where = `${BUCKET}/${storagePrefix(clientName, reference)}/ on the portal Supabase project`;
         const sa = await serviceAccountEmail();
 
@@ -581,6 +606,7 @@ export const uploadTicketImages = async (opts: {
             return {
                 folderUrl: null,
                 uploaded: 0,
+                files: [],
                 pending: true,
                 note: trimNote(
                     `${why} The ${prepared.length} image(s) could NOT be held in Supabase Storage either, so ask the client to resend them.${rejectedNote}`,
@@ -590,6 +616,7 @@ export const uploadTicketImages = async (opts: {
         return {
             folderUrl: null,
             uploaded: stored,
+            files,
             pending: true,
             note: trimNote(`${why} The ${stored} image(s) are held privately at ${where} and nothing is lost.${rejectedNote}`),
         };
@@ -597,7 +624,7 @@ export const uploadTicketImages = async (opts: {
 
     /* Path 1: Drive. Anything Drive refuses individually still gets caught by the
        fallback store rather than being dropped, and the note says how many. */
-    let uploaded = 0;
+    const files: StoredFile[] = [];
     const leftovers: { index: number; image: PreparedImage }[] = [];
     // Netlify gives a synchronous function 26 seconds, ALL IN - the auth check,
     // the duplicate scan, the insert and the Drive handshake above all come out
@@ -614,11 +641,13 @@ export const uploadTicketImages = async (opts: {
             leftovers.push({ index: i, image: prepared[i] });
             continue;
         }
-        if (await driveUpload(target.token, target.folderId, safeReference(reference), i, prepared[i])) uploaded += 1;
+        const onDrive = await driveUpload(target.token, target.folderId, safeReference(reference), i, prepared[i]);
+        if (onDrive) files.push(onDrive);
         else leftovers.push({ index: i, image: prepared[i] });
     }
 
-    const heldBack = leftovers.length ? await storeInPortal(clientName, reference, leftovers) : 0;
+    const held = leftovers.length ? await storeInPortal(clientName, reference, leftovers) : [];
+    const heldBack = held.length;
     const lost = leftovers.length - heldBack;
 
     const parts: string[] = [];
@@ -628,7 +657,8 @@ export const uploadTicketImages = async (opts: {
 
     return {
         folderUrl: target.folderUrl,
-        uploaded: uploaded + heldBack,
+        uploaded: files.length + heldBack,
+        files: [...files, ...held],
         // Drive is the destination; anything sitting anywhere else is a job
         // somebody still owes, which is exactly what pending means.
         pending: heldBack > 0 || lost > 0,

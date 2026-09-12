@@ -418,10 +418,10 @@ export const topicLabel = (topics: TicketTopic[], key: string): string => topics
  *
  * Rule 3 of the design document puts the person's name on every comment because the Asana
  * connection is one shared account. The same reasoning applies facing the other way: an
- * update signed "HiddenGem" tells a client nothing about who to thank or chase. Falls back
+ * update signed "HiddenGem Media" tells a client nothing about who to thank or chase. Falls back
  * to the address, then to a neutral label, so a byline is never blank.
  */
-export const actorName = (e: TicketEvent): string => (e.actor_name ?? "").trim() || (e.actor_email ?? "").trim() || "HiddenGem team";
+export const actorName = (e: TicketEvent): string => (e.actor_name ?? "").trim() || (e.actor_email ?? "").trim() || "HiddenGem Media team";
 
 /** First letter of a name, for the update avatars. */
 export const initialOf = (name: string): string => (name.trim()[0] ?? "?").toUpperCase();

@@ -21,11 +21,12 @@
  * is simply still "Received", which is the truth.
  */
 import { useCallback, useEffect, useState } from "react";
-import { ArrowNarrowLeft, Calendar, Folder, Image01 } from "@untitledui-pro/icons/line";
+import { Calendar, Folder, Image01 } from "@untitledui-pro/icons/line";
 import { type CallerProof, HelpApiError, fetchTicket, withdrawTicket } from "@/pages/client/help/help-api";
 import {
     CLIENT_VISIBLE_EVENTS,
     EVENT_LABEL,
+    LIFECYCLE,
     type PromiseTone,
     type Ticket,
     type TicketEvent,
@@ -34,9 +35,9 @@ import {
     canWithdraw,
     elapsedLabel,
     formatDayLong,
-    formatStampShort,
-    formatStampWithTime,
-    initialOf,
+    formatDayMonth,
+    formatDayMonthTime,
+    formatWeekdayDayMonth,
     isTeamAddress,
     promiseBlock,
     topicLabel,
@@ -80,14 +81,13 @@ const TONE_SURFACE: Record<PromiseTone, string> = {
 
 const PromiseCard = ({ ticket }: { ticket: Ticket }) => {
     const block = promiseBlock(ticket);
+    const dated = block.tone === "dated" && ticket.promised_date;
     return (
-        <div className={cx("flex flex-col gap-4 rounded-2xl p-4 ring-1 sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-5", TONE_SURFACE[block.tone])}>
+        <div className={cx("flex flex-col gap-4 rounded-xl p-4 ring-1 sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-5", TONE_SURFACE[block.tone])}>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <Eyebrow>{block.tone === "dated" ? "Promised" : "Where it stands"}</Eyebrow>
-                {/* Under a caption that already says PROMISED, the headline is the date and
-                    nothing else, as the Figma has it ("Friday 12 September"). */}
-                <p className={cx("text-pretty text-primary", T.title, block.tone === "dated" && "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>
-                    {block.tone === "dated" && ticket.promised_date ? formatDayLong(ticket.promised_date) : block.headline}
+                <Eyebrow>{dated ? "Committed" : "Status"}</Eyebrow>
+                <p className={cx("text-pretty text-primary", T.title, dated && "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>
+                    {dated ? formatWeekdayDayMonth(ticket.promised_date) : block.headline}
                 </p>
                 <p className={cx(T.helper, "max-w-[60ch] text-pretty text-secondary")}>{block.sub}</p>
             </div>
@@ -127,14 +127,13 @@ const FactRow = ({ ticket }: { ticket: Ticket }) => {
     const am = amLocal ? amLocal.charAt(0).toUpperCase() + amLocal.slice(1) : "";
     const property = (ticket.property ?? "").trim();
     const elapsed = elapsedLabel(ticket);
-    const closed = ticket.status === "completed" || ticket.status === "withdrawn";
 
     return (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Fact label="Property" value={property || "All properties"} hint={property ? undefined : "Not tied to one listing"} />
-            <Fact label="Assigned to" value={owner || "Being assigned"} hint={owner ? undefined : "Named before work starts"} />
-            <Fact label="Your manager" value={am || "Your HiddenGem AM"} hint={amEmail || undefined} />
-            <Fact label={closed ? "Took" : "Open for"} value={elapsed || "Just now"} />
+            <Fact label="Property" value={property || "All properties"} />
+            <Fact label="Assigned to" value={owner || "Not yet"} />
+            <Fact label="Account manager" value={am || "Not yet"} hint={amEmail || undefined} />
+            <Fact label="Elapsed" value={elapsed || "Today"} />
         </div>
     );
 };
@@ -163,42 +162,56 @@ const StepDot = ({ state, n }: { state: "done" | "now" | "todo"; n: number }) =>
 );
 
 const Timeline = ({ events, ticket }: { events: TicketEvent[]; ticket: Ticket }) => {
-    const shown = events.filter((e) => CLIENT_VISIBLE_EVENTS.includes(e.kind));
-    if (shown.length === 0) return null;
+    const happened = events.filter((e) => CLIENT_VISIBLE_EVENTS.includes(e.kind));
     const open = ticket.status !== "completed" && ticket.status !== "withdrawn";
+    // The frame shows the steps still to come, numbered and grey, after the ones that
+    // happened. On an open request that is whatever of the lifecycle is left; a closed
+    // one has nothing left.
+    const reached = LIFECYCLE.findIndex((l) => l.status === ticket.status);
+    const todo = open ? LIFECYCLE.slice(Math.max(reached, 0) + 1) : [];
+    if (happened.length === 0 && todo.length === 0) return null;
 
     return (
-        <section className="flex flex-col gap-4 rounded-xl bg-primary p-4 ring-1 ring-secondary sm:rounded-none sm:p-0 sm:ring-0">
-            <h2 className={cx(T.section, "text-primary")}>History</h2>
-            <ol className="flex flex-col gap-4">
-                {shown.map((e, i) => {
-                    const last = i === shown.length - 1;
-                    // The newest event on an open request is what is happening now; every
-                    // earlier one, and every one on a closed request, is done.
-                    const state: "done" | "now" | "todo" = last && open ? "now" : "done";
-                    return (
-                        <li key={e.id} className="flex gap-3">
-                            <StepDot state={state} n={i + 1} />
-                            <div className="min-w-0 flex-1">
-                                <p className={cx(T.label, "text-primary")}>
-                                    {EVENT_LABEL[e.kind]}
-                                    {state === "now" && <span className="sr-only"> (current step)</span>}
-                                </p>
-                                <p className={cx(T.helper, "mt-0.5 text-tertiary")}>
-                                    {formatStampWithTime(e.created_at)}
-                                    {e.body?.trim() && (
-                                        <>
-                                            {". "}
-                                            <Linkified text={e.body.trim()} />
-                                        </>
-                                    )}
-                                </p>
-                            </div>
-                        </li>
-                    );
-                })}
-            </ol>
-        </section>
+        <ol className="flex flex-col gap-4" aria-label="Progress">
+            {happened.map((e, i) => {
+                const last = i === happened.length - 1;
+                const state: "done" | "now" = last && open ? "now" : "done";
+                return (
+                    <li key={e.id} className="flex gap-3">
+                        <StepDot state={state} n={i + 1} />
+                        <div className="min-w-0 flex-1">
+                            <p className={cx(T.label, "text-primary")}>
+                                {EVENT_LABEL[e.kind]}
+                                {state === "now" && <span className="sr-only"> (current step)</span>}
+                            </p>
+                            <p className={cx(T.helper, "mt-0.5 text-tertiary")}>
+                                {formatDayMonthTime(e.created_at)}
+                                {e.body?.trim() && (
+                                    <>
+                                        {". "}
+                                        <Linkified text={e.body.trim()} />
+                                    </>
+                                )}
+                            </p>
+                        </div>
+                    </li>
+                );
+            })}
+            {todo.map((step, i) => (
+                <li key={step.status} className="flex gap-3">
+                    <StepDot state="todo" n={happened.length + i + 1} />
+                    <div className="min-w-0 flex-1">
+                        <p className={cx(T.label, "text-primary")}>
+                            {step.label}
+                            <span className="sr-only"> (still to come)</span>
+                        </p>
+                        <p className={cx(T.helper, "mt-0.5 text-tertiary")}>
+                            {step.status === "completed" && ticket.promised_date ? `Expected ${formatWeekdayDayMonth(ticket.promised_date)}.` : step.detail}
+                        </p>
+                    </div>
+                </li>
+            ))}
+        </ol>
     );
 };
 
@@ -216,18 +229,12 @@ const TeamUpdates = ({ events }: { events: TicketEvent[] }) => {
 
     return (
         <section className="flex flex-col gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary sm:rounded-none sm:border-t sm:border-secondary sm:p-0 sm:pt-4 sm:ring-0">
-            <Eyebrow>Updates from the team</Eyebrow>
+            <Eyebrow>Team updates</Eyebrow>
             <ul className="flex flex-col gap-4">
                 {updates.map((e) => {
                     const who = actorName(e);
                     return (
                         <li key={e.id} className="flex gap-3">
-                            <span
-                                aria-hidden="true"
-                                className={cx("flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-primary text-fg-brand-primary ring-1 ring-brand", T.caption)}
-                            >
-                                {initialOf(who)}
-                            </span>
                             <div className="min-w-0 flex-1">
                                 <p className={cx(T.label, "text-primary")}>
                                     {who}
@@ -236,7 +243,7 @@ const TeamUpdates = ({ events }: { events: TicketEvent[] }) => {
                                         &middot;
                                     </span>
                                     {"  "}
-                                    <span className={cx(T.helper, "font-normal text-tertiary")}>{formatStampWithTime(e.created_at)}</span>
+                                    <span className={cx(T.helper, "font-normal text-tertiary")}>{formatDayMonthTime(e.created_at)}</span>
                                 </p>
                                 <p className={cx(T.body, "mt-1 whitespace-pre-wrap text-pretty text-secondary sm:text-[13px] sm:leading-[18px]")}>
                                     <Linkified text={e.body!.trim()} />
@@ -257,55 +264,45 @@ const TeamUpdates = ({ events }: { events: TicketEvent[] }) => {
  * rendered: that is the model's summary written for the Asana task, and a client cannot
  * edit our paraphrase of their own request.
  */
-const TheirWords = ({ ticket, topics }: { ticket: Ticket; topics: TicketTopic[] }) => {
+const TheirWords = ({ ticket }: { ticket: Ticket }) => {
     const detail = (ticket.detail ?? "").trim();
     const neededBy = formatDayLong(ticket.needed_by);
     const images = ticket.image_count ?? 0;
     const folder = (ticket.drive_folder_url ?? "").trim();
+    // The title is the first line of what they wrote; the rest, if any, goes here.
+    const words = detail && detail !== ticket.title.trim() ? detail : "";
+    if (!words && !neededBy && !images && !folder) return null;
 
     return (
-        <section className="flex flex-col gap-3">
-            <h2 className={cx(T.section, "text-primary")}>What you asked for</h2>
-            <div className="rounded-[10px] bg-secondary px-4 py-3.5">
-                <Eyebrow>{topicLabel(topics, ticket.topic)}</Eyebrow>
-                {detail ? (
-                    <p className={cx(T.body, "mt-2 whitespace-pre-wrap text-pretty text-secondary sm:text-[13px] sm:leading-[18px]")}>
-                        <Linkified text={detail} />
-                    </p>
-                ) : (
-                    <p className={cx(T.helper, "mt-2 text-tertiary")}>No further detail was added.</p>
-                )}
-
-                {(neededBy || images > 0 || folder) && (
-                    <div className={cx("mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-secondary pt-3 text-tertiary", T.helper)}>
-                        {neededBy && (
-                            <span className="inline-flex items-center gap-1.5">
-                                <Calendar className="size-3.5" aria-hidden="true" />
-                                {/* Worded as the client's ask, never as our commitment. */}
-                                You asked for this by {neededBy}
-                            </span>
-                        )}
-                        {images > 0 && (
-                            <span className="inline-flex items-center gap-1.5">
-                                <Image01 className="size-3.5" aria-hidden="true" />
-                                {images} {images === 1 ? "image" : "images"} attached
-                            </span>
-                        )}
-                        {folder && (
-                            <a
-                                href={folder}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={cx("inline-flex min-h-6 items-center gap-1.5 rounded text-fg-brand-primary hover:underline", FOCUS)}
-                            >
-                                <Folder className="size-3.5" aria-hidden="true" />
-                                Open the file folder
-                            </a>
-                        )}
-                    </div>
-                )}
-            </div>
-        </section>
+        <div className="flex flex-col gap-2">
+            {words && (
+                <p className={cx(T.body, "max-w-[68ch] whitespace-pre-wrap text-pretty text-secondary sm:text-[13px] sm:leading-[18px]")}>
+                    <Linkified text={words} />
+                </p>
+            )}
+            {(neededBy || images > 0 || folder) && (
+                <div className={cx("flex flex-wrap items-center gap-x-4 gap-y-1 text-tertiary", T.helper)}>
+                    {neededBy && (
+                        <span className="inline-flex items-center gap-1.5">
+                            <Calendar className="size-3.5" aria-hidden="true" />
+                            Asked for by {neededBy}
+                        </span>
+                    )}
+                    {images > 0 && (
+                        <span className="inline-flex items-center gap-1.5">
+                            <Image01 className="size-3.5" aria-hidden="true" />
+                            {images} {images === 1 ? "screenshot" : "screenshots"} attached
+                        </span>
+                    )}
+                    {folder && (
+                        <a href={folder} target="_blank" rel="noopener noreferrer" className={cx("inline-flex min-h-6 items-center gap-1.5 rounded text-fg-brand-primary hover:underline", FOCUS)}>
+                            <Folder className="size-3.5" aria-hidden="true" />
+                            Open the folder
+                        </a>
+                    )}
+                </div>
+            )}
+        </div>
     );
 };
 
@@ -439,8 +436,7 @@ export const HelpRequestDetail = ({
 
     const backLink = (
         <TextLink to={`/${slug}/help/requests`} className="w-max">
-            <ArrowNarrowLeft className="size-4" aria-hidden="true" />
-            Back to my requests
+            All requests
         </TextLink>
     );
 
@@ -481,7 +477,7 @@ export const HelpRequestDetail = ({
                 the 16 rhythm of the mobile frame. Order is identical at both widths. */}
             <article className={cx("flex flex-col gap-5 sm:gap-6 sm:rounded-xl sm:bg-primary sm:p-6 sm:ring-1 sm:ring-secondary", "sm:shadow-[0_1px_2px_rgba(23,23,23,0.04),0_8px_24px_-4px_rgba(23,23,23,0.05)]")}>
                 <header className="flex flex-col gap-1.5">
-                    <h1 className={cx(T.title, "text-pretty text-primary")}>{ticket.title}</h1>
+                    <h1 className={cx(T.title, "text-pretty text-primary", "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>{ticket.title}</h1>
                     <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <MonoRef>{ticket.reference}</MonoRef>
                         <span className={cx(T.helper, "text-tertiary")}>
@@ -494,14 +490,14 @@ export const HelpRequestDetail = ({
                             {isTeamAddress(ticket.submitted_by)
                                 ? `raised for you by ${(ticket.submitted_by_name ?? "").trim() || "HiddenGem"} at HiddenGem, `
                                 : `submitted ${(ticket.submitted_by_name ?? "").trim() ? `by ${ticket.submitted_by_name!.trim()}, ` : ""}`}
-                            {formatStampShort(ticket.created_at)}
+                            {formatDayMonth(ticket.created_at)}
                         </span>
                     </p>
                 </header>
 
+                <TheirWords ticket={ticket} />
                 <PromiseCard ticket={ticket} />
                 <FactRow ticket={ticket} />
-                <TheirWords ticket={ticket} topics={topics} />
                 <Timeline events={events} ticket={ticket} />
                 <TeamUpdates events={events} />
                 <WithdrawBlock

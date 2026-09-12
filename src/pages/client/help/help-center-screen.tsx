@@ -34,27 +34,22 @@
  *   - white/80 on bg-brand-solid resolves to rgb(204 224 248) and measures 3.94:1, which
  *     DOES fail. The filter-chip counts are solid white for that reason.
  */
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { ArrowNarrowLeft, CheckCircle, Image01, XClose } from "@untitledui-pro/icons/line";
-import { Link, useParams } from "react-router";
+import { ArrowNarrowLeft, ChevronRight } from "@untitledui-pro/icons/line";
+import { Link, useNavigate, useParams } from "react-router";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
+import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
 import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
 import {
     type CallerProof,
     HelpApiError,
     type HelpClientRow,
-    MAX_DETAIL,
-    MAX_IMAGES,
-    MAX_PROPERTY,
-    MAX_TITLE,
-    type TicketImage,
     createTicket,
     fetchClientRow,
     fetchTickets,
     fetchTopics,
     fullDashboardSlug,
-    prepareImages,
     currentCaller,
     useDifferentAccount,
     type RefusalReason,
@@ -62,16 +57,14 @@ import {
 } from "@/pages/client/help/help-api";
 import {
     LIFECYCLE,
-    PRIORITIES,
-    type Priority,
+    elapsedDays,
+    formatDayMonth,
     type RequestFilter,
     type Ticket,
     type TicketCounts,
     type TicketTopic,
     completedThisMonth,
     countsFor,
-    formatStampShort,
-    todayIsoDay,
     topicTurnaroundLabel,
 } from "@/pages/client/help/help-model";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
@@ -81,10 +74,8 @@ import {
     FOCUS,
     HelpRequestsScreen,
     HelpSpinner,
-    MonoRef,
     Panel,
     PrimaryButton,
-    SecondaryButton,
     T,
     TextLink,
 } from "@/pages/client/help/help-requests-screen";
@@ -105,79 +96,6 @@ import { cx } from "@/utils/cx";
  * prevent. Its 14px label is text-tertiary, measured at 7.80:1, so it is a size choice and
  * not a legibility one.
  */
-/**
- * A field, per the Figma's Field/Select and Field/Textarea components: 48 tall, body/input
- * (16px, so iOS does not zoom), bg/primary, a hairline in border/primary (the 4.74:1 one,
- * because a control standing alone on the page needs it - build notes), radius/lg, and the
- * focus ring in border/brand. An invalid field swaps the hairline for border/error.
- */
-const fieldClass = (invalid?: boolean) =>
-    cx(
-        "w-full rounded-lg bg-primary px-3.5 py-3 text-primary ring-1 outline-none placeholder:text-tertiary focus:ring-2 focus:ring-brand motion-reduce:transition-none",
-        T.body,
-        invalid ? "ring-error" : "ring-primary",
-    );
-
-/** The label row: label/field on the left, "Required" or "Optional" in caption/meta on the right. */
-const FieldLabel = ({ htmlFor, children, optional }: { htmlFor: string; children: React.ReactNode; optional?: boolean }) => (
-    <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={htmlFor} className={cx(T.label, "text-secondary")}>
-            {children}
-        </label>
-        <span className={cx(T.caption, "text-tertiary")}>{optional ? "Optional" : "Required"}</span>
-    </div>
-);
-
-/**
- * The Figma's Priority/Chip and Priority/Legend, together.
- *
- * Single-select chips, 40 tall (44 on a phone), radius full, an 8px colour dot and the
- * label; the selected one takes its tint and a 1.5 ring in its colour, the rest bg/field
- * with border/primary. Under them the legend: one line per level "so people pick by
- * consequence, not by mood". A radiogroup, because that is what it is.
- */
-export const PriorityField = ({ value, onChange, required }: { value: Priority | null; onChange: (p: Priority | null) => void; required?: boolean }) => (
-    <fieldset className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-2">
-            <legend className={cx(T.label, "text-secondary")}>Priority</legend>
-            <span className={cx(T.caption, "text-tertiary")}>{required ? "Required" : "Optional"}</span>
-        </div>
-        <div role="radiogroup" aria-label="Priority" className="flex flex-wrap gap-2">
-            {PRIORITIES.map((p) => {
-                const on = value === p.key;
-                return (
-                    <button
-                        key={p.key}
-                        type="button"
-                        role="radio"
-                        aria-checked={on}
-                        onClick={() => onChange(on && !required ? null : p.key)}
-                        className={cx(
-                            "inline-flex h-11 items-center gap-2 rounded-full px-4 ring-1 transition duration-100 ease-linear motion-reduce:transition-none sm:h-10",
-                            T.label,
-                            FOCUS,
-                            on ? cx(p.chip, "text-primary ring-[1.5px]") : "bg-primary text-secondary ring-primary hover:bg-primary_hover",
-                        )}
-                    >
-                        <span aria-hidden="true" className={cx("size-2 rounded-full", p.dot)} />
-                        {p.label}
-                    </button>
-                );
-            })}
-        </div>
-        <ul className="flex flex-col gap-1.5">
-            {PRIORITIES.map((p) => (
-                <li key={p.key} className={cx("flex items-start gap-2 text-tertiary", T.helper)}>
-                    <span aria-hidden="true" className={cx("mt-[5px] size-2 shrink-0 rounded-full", p.dot)} />
-                    <span>
-                        <span className="text-secondary">{p.label}:</span> {p.meaning}
-                    </span>
-                </li>
-            ))}
-        </ul>
-    </fieldset>
-);
-
 /* ── The gate ────────────────────────────────────────────────────────────── */
 
 /**
@@ -379,7 +297,7 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
  */
 const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
     <div className="mb-6 rounded-xl bg-brand-primary px-4 py-3 ring-1 ring-brand sm:mb-10 sm:px-5 sm:py-4" role="status">
-        <p className={cx(T.label, "text-primary")}>You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem staff.</p>
+        <p className={cx(T.label, "text-primary")}>You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem Media staff.</p>
         <p className={cx(T.helper, "mt-1 text-pretty text-secondary")}>
             A request you raise here is recorded as raised by you, for the client, and they will see it in their list. You can withdraw the ones you raised.
         </p>
@@ -417,7 +335,7 @@ const TopBar = ({ slug, clientName, email, name }: { slug: string; clientName: s
     const person = (name ?? "").trim() || email.split("@")[0];
     const initial = (person[0] ?? "?").toUpperCase();
     return (
-        <header className="border-b border-secondary bg-primary">
+        <header className="border-b border-secondary bg-secondary">
             <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
                 <Link to={`/${slug}`} className={cx("inline-flex h-11 items-center gap-2.5 rounded", FOCUS)} aria-label="Back to the dashboard">
                     <GemMark />
@@ -454,7 +372,9 @@ const TopBar = ({ slug, clientName, email, name }: { slug: string; clientName: s
  * landmarks with a skip link first in the tab order, per the build notes.
  */
 const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; clientName: string; email: string; name?: string; children: React.ReactNode }) => (
-    <div className="min-h-dvh bg-primary">
+    // The frame's ground is bg/secondary with white cards on it. White on white was the
+    // single biggest reason the built pages read as a different design.
+    <div className="min-h-dvh bg-secondary">
         <a
             href="#help-main"
             className={cx(
@@ -487,10 +407,8 @@ const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; 
  * Website and Other, and the tiles follow whatever is seeded.
  */
 const TopicTiles = ({ topics, onPick }: { topics: TicketTopic[]; onPick: (t: TicketTopic) => void }) => (
-    <ul className="grid gap-2 sm:grid-cols-2">
+    <ul className="flex flex-col gap-2">
         {topics.map((topic) => {
-            // Rendered only when the topic row actually carries a turnaround. Today both
-            // seeded topics have turnaround_days NULL, so nothing appears here at all.
             const turnaround = topicTurnaroundLabel(topic);
             return (
                 <li key={topic.key}>
@@ -498,7 +416,7 @@ const TopicTiles = ({ topics, onPick }: { topics: TicketTopic[]; onPick: (t: Tic
                         type="button"
                         onClick={() => onPick(topic)}
                         className={cx(
-                            "flex h-full min-h-14 w-full items-center gap-3 rounded-[10px] bg-secondary px-4 py-3.5 text-left ring-1 ring-secondary transition duration-100 ease-linear hover:bg-tertiary hover:ring-brand motion-reduce:transition-none",
+                            "flex min-h-[68px] w-full items-center gap-3 rounded-[10px] bg-secondary px-4 py-3.5 text-left ring-1 ring-secondary transition duration-100 ease-linear hover:bg-tertiary hover:ring-brand motion-reduce:transition-none",
                             FOCUS,
                         )}
                     >
@@ -508,6 +426,7 @@ const TopicTiles = ({ topics, onPick }: { topics: TicketTopic[]; onPick: (t: Tic
                             {topic.description && <span className={cx("mt-0.5 block text-pretty text-tertiary", T.helper)}>{topic.description}</span>}
                             {turnaround && <span className={cx("mt-1 block text-fg-brand-primary", T.helper)}>Turnaround: {turnaround}</span>}
                         </span>
+                        <ChevronRight className="size-4 shrink-0 text-tertiary" aria-hidden="true" />
                     </button>
                 </li>
             );
@@ -549,7 +468,7 @@ const nextPromised = (tickets: Ticket[]): string | null => {
         .filter((t) => (t.status === "received" || t.status === "assigned" || t.status === "in_progress") && t.promised_date)
         .map((t) => t.promised_date as string)
         .sort();
-    return dates[0] ? formatStampShort(dates[0]) : null;
+    return dates[0] ? formatDayMonth(dates[0]) : null;
 };
 
 /**
@@ -579,30 +498,42 @@ const WhereThingsStand = ({
     const open = tickets.filter((t) => t.status === "received" || t.status === "assigned" || t.status === "in_progress").length;
     const done = completedThisMonth(tickets);
     const next = nextPromised(tickets);
+    // "3.2 day average" in the frame: the mean days from raised to completed, over this
+    // month's completions that carry both stamps. Null when there are none.
+    const spans = tickets
+        .filter((t) => t.status === "completed" && t.completed_at && new Date(t.completed_at).getMonth() === new Date().getMonth())
+        .map((t) => elapsedDays(t.created_at, t.completed_at))
+        .filter((d): d is number => d !== null);
+    const avg = spans.length ? (spans.reduce((a, b) => a + b, 0) / spans.length).toFixed(1).replace(/\.0$/, "") : null;
     const whose = viewingAsStaff ? clientName || "This client" : "You";
     return (
         <Panel className="flex flex-col gap-4 p-4 sm:p-6">
-            <h2 className={cx(T.section, "text-primary")}>Where things stand</h2>
+            <h2 className={cx(T.section, "text-primary")}>Current position</h2>
             {counts.total === 0 ? (
                 <p className={cx(T.helper, "text-pretty text-tertiary")}>
-                    {whose} {viewingAsStaff ? "has" : "have"} not raised anything yet. When {viewingAsStaff ? "they" : "you"} do, it appears here with the name of the person who
-                    owns it.
+                    {whose} {viewingAsStaff ? "has" : "have"} not raised anything yet. When {viewingAsStaff ? "they" : "you"} do, it appears here with its reference and
+                    where it stands.
                 </p>
             ) : (
                 <ul className="flex flex-col gap-3">
-                    <StatRow count={open} label={open === 1 ? "Open request" : "Open requests"} detail={next ? `Next due ${next}` : "No completion dates set yet"} tone="warning" />
-                    <StatRow count={done} label="Completed this month" detail={done === 0 ? "Nothing closed yet this month" : "Finished and on your record"} tone="success" />
+                    <StatRow count={open} label="In progress" detail={next ? `Next due ${next}` : "No dates set yet"} tone="warning" />
+                    <StatRow
+                        count={done}
+                        label="Completed this month"
+                        detail={avg === null ? (done === 0 ? "None yet this month" : "On your record") : avg === "0" ? "Same-day average" : `${avg} day average`}
+                        tone="success"
+                    />
                 </ul>
             )}
             <div className="hidden flex-col gap-2 sm:flex">
                 <PrimaryButton onClick={onRaise} className="w-full">
                     Raise a request
                 </PrimaryButton>
-                <p className={cx(T.helper, "text-pretty text-tertiary")}>One named person will own it, and you can follow it here.</p>
+                <p className={cx(T.helper, "text-pretty text-tertiary")}>You get a reference straight away. No completion dates are shown yet.</p>
             </div>
             {counts.total > 0 && (
                 <TextLink to={`/${slug}/help/requests`} className="min-h-0">
-                    Or see everything {viewingAsStaff ? "they have" : "you have"} asked for
+                    View all requests
                 </TextLink>
             )}
         </Panel>
@@ -615,6 +546,7 @@ const HelpHome = ({
     topics,
     slug,
     onPickTopic,
+    onRaise,
     viewingAsStaff,
     clientName,
 }: {
@@ -623,31 +555,30 @@ const HelpHome = ({
     topics: TicketTopic[];
     slug: string;
     onPickTopic: (t: TicketTopic) => void;
+    /** The primary button: the form with a topic selector. */
+    onRaise: () => void;
     /** Staff. Only the pronouns change: "Flohom has not raised anything yet", not "You have". */
     viewingAsStaff: boolean;
     clientName?: string;
 }) => {
-    // "Raise a request" on the side card scrolls to and opens the first topic when there
-    // is only one, and otherwise brings the tiles into view: the tiles ARE the form's first
-    // step, so the button must not bypass them.
-    const tilesRef = useRef<HTMLDivElement>(null);
-    const raise = () => {
-        if (topics.length === 1) {
-            onPickTopic(topics[0]);
-            return;
-        }
-        tilesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        tilesRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    };
+    // "Raise a request" opens the form. It used to scroll to the tiles when there was
+    // more than one topic, which read as the button doing nothing. The form carries its
+    // own topic selector for exactly this path; a tile still opens it with the topic set.
+    const raise = () => onRaise();
 
     return (
         <div className="flex flex-col gap-6 sm:gap-10">
             {/* Heading: eyebrow, the hero title, a lede at most 680 wide. */}
             <header className="flex flex-col gap-2">
                 <Eyebrow>Help Center</Eyebrow>
-                <h1 className={cx("text-primary", T.title, "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>Ask for anything, and leave with a date.</h1>
+                {/* Exact, not aspirational. The earlier lines promised "a date" the page
+                    itself says lower down is not published yet, and "an owner within a
+                    minute" while both topics have no board and nothing is assigned at all.
+                    These say what the page does: you raise it, you get a reference, and
+                    this is where you see what happens to it. */}
+                <h1 className={cx("text-primary", T.title, "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>Every request has an owner.</h1>
                 <p className={cx("max-w-[680px] text-pretty text-secondary", T.body, "sm:text-[13px] sm:leading-[18px]")}>
-                    Every request is given an owner within a minute of you sending it, and you can watch it move without asking anyone.
+                    Raise it here, see who has it, and follow it until it closes. No chasing.
                 </p>
             </header>
 
@@ -659,11 +590,11 @@ const HelpHome = ({
             </PrimaryButton>
 
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-                <div className="order-2 min-w-0 flex-1 sm:order-1" ref={tilesRef}>
+                <div className="order-2 min-w-0 flex-1 sm:order-1">
                     <Panel className="flex flex-col gap-4 p-4 sm:p-6">
                         <div className="flex flex-col gap-1">
-                            <h2 className={cx(T.section, "text-primary")}>What do you need?</h2>
-                            <p className={cx(T.helper, "text-pretty text-tertiary")}>Pick what it is about. Each one goes straight to the team that does it.</p>
+                            <h2 className={cx(T.section, "text-primary")}>Raise a request</h2>
+                            <p className={cx(T.helper, "text-pretty text-tertiary")}>Pick a category. Each goes straight to the team that does it.</p>
                         </div>
                         <TopicTiles topics={topics} onPick={onPickTopic} />
                     </Panel>
@@ -673,7 +604,18 @@ const HelpHome = ({
                 </div>
             </div>
 
-            <ReferenceList />
+            {/* The frame's "Reference" row: a label and underlined links. The guides it
+                links to do not exist yet, so the row carries the one reference that does,
+                opened in place. */}
+            <details className="group">
+                <summary className={cx("flex cursor-pointer list-none flex-wrap items-center gap-x-6 gap-y-2 rounded", FOCUS)}>
+                    <span className={cx(T.helper, "text-secondary")}>Reference</span>
+                    <span className={cx(T.helper, "text-fg-brand-primary underline")}>How a request moves</span>
+                </summary>
+                <div className="mt-4">
+                    <ReferenceList />
+                </div>
+            </details>
         </div>
     );
 };
@@ -686,7 +628,6 @@ const HelpHome = ({
  */
 const ReferenceList = () => (
     <section className="flex flex-col gap-4">
-        <h2 className={cx(T.section, "text-primary")}>How a request moves</h2>
         <Panel className="p-4 sm:p-6">
             <ol className="flex flex-col gap-4">
                 {LIFECYCLE.map((step, i) => (
@@ -706,8 +647,8 @@ const ReferenceList = () => (
             </ol>
         </Panel>
         <p className={cx(T.helper, "max-w-[68ch] text-pretty text-tertiary")}>
-            About completion dates: we are not publishing them yet, so you will see who owns your request but no date beside it. We would rather show you
-            nothing than a date we guessed. When we start setting them, the date will appear on every request here on its own.
+            We do not show completion dates yet. You will see who has your request, but no date beside it. When we start setting dates, they will appear
+            here.
         </p>
     </section>
 );
@@ -715,311 +656,73 @@ const ReferenceList = () => (
 /* ── The composer ────────────────────────────────────────────────────────── */
 
 /**
- * Raising a request.
- *
- * Everything we already know is stated rather than asked for: the client the request is
- * for comes from the dashboard row, and the address it is raised under comes from the proof
- * that opened this page. A client retyping either is a chance for the two to disagree, and
- * the server would ignore what they typed anyway - it reads both from the verified caller.
+ * Raising a request: the shared RequestForm (help-form.tsx), which is the Figma's form
+ * for the client and the team alike. This wrapper owns the API call - the server decides
+ * who may submit - and the way back.
  */
 const Composer = ({
     topic,
+    topics,
     proof,
     clientName,
     isStaff,
     onCancel,
     onCreated,
 }: {
-    topic: TicketTopic;
+    topic: TicketTopic | null;
+    topics: TicketTopic[];
     proof: CallerProof;
     clientName: string;
-    /** The team sets a priority; a client never sees the control. */
+    /** Staff raise through the same form; the difference is on the server and in the lede. */
     isStaff: boolean;
     onCancel: () => void;
-    onCreated: (reference: string) => void;
-}) => {
-    const [title, setTitle] = useState("");
-    const [detail, setDetail] = useState("");
-    const [priority, setPriority] = useState<Priority | null>(null);
-    const [property, setProperty] = useState("");
-    const [neededBy, setNeededBy] = useState("");
-    const [images, setImages] = useState<TicketImage[]>([]);
-    const [imageNotes, setImageNotes] = useState<string[]>([]);
-    const [preparing, setPreparing] = useState(false);
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState("");
-    const [touched, setTouched] = useState(false);
+    onCreated: (reference: string, title: string) => void;
+}) => (
+    <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
+        <button
+            type="button"
+            onClick={onCancel}
+            className={cx("-ml-1 inline-flex min-h-11 w-max items-center gap-1.5 rounded px-1 text-fg-brand-primary hover:underline", T.helper, FOCUS)}
+        >
+            <ArrowNarrowLeft className="size-4" aria-hidden="true" />
+            Back to the help centre
+        </button>
+        <RequestForm
+            mode="client"
+            slug={proof.slug}
+            topics={topic ? [topic] : topics}
+            fixedTopic={topic ?? undefined}
+            clientName={clientName}
+            email={isStaff ? `${proof.email} (HiddenGem Media)` : proof.email}
+            onSubmit={async (input) => {
+                const res = await createTicket(proof, input);
+                return { reference: res.ticket.reference };
+            }}
+            onCreated={(reference, _slug, sent) => onCreated(reference, sent.title)}
+        />
+    </div>
+);
 
-    const titleRef = useRef<HTMLInputElement>(null);
-    const fileRef = useRef<HTMLInputElement>(null);
-
-    // Opening the composer moves focus into it. Without this a keyboard or screen-reader
-    // user is left at the topic button that has just been replaced, with no announcement
-    // that the page changed under them.
-    useEffect(() => {
-        titleRef.current?.focus();
-    }, []);
-
-    const titleError = touched && title.trim().length < 3 ? "Give your request a short title." : "";
-    const detailError = touched && detail.trim().length < 10 ? "Tell us a little more so the right person can pick this up." : "";
-    const canSubmit = title.trim().length >= 3 && detail.trim().length >= 10 && !busy && !preparing;
-
-    const onPickFiles = async (files: FileList | null) => {
-        if (!files?.length) return;
-        setPreparing(true);
-        const { images: ready, rejected } = await prepareImages([...files]);
-        setImages((prev) => [...prev, ...ready].slice(0, MAX_IMAGES));
-        setImageNotes(rejected);
-        setPreparing(false);
-        if (fileRef.current) fileRef.current.value = "";
-    };
-
-    const submit = async (e: FormEvent) => {
-        e.preventDefault();
-        setTouched(true);
-        if (!canSubmit) return;
-        setBusy(true);
-        setError("");
-        try {
-            const res = await createTicket(proof, {
-                topic: topic.key,
-                title: title.trim(),
-                detail: detail.trim(),
-                property,
-                needed_by: neededBy || undefined,
-                images,
-                ...(isStaff && priority ? { priority } : {}),
-            });
-            onCreated(res.ticket.reference);
-        } catch (err) {
-            setError(err instanceof HelpApiError ? err.message : "We could not send that just then. Nothing was lost - try again.");
-            setBusy(false);
-        }
-    };
-
-    return (
-        // The Figma's form column: 560 wide, centred, 24 between blocks; on a phone it is
-        // the full width with 16 gutters. The heading has an eyebrow (the topic), the title
-        // in display/title and a lede in body/input.
-        <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-            <button
-                type="button"
-                onClick={onCancel}
-                className={cx("-ml-1 inline-flex min-h-11 w-max items-center gap-1.5 rounded px-1 text-fg-brand-primary hover:underline", T.body, "sm:text-[13px] sm:leading-[18px]", FOCUS)}
-            >
-                <ArrowNarrowLeft className="size-4" aria-hidden="true" />
-                Back to the help centre
-            </button>
-
-            <header className="flex flex-col gap-2">
-                <Eyebrow>{topic.label}</Eyebrow>
-                <h1 className={cx(T.title, "text-primary")}>Tell us what you need</h1>
-                <p className={cx(T.body, "text-pretty text-secondary")}>
-                    {isStaff
-                        ? `Raised for ${clientName || "this client"} by you, ${proof.email}. They will see it in their list as raised by HiddenGem.`
-                        : `Raised for ${clientName || "your account"} by ${proof.email}. One named person will pick this up.`}
-                </p>
-            </header>
-
-            <form onSubmit={submit} noValidate className="flex flex-col gap-6">
-                <div className="flex flex-col gap-2">
-                    <FieldLabel htmlFor="hc-title">What do you need?</FieldLabel>
-                    <input
-                        id="hc-title"
-                        ref={titleRef}
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value.slice(0, MAX_TITLE))}
-                        placeholder="Change the hero photo on the home page"
-                        aria-invalid={!!titleError}
-                        aria-describedby={titleError ? "hc-title-error" : "hc-title-hint"}
-                        className={fieldClass(!!titleError)}
-                    />
-                    {titleError ? (
-                        <p id="hc-title-error" className={cx(T.helper, "text-red-700")} role="alert">
-                            {titleError}
-                        </p>
-                    ) : (
-                        <p id="hc-title-hint" className={cx(T.helper, "text-tertiary")}>
-                            One line that says what is wrong or what you want. It becomes the title the team sees.
-                        </p>
-                    )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                    <FieldLabel htmlFor="hc-detail">The detail</FieldLabel>
-                    <textarea
-                        id="hc-detail"
-                        value={detail}
-                        onChange={(e) => setDetail(e.target.value.slice(0, MAX_DETAIL))}
-                        rows={6}
-                        placeholder="Anything that helps us get it right first time: which page, which photo, what it should say."
-                        aria-invalid={!!detailError}
-                        aria-describedby={detailError ? "hc-detail-error" : "hc-detail-hint"}
-                        className={cx(fieldClass(!!detailError), "resize-y")}
-                    />
-                    {detailError ? (
-                        <p id="hc-detail-error" className={cx(T.helper, "text-red-700")} role="alert">
-                            {detailError}
-                        </p>
-                    ) : (
-                        <p id="hc-detail-hint" className={cx(T.helper, "text-tertiary")}>
-                            Your words go to the person doing the work exactly as you write them.
-                        </p>
-                    )}
-                </div>
-
-                {isStaff && <PriorityField value={priority} onChange={setPriority} />}
-
-                <div className="grid gap-6 sm:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                        <FieldLabel htmlFor="hc-property" optional>
-                            Which property?
-                        </FieldLabel>
-                        <input
-                            id="hc-property"
-                            value={property}
-                            onChange={(e) => setProperty(e.target.value.slice(0, MAX_PROPERTY))}
-                            placeholder="Leave blank if it covers all of them"
-                            className={fieldClass()}
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <FieldLabel htmlFor="hc-needed" optional>
-                            Needed by
-                        </FieldLabel>
-                        <input
-                            id="hc-needed"
-                            type="date"
-                            value={neededBy}
-                            min={todayIsoDay()}
-                            onChange={(e) => setNeededBy(e.target.value)}
-                            aria-describedby="hc-needed-hint"
-                            className={fieldClass()}
-                        />
-                        {/* Said out loud, because the difference between what a client asks
-                            for and what we commit to is the whole subject of this page. */}
-                        <p id="hc-needed-hint" className={cx(T.helper, "text-tertiary")}>
-                            A date you need it by. We will tell you what we can commit to.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Screenshots, per the Figma's Field/Upload: a dashed drop zone in bg/secondary
-                    with the file input as the whole target, and thumbnails as chips beneath. */}
-                <div className="flex flex-col gap-2">
-                    <FieldLabel htmlFor="hc-images" optional>
-                        Screenshots or photos
-                    </FieldLabel>
-                    <label
-                        htmlFor="hc-images"
-                        className={cx(
-                            "flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-primary bg-secondary px-4 py-5 text-center transition duration-100 ease-linear hover:bg-tertiary motion-reduce:transition-none",
-                        )}
-                    >
-                        <span className={cx(T.label, "text-primary")}>{images.length ? "Add another screenshot" : "Add screenshots"}</span>
-                        <span className={cx(T.helper, "text-tertiary")}>
-                            Up to {MAX_IMAGES} images. They are shrunk in your browser before they are sent, so a phone photo is fine.
-                        </span>
-                    </label>
-                    <input
-                        id="hc-images"
-                        ref={fileRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => void onPickFiles(e.target.files)}
-                        className="sr-only"
-                    />
-
-                    {preparing && (
-                        <p className={cx(T.helper, "text-tertiary")} role="status">
-                            Preparing images...
-                        </p>
-                    )}
-
-                    {images.length > 0 && (
-                        <ul className="flex flex-wrap gap-2">
-                            {images.map((img, i) => (
-                                <li key={`${img.name}-${i}`} className={cx("inline-flex items-center gap-1.5 rounded-lg bg-secondary py-1 pr-1 pl-2.5 text-secondary ring-1 ring-secondary", T.helper)}>
-                                    <Image01 className="size-3.5 shrink-0 text-tertiary" aria-hidden="true" />
-                                    <span className="max-w-[18ch] truncate">{img.name}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
-                                        aria-label={`Remove ${img.name}`}
-                                        className={cx("flex size-6 items-center justify-center rounded-md text-tertiary transition duration-100 ease-linear hover:bg-primary_hover hover:text-primary motion-reduce:transition-none", FOCUS)}
-                                    >
-                                        <XClose className="size-3.5" aria-hidden="true" />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-
-                    {imageNotes.length > 0 && (
-                        <ul className="flex flex-col gap-1" role="status">
-                            {imageNotes.map((note) => (
-                                <li key={note} className={cx(T.helper, "text-red-700")}>
-                                    {note}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-
-                {error && <ErrorNote message={error} />}
-
-                {/* Actions right-aligned, the quieter one first, the trust line under them
-                    right-aligned too - the Figma's "Actions" block. On a phone the primary
-                    goes full width. */}
-                <div className="flex flex-col gap-3">
-                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                        <SecondaryButton onClick={onCancel} disabled={busy} className="w-full sm:w-auto">
-                            Cancel
-                        </SecondaryButton>
-                        <PrimaryButton type="submit" disabled={!canSubmit} className="w-full sm:w-auto sm:min-w-44">
-                            {busy ? "Sending..." : "Send request"}
-                        </PrimaryButton>
-                    </div>
-                    <p className={cx(T.helper, "text-pretty text-tertiary sm:text-right")}>
-                        You will get a reference here straight away, and a named person picks it up from there.
-                    </p>
-                </div>
-            </form>
-        </div>
-    );
-};
-
-/** What a client sees the moment a request lands. The reference is the thing to remember. */
-const CreatedNote = ({ reference, slug, onRaiseAnother }: { reference: string; slug: string; onRaiseAnother: () => void }) => {
-    const headingRef = useRef<HTMLHeadingElement>(null);
+/** What a client sees the moment a request lands: the frame's success screen. */
+const CreatedNote = ({ sent, slug, clientName, onRaiseAnother }: { sent: { reference: string; title: string }; slug: string; clientName: string; onRaiseAnother: () => void }) => {
+    const navigate = useNavigate();
+    const headingRef = useRef<HTMLDivElement>(null);
     // Focus moves to the confirmation so the outcome is announced. Submitting a form and
-    // being left silently at the top of a replaced page is the commonest way a screen
-    // reader user is left unsure whether anything happened.
+    // being dropped back at its top with no announcement is the classic silent success.
     useEffect(() => {
         headingRef.current?.focus();
     }, []);
-
     return (
-        <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-            <Panel className="p-6 text-center sm:p-8">
-                <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-green-50 text-green-800">
-                    <CheckCircle className="size-6" aria-hidden="true" />
-                </span>
-                <h1 ref={headingRef} tabIndex={-1} className={cx(T.title, "mt-4 text-primary outline-none")}>
-                    Request received
-                </h1>
-                <p className={cx(T.body, "mx-auto mt-2 max-w-[46ch] text-pretty text-secondary")}>
-                    Your reference is <MonoRef className="text-[16px] leading-6 text-primary">{reference}</MonoRef>. We are assigning an owner now, and you can
-                    follow it here at any time.
-                </p>
-                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                    <PrimaryButton as="link" to={`/${slug}/help/requests/${reference}`}>
-                        Follow this request
-                    </PrimaryButton>
-                    <SecondaryButton onClick={onRaiseAnother}>Raise another</SecondaryButton>
-                </div>
-            </Panel>
+        <div ref={headingRef} tabIndex={-1} className="outline-none">
+            <RequestSent
+                reference={sent.reference}
+                title={sent.title}
+                clientName={clientName}
+                priority={null}
+                team={false}
+                primary={{ label: "Follow this request", onClick: () => navigate(`/${slug}/help/requests/${sent.reference}`) }}
+                secondary={{ label: "Raise another", onClick: onRaiseAnother }}
+            />
         </div>
     );
 };
@@ -1055,8 +758,9 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     /** Who the server said is looking. Null until the first successful read. */
     const [viewer, setViewer] = useState<Viewer | null>(null);
     const [filter, setFilter] = useState<RequestFilter>("all");
-    const [composing, setComposing] = useState<TicketTopic | null>(null);
-    const [created, setCreated] = useState("");
+    /** The form's topic: one from a tile, or null from the button, which then shows the selector. */
+    const [composing, setComposing] = useState<TicketTopic | null | "any">(null);
+    const [created, setCreated] = useState<{ reference: string; title: string } | null>(null);
 
     /* The client's own name and their AM's chosen backdrop. Read straight from
        dashboard_pages with the public anon key, exactly as the dashboard does. Nothing here
@@ -1160,7 +864,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
      * the list is a draft being kept, not a stale message.
      */
     useEffect(() => {
-        if (view !== "home") setCreated("");
+        if (view !== "home") setCreated(null);
     }, [view]);
 
     if (!callerResolved) return null;
@@ -1204,10 +908,11 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         if (created) {
             return (
                 <CreatedNote
-                    reference={created}
+                    sent={created}
                     slug={slug}
+                    clientName={viewer?.clientName || clientName}
                     onRaiseAnother={() => {
-                        setCreated("");
+                        setCreated(null);
                         setComposing(null);
                     }}
                 />
@@ -1217,13 +922,14 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         if (composing) {
             return (
                 <Composer
-                    topic={composing}
+                    topic={composing === "any" ? null : composing}
+                    topics={topics}
                     proof={proof}
                     clientName={viewer?.clientName || clientName}
                     isStaff={isStaff}
                     onCancel={() => setComposing(null)}
-                    onCreated={(ref) => {
-                        setCreated(ref);
+                    onCreated={(ref, sentTitle) => {
+                        setCreated({ reference: ref, title: sentTitle });
                         setComposing(null);
                         void load(proof);
                     }}
@@ -1238,6 +944,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 topics={topics}
                 slug={slug}
                 onPickTopic={setComposing}
+                onRaise={() => setComposing("any")}
                 viewingAsStaff={isStaff}
                 clientName={viewer?.clientName || clientName}
             />

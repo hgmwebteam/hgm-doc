@@ -166,7 +166,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
 
     const { data: row, error } = await portalDb()
         .from("dashboard_pages")
-        .select("slug, data")
+        .select("slug, client_name, data")
         .eq("slug", slug)
         .maybeSingle();
 
@@ -191,7 +191,20 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     };
     const users: DashboardUser[] =
         content.dashboard_users ?? (content.allowed_emails ?? []).map((e) => ({ email: e }));
-    const clientName = (content.client_name ?? "").trim() || slug.replace(/-dashboard$/, "");
+    // THE NAME IS A COLUMN, NOT A KEY IN data. All 54 dashboards carry it there
+    // ("Paradise Pointe", "FLOHOM") and none carries data.client_name, so the
+    // first version fell through to the slug and staff were told they were
+    // viewing "paradise-pointe's requests". The column first, data as a fallback,
+    // and the slug made readable rather than shown raw.
+    const rowName = ((row as { client_name?: string | null }).client_name ?? "").trim();
+    const clientName =
+        rowName ||
+        (content.client_name ?? "").trim() ||
+        slug
+            .replace(/-dashboard$/, "")
+            .split("-")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
 
     // LISTED means somebody has an email on the row. It does not ask whether
     // they have a password, because a password is no longer what gets anyone

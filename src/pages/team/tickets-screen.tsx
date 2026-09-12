@@ -26,25 +26,13 @@
  * The list has no frame in the file; it is the Requests list with one more
  * fact per row - the client - and a priority pill where one was set.
  */
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowNarrowLeft, Image01, UploadCloud02, XClose } from "@untitledui-pro/icons/line";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowNarrowLeft } from "@untitledui-pro/icons/line";
 import { Link, useNavigate } from "react-router";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { supabase } from "@/lib/supabase";
-import {
-    type ClientOption,
-    HelpApiError,
-    MAX_DETAIL,
-    MAX_IMAGES,
-    MAX_TITLE,
-    type TicketImage,
-    createTicket,
-    fetchAllTickets,
-    fetchClientOptions,
-    fetchTopics,
-    prepareImages,
-} from "@/pages/client/help/help-api";
-import { PriorityField } from "@/pages/client/help/help-center-screen";
+import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics } from "@/pages/client/help/help-api";
+import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
 import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatStampShort, priorityMeta } from "@/pages/client/help/help-model";
 import {
     ErrorNote,
@@ -76,11 +64,11 @@ const TeamShell = ({ email, children }: { email: string; children: React.ReactNo
     const person = email.split("@")[0];
     const initial = (person[0] ?? "?").toUpperCase();
     return (
-        <div className="min-h-dvh bg-primary">
+        <div className="min-h-dvh bg-secondary">
             <a href="#team-main" className={cx("sr-only rounded-lg bg-brand-solid px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50", T.label, FOCUS)}>
                 Skip to content
             </a>
-            <header className="border-b border-secondary bg-primary">
+            <header className="border-b border-secondary bg-secondary">
                 <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
                     <Link to="/dashboard" className={cx("inline-flex h-11 items-center gap-2.5 rounded", FOCUS)} aria-label="Back to the team dashboard">
                         <GemMark />
@@ -332,118 +320,22 @@ export const TeamTicketsScreen = () => {
 
 /* ── Report a ticket ─────────────────────────────────────────────────────── */
 
-/** The Figma's Banner component: icon, title in label/field, body in body/helper, on a tint with a hairline in its colour. */
-const Banner = ({ kind, title, body }: { kind: "error" | "success" | "info"; title: string; body: string }) => (
-    <div
-        role={kind === "error" ? "alert" : "status"}
-        className={cx(
-            "flex items-start gap-3 rounded-[10px] px-4 py-3 ring-1",
-            kind === "error" && "bg-red-50 ring-red-600",
-            kind === "success" && "bg-green-50 ring-green-700",
-            kind === "info" && "bg-brand-primary ring-brand",
-        )}
-    >
-        <span aria-hidden="true" className={cx("mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ring-[1.8px]", kind === "error" ? "ring-red-600 text-red-700" : kind === "success" ? "ring-green-700 text-green-800" : "ring-brand text-fg-brand-primary")}>
-            <span className={cx(T.caption, "leading-none")}>{kind === "error" ? "!" : kind === "success" ? "✓" : "i"}</span>
-        </span>
-        <div className="min-w-0 flex-1">
-            <p className={cx(T.label, "text-primary")}>{title}</p>
-            <p className={cx(T.helper, "mt-1 text-pretty text-secondary")}>{body}</p>
-        </div>
-    </div>
-);
-
-const fieldClass = (invalid?: boolean) =>
-    cx("w-full rounded-lg bg-primary px-3.5 py-3 text-primary ring-1 outline-none placeholder:text-tertiary focus:ring-2 focus:ring-brand", T.body, invalid ? "ring-error" : "ring-primary");
-
-const LabelRow = ({ htmlFor, children, optional }: { htmlFor: string; children: React.ReactNode; optional?: boolean }) => (
-    <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={htmlFor} className={cx(T.label, "text-secondary")}>
-            {children}
-        </label>
-        <span className={cx(T.caption, "text-tertiary")}>{optional ? "Optional" : "Required"}</span>
-    </div>
-);
-
 export const TeamReportScreen = () => {
     const { email, isTeam, loading: authLoading } = useTeam();
     const navigate = useNavigate();
     const [clients, setClients] = useState<ClientOption[]>([]);
     const [topics, setTopics] = useState<TicketTopic[]>([]);
-    const [client, setClient] = useState("");
-    const [topic, setTopic] = useState("");
-    const [priority, setPriority] = useState<Priority | null>(null);
-    const [text, setText] = useState("");
-    const [images, setImages] = useState<TicketImage[]>([]);
-    const [imageNotes, setImageNotes] = useState<string[]>([]);
-    const [preparing, setPreparing] = useState(false);
-    const [busy, setBusy] = useState(false);
-    const [touched, setTouched] = useState(false);
-    const [error, setError] = useState("");
-    const [done, setDone] = useState<{ reference: string; slug: string } | null>(null);
-    const fileRef = useRef<HTMLInputElement>(null);
+    const [done, setDone] = useState<{ reference: string; slug: string; title: string; clientName: string; priority: Priority | null } | null>(null);
 
     useEffect(() => {
-        if (!isTeam) return;
-        void fetchClientOptions().then(setClients);
+        if (isTeam) void fetchClientOptions().then(setClients);
     }, [isTeam]);
-    // Topics come from any dashboard's topic list: they are global rows, and the
-    // endpoint needs a slug only to prove who is asking.
-    useEffect(() => {
-        if (!isTeam || !client) return;
-        void fetchTopics({ slug: client, email }).then((r) => {
-            setTopics(r.topics ?? []);
-            if (!topic && r.topics?.[0]) setTopic(r.topics[0].key);
-        });
-    }, [isTeam, client, email, topic]);
 
-    // The Figma's textarea: "Start with one line that says what is wrong. That line becomes
-    // the Asana task title; everything after it becomes the task description."
-    const [firstLine, rest] = useMemo(() => {
-        const lines = text.replace(/\r/g, "").split("\n");
-        const head = (lines[0] ?? "").trim();
-        const tail = lines.slice(1).join("\n").trim();
-        return [head, tail];
-    }, [text]);
-
-    const clientError = touched && !client ? "Choose which client this is about, so it reaches the right team." : "";
-    const priorityError = touched && !priority ? "Pick a priority, so it is worked in the right order." : "";
-    const textError = touched && firstLine.length < 3 ? "Tell us what is happening. One line is enough to start; the team can ask for more." : "";
-    const problems = [clientError, priorityError, textError].filter(Boolean).length;
-    const canSubmit = !!client && !!topic && !!priority && firstLine.length >= 3 && !busy && !preparing;
-
-    const onPickFiles = async (files: FileList | null) => {
-        if (!files?.length) return;
-        setPreparing(true);
-        const { images: ready, rejected } = await prepareImages([...files]);
-        setImages((prev) => [...prev, ...ready].slice(0, MAX_IMAGES));
-        setImageNotes(rejected);
-        setPreparing(false);
-        if (fileRef.current) fileRef.current.value = "";
-    };
-
-    const submit = async (e: FormEvent) => {
-        e.preventDefault();
-        setTouched(true);
-        if (!canSubmit) return;
-        setBusy(true);
-        setError("");
-        try {
-            const res = await createTicket(
-                { slug: client, email },
-                {
-                    topic,
-                    title: firstLine.slice(0, MAX_TITLE),
-                    detail: (rest || firstLine).slice(0, MAX_DETAIL),
-                    images,
-                    priority: priority ?? undefined,
-                },
-            );
-            setDone({ reference: res.ticket.reference, slug: client.replace(/-dashboard$/, "") });
-        } catch (err) {
-            setError(err instanceof HelpApiError ? err.message : "We could not send that just then. Nothing was lost - try again.");
-            setBusy(false);
-        }
+    // Topics are global rows; the endpoint needs a slug only to prove who is asking, so
+    // they are fetched once a client is chosen.
+    const onClientChange = (slug: string) => {
+        setTopics([]);
+        if (slug) void fetchTopics({ slug, email }).then((r) => setTopics(r.topics ?? []));
     };
 
     if (authLoading) return null;
@@ -452,19 +344,15 @@ export const TeamReportScreen = () => {
     if (done) {
         return (
             <TeamShell email={email}>
-                <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-                    <Banner
-                        kind="success"
-                        title="Ticket sent"
-                        body={`${done.reference} is stored and Jarvis has been told. It creates the Asana task and assigns it to whoever on the team has capacity; you will see it appear in Asana within a minute or two.`}
-                    />
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                        <PrimaryButton as="link" to={`/${done.slug}/help/requests/${done.reference}`}>
-                            Open {done.reference}
-                        </PrimaryButton>
-                        <SecondaryButton onClick={() => navigate("/team/tickets")}>All requests</SecondaryButton>
-                    </div>
-                </div>
+                <RequestSent
+                    reference={done.reference}
+                    title={done.title}
+                    clientName={done.clientName}
+                    priority={done.priority}
+                    team
+                    primary={{ label: "Report another ticket", onClick: () => setDone(null) }}
+                    secondary={{ label: "All requests", onClick: () => navigate("/team/tickets") }}
+                />
             </TeamShell>
         );
     }
@@ -476,141 +364,27 @@ export const TeamReportScreen = () => {
                     <ArrowNarrowLeft className="size-4" aria-hidden="true" />
                     All requests
                 </TextLink>
-
-                <header className="flex flex-col gap-2">
-                    <p className={cx(T.caption, "tracking-[1.2px] text-fg-brand-primary uppercase")}>Reporting System</p>
-                    <h1 className={cx(T.title, "text-primary")}>Report a ticket</h1>
-                    <p className={cx(T.body, "text-pretty text-secondary")}>
-                        Tell us what is wrong and who it affects. Jarvis turns it into an Asana task and hands it to whoever on the team has capacity, so nothing
-                        needs chasing.
-                    </p>
-                </header>
-
-                {touched && problems > 0 && (
-                    <Banner
-                        kind="error"
-                        title={problems === 1 ? "One thing needs fixing before this can go" : `${problems === 2 ? "Two" : "Three"} things need fixing before this can go`}
-                        body="The fields are marked below."
-                    />
-                )}
-
-                <form onSubmit={submit} noValidate className="flex flex-col gap-6">
-                    <div className="flex flex-col gap-2">
-                        <LabelRow htmlFor="tt-client">Client</LabelRow>
-                        <select id="tt-client" value={client} onChange={(e) => setClient(e.target.value)} aria-invalid={!!clientError} className={cx(fieldClass(!!clientError), "h-12")}>
-                            <option value="">Choose a client</option>
-                            {clients.map((c) => (
-                                <option key={c.slug} value={c.slug}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
-                        <p className={cx(T.helper, clientError ? "text-red-700" : "text-tertiary")} role={clientError ? "alert" : undefined}>
-                            {clientError || "The client this ticket is for. Jarvis uses it to file the task in the right place."}
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <LabelRow htmlFor="tt-topic">Topic</LabelRow>
-                        <select id="tt-topic" value={topic} onChange={(e) => setTopic(e.target.value)} disabled={!client} className={cx(fieldClass(), "h-12 disabled:opacity-60")}>
-                            {topics.length === 0 && <option value="">{client ? "Loading..." : "Choose a client first"}</option>}
-                            {topics.map((t) => (
-                                <option key={t.key} value={t.key}>
-                                    {t.label}
-                                </option>
-                            ))}
-                        </select>
-                        <p className={cx(T.helper, "text-tertiary")}>Which team it goes to.</p>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <PriorityField value={priority} onChange={setPriority} required />
-                        {priorityError && (
-                            <p className={cx(T.helper, "text-red-700")} role="alert">
-                                {priorityError}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <LabelRow htmlFor="tt-images" optional>
-                            Screenshots
-                        </LabelRow>
-                        <label
-                            htmlFor="tt-images"
-                            className="flex h-[132px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-primary bg-primary px-6 text-center transition duration-100 ease-linear hover:bg-secondary motion-reduce:transition-none"
-                        >
-                            <UploadCloud02 className="size-7 text-fg-brand-primary" aria-hidden="true" />
-                            <span className={cx(T.label, "text-primary")}>{images.length ? "Add another screenshot" : "Drop screenshots here, or browse"}</span>
-                            <span className={cx(T.helper, "text-tertiary")}>PNG, JPG or WEBP · shrunk in your browser · up to {MAX_IMAGES} files</span>
-                        </label>
-                        <input id="tt-images" ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => void onPickFiles(e.target.files)} className="sr-only" />
-                        {preparing && (
-                            <p className={cx(T.helper, "text-tertiary")} role="status">
-                                Preparing images...
-                            </p>
-                        )}
-                        {images.length > 0 && (
-                            <ul className="flex flex-wrap gap-2">
-                                {images.map((img, i) => (
-                                    <li key={`${img.name}-${i}`} className={cx("inline-flex items-center gap-1.5 rounded-lg bg-secondary py-1 pr-1 pl-2.5 text-secondary ring-1 ring-secondary", T.helper)}>
-                                        <Image01 className="size-3.5 shrink-0 text-tertiary" aria-hidden="true" />
-                                        <span className="max-w-[18ch] truncate">{img.name}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
-                                            aria-label={`Remove ${img.name}`}
-                                            className={cx("flex size-6 items-center justify-center rounded-md text-tertiary hover:bg-primary_hover hover:text-primary", FOCUS)}
-                                        >
-                                            <XClose className="size-3.5" aria-hidden="true" />
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                        {imageNotes.length > 0 && (
-                            <ul className="flex flex-col gap-1" role="status">
-                                {imageNotes.map((note) => (
-                                    <li key={note} className={cx(T.helper, "text-red-700")}>
-                                        {note}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <LabelRow htmlFor="tt-text">Description</LabelRow>
-                        <textarea
-                            id="tt-text"
-                            value={text}
-                            onChange={(e) => setText(e.target.value.slice(0, MAX_DETAIL + MAX_TITLE))}
-                            rows={7}
-                            placeholder="What is happening, and where?"
-                            aria-invalid={!!textError}
-                            className={cx(fieldClass(!!textError), "resize-y")}
-                        />
-                        <p className={cx(T.helper, textError ? "text-red-700" : "text-tertiary")} role={textError ? "alert" : undefined}>
-                            {textError || "Start with one line that says what is wrong. That line becomes the Asana task title; everything after it becomes the task description."}
-                        </p>
-                    </div>
-
-                    {error && <ErrorNote message={error} />}
-
-                    <div className="flex flex-col gap-3">
-                        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                            <SecondaryButton onClick={() => navigate("/team/tickets")} disabled={busy} className="w-full sm:w-auto">
-                                Cancel
-                            </SecondaryButton>
-                            <PrimaryButton type="submit" disabled={busy || preparing} className="w-full sm:w-auto sm:min-w-44">
-                                {busy ? "Sending..." : "Send ticket"}
-                            </PrimaryButton>
-                        </div>
-                        <p className={cx(T.helper, "text-pretty text-tertiary sm:text-right")}>
-                            You will get a confirmation here, and the task appears in Asana within a couple of minutes.
-                        </p>
-                    </div>
-                </form>
+                <RequestForm
+                    mode="team"
+                    clients={clients}
+                    topics={topics}
+                    clientName=""
+                    email={email}
+                    onClientChange={onClientChange}
+                    onSubmit={async (input) => {
+                        const res = await createTicket({ slug: input.slug, email }, input);
+                        return { reference: res.ticket.reference };
+                    }}
+                    onCreated={(reference, slug, sent) =>
+                        setDone({
+                            reference,
+                            slug: slug.replace(/-dashboard$/, ""),
+                            title: sent.title,
+                            clientName: clients.find((c) => c.slug === slug)?.name ?? slug.replace(/-dashboard$/, ""),
+                            priority: sent.priority,
+                        })
+                    }
+                />
             </div>
         </TeamShell>
     );

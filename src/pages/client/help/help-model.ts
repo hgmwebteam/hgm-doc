@@ -155,9 +155,9 @@ export const CLIENT_VISIBLE_EVENTS: TicketEventKind[] = [
 ];
 
 export const EVENT_LABEL: Record<TicketEventKind, string> = {
-    received: "Request received",
-    assigned: "Owner assigned",
-    in_progress: "Work started",
+    received: "Received",
+    assigned: "Assigned",
+    in_progress: "In progress",
     team_update: "Update from the team",
     completed: "Completed",
     withdrawn: "Withdrawn",
@@ -167,10 +167,10 @@ export const EVENT_LABEL: Record<TicketEventKind, string> = {
 
 /** The lifecycle steps, in order, for the reference list on the help home. */
 export const LIFECYCLE: { status: TicketStatus; label: string; detail: string }[] = [
-    { status: "received", label: "Received", detail: "Your request lands with us and gets a reference you can quote." },
-    { status: "assigned", label: "Assigned", detail: "One named person takes it. Nothing sits in a queue with nobody's name on it." },
+    { status: "received", label: "Received", detail: "We have it. It gets a reference you can quote." },
+    { status: "assigned", label: "Assigned", detail: "A named person on the team has it." },
     { status: "in_progress", label: "In progress", detail: "Work has started. Updates from the team appear on the request." },
-    { status: "completed", label: "Completed", detail: "Done, with the date it was finished. The request stays here for your records." },
+    { status: "completed", label: "Completed", detail: "Done. The request stays here for your records." },
 ];
 
 /* ── Dates ───────────────────────────────────────────────────────────────────
@@ -206,6 +206,35 @@ export const formatDayLong = (isoDay: string | null | undefined): string => {
 export const formatDayShort = (isoDay: string | null | undefined): string => {
     const d = isoDay ? parseDayLocal(isoDay) : null;
     return d ? DAY_SHORT.format(d) : "";
+};
+
+/** "12 September", the way the Figma writes a due date: day and full month, no year. */
+export const formatDayMonth = (iso: string | null | undefined): string => {
+    if (!iso) return "";
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? parseDayLocal(iso) : new Date(iso);
+    return !d || Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+};
+
+/** "8 Sep", the way the Figma writes the day a request was raised. */
+export const formatDayMonthShort = (iso: string | null | undefined): string => {
+    if (!iso) return "";
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? parseDayLocal(iso) : new Date(iso);
+    return !d || Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+};
+
+/** "Friday 12 September", the COMMITTED block's date. */
+export const formatWeekdayDayMonth = (iso: string | null | undefined): string => {
+    if (!iso) return "";
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? parseDayLocal(iso) : new Date(iso);
+    return !d || Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+};
+
+/** "8 September, 16:12", a timeline stamp. */
+export const formatDayMonthTime = (iso: string | null | undefined): string => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 };
 
 /** "11 Sep 2026" from a timestamptz. */
@@ -276,7 +305,7 @@ export const promiseBlock = (t: Ticket): PromiseBlock => {
         return {
             tone: "closed",
             headline: "Withdrawn",
-            sub: on ? `This request was withdrawn on ${on} and is closed. Nothing further is happening on it.` : "This request is closed. Nothing further is happening on it.",
+            sub: on ? `Withdrawn on ${on}. Nothing more will happen on it.` : "Nothing more will happen on it.",
         };
     }
 
@@ -296,7 +325,7 @@ export const promiseBlock = (t: Ticket): PromiseBlock => {
         return {
             tone: "dated",
             headline: `Promised by ${on}`,
-            sub: owner ? `${owner} owns this request.` : "We are confirming who owns this request.",
+            sub: owner ? `${owner} has this request.` : "We are confirming who has this request.",
         };
     }
 
@@ -305,15 +334,15 @@ export const promiseBlock = (t: Ticket): PromiseBlock => {
     if (owner) {
         return {
             tone: "pending",
-            headline: "Received, owner assigned",
-            sub: `${owner} owns this request. We have not set a completion date for it yet, so there is no date to show you.`,
+            headline: "Assigned",
+            sub: `${owner} has this request. No completion date has been set yet.`,
         };
     }
 
     return {
         tone: "pending",
         headline: "Received",
-        sub: "We are assigning an owner. We have not set a completion date for this request yet, so there is no date to show you.",
+        sub: "We have it and are deciding who will take it. No completion date has been set yet.",
     };
 };
 

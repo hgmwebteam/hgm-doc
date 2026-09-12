@@ -45,7 +45,9 @@ import {
     type TicketCounts,
     type TicketStatus,
     type TicketTopic,
-    formatStampShort,
+    formatDayMonth,
+    elapsedDays,
+    formatDayMonthShort,
     matchesFilter,
     requestsSummary,
     topicLabel,
@@ -115,7 +117,7 @@ export const MetaDot = () => (
  */
 const PILL: Record<TicketStatus, string> = {
     received: "bg-secondary text-secondary ring-1 ring-secondary",
-    assigned: "bg-brand-primary text-fg-brand-primary",
+    assigned: "bg-primary text-fg-brand-primary",
     in_progress: "bg-yellow-50 text-yellow-800",
     completed: "bg-green-50 text-green-800",
     withdrawn: "bg-tertiary text-tertiary",
@@ -235,11 +237,15 @@ export const EmptyNote = ({ title, detail, action }: { title: string; detail: st
  * here is promised that the row does not carry: a request with no promised_date shows the
  * day it was raised, because that is the only date we hold about it.
  */
+/** The frame's right-hand line: "Due 12 September", "Completed in 3 days", "Withdrawn". */
 const dueLine = (t: Ticket): string => {
-    if (t.status === "withdrawn") return t.withdrawn_at ? `Withdrawn ${formatStampShort(t.withdrawn_at)}` : "Withdrawn by you";
-    if (t.status === "completed") return t.completed_at ? `Completed ${formatStampShort(t.completed_at)}` : "Completed";
-    if (t.promised_date) return `Due ${formatStampShort(t.promised_date)}`;
-    return formatStampShort(t.created_at) ? `Raised ${formatStampShort(t.created_at)}` : "";
+    if (t.status === "withdrawn") return "Withdrawn";
+    if (t.status === "completed") {
+        const days = elapsedDays(t.created_at, t.completed_at);
+        return days === null ? "Completed" : days === 0 ? "Completed same day" : `Completed in ${days} ${days === 1 ? "day" : "days"}`;
+    }
+    if (t.promised_date) return `Due ${formatDayMonth(t.promised_date)}`;
+    return "";
 };
 
 /**
@@ -251,7 +257,7 @@ const dueLine = (t: Ticket): string => {
  * A whole-row link, so the tap target is the row and not just the title.
  */
 const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: TicketTopic[]; slug: string; index: number }) => {
-    const raised = formatStampShort(ticket.created_at);
+    const raised = formatDayMonthShort(ticket.created_at);
     const due = dueLine(ticket);
     return (
         <li className={cx(index > 0 && "sm:border-t sm:border-secondary")}>
@@ -277,7 +283,7 @@ const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: T
                                         {"  "}
                                         <MetaDot />
                                         {"  "}
-                                        {raised}
+                                        raised {raised}
                                     </>
                                 )}
                             </span>
@@ -355,7 +361,6 @@ export const HelpRequestsScreen = ({
             <div role="group" aria-label="Filter requests" className="flex flex-wrap items-center gap-2">
                 {FILTERS.map((f) => {
                     const active = f.key === filter;
-                    const n = tickets.filter((t) => matchesFilter(t, f.key)).length;
                     return (
                         <button
                             key={f.key}
@@ -363,14 +368,13 @@ export const HelpRequestsScreen = ({
                             aria-pressed={active}
                             onClick={() => onFilterChange(f.key)}
                             className={cx(
-                                "inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 whitespace-nowrap ring-1 transition duration-100 ease-linear motion-reduce:transition-none",
+                                "inline-flex min-h-11 items-center rounded-full px-4 whitespace-nowrap ring-1 transition duration-100 ease-linear motion-reduce:transition-none",
                                 T.helper,
                                 FOCUS,
                                 active ? "bg-brand-primary text-fg-brand-primary ring-brand" : "bg-primary text-secondary ring-secondary hover:bg-primary_hover",
                             )}
                         >
                             {f.label}
-                            <span className={cx("tabular-nums", active ? "text-fg-brand-primary" : "text-tertiary")}>{n}</span>
                         </button>
                     );
                 })}

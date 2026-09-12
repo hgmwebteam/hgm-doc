@@ -273,7 +273,7 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
 
                 <a
                     href={mailto}
-                    className="mt-4 flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-secondary ring-1 ring-secondary transition hover:bg-secondary"
+                    className="mt-4 flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-center text-sm font-medium text-secondary ring-1 ring-secondary transition hover:bg-secondary"
                 >
                     Ask my account manager to add this address
                 </a>
@@ -392,13 +392,28 @@ const Stat = ({ label, value }: { label: string; value: number }) => (
     </div>
 );
 
-const CurrentPosition = ({ tickets, counts, slug }: { tickets: Ticket[]; counts: TicketCounts; slug: string }) => (
+const CurrentPosition = ({
+    tickets,
+    counts,
+    slug,
+    clientName,
+    readOnly,
+}: {
+    tickets: Ticket[];
+    counts: TicketCounts;
+    slug: string;
+    /** Named so a staff reader is told whose empty list this is. */
+    clientName?: string;
+    readOnly?: boolean;
+}) => (
     <section>
         <h2 className="text-md font-semibold text-primary">Current position</h2>
         <Panel className="mt-4 p-5 sm:p-6">
             {counts.total === 0 ? (
                 <p className="text-sm text-pretty text-tertiary">
-                    You have not raised anything yet. When you do, it appears here with the name of the person who owns it.
+                    {readOnly
+                        ? `${clientName || "This client"} has not raised anything yet. When they do, it appears here with the name of the person who owns it.`
+                        : "You have not raised anything yet. When you do, it appears here with the name of the person who owns it."}
                 </p>
             ) : (
                 <>
@@ -464,6 +479,7 @@ const HelpHome = ({
     slug,
     onPickTopic,
     readOnly,
+    clientName,
 }: {
     tickets: Ticket[];
     counts: TicketCounts;
@@ -472,6 +488,7 @@ const HelpHome = ({
     onPickTopic: (t: TicketTopic) => void;
     /** Staff. The composer is not shown, because the server would refuse it. */
     readOnly: boolean;
+    clientName?: string;
 }) => (
     <div className="flex flex-col gap-10">
         <header>
@@ -487,7 +504,7 @@ const HelpHome = ({
         {/* Not hidden with CSS and not disabled: absent. A control the server
             will refuse is a control that should not be on the page. */}
         {!readOnly && <TopicChooser topics={topics} onPick={onPickTopic} />}
-        <CurrentPosition tickets={tickets} counts={counts} slug={slug} />
+        <CurrentPosition tickets={tickets} counts={counts} slug={slug} clientName={clientName} readOnly={readOnly} />
         <ReferenceList />
     </div>
 );
@@ -979,7 +996,17 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
             );
         }
 
-        return <HelpHome tickets={tickets} counts={counts} topics={topics} slug={slug} onPickTopic={setComposing} readOnly={isStaff} />;
+        return (
+            <HelpHome
+                tickets={tickets}
+                counts={counts}
+                topics={topics}
+                slug={slug}
+                onPickTopic={setComposing}
+                readOnly={isStaff}
+                clientName={viewer?.clientName || clientName}
+            />
+        );
     };
 
     return (

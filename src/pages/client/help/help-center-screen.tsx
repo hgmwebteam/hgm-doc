@@ -57,6 +57,9 @@ import {
     fullDashboardSlug,
     prepareImages,
     currentCaller,
+    useDifferentAccount,
+    type RefusalReason,
+    type Viewer,
 } from "@/pages/client/help/help-api";
 import {
     LIFECYCLE,
@@ -195,6 +198,129 @@ const HelpGate = ({
     );
 };
 
+/* ── Refused: a terminal state that owns the page ───────────────────────── */
+
+/** Where a refused client sends the request to be added. The same address the
+ *  dashboard itself points people at; the screen does not know their account
+ *  manager. */
+const SUPPORT_EMAIL = "anhtuan@hiddengem.media";
+
+/**
+ * A 403 is not a glitch and must not be painted as one.
+ *
+ * Before this panel existed, a refusal set an error string and the component
+ * fell through to the normal render: a red banner, then a fully working-looking
+ * help centre with an empty topic list, a "Current position" that said "You
+ * have not raised anything yet" (an affirmative claim about the client's own
+ * history, made at the exact moment the call that would have told us was
+ * refused), and a Try again button that repainted the same refusal forever. A
+ * client's reasonable read was "the site is broken today", which is the wrong
+ * conclusion and the wrong next action.
+ *
+ * So a refusal renders THIS and nothing else. No retry: the 403 is
+ * deterministic. Two actions, which are the only two the reader can take:
+ * switch to the Google account their account manager added, or ask to have
+ * this one added.
+ *
+ * THE WORDS ARE TRUE IN ALL THREE CASES. The server answers "not_listed" for an
+ * unlisted address, an empty list and a dashboard that does not exist, and does
+ * not say which - telling them apart would let anyone with a session learn
+ * which slugs exist. "Your HiddenGem team has not added that address" holds
+ * whichever it was.
+ */
+const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: string; clientName: string; slug: string; backgroundUrl?: string }) => {
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const whose = clientName ? `${clientName}'s help centre` : "this help centre";
+
+    const switchAccount = async () => {
+        setBusy(true);
+        setError("");
+        try {
+            await useDifferentAccount();
+        } catch {
+            setBusy(false);
+            setError("We could not start sign-in just then. Try again in a moment.");
+        }
+    };
+
+    const mailto =
+        `mailto:${SUPPORT_EMAIL}` +
+        `?subject=${encodeURIComponent(`Add me to ${clientName || slug}'s help centre`)}` +
+        `&body=${encodeURIComponent(`Please add ${email} to the access list for ${slug}.`)}`;
+
+    return (
+        <SignInBackdrop backgroundUrl={backgroundUrl}>
+            <div className="w-full max-w-sm rounded-2xl bg-primary p-8 shadow-2xl ring-1 ring-secondary" role="region" aria-labelledby="refused-heading">
+                <img src="/hgm logo/Favicon ON LIGHT.svg" alt="HiddenGem Media" className="mx-auto size-11" draggable={false} />
+                <h1 id="refused-heading" className="mt-5 text-center text-lg font-semibold text-primary">
+                    This address is not on the list
+                </h1>
+                <p className="mt-2 text-center text-sm text-pretty text-tertiary">
+                    You are signed in as <span className="font-medium text-secondary">{email}</span>. Your HiddenGem team has not added
+                    that address to {whose}, so there is nothing we can show you here.
+                </p>
+
+                <button
+                    type="button"
+                    onClick={switchAccount}
+                    disabled={busy}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-solid_hover disabled:opacity-60"
+                >
+                    {busy ? "Opening Google..." : "Use a different Google account"}
+                </button>
+                <p className="mt-2 text-center text-xs text-pretty text-quaternary">Choose the account your account manager added.</p>
+
+                <a
+                    href={mailto}
+                    className="mt-4 flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-secondary ring-1 ring-secondary transition hover:bg-secondary"
+                >
+                    Ask my account manager to add this address
+                </a>
+
+                {error && (
+                    <p className="mt-3 text-center text-sm text-error-primary" role="alert">
+                        {error}
+                    </p>
+                )}
+            </div>
+        </SignInBackdrop>
+    );
+};
+
+/* ── Staff: say so, on every screen ─────────────────────────────────────── */
+
+/**
+ * A staff view announces itself, persistently, above everything.
+ *
+ * A HiddenGem employee reading a client's request history on a call, on a
+ * screen-share, or with the client beside them needs the page to say whose it
+ * is and what they are looking at, or the first time anyone finds out is when
+ * it is already on the wrong screen. It also says what they cannot do, so the
+ * absence of the composer and the withdraw control reads as a rule rather
+ * than a bug.
+ *
+ * On a dashboard with nobody listed it says the one thing that matters: no
+ * client can use this until somebody is, and where that is done. 48 of 54
+ * dashboards were in that state when this was written.
+ */
+const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
+    <div className="mb-6 rounded-xl bg-secondary px-4 py-3 text-sm ring-1 ring-secondary" role="status">
+        <p className="font-semibold text-primary">
+            You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem staff.
+        </p>
+        <p className="mt-1 text-pretty text-tertiary">
+            You can read everything here. Raising or withdrawing a request has to come from the client.
+        </p>
+        {viewer.accessListEmpty && (
+            <p className="mt-2 text-pretty text-secondary">
+                Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this help centre.
+                Add them in the dashboard's Access panel.
+            </p>
+        )}
+    </div>
+);
+
 /* ── The shell chrome ────────────────────────────────────────────────────── */
 
 const HelpShell = ({ slug, clientName, email, children }: { slug: string; clientName: string; email: string; children: React.ReactNode }) => (
@@ -331,17 +457,36 @@ const ReferenceList = () => (
     </section>
 );
 
-const HelpHome = ({ tickets, counts, topics, slug, onPickTopic }: { tickets: Ticket[]; counts: TicketCounts; topics: TicketTopic[]; slug: string; onPickTopic: (t: TicketTopic) => void }) => (
+const HelpHome = ({
+    tickets,
+    counts,
+    topics,
+    slug,
+    onPickTopic,
+    readOnly,
+}: {
+    tickets: Ticket[];
+    counts: TicketCounts;
+    topics: TicketTopic[];
+    slug: string;
+    onPickTopic: (t: TicketTopic) => void;
+    /** Staff. The composer is not shown, because the server would refuse it. */
+    readOnly: boolean;
+}) => (
     <div className="flex flex-col gap-10">
         <header>
             <h1 className="text-display-xs font-semibold text-primary sm:text-display-sm">Help centre</h1>
             <p className="mt-3 max-w-[38ch] text-xl font-semibold text-pretty text-primary sm:max-w-none">Every request has an owner and a date.</p>
             <p className="mt-2 max-w-[62ch] text-md text-pretty text-tertiary">
-                Raise what you need here and you can see exactly where it is, without chasing anyone.
+                {readOnly
+                    ? "What this client has asked for, and where each request is."
+                    : "Raise what you need here and you can see exactly where it is, without chasing anyone."}
             </p>
         </header>
 
-        <TopicChooser topics={topics} onPick={onPickTopic} />
+        {/* Not hidden with CSS and not disabled: absent. A control the server
+            will refuse is a control that should not be on the page. */}
+        {!readOnly && <TopicChooser topics={topics} onPick={onPickTopic} />}
         <CurrentPosition tickets={tickets} counts={counts} slug={slug} />
         <ReferenceList />
     </div>
@@ -654,6 +799,10 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const [serverCounts, setServerCounts] = useState<TicketCounts | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    /** A 403 with a reason. Terminal: it owns the page until the session changes. */
+    const [refusal, setRefusal] = useState<{ reason: RefusalReason; message: string } | null>(null);
+    /** Who the server said is looking. Null until the first successful read. */
+    const [viewer, setViewer] = useState<Viewer | null>(null);
     const [filter, setFilter] = useState<RequestFilter>("all");
     const [composing, setComposing] = useState<TicketTopic | null>(null);
     const [created, setCreated] = useState("");
@@ -699,6 +848,8 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         setTickets([]);
         setTopics([]);
         setServerCounts(null);
+        setRefusal(null);
+        setViewer(null);
         setGateNotice("Your session expired. Sign in again to see your requests.");
     }, [slug]);
 
@@ -710,12 +861,23 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 // Fetched together: the list is what every screen in this section counts from,
                 // and the topics are what the chooser is built from. One round trip, one state.
                 const [list, topicRes] = await Promise.all([fetchTickets(p), fetchTopics(p)]);
+                setRefusal(null);
+                setViewer(list.viewer ?? topicRes.viewer ?? null);
                 setTickets(list.tickets ?? []);
                 setServerCounts(list.counts ?? null);
                 setTopics(topicRes.topics ?? []);
             } catch (e) {
                 if (e instanceof HelpApiError && e.unauthorised) {
                     handleAuthLoss();
+                } else if (e instanceof HelpApiError && e.status === 403 && e.reason) {
+                    // Terminal. Not an error banner over a working page: the
+                    // page IS the refusal, and nothing under it may claim to
+                    // know anything about this client's requests.
+                    setTickets([]);
+                    setTopics([]);
+                    setServerCounts(null);
+                    setViewer(null);
+                    setRefusal({ reason: e.reason, message: e.message });
                 } else {
                     setError(e instanceof HelpApiError ? e.message : "We could not load your requests just then.");
                 }
@@ -761,6 +923,15 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     }
 
     const clientName = clientRow?.clientName ?? "";
+
+    // Before the shell, before the counts, before body(): a refused caller sees
+    // one panel and nothing that could be read as a fact about their requests.
+    if (refusal?.reason === "not_listed") {
+        return <RefusedPanel email={proof.email} clientName={clientName} slug={slug} backgroundUrl={clientRow?.backgroundUrl || undefined} />;
+    }
+
+    const isStaff = viewer?.via === "staff";
+
     // Counted from the rows on screen rather than trusting the server's totals, so a
     // withdrawal cannot leave "7 requests. 2 open." disagreeing with the list under it while
     // a refetch is in flight. The server's own counts are kept for the first paint.
@@ -792,7 +963,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
             );
         }
 
-        if (composing) {
+        if (composing && !isStaff) {
             return (
                 <Composer
                     topic={composing}
@@ -808,13 +979,16 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
             );
         }
 
-        return <HelpHome tickets={tickets} counts={counts} topics={topics} slug={slug} onPickTopic={setComposing} />;
+        return <HelpHome tickets={tickets} counts={counts} topics={topics} slug={slug} onPickTopic={setComposing} readOnly={isStaff} />;
     };
 
     return (
         <HelpShell slug={slug} clientName={clientName} email={proof.email}>
+            {isStaff && viewer && <StaffBanner viewer={viewer} slug={slug} />}
             {error && (
                 <div className="mb-6">
+                    {/* Retry is offered for the errors that CAN change on a retry: the
+                        network, and our own 5xx. A refusal never reaches here. */}
                     <ErrorNote message={error} onRetry={() => void load(proof)} />
                 </div>
             )}

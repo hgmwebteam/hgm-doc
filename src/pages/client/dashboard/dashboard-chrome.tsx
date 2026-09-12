@@ -250,9 +250,19 @@ export const DashboardAccessPanel = ({
                                     Copy
                                 </Button>
                             </div>
+                            {/* NOT AN ERROR. This used to read "No password - this person can't get
+                                in", in red, and it was wrong about half of what the list now does.
+                                A listed address with no password opens the HELP CENTRE, by Google
+                                sign-in, without arming the dashboard's own password gate - which
+                                is exactly the state that lets a client raise requests while their
+                                dashboard stays open by URL for everyone else. 48 of 54 dashboards
+                                have nobody listed, and this sentence was talking account managers
+                                out of the one zero-cost way to change that. Said plainly instead. */}
                             {!usable && (
-                                <p className="mt-1.5 text-xs text-error-primary">
-                                    No password — this person can&apos;t get in. Give them one, or set a shared password below.
+                                <p className="mt-1.5 text-xs text-tertiary">
+                                    No password: they can raise and follow requests in the help centre by signing in with Google, but
+                                    cannot open a password-protected dashboard. Give them one only if the dashboard itself should be
+                                    locked.
                                 </p>
                             )}
 

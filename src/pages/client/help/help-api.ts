@@ -75,17 +75,46 @@ export const currentCaller = async (slug: string): Promise<CallerProof | null> =
 
 /* ── Calling a function ──────────────────────────────────────────────────── */
 
+/**
+ * Why a 403 happened, from the server, so the screen can pick a next action.
+ *
+ *   not_listed       the session is fine and this address is not on this
+ *                    dashboard's list. The server says exactly this for an
+ *                    unlisted address, an empty list AND a dashboard that does
+ *                    not exist, on purpose: telling them apart would let anyone
+ *                    with a session learn which slugs exist. The screen's words
+ *                    are written to be true in all three cases.
+ *   staff_read_only  a HiddenGem employee tried to raise or withdraw. They may
+ *                    read; the action has to come from the client.
+ */
+export type RefusalReason = "not_listed" | "staff_read_only";
+
 export class HelpApiError extends Error {
     readonly status: number;
-    /** True when the proof was rejected, so the caller knows to re-show the gate. */
+    /** True when the session was rejected, so the caller knows to re-show the gate. */
     readonly unauthorised: boolean;
+    /** Set on a 403 the server explained by code. Undefined on every other error. */
+    readonly reason?: RefusalReason;
 
-    constructor(status: number, message: string) {
+    constructor(status: number, message: string, reason?: RefusalReason) {
         super(message);
         this.name = "HelpApiError";
         this.status = status;
         this.unauthorised = status === 401;
+        this.reason = reason;
     }
+}
+
+/**
+ * Who the server decided is looking, and how they got in. Comes back on every
+ * successful read so the screen can announce a staff view, and on an empty
+ * dashboard say that no client can use it yet.
+ */
+export interface Viewer {
+    via: "allowlist" | "staff";
+    email: string;
+    clientName: string;
+    accessListEmpty: boolean;
 }
 
 const FUNCTIONS_BASE = "/.netlify/functions";
@@ -93,10 +122,9 @@ const FUNCTIONS_BASE = "/.netlify/functions";
 /**
  * POSTs JSON to one portal function and returns its parsed body.
  *
- * Messages for 403 and 422 are passed through from the server verbatim: those are written
- * for the client to read (the "this dashboard has no access list yet" copy in
- * reporting.mts is the motivating case) and a generic replacement here would throw away
- * the only sentence that tells them what to do. Everything else gets one plain line,
+ * Messages for 403 and 422 are passed through from the server verbatim, and a 403 also
+ * carries a reason code the screen keys its next action on (a sentence alone cannot tell
+ * "not on the list" from "may read, may not act"). Everything else gets one plain line,
  * because a raw 500 body is noise to a client and can carry internals.
  */
 const callFunction = async <T>(name: string, body: Record<string, unknown>): Promise<T> => {
@@ -124,12 +152,13 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
         throw new HelpApiError(0, "We could not reach HiddenGem just then. Check your connection and try again.");
     }
 
-    const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+    const payload = (await res.json().catch(() => null)) as { error?: string; reason?: string } | null;
 
     if (!res.ok) {
         const fromServer = typeof payload?.error === "string" ? payload.error.trim() : "";
+        const reason = payload?.reason === "not_listed" || payload?.reason === "staff_read_only" ? payload.reason : undefined;
         if (res.status === 401) throw new HelpApiError(401, "Your session has expired. Sign in again to use the help centre.");
-        if ((res.status === 403 || res.status === 422 || res.status === 400) && fromServer) throw new HelpApiError(res.status, fromServer);
+        if ((res.status === 403 || res.status === 422 || res.status === 400) && fromServer) throw new HelpApiError(res.status, fromServer, reason);
         if (res.status === 413) throw new HelpApiError(413, "Those files are too large to send together. Remove one and try again.");
         throw new HelpApiError(res.status, "Something went wrong at our end. Nothing was lost - try again in a moment.");
     }
@@ -140,14 +169,33 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
 /* ── The five endpoints ──────────────────────────────────────────────────── */
 
 /** The topics a client may raise a request against. */
-export const fetchTopics = (proof: CallerProof): Promise<{ topics: TicketTopic[] }> => callFunction("ticket-topics", { slug: proof.slug });
+export const fetchTopics = (proof: CallerProof): Promise<{ viewer: Viewer; topics: TicketTopic[] }> => callFunction("ticket-topics", { slug: proof.slug });
 
 /** Every request this client has raised, newest first, withdrawn ones included. */
-export const fetchTickets = (proof: CallerProof): Promise<{ tickets: Ticket[]; counts: TicketCounts }> => callFunction("ticket-list", { slug: proof.slug });
+export const fetchTickets = (proof: CallerProof): Promise<{ viewer: Viewer; tickets: Ticket[]; counts: TicketCounts }> =>
+    callFunction("ticket-list", { slug: proof.slug });
 
 /** One request and its full history. */
-export const fetchTicket = (proof: CallerProof, reference: string): Promise<{ ticket: Ticket; events: TicketEvent[] }> =>
+export const fetchTicket = (proof: CallerProof, reference: string): Promise<{ viewer: Viewer; ticket: Ticket; events: TicketEvent[] }> =>
     callFunction("ticket-detail", { slug: proof.slug, reference });
+
+/**
+ * Sign out, then start Google again with the account chooser forced.
+ *
+ * This is the one thing a refused client can do for themselves: they signed in
+ * with the wrong Google account, and the right one is a click away. Without an
+ * exit there was no way to reach it - the help centre had no sign-out at all,
+ * and a session from another surface of the portal skipped the sign-in panel
+ * entirely. prompt=select_account is what makes Google show the list rather
+ * than silently reusing the account it just used.
+ */
+export const useDifferentAccount = async (): Promise<void> => {
+    await supabase.auth.signOut();
+    await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.href, queryParams: { prompt: "select_account" } },
+    });
+};
 
 /** Closes a request and marks it withdrawn. The row is never deleted. */
 export const withdrawTicket = (proof: CallerProof, reference: string): Promise<{ ticket: Ticket }> =>

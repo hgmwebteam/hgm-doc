@@ -315,6 +315,13 @@ const WithdrawBlock = ({ ticket, proof, onWithdrawn }: { ticket: Ticket; proof: 
     const [error, setError] = useState("");
 
     if (!canWithdraw(ticket)) return null;
+    // ONLY THE PERSON WHO RAISED IT. That is the server's rule (a colleague on
+    // the same dashboard gets 403, staff get 403), and a control the server
+    // will refuse should not be on the page: it was being shown to everyone
+    // who could open the request, and the first anyone learned of the rule
+    // was the refusal after the confirm step. submitted_by is on the detail
+    // read for exactly this comparison.
+    if ((ticket.submitted_by ?? "").trim().toLowerCase() !== proof.email.trim().toLowerCase()) return null;
 
     const submit = async () => {
         setBusy(true);

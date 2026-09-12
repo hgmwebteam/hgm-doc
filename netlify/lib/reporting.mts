@@ -242,6 +242,8 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
 export const viewerOf = (gate: Extract<GateResult, { ok: true }>) => ({
     via: gate.via,
     email: gate.caller.email,
+    /** The name on the allowlist row, or the mailbox name. Shown in the top bar. */
+    name: gate.caller.name,
     clientName: gate.caller.clientName,
     accessListEmpty: gate.accessListEmpty,
 });

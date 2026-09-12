@@ -36,10 +36,9 @@
  */
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { ArrowNarrowLeft, ArrowRight, CheckCircle, Globe01, HelpCircle, Image01, MessageChatCircle, Plus, XClose } from "@untitledui-pro/icons/line";
+import { ArrowNarrowLeft, CheckCircle, Image01, XClose } from "@untitledui-pro/icons/line";
 import { Link, useParams } from "react-router";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
-import { Button } from "@/components/base/buttons/button";
 import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
 import {
     type CallerProof,
@@ -69,12 +68,24 @@ import {
     type TicketTopic,
     completedThisMonth,
     countsFor,
-    inProgressCount,
+    formatStampShort,
     todayIsoDay,
     topicTurnaroundLabel,
 } from "@/pages/client/help/help-model";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
-import { ErrorNote, Eyebrow, HelpRequestsScreen, HelpSpinner, MonoRef, Panel } from "@/pages/client/help/help-requests-screen";
+import {
+    ErrorNote,
+    Eyebrow,
+    FOCUS,
+    HelpRequestsScreen,
+    HelpSpinner,
+    MonoRef,
+    Panel,
+    PrimaryButton,
+    SecondaryButton,
+    T,
+    TextLink,
+} from "@/pages/client/help/help-requests-screen";
 import { cx } from "@/utils/cx";
 
 /* ── Shared field styling ────────────────────────────────────────────────── */
@@ -92,17 +103,27 @@ import { cx } from "@/utils/cx";
  * prevent. Its 14px label is text-tertiary, measured at 7.80:1, so it is a size choice and
  * not a legibility one.
  */
+/**
+ * A field, per the Figma's Field/Select and Field/Textarea components: 48 tall, body/input
+ * (16px, so iOS does not zoom), bg/primary, a hairline in border/primary (the 4.74:1 one,
+ * because a control standing alone on the page needs it - build notes), radius/lg, and the
+ * focus ring in border/brand. An invalid field swaps the hairline for border/error.
+ */
 const fieldClass = (invalid?: boolean) =>
     cx(
-        "w-full rounded-lg bg-primary px-3 py-2.5 text-md text-primary ring-1 outline-none placeholder:text-tertiary focus:ring-2 focus:ring-brand",
-        invalid ? "ring-error_subtle" : "ring-secondary",
+        "w-full rounded-lg bg-primary px-3.5 py-3 text-primary ring-1 outline-none placeholder:text-tertiary focus:ring-2 focus:ring-brand motion-reduce:transition-none",
+        T.body,
+        invalid ? "ring-error" : "ring-primary",
     );
 
+/** The label row: label/field on the left, "Required" or "Optional" in caption/meta on the right. */
 const FieldLabel = ({ htmlFor, children, optional }: { htmlFor: string; children: React.ReactNode; optional?: boolean }) => (
-    <label htmlFor={htmlFor} className="flex items-baseline gap-2 text-sm font-semibold text-secondary">
-        {children}
-        {optional && <span className="text-xs font-normal text-tertiary">Optional</span>}
-    </label>
+    <div className="flex items-baseline justify-between gap-2">
+        <label htmlFor={htmlFor} className={cx(T.label, "text-secondary")}>
+            {children}
+        </label>
+        <span className={cx(T.caption, "text-tertiary")}>{optional ? "Optional" : "Required"}</span>
+    </div>
 );
 
 /* ── The gate ────────────────────────────────────────────────────────────── */
@@ -305,17 +326,13 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
  * dashboards were in that state when this was written.
  */
 const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
-    <div className="mb-6 rounded-xl bg-secondary px-4 py-3 text-sm ring-1 ring-secondary" role="status">
-        <p className="font-semibold text-primary">
-            You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem staff.
-        </p>
-        <p className="mt-1 text-pretty text-tertiary">
-            You can read everything here. Raising or withdrawing a request has to come from the client.
-        </p>
+    <div className="mb-6 rounded-xl bg-brand-primary px-4 py-3 ring-1 ring-brand sm:mb-10 sm:px-5 sm:py-4" role="status">
+        <p className={cx(T.label, "text-primary")}>You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem staff.</p>
+        <p className={cx(T.helper, "mt-1 text-pretty text-secondary")}>You can read everything here. Raising or withdrawing a request has to come from the client.</p>
         {viewer.accessListEmpty && (
-            <p className="mt-2 text-pretty text-secondary">
-                Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this help centre.
-                Add them in the dashboard's Access panel.
+            <p className={cx(T.helper, "mt-2 text-pretty text-secondary")}>
+                Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this help centre. Add them in the
+                dashboard's Access panel.
             </p>
         )}
     </div>
@@ -323,154 +340,222 @@ const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
 
 /* ── The shell chrome ────────────────────────────────────────────────────── */
 
-const HelpShell = ({ slug, clientName, email, children }: { slug: string; clientName: string; email: string; children: React.ReactNode }) => (
-    <div className="min-h-dvh bg-secondary">
-        <header className="sticky top-0 z-20 border-b border-secondary bg-primary/95 backdrop-blur-sm">
-            <div className="mx-auto flex w-full max-w-[880px] items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
-                <Link
-                    to={`/${slug}`}
-                    className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-brand-secondary transition duration-100 ease-linear outline-brand hover:bg-primary_hover focus-visible:outline-2 focus-visible:outline-offset-2"
-                >
-                    <ArrowNarrowLeft className="size-4" aria-hidden="true" />
-                    Dashboard
+/**
+ * The Figma's TopBar component, as the page header.
+ *
+ * 64 tall, bg/page with a hairline below in border/secondary, 24 of padding. Left: the gem
+ * mark in brand gold, "HiddenGem Media" in label/field, a "/" in text/tertiary, and the app
+ * name in the brand colour. Right: "{client} · {person}" in body/helper (hidden on a phone,
+ * as the mobile frame has it) and a 32px avatar with the initial on a brand tint. On a
+ * phone the brand reads "HiddenGem".
+ *
+ * The mark is a link back to the dashboard, because the old chrome's one job was that
+ * link and it should not be lost; the avatar is named "Account, {person}" (build notes).
+ */
+const GemMark = () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7 4h10l4 5-9 11L3 9l4-5Z" stroke="#f5c518" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M3 9h18M12 20 8 9l2-5M12 20l4-11-2-5" stroke="#f5c518" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+);
+
+const TopBar = ({ slug, clientName, email, name }: { slug: string; clientName: string; email: string; name?: string }) => {
+    const person = (name ?? "").trim() || email.split("@")[0];
+    const initial = (person[0] ?? "?").toUpperCase();
+    return (
+        <header className="border-b border-secondary bg-primary">
+            <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
+                <Link to={`/${slug}`} className={cx("inline-flex h-11 items-center gap-2.5 rounded", FOCUS)} aria-label="Back to the dashboard">
+                    <GemMark />
+                    <span className={cx(T.label, "text-primary")}>
+                        <span className="sm:hidden">HiddenGem</span>
+                        <span className="hidden sm:inline">HiddenGem Media</span>
+                    </span>
+                    <span className={cx(T.label, "text-tertiary")} aria-hidden="true">
+                        /
+                    </span>
+                    <span className={cx(T.label, "text-fg-brand-primary")}>Help Center</span>
                 </Link>
-                <div className="min-w-0 text-right">
-                    {clientName && <p className="truncate text-sm font-semibold text-primary">{clientName}</p>}
-                    <p className="truncate text-xs text-tertiary">{email}</p>
+                <div className="flex items-center gap-2.5">
+                    <span className={cx(T.helper, "hidden text-secondary sm:inline")}>
+                        {clientName ? `${clientName}  ·  ` : ""}
+                        {person}
+                    </span>
+                    <span
+                        role="img"
+                        aria-label={`Account, ${email}`}
+                        className={cx("flex size-8 items-center justify-center rounded-full bg-brand-primary ring-1 ring-brand", T.caption, "text-primary")}
+                    >
+                        {initial}
+                    </span>
                 </div>
             </div>
         </header>
-        {/* py-8 on a phone against py-12 on a desktop: the compressed rhythm keeps the topic
-            chooser in the first screenful at 390px, which is the whole point of the page. */}
-        <main className="mx-auto w-full max-w-[880px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">{children}</main>
+    );
+};
+
+/**
+ * The page. A 1040 column (the Figma's 1440 minus 200 gutters), body top 56 and a 40
+ * rhythm on desktop; 16 gutters, top 24 and a 24 rhythm on a phone. header / main / footer
+ * landmarks with a skip link first in the tab order, per the build notes.
+ */
+const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; clientName: string; email: string; name?: string; children: React.ReactNode }) => (
+    <div className="min-h-dvh bg-primary">
+        <a
+            href="#help-main"
+            className={cx(
+                "sr-only rounded-lg bg-brand-solid px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50",
+                T.label,
+                FOCUS,
+            )}
+        >
+            Skip to content
+        </a>
+        <TopBar slug={slug} clientName={clientName} email={email} name={name} />
+        <main id="help-main" tabIndex={-1} className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 outline-none sm:px-6 sm:pt-14 sm:pb-16 lg:px-0">
+            {children}
+        </main>
+        <footer className="mx-auto w-full max-w-[1040px] px-4 pb-8 sm:px-6 lg:px-0">
+            <p className={cx(T.helper, "text-tertiary")}>HiddenGem Media</p>
+        </footer>
     </div>
 );
 
 /* ── 01 HELP HOME ────────────────────────────────────────────────────────── */
 
-/** One icon per seeded topic, with a generic fall-back so an unseeded topic still renders. */
-const topicIcon = (key: string) => (key === "website" ? Globe01 : key === "other" ? MessageChatCircle : HelpCircle);
-
-const TopicChooser = ({ topics, onPick }: { topics: TicketTopic[]; onPick: (t: TicketTopic) => void }) => (
-    <section>
-        <h2 className="text-md font-semibold text-primary">Raise a request</h2>
-        <ul className="mt-4 flex flex-col gap-3">
-            {topics.map((topic) => {
-                const Icon = topicIcon(topic.key);
-                // Rendered only when the topic row actually carries a turnaround. Today both
-                // seeded topics have turnaround_days NULL, so nothing appears here at all -
-                // and the day one is set, the line appears with no change to this file.
-                const turnaround = topicTurnaroundLabel(topic);
-                return (
-                    <li key={topic.key}>
-                        <button
-                            type="button"
-                            onClick={() => onPick(topic)}
-                            className="flex w-full items-center gap-4 rounded-xl bg-primary p-4 text-left ring-1 ring-secondary transition duration-100 ease-linear outline-brand hover:bg-primary_hover hover:ring-brand focus-visible:outline-2 focus-visible:outline-offset-2 sm:p-5"
-                        >
-                            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-utility-brand-50 text-utility-brand-700">
-                                <Icon className="size-5" aria-hidden="true" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                                <span className="block text-md font-semibold text-primary">{topic.label}</span>
-                                {topic.description && <span className="mt-0.5 block text-sm text-pretty text-tertiary">{topic.description}</span>}
-                                {turnaround && <span className="mt-1 block text-xs font-semibold text-brand-secondary">Turnaround: {turnaround}</span>}
-                            </span>
-                            <ArrowRight className="size-5 shrink-0 text-tertiary" aria-hidden="true" />
-                        </button>
-                    </li>
-                );
-            })}
-        </ul>
-    </section>
+/**
+ * "What do you need?" - the topic tiles, from the Figma's Card/Raise a request.
+ *
+ * Each tile: bg/secondary, a hairline in border/secondary, radius/lg, 14 by 16 padding, an
+ * 8px brand dot (decorative, aria-hidden - the build notes), the label in label/field and
+ * the description in body/helper. Two to a row on desktop, stacked on a phone. Each topic
+ * is a control, not a heading. The topics themselves come from the database: today that is
+ * Website and Other, and the tiles follow whatever is seeded.
+ */
+const TopicTiles = ({ topics, onPick }: { topics: TicketTopic[]; onPick: (t: TicketTopic) => void }) => (
+    <ul className="grid gap-2 sm:grid-cols-2">
+        {topics.map((topic) => {
+            // Rendered only when the topic row actually carries a turnaround. Today both
+            // seeded topics have turnaround_days NULL, so nothing appears here at all.
+            const turnaround = topicTurnaroundLabel(topic);
+            return (
+                <li key={topic.key}>
+                    <button
+                        type="button"
+                        onClick={() => onPick(topic)}
+                        className={cx(
+                            "flex h-full min-h-14 w-full items-center gap-3 rounded-[10px] bg-secondary px-4 py-3.5 text-left ring-1 ring-secondary transition duration-100 ease-linear hover:bg-tertiary hover:ring-brand motion-reduce:transition-none",
+                            FOCUS,
+                        )}
+                    >
+                        <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-brand-solid" />
+                        <span className="min-w-0 flex-1">
+                            <span className={cx("block text-primary", T.label)}>{topic.label}</span>
+                            {topic.description && <span className={cx("mt-0.5 block text-pretty text-tertiary", T.helper)}>{topic.description}</span>}
+                            {turnaround && <span className={cx("mt-1 block text-fg-brand-primary", T.helper)}>Turnaround: {turnaround}</span>}
+                        </span>
+                    </button>
+                </li>
+            );
+        })}
+    </ul>
 );
 
-const Stat = ({ label, value }: { label: string; value: number }) => (
-    <div>
-        <p className="text-display-xs font-semibold text-primary tabular-nums">{value}</p>
-        <p className="mt-0.5 text-sm text-tertiary">{label}</p>
-    </div>
+/**
+ * One stat row inside "Where things stand": a 32px count badge on a tint, the label in
+ * label/field, the second line in body/helper. Warning tint for what is in progress,
+ * success tint for what finished this month. Nothing on the second line is invented: it
+ * says the next promised date only when one exists, and otherwise says that plainly.
+ */
+const StatRow = ({ count, label, detail, tone }: { count: number; label: string; detail: string; tone: "warning" | "success" }) => (
+    <li className="flex items-center gap-3 rounded-[10px] bg-secondary p-3">
+        <span
+            aria-hidden="true"
+            className={cx(
+                "flex size-8 shrink-0 items-center justify-center rounded-lg tabular-nums",
+                T.label,
+                tone === "warning" ? "bg-yellow-50 text-yellow-800" : "bg-green-50 text-green-800",
+            )}
+        >
+            {count}
+        </span>
+        <span className="min-w-0 flex-1">
+            <span className={cx("block text-primary", T.label)}>
+                <span className="sr-only">{count} </span>
+                {label}
+            </span>
+            <span className={cx("mt-0.5 block text-pretty text-tertiary", T.helper)}>{detail}</span>
+        </span>
+    </li>
 );
 
-const CurrentPosition = ({
+/** The next promised date across open requests, or null when none carries one. */
+const nextPromised = (tickets: Ticket[]): string | null => {
+    const dates = tickets
+        .filter((t) => (t.status === "received" || t.status === "assigned" || t.status === "in_progress") && t.promised_date)
+        .map((t) => t.promised_date as string)
+        .sort();
+    return dates[0] ? formatStampShort(dates[0]) : null;
+};
+
+/**
+ * "Where things stand" - the Figma's Card/Open right now, 344 wide on desktop and the
+ * first thing after the heading on a phone (where the primary button comes first of all).
+ *
+ * Its two counts are what is open and what finished this month. The primary action sits
+ * under them with the trust line "You will see the date before you send it." - which is
+ * only true once topics carry a turnaround, so until then the line says what IS true: that
+ * a person will own it. Then the link to everything.
+ */
+const WhereThingsStand = ({
     tickets,
     counts,
     slug,
     clientName,
     readOnly,
+    onRaise,
 }: {
     tickets: Ticket[];
     counts: TicketCounts;
     slug: string;
-    /** Named so a staff reader is told whose empty list this is. */
     clientName?: string;
-    readOnly?: boolean;
-}) => (
-    <section>
-        <h2 className="text-md font-semibold text-primary">Current position</h2>
-        <Panel className="mt-4 p-5 sm:p-6">
+    readOnly: boolean;
+    onRaise: () => void;
+}) => {
+    const open = tickets.filter((t) => t.status === "received" || t.status === "assigned" || t.status === "in_progress").length;
+    const done = completedThisMonth(tickets);
+    const next = nextPromised(tickets);
+    const whose = readOnly ? clientName || "This client" : "You";
+    return (
+        <Panel className="flex flex-col gap-4 p-4 sm:p-6">
+            <h2 className={cx(T.section, "text-primary")}>Where things stand</h2>
             {counts.total === 0 ? (
-                <p className="text-sm text-pretty text-tertiary">
-                    {readOnly
-                        ? `${clientName || "This client"} has not raised anything yet. When they do, it appears here with the name of the person who owns it.`
-                        : "You have not raised anything yet. When you do, it appears here with the name of the person who owns it."}
+                <p className={cx(T.helper, "text-pretty text-tertiary")}>
+                    {whose} {readOnly ? "has" : "have"} not raised anything yet. When {readOnly ? "they" : "you"} do, it appears here with the name of the person who
+                    owns it.
                 </p>
             ) : (
-                <>
-                    <div className="grid grid-cols-2 gap-4">
-                        <Stat label="In progress" value={inProgressCount(tickets)} />
-                        <Stat label="Completed this month" value={completedThisMonth(tickets)} />
-                    </div>
-                    <Link
-                        to={`/${slug}/help/requests`}
-                        className="mt-5 inline-flex min-h-11 items-center gap-1.5 rounded-lg text-sm font-semibold text-brand-secondary transition duration-100 ease-linear outline-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-                    >
-                        See all {counts.total} {counts.total === 1 ? "request" : "requests"}
-                        <ArrowRight className="size-4" aria-hidden="true" />
-                    </Link>
-                </>
+                <ul className="flex flex-col gap-3">
+                    <StatRow count={open} label={open === 1 ? "Open request" : "Open requests"} detail={next ? `Next due ${next}` : "No completion dates set yet"} tone="warning" />
+                    <StatRow count={done} label="Completed this month" detail={done === 0 ? "Nothing closed yet this month" : "Finished and on your record"} tone="success" />
+                </ul>
+            )}
+            {!readOnly && (
+                <div className="hidden flex-col gap-2 sm:flex">
+                    <PrimaryButton onClick={onRaise} className="w-full">
+                        Raise a request
+                    </PrimaryButton>
+                    <p className={cx(T.helper, "text-pretty text-tertiary")}>One named person will own it, and you can follow it here.</p>
+                </div>
+            )}
+            {counts.total > 0 && (
+                <TextLink to={`/${slug}/help/requests`} className="min-h-0">
+                    Or see everything {readOnly ? "they have" : "you have"} asked for
+                </TextLink>
             )}
         </Panel>
-    </section>
-);
-
-/**
- * The reference list.
- *
- * The four lifecycle steps come from LIFECYCLE, which is keyed by the ticket_status enum, so
- * this cannot drift from the statuses a request can actually be in.
- *
- * The note underneath is the honest half of the headline above. "Every request has an owner
- * and a date" is what we hold ourselves to internally - rule 1 is that a task is never
- * opened in Asana without both - but no completion date is published to clients yet, and a
- * page that implied one would be doing exactly what this feature exists to stop. So the page
- * says plainly that dates are not shown yet, rather than hedging with "soon".
- */
-const ReferenceList = () => (
-    <section>
-        <h2 className="text-md font-semibold text-primary">For reference</h2>
-        <Panel className="mt-4 divide-y divide-secondary">
-            {LIFECYCLE.map((step, i) => (
-                <div key={step.status} className="flex gap-4 p-4 sm:p-5">
-                    <span
-                        aria-hidden="true"
-                        className="flex size-6 shrink-0 items-center justify-center rounded-full bg-utility-neutral-50 font-mono text-xs font-semibold text-utility-neutral-700 tabular-nums"
-                    >
-                        {i + 1}
-                    </span>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-primary">{step.label}</p>
-                        <p className="mt-0.5 text-sm text-pretty text-tertiary">{step.detail}</p>
-                    </div>
-                </div>
-            ))}
-        </Panel>
-        <p className="mt-3 max-w-[68ch] text-sm text-pretty text-tertiary">
-            About completion dates: we are not publishing them yet, so you will see who owns your request but no date beside it. We would rather show you
-            nothing than a date we guessed. When we start setting them, the date will appear on every request here on its own.
-        </p>
-    </section>
-);
+    );
+};
 
 const HelpHome = ({
     tickets,
@@ -489,24 +574,99 @@ const HelpHome = ({
     /** Staff. The composer is not shown, because the server would refuse it. */
     readOnly: boolean;
     clientName?: string;
-}) => (
-    <div className="flex flex-col gap-10">
-        <header>
-            <h1 className="text-display-xs font-semibold text-primary sm:text-display-sm">Help centre</h1>
-            <p className="mt-3 max-w-[38ch] text-xl font-semibold text-pretty text-primary sm:max-w-none">Every request has an owner and a date.</p>
-            <p className="mt-2 max-w-[62ch] text-md text-pretty text-tertiary">
-                {readOnly
-                    ? "What this client has asked for, and where each request is."
-                    : "Raise what you need here and you can see exactly where it is, without chasing anyone."}
-            </p>
-        </header>
+}) => {
+    // "Raise a request" on the side card scrolls to and opens the first topic when there
+    // is only one, and otherwise brings the tiles into view: the tiles ARE the form's first
+    // step, so the button must not bypass them.
+    const tilesRef = useRef<HTMLDivElement>(null);
+    const raise = () => {
+        if (topics.length === 1) {
+            onPickTopic(topics[0]);
+            return;
+        }
+        tilesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        tilesRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    };
 
-        {/* Not hidden with CSS and not disabled: absent. A control the server
-            will refuse is a control that should not be on the page. */}
-        {!readOnly && <TopicChooser topics={topics} onPick={onPickTopic} />}
-        <CurrentPosition tickets={tickets} counts={counts} slug={slug} clientName={clientName} readOnly={readOnly} />
-        <ReferenceList />
-    </div>
+    return (
+        <div className="flex flex-col gap-6 sm:gap-10">
+            {/* Heading: eyebrow, the hero title, a lede at most 680 wide. */}
+            <header className="flex flex-col gap-2">
+                <Eyebrow>Help Center</Eyebrow>
+                <h1 className={cx("text-primary", T.title, "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>
+                    {readOnly ? `${clientName || "This client"}'s requests` : "Ask for anything, and leave with a date."}
+                </h1>
+                <p className={cx("max-w-[680px] text-pretty text-secondary", T.body, "sm:text-[13px] sm:leading-[18px]")}>
+                    {readOnly
+                        ? "What this client has asked for, who owns each request, and where it is."
+                        : "Every request is given an owner within a minute of you sending it, and you can watch it move without asking anyone."}
+                </p>
+            </header>
+
+            {/* Two columns on desktop: the topics card fills, the side card is 344 wide. On a
+                phone the side card comes first, because its button is the primary action
+                and the mobile frame puts it first. */}
+            {!readOnly && (
+                <PrimaryButton onClick={raise} className="w-full sm:hidden">
+                    Raise a request
+                </PrimaryButton>
+            )}
+
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+                <div className="order-2 min-w-0 flex-1 sm:order-1" ref={tilesRef}>
+                    {!readOnly && (
+                        <Panel className="flex flex-col gap-4 p-4 sm:p-6">
+                            <div className="flex flex-col gap-1">
+                                <h2 className={cx(T.section, "text-primary")}>What do you need?</h2>
+                                <p className={cx(T.helper, "text-pretty text-tertiary")}>Pick what it is about. Each one goes straight to the team that does it.</p>
+                            </div>
+                            <TopicTiles topics={topics} onPick={onPickTopic} />
+                        </Panel>
+                    )}
+                    {readOnly && <ReferenceList />}
+                </div>
+                <div className="order-1 w-full sm:order-2 sm:w-[344px] sm:shrink-0">
+                    <WhereThingsStand tickets={tickets} counts={counts} slug={slug} clientName={clientName} readOnly={readOnly} onRaise={raise} />
+                </div>
+            </div>
+
+            {!readOnly && <ReferenceList />}
+        </div>
+    );
+};
+
+/**
+ * The reference list, restyled to the Figma's timeline rows: a 24px numbered dot in
+ * bg/tertiary with a hairline, label/field, body/helper. The note underneath is the honest
+ * half of the page: no completion date is published to clients yet, and a page that
+ * implied one would be doing exactly what this feature exists to stop.
+ */
+const ReferenceList = () => (
+    <section className="flex flex-col gap-4">
+        <h2 className={cx(T.section, "text-primary")}>How a request moves</h2>
+        <Panel className="p-4 sm:p-6">
+            <ol className="flex flex-col gap-4">
+                {LIFECYCLE.map((step, i) => (
+                    <li key={step.status} className="flex gap-3">
+                        <span
+                            aria-hidden="true"
+                            className={cx("flex size-6 shrink-0 items-center justify-center rounded-full bg-tertiary text-tertiary ring-1 ring-secondary tabular-nums", T.caption)}
+                        >
+                            {i + 1}
+                        </span>
+                        <div className="min-w-0">
+                            <p className={cx(T.label, "text-primary")}>{step.label}</p>
+                            <p className={cx(T.helper, "mt-0.5 text-pretty text-tertiary")}>{step.detail}</p>
+                        </div>
+                    </li>
+                ))}
+            </ol>
+        </Panel>
+        <p className={cx(T.helper, "max-w-[68ch] text-pretty text-tertiary")}>
+            About completion dates: we are not publishing them yet, so you will see who owns your request but no date beside it. We would rather show you
+            nothing than a date we guessed. When we start setting them, the date will appear on every request here on its own.
+        </p>
+    </section>
 );
 
 /* ── The composer ────────────────────────────────────────────────────────── */
@@ -590,164 +750,188 @@ const Composer = ({
     };
 
     return (
-        <div className="flex flex-col gap-6">
+        // The Figma's form column: 560 wide, centred, 24 between blocks; on a phone it is
+        // the full width with 16 gutters. The heading has an eyebrow (the topic), the title
+        // in display/title and a lede in body/input.
+        <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
             <button
                 type="button"
                 onClick={onCancel}
-                className="-ml-2 inline-flex min-h-11 w-max items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-brand-secondary transition duration-100 ease-linear outline-brand hover:bg-primary_hover focus-visible:outline-2 focus-visible:outline-offset-2"
+                className={cx("-ml-1 inline-flex min-h-11 w-max items-center gap-1.5 rounded px-1 text-fg-brand-primary hover:underline", T.body, "sm:text-[13px] sm:leading-[18px]", FOCUS)}
             >
                 <ArrowNarrowLeft className="size-4" aria-hidden="true" />
-                Back to help centre
+                Back to the help centre
             </button>
 
-            <header>
+            <header className="flex flex-col gap-2">
                 <Eyebrow>{topic.label}</Eyebrow>
-                <h1 className="mt-1.5 text-display-xs font-semibold text-primary sm:text-display-sm">Tell us what you need</h1>
-                <p className="mt-2 max-w-[62ch] text-md text-pretty text-tertiary">
+                <h1 className={cx(T.title, "text-primary")}>Tell us what you need</h1>
+                <p className={cx(T.body, "text-pretty text-secondary")}>
                     Raised for {clientName || "your account"} by {proof.email}. One named person will pick this up.
                 </p>
             </header>
 
             <form onSubmit={submit} noValidate className="flex flex-col gap-6">
-                <Panel className="flex flex-col gap-5 p-4 sm:p-6">
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel htmlFor="hc-title">What do you need?</FieldLabel>
-                        <input
-                            id="hc-title"
-                            ref={titleRef}
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value.slice(0, MAX_TITLE))}
-                            placeholder="Change the hero photo on the home page"
-                            aria-invalid={!!titleError}
-                            aria-describedby={titleError ? "hc-title-error" : undefined}
-                            className={fieldClass(!!titleError)}
-                        />
-                        {titleError && (
-                            <p id="hc-title-error" className="text-sm text-error-primary" role="alert">
-                                {titleError}
-                            </p>
-                        )}
-                    </div>
+                <div className="flex flex-col gap-2">
+                    <FieldLabel htmlFor="hc-title">What do you need?</FieldLabel>
+                    <input
+                        id="hc-title"
+                        ref={titleRef}
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value.slice(0, MAX_TITLE))}
+                        placeholder="Change the hero photo on the home page"
+                        aria-invalid={!!titleError}
+                        aria-describedby={titleError ? "hc-title-error" : "hc-title-hint"}
+                        className={fieldClass(!!titleError)}
+                    />
+                    {titleError ? (
+                        <p id="hc-title-error" className={cx(T.helper, "text-red-700")} role="alert">
+                            {titleError}
+                        </p>
+                    ) : (
+                        <p id="hc-title-hint" className={cx(T.helper, "text-tertiary")}>
+                            One line that says what is wrong or what you want. It becomes the title the team sees.
+                        </p>
+                    )}
+                </div>
 
-                    <div className="flex flex-col gap-1.5">
-                        <FieldLabel htmlFor="hc-detail">The detail</FieldLabel>
-                        <textarea
-                            id="hc-detail"
-                            value={detail}
-                            onChange={(e) => setDetail(e.target.value.slice(0, MAX_DETAIL))}
-                            rows={6}
-                            placeholder="Anything that helps us get it right first time: which page, which photo, what it should say."
-                            aria-invalid={!!detailError}
-                            aria-describedby={detailError ? "hc-detail-error" : "hc-detail-hint"}
-                            className={cx(fieldClass(!!detailError), "resize-y")}
-                        />
-                        {detailError ? (
-                            <p id="hc-detail-error" className="text-sm text-error-primary" role="alert">
-                                {detailError}
-                            </p>
-                        ) : (
-                            <p id="hc-detail-hint" className="text-xs text-tertiary">
-                                Your words go to the person doing the work exactly as you write them.
-                            </p>
-                        )}
-                    </div>
+                <div className="flex flex-col gap-2">
+                    <FieldLabel htmlFor="hc-detail">The detail</FieldLabel>
+                    <textarea
+                        id="hc-detail"
+                        value={detail}
+                        onChange={(e) => setDetail(e.target.value.slice(0, MAX_DETAIL))}
+                        rows={6}
+                        placeholder="Anything that helps us get it right first time: which page, which photo, what it should say."
+                        aria-invalid={!!detailError}
+                        aria-describedby={detailError ? "hc-detail-error" : "hc-detail-hint"}
+                        className={cx(fieldClass(!!detailError), "resize-y")}
+                    />
+                    {detailError ? (
+                        <p id="hc-detail-error" className={cx(T.helper, "text-red-700")} role="alert">
+                            {detailError}
+                        </p>
+                    ) : (
+                        <p id="hc-detail-hint" className={cx(T.helper, "text-tertiary")}>
+                            Your words go to the person doing the work exactly as you write them.
+                        </p>
+                    )}
+                </div>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <div className="flex flex-col gap-1.5">
-                            <FieldLabel htmlFor="hc-property" optional>
-                                Which property?
-                            </FieldLabel>
-                            <input
-                                id="hc-property"
-                                value={property}
-                                onChange={(e) => setProperty(e.target.value.slice(0, MAX_PROPERTY))}
-                                placeholder="Leave blank if it covers all of them"
-                                className={fieldClass()}
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <FieldLabel htmlFor="hc-needed" optional>
-                                Needed by
-                            </FieldLabel>
-                            <input
-                                id="hc-needed"
-                                type="date"
-                                value={neededBy}
-                                min={todayIsoDay()}
-                                onChange={(e) => setNeededBy(e.target.value)}
-                                aria-describedby="hc-needed-hint"
-                                className={fieldClass()}
-                            />
-                            {/* Said out loud, because the difference between what a client asks
-                                for and what we commit to is the whole subject of this page. */}
-                            <p id="hc-needed-hint" className="text-xs text-tertiary">
-                                A date you need it by. We will tell you what we can commit to.
-                            </p>
-                        </div>
-                    </div>
-
+                <div className="grid gap-6 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                        <FieldLabel htmlFor="hc-images" optional>
-                            Screenshots or photos
+                        <FieldLabel htmlFor="hc-property" optional>
+                            Which property?
                         </FieldLabel>
                         <input
-                            id="hc-images"
-                            ref={fileRef}
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={(e) => void onPickFiles(e.target.files)}
-                            className="block w-full text-sm text-tertiary file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-secondary file:px-3.5 file:text-sm file:font-semibold file:text-secondary hover:file:bg-primary_hover"
+                            id="hc-property"
+                            value={property}
+                            onChange={(e) => setProperty(e.target.value.slice(0, MAX_PROPERTY))}
+                            placeholder="Leave blank if it covers all of them"
+                            className={fieldClass()}
                         />
-                        <p className="text-xs text-tertiary">
-                            Up to {MAX_IMAGES} images. They are shrunk in your browser before they are sent, so a phone photo is fine.
-                        </p>
-
-                        {preparing && <p className="text-xs text-tertiary">Preparing images...</p>}
-
-                        {images.length > 0 && (
-                            <ul className="flex flex-wrap gap-2">
-                                {images.map((img, i) => (
-                                    <li
-                                        key={`${img.name}-${i}`}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-secondary py-1 pr-1 pl-2.5 text-xs text-secondary"
-                                    >
-                                        <Image01 className="size-3.5 shrink-0 text-tertiary" aria-hidden="true" />
-                                        <span className="max-w-[18ch] truncate">{img.name}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
-                                            aria-label={`Remove ${img.name}`}
-                                            className="flex size-6 items-center justify-center rounded-md text-tertiary transition duration-100 ease-linear outline-brand hover:bg-primary_hover hover:text-primary focus-visible:outline-2"
-                                        >
-                                            <XClose className="size-3.5" aria-hidden="true" />
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-
-                        {imageNotes.length > 0 && (
-                            <ul className="flex flex-col gap-1" role="status">
-                                {imageNotes.map((note) => (
-                                    <li key={note} className="text-xs text-error-primary">
-                                        {note}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
                     </div>
-                </Panel>
+                    <div className="flex flex-col gap-2">
+                        <FieldLabel htmlFor="hc-needed" optional>
+                            Needed by
+                        </FieldLabel>
+                        <input
+                            id="hc-needed"
+                            type="date"
+                            value={neededBy}
+                            min={todayIsoDay()}
+                            onChange={(e) => setNeededBy(e.target.value)}
+                            aria-describedby="hc-needed-hint"
+                            className={fieldClass()}
+                        />
+                        {/* Said out loud, because the difference between what a client asks
+                            for and what we commit to is the whole subject of this page. */}
+                        <p id="hc-needed-hint" className={cx(T.helper, "text-tertiary")}>
+                            A date you need it by. We will tell you what we can commit to.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Screenshots, per the Figma's Field/Upload: a dashed drop zone in bg/secondary
+                    with the file input as the whole target, and thumbnails as chips beneath. */}
+                <div className="flex flex-col gap-2">
+                    <FieldLabel htmlFor="hc-images" optional>
+                        Screenshots or photos
+                    </FieldLabel>
+                    <label
+                        htmlFor="hc-images"
+                        className={cx(
+                            "flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-primary bg-secondary px-4 py-5 text-center transition duration-100 ease-linear hover:bg-tertiary motion-reduce:transition-none",
+                        )}
+                    >
+                        <span className={cx(T.label, "text-primary")}>{images.length ? "Add another screenshot" : "Add screenshots"}</span>
+                        <span className={cx(T.helper, "text-tertiary")}>
+                            Up to {MAX_IMAGES} images. They are shrunk in your browser before they are sent, so a phone photo is fine.
+                        </span>
+                    </label>
+                    <input
+                        id="hc-images"
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => void onPickFiles(e.target.files)}
+                        className="sr-only"
+                    />
+
+                    {preparing && (
+                        <p className={cx(T.helper, "text-tertiary")} role="status">
+                            Preparing images...
+                        </p>
+                    )}
+
+                    {images.length > 0 && (
+                        <ul className="flex flex-wrap gap-2">
+                            {images.map((img, i) => (
+                                <li key={`${img.name}-${i}`} className={cx("inline-flex items-center gap-1.5 rounded-lg bg-secondary py-1 pr-1 pl-2.5 text-secondary ring-1 ring-secondary", T.helper)}>
+                                    <Image01 className="size-3.5 shrink-0 text-tertiary" aria-hidden="true" />
+                                    <span className="max-w-[18ch] truncate">{img.name}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+                                        aria-label={`Remove ${img.name}`}
+                                        className={cx("flex size-6 items-center justify-center rounded-md text-tertiary transition duration-100 ease-linear hover:bg-primary_hover hover:text-primary motion-reduce:transition-none", FOCUS)}
+                                    >
+                                        <XClose className="size-3.5" aria-hidden="true" />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    {imageNotes.length > 0 && (
+                        <ul className="flex flex-col gap-1" role="status">
+                            {imageNotes.map((note) => (
+                                <li key={note} className={cx(T.helper, "text-red-700")}>
+                                    {note}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
 
                 {error && <ErrorNote message={error} />}
 
-                <div className="flex flex-wrap items-center gap-3">
-                    <Button size="lg" type="submit" isDisabled={!canSubmit} isLoading={busy}>
-                        Send request
-                    </Button>
-                    <Button size="lg" color="secondary" type="button" isDisabled={busy} onClick={onCancel}>
-                        Cancel
-                    </Button>
+                {/* Actions right-aligned, the quieter one first, the trust line under them
+                    right-aligned too - the Figma's "Actions" block. On a phone the primary
+                    goes full width. */}
+                <div className="flex flex-col gap-3">
+                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                        <SecondaryButton onClick={onCancel} disabled={busy} className="w-full sm:w-auto">
+                            Cancel
+                        </SecondaryButton>
+                        <PrimaryButton type="submit" disabled={!canSubmit} className="w-full sm:w-auto sm:min-w-44">
+                            {busy ? "Sending..." : "Send request"}
+                        </PrimaryButton>
+                    </div>
+                    <p className={cx(T.helper, "text-pretty text-tertiary sm:text-right")}>
+                        You will get a reference here straight away, and a named person picks it up from there.
+                    </p>
                 </div>
             </form>
         </div>
@@ -765,25 +949,23 @@ const CreatedNote = ({ reference, slug, onRaiseAnother }: { reference: string; s
     }, []);
 
     return (
-        <div className="flex flex-col gap-6">
+        <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
             <Panel className="p-6 text-center sm:p-8">
-                <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-utility-green-50 text-utility-green-700">
+                <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-green-50 text-green-800">
                     <CheckCircle className="size-6" aria-hidden="true" />
                 </span>
-                <h1 ref={headingRef} tabIndex={-1} className="mt-4 text-display-xs font-semibold text-primary outline-none">
+                <h1 ref={headingRef} tabIndex={-1} className={cx(T.title, "mt-4 text-primary outline-none")}>
                     Request received
                 </h1>
-                <p className="mx-auto mt-2 max-w-[46ch] text-sm text-pretty text-tertiary">
-                    Your reference is <MonoRef className="text-sm text-primary">{reference}</MonoRef>. We are assigning an owner now, and you can follow it
-                    here at any time.
+                <p className={cx(T.body, "mx-auto mt-2 max-w-[46ch] text-pretty text-secondary")}>
+                    Your reference is <MonoRef className="text-[16px] leading-6 text-primary">{reference}</MonoRef>. We are assigning an owner now, and you can
+                    follow it here at any time.
                 </p>
-                <div className="mt-6 flex flex-wrap justify-center gap-3">
-                    <Button size="md" href={`/${slug}/help/requests/${reference}`}>
+                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                    <PrimaryButton as="link" to={`/${slug}/help/requests/${reference}`}>
                         Follow this request
-                    </Button>
-                    <Button size="md" color="secondary" iconLeading={Plus} onClick={onRaiseAnother}>
-                        Raise another
-                    </Button>
+                    </PrimaryButton>
+                    <SecondaryButton onClick={onRaiseAnother}>Raise another</SecondaryButton>
                 </div>
             </Panel>
         </div>
@@ -964,7 +1146,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         }
 
         if (view === "list") {
-            return <HelpRequestsScreen tickets={tickets} counts={counts} topics={topics} slug={slug} filter={filter} onFilterChange={setFilter} />;
+            return <HelpRequestsScreen tickets={tickets} counts={counts} topics={topics} slug={slug} filter={filter} onFilterChange={setFilter} readOnly={isStaff} />;
         }
 
         if (created) {
@@ -1010,7 +1192,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     };
 
     return (
-        <HelpShell slug={slug} clientName={clientName} email={proof.email}>
+        <HelpShell slug={slug} clientName={viewer?.clientName || clientName} email={proof.email} name={viewer?.name}>
             {isStaff && viewer && <StaffBanner viewer={viewer} slug={slug} />}
             {error && (
                 <div className="mb-6">

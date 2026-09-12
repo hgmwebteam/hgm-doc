@@ -113,6 +113,8 @@ export class HelpApiError extends Error {
 export interface Viewer {
     via: "allowlist" | "staff";
     email: string;
+    /** The name the account manager listed them under, or the mailbox name. */
+    name: string;
     clientName: string;
     accessListEmpty: boolean;
 }

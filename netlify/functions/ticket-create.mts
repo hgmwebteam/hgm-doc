@@ -10,7 +10,7 @@ import {
     portalDb,
     readJson,
     reportingDb,
-    accessTokenFrom, verifyCaller, staffReadOnly,
+    accessTokenFrom, verifyCaller,
 } from "../lib/reporting.mts";
 
 /**
@@ -86,7 +86,7 @@ const DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
  *  derived_subject, routed_at and route_error are all internal routing state. derived_subject
  *  in particular is OUR summary of their words, not theirs. */
 const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, image_count, drive_folder_url, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
+    "id, reference, topic, title, status, created_at, detail, property, needed_by, priority, image_count, drive_folder_url, client_slug, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
 
 /* ── cleaning what a person typed ────────────────────────────────────────── */
 
@@ -305,7 +305,16 @@ interface CreateBody {
     property?: unknown;
     needed_by?: unknown;
     images?: unknown;
+    /** Team only. A client has no priority control, and one is never inferred for them. */
+    priority?: unknown;
 }
+
+const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
+type Priority = (typeof PRIORITIES)[number];
+const cleanPriority = (v: unknown): Priority | null => {
+    const s = String(v ?? "").trim().toLowerCase();
+    return (PRIORITIES as readonly string[]).includes(s) ? (s as Priority) : null;
+};
 
 export default async (req: Request) => {
     // One clock for the whole request. Netlify kills a synchronous function at
@@ -322,14 +331,17 @@ export default async (req: Request) => {
     try {
         const gate = await verifyCaller(String(parsed.body.slug ?? ""), accessTokenFrom(req, parsed.body));
         if (!gate.ok) return jsonError(gate.status, gate.error, gate.reason);
-        // STAFF MAY NOT RAISE A REQUEST ON A CLIENT'S BEHALF. A ticket is the
-        // client's own record of what they asked for; one raised by us would
-        // sit in their history under a hiddengem.media address, they could not
-        // withdraw it (only the person who raised it may), and the brain would
-        // DM the account manager about a request the account manager wrote.
-        // Refused by name, not by falling through a later check.
-        if (gate.via === "staff") return staffReadOnly("raising a request");
+        // THE TEAM RAISES REQUESTS TOO. The first cut refused via: "staff" here on
+        // the argument that a ticket is the client's own record; the owner's call
+        // is that the team submits as well, from a client's help centre or from
+        // the team's own form. So a staff-raised ticket is recorded under the
+        // staff address in submitted_by, the client's screens say it was raised
+        // for them by HiddenGem, and the person who raised it may withdraw it -
+        // the same rule as for a client. Priority is the one thing only staff may
+        // set: a client marking everything urgent is what a triage field exists
+        // to prevent, so a client's value is dropped rather than refused.
         const caller = gate.caller;
+        const priority = gate.via === "staff" ? cleanPriority(body.priority) : null;
 
         /* ── what they typed ─────────────────────────────────────────────── */
 
@@ -430,6 +442,7 @@ export default async (req: Request) => {
                 detail,
                 property: property || null,
                 needed_by: neededBy,
+                priority,
                 image_count: 0,
                 // Intake observations, NOT a routing failure. route_error belongs to the
                 // brain, and its sweep finds new arrivals with route_error IS NULL, so a

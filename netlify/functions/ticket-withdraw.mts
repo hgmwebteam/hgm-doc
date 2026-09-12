@@ -1,4 +1,4 @@
-import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, staffReadOnly } from "../lib/reporting.mts";
+import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller } from "../lib/reporting.mts";
 
 /**
  * A client withdraws their own request.
@@ -47,13 +47,12 @@ export default async (req: Request) => {
     try {
         const gate = await verifyCaller(String(parsed.body.slug ?? ""), accessTokenFrom(req, parsed.body));
         if (!gate.ok) return jsonError(gate.status, gate.error, gate.reason);
-        // THE STRONGEST NO OF THE FIVE. Even a colleague on the same dashboard
-        // cannot withdraw somebody else's request; staff certainly cannot.
-        // Refused here, before the ownership test further down, because that
-        // test compares against submitted_by and would otherwise be the thing
-        // deciding - and "whatever submitted_by happens to say" is an accident,
-        // not a decision.
-        if (gate.via === "staff") return staffReadOnly("withdrawing it");
+        // ONE RULE FOR EVERYONE: the person who raised it may withdraw it. A
+        // colleague on the same dashboard may not, and a staff member may not
+        // withdraw a client's - but a staff member who raised a ticket for a
+        // client is its raiser and may. The ownership test below decides that
+        // by design now, not by accident: submitted_by is who raised it,
+        // whoever they were.
 
         if (parsed.body.confirm !== true) return jsonError(400, "Withdrawing a request has to be confirmed.");
 

@@ -62,6 +62,8 @@ import {
 } from "@/pages/client/help/help-api";
 import {
     LIFECYCLE,
+    PRIORITIES,
+    type Priority,
     type RequestFilter,
     type Ticket,
     type TicketCounts,
@@ -124,6 +126,56 @@ const FieldLabel = ({ htmlFor, children, optional }: { htmlFor: string; children
         </label>
         <span className={cx(T.caption, "text-tertiary")}>{optional ? "Optional" : "Required"}</span>
     </div>
+);
+
+/**
+ * The Figma's Priority/Chip and Priority/Legend, together.
+ *
+ * Single-select chips, 40 tall (44 on a phone), radius full, an 8px colour dot and the
+ * label; the selected one takes its tint and a 1.5 ring in its colour, the rest bg/field
+ * with border/primary. Under them the legend: one line per level "so people pick by
+ * consequence, not by mood". A radiogroup, because that is what it is.
+ */
+export const PriorityField = ({ value, onChange, required }: { value: Priority | null; onChange: (p: Priority | null) => void; required?: boolean }) => (
+    <fieldset className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-2">
+            <legend className={cx(T.label, "text-secondary")}>Priority</legend>
+            <span className={cx(T.caption, "text-tertiary")}>{required ? "Required" : "Optional"}</span>
+        </div>
+        <div role="radiogroup" aria-label="Priority" className="flex flex-wrap gap-2">
+            {PRIORITIES.map((p) => {
+                const on = value === p.key;
+                return (
+                    <button
+                        key={p.key}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => onChange(on && !required ? null : p.key)}
+                        className={cx(
+                            "inline-flex h-11 items-center gap-2 rounded-full px-4 ring-1 transition duration-100 ease-linear motion-reduce:transition-none sm:h-10",
+                            T.label,
+                            FOCUS,
+                            on ? cx(p.chip, "text-primary ring-[1.5px]") : "bg-primary text-secondary ring-primary hover:bg-primary_hover",
+                        )}
+                    >
+                        <span aria-hidden="true" className={cx("size-2 rounded-full", p.dot)} />
+                        {p.label}
+                    </button>
+                );
+            })}
+        </div>
+        <ul className="flex flex-col gap-1.5">
+            {PRIORITIES.map((p) => (
+                <li key={p.key} className={cx("flex items-start gap-2 text-tertiary", T.helper)}>
+                    <span aria-hidden="true" className={cx("mt-[5px] size-2 shrink-0 rounded-full", p.dot)} />
+                    <span>
+                        <span className="text-secondary">{p.label}:</span> {p.meaning}
+                    </span>
+                </li>
+            ))}
+        </ul>
+    </fieldset>
 );
 
 /* ── The gate ────────────────────────────────────────────────────────────── */
@@ -328,7 +380,9 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
 const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
     <div className="mb-6 rounded-xl bg-brand-primary px-4 py-3 ring-1 ring-brand sm:mb-10 sm:px-5 sm:py-4" role="status">
         <p className={cx(T.label, "text-primary")}>You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem staff.</p>
-        <p className={cx(T.helper, "mt-1 text-pretty text-secondary")}>You can read everything here. Raising or withdrawing a request has to come from the client.</p>
+        <p className={cx(T.helper, "mt-1 text-pretty text-secondary")}>
+            A request you raise here is recorded as raised by you, for the client, and they will see it in their list. You can withdraw the ones you raised.
+        </p>
         {viewer.accessListEmpty && (
             <p className={cx(T.helper, "mt-2 text-pretty text-secondary")}>
                 Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this help centre. Add them in the
@@ -512,26 +566,26 @@ const WhereThingsStand = ({
     counts,
     slug,
     clientName,
-    readOnly,
+    viewingAsStaff,
     onRaise,
 }: {
     tickets: Ticket[];
     counts: TicketCounts;
     slug: string;
     clientName?: string;
-    readOnly: boolean;
+    viewingAsStaff: boolean;
     onRaise: () => void;
 }) => {
     const open = tickets.filter((t) => t.status === "received" || t.status === "assigned" || t.status === "in_progress").length;
     const done = completedThisMonth(tickets);
     const next = nextPromised(tickets);
-    const whose = readOnly ? clientName || "This client" : "You";
+    const whose = viewingAsStaff ? clientName || "This client" : "You";
     return (
         <Panel className="flex flex-col gap-4 p-4 sm:p-6">
             <h2 className={cx(T.section, "text-primary")}>Where things stand</h2>
             {counts.total === 0 ? (
                 <p className={cx(T.helper, "text-pretty text-tertiary")}>
-                    {whose} {readOnly ? "has" : "have"} not raised anything yet. When {readOnly ? "they" : "you"} do, it appears here with the name of the person who
+                    {whose} {viewingAsStaff ? "has" : "have"} not raised anything yet. When {viewingAsStaff ? "they" : "you"} do, it appears here with the name of the person who
                     owns it.
                 </p>
             ) : (
@@ -540,17 +594,15 @@ const WhereThingsStand = ({
                     <StatRow count={done} label="Completed this month" detail={done === 0 ? "Nothing closed yet this month" : "Finished and on your record"} tone="success" />
                 </ul>
             )}
-            {!readOnly && (
-                <div className="hidden flex-col gap-2 sm:flex">
-                    <PrimaryButton onClick={onRaise} className="w-full">
-                        Raise a request
-                    </PrimaryButton>
-                    <p className={cx(T.helper, "text-pretty text-tertiary")}>One named person will own it, and you can follow it here.</p>
-                </div>
-            )}
+            <div className="hidden flex-col gap-2 sm:flex">
+                <PrimaryButton onClick={onRaise} className="w-full">
+                    Raise a request
+                </PrimaryButton>
+                <p className={cx(T.helper, "text-pretty text-tertiary")}>One named person will own it, and you can follow it here.</p>
+            </div>
             {counts.total > 0 && (
                 <TextLink to={`/${slug}/help/requests`} className="min-h-0">
-                    Or see everything {readOnly ? "they have" : "you have"} asked for
+                    Or see everything {viewingAsStaff ? "they have" : "you have"} asked for
                 </TextLink>
             )}
         </Panel>
@@ -563,7 +615,7 @@ const HelpHome = ({
     topics,
     slug,
     onPickTopic,
-    readOnly,
+    viewingAsStaff,
     clientName,
 }: {
     tickets: Ticket[];
@@ -571,8 +623,8 @@ const HelpHome = ({
     topics: TicketTopic[];
     slug: string;
     onPickTopic: (t: TicketTopic) => void;
-    /** Staff. The composer is not shown, because the server would refuse it. */
-    readOnly: boolean;
+    /** Staff. Only the pronouns change: "Flohom has not raised anything yet", not "You have". */
+    viewingAsStaff: boolean;
     clientName?: string;
 }) => {
     // "Raise a request" on the side card scrolls to and opens the first topic when there
@@ -593,44 +645,35 @@ const HelpHome = ({
             {/* Heading: eyebrow, the hero title, a lede at most 680 wide. */}
             <header className="flex flex-col gap-2">
                 <Eyebrow>Help Center</Eyebrow>
-                <h1 className={cx("text-primary", T.title, "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>
-                    {readOnly ? `${clientName || "This client"}'s requests` : "Ask for anything, and leave with a date."}
-                </h1>
+                <h1 className={cx("text-primary", T.title, "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>Ask for anything, and leave with a date.</h1>
                 <p className={cx("max-w-[680px] text-pretty text-secondary", T.body, "sm:text-[13px] sm:leading-[18px]")}>
-                    {readOnly
-                        ? "What this client has asked for, who owns each request, and where it is."
-                        : "Every request is given an owner within a minute of you sending it, and you can watch it move without asking anyone."}
+                    Every request is given an owner within a minute of you sending it, and you can watch it move without asking anyone.
                 </p>
             </header>
 
             {/* Two columns on desktop: the topics card fills, the side card is 344 wide. On a
                 phone the side card comes first, because its button is the primary action
                 and the mobile frame puts it first. */}
-            {!readOnly && (
-                <PrimaryButton onClick={raise} className="w-full sm:hidden">
-                    Raise a request
-                </PrimaryButton>
-            )}
+            <PrimaryButton onClick={raise} className="w-full sm:hidden">
+                Raise a request
+            </PrimaryButton>
 
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
                 <div className="order-2 min-w-0 flex-1 sm:order-1" ref={tilesRef}>
-                    {!readOnly && (
-                        <Panel className="flex flex-col gap-4 p-4 sm:p-6">
-                            <div className="flex flex-col gap-1">
-                                <h2 className={cx(T.section, "text-primary")}>What do you need?</h2>
-                                <p className={cx(T.helper, "text-pretty text-tertiary")}>Pick what it is about. Each one goes straight to the team that does it.</p>
-                            </div>
-                            <TopicTiles topics={topics} onPick={onPickTopic} />
-                        </Panel>
-                    )}
-                    {readOnly && <ReferenceList />}
+                    <Panel className="flex flex-col gap-4 p-4 sm:p-6">
+                        <div className="flex flex-col gap-1">
+                            <h2 className={cx(T.section, "text-primary")}>What do you need?</h2>
+                            <p className={cx(T.helper, "text-pretty text-tertiary")}>Pick what it is about. Each one goes straight to the team that does it.</p>
+                        </div>
+                        <TopicTiles topics={topics} onPick={onPickTopic} />
+                    </Panel>
                 </div>
                 <div className="order-1 w-full sm:order-2 sm:w-[344px] sm:shrink-0">
-                    <WhereThingsStand tickets={tickets} counts={counts} slug={slug} clientName={clientName} readOnly={readOnly} onRaise={raise} />
+                    <WhereThingsStand tickets={tickets} counts={counts} slug={slug} clientName={clientName} viewingAsStaff={viewingAsStaff} onRaise={raise} />
                 </div>
             </div>
 
-            {!readOnly && <ReferenceList />}
+            <ReferenceList />
         </div>
     );
 };
@@ -683,17 +726,21 @@ const Composer = ({
     topic,
     proof,
     clientName,
+    isStaff,
     onCancel,
     onCreated,
 }: {
     topic: TicketTopic;
     proof: CallerProof;
     clientName: string;
+    /** The team sets a priority; a client never sees the control. */
+    isStaff: boolean;
     onCancel: () => void;
     onCreated: (reference: string) => void;
 }) => {
     const [title, setTitle] = useState("");
     const [detail, setDetail] = useState("");
+    const [priority, setPriority] = useState<Priority | null>(null);
     const [property, setProperty] = useState("");
     const [neededBy, setNeededBy] = useState("");
     const [images, setImages] = useState<TicketImage[]>([]);
@@ -741,6 +788,7 @@ const Composer = ({
                 property,
                 needed_by: neededBy || undefined,
                 images,
+                ...(isStaff && priority ? { priority } : {}),
             });
             onCreated(res.ticket.reference);
         } catch (err) {
@@ -767,7 +815,9 @@ const Composer = ({
                 <Eyebrow>{topic.label}</Eyebrow>
                 <h1 className={cx(T.title, "text-primary")}>Tell us what you need</h1>
                 <p className={cx(T.body, "text-pretty text-secondary")}>
-                    Raised for {clientName || "your account"} by {proof.email}. One named person will pick this up.
+                    {isStaff
+                        ? `Raised for ${clientName || "this client"} by you, ${proof.email}. They will see it in their list as raised by HiddenGem.`
+                        : `Raised for ${clientName || "your account"} by ${proof.email}. One named person will pick this up.`}
                 </p>
             </header>
 
@@ -817,6 +867,8 @@ const Composer = ({
                         </p>
                     )}
                 </div>
+
+                {isStaff && <PriorityField value={priority} onChange={setPriority} />}
 
                 <div className="grid gap-6 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
@@ -1146,7 +1198,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         }
 
         if (view === "list") {
-            return <HelpRequestsScreen tickets={tickets} counts={counts} topics={topics} slug={slug} filter={filter} onFilterChange={setFilter} readOnly={isStaff} />;
+            return <HelpRequestsScreen tickets={tickets} counts={counts} topics={topics} slug={slug} filter={filter} onFilterChange={setFilter} />;
         }
 
         if (created) {
@@ -1162,12 +1214,13 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
             );
         }
 
-        if (composing && !isStaff) {
+        if (composing) {
             return (
                 <Composer
                     topic={composing}
                     proof={proof}
-                    clientName={clientName}
+                    clientName={viewer?.clientName || clientName}
+                    isStaff={isStaff}
                     onCancel={() => setComposing(null)}
                     onCreated={(ref) => {
                         setCreated(ref);
@@ -1185,7 +1238,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 topics={topics}
                 slug={slug}
                 onPickTopic={setComposing}
-                readOnly={isStaff}
+                viewingAsStaff={isStaff}
                 clientName={viewer?.clientName || clientName}
             />
         );

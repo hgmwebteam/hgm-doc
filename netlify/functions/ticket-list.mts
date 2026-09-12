@@ -24,7 +24,7 @@ import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyC
  *  sending every client's full request bodies to render a list of titles is a page of
  *  payload nobody looks at. */
 const LIST_COLUMNS =
-    "id, reference, topic, title, status, created_at, property, needed_by, image_count, assignee_name, promised_date, completed_at, withdrawn_at";
+    "id, reference, topic, title, status, created_at, property, needed_by, priority, image_count, submitted_by, assignee_name, promised_date, completed_at, withdrawn_at";
 
 /** Matches OPEN_STATUSES in src/pages/client/help/help-model.ts. Two copies, because one is
  *  a Postgres filter and the other is a browser predicate; they must be changed together. */

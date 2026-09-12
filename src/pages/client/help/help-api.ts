@@ -28,7 +28,7 @@
  * anything.
  */
 import { supabase } from "@/lib/supabase";
-import type { Ticket, TicketCounts, TicketEvent, TicketTopic } from "@/pages/client/help/help-model";
+import type { Priority, Ticket, TicketCounts, TicketEvent, TicketTopic } from "@/pages/client/help/help-model";
 import { compressImageFile } from "@/utils/compress-image";
 
 /* ── Slugs ───────────────────────────────────────────────────────────────── */
@@ -84,10 +84,8 @@ export const currentCaller = async (slug: string): Promise<CallerProof | null> =
  *                    not exist, on purpose: telling them apart would let anyone
  *                    with a session learn which slugs exist. The screen's words
  *                    are written to be true in all three cases.
- *   staff_read_only  a HiddenGem employee tried to raise or withdraw. They may
- *                    read; the action has to come from the client.
  */
-export type RefusalReason = "not_listed" | "staff_read_only";
+export type RefusalReason = "not_listed";
 
 export class HelpApiError extends Error {
     readonly status: number;
@@ -158,7 +156,7 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
 
     if (!res.ok) {
         const fromServer = typeof payload?.error === "string" ? payload.error.trim() : "";
-        const reason = payload?.reason === "not_listed" || payload?.reason === "staff_read_only" ? payload.reason : undefined;
+        const reason = payload?.reason === "not_listed" ? payload.reason : undefined;
         if (res.status === 401) throw new HelpApiError(401, "Your session has expired. Sign in again to use the help centre.");
         if ((res.status === 403 || res.status === 422 || res.status === 400) && fromServer) throw new HelpApiError(res.status, fromServer, reason);
         if (res.status === 413) throw new HelpApiError(413, "Those files are too large to send together. Remove one and try again.");
@@ -210,6 +208,8 @@ export interface NewTicketInput {
     property?: string;
     needed_by?: string;
     images?: TicketImage[];
+    /** Team only; the server drops it from anyone else. */
+    priority?: Priority;
 }
 
 export const createTicket = (proof: CallerProof, input: NewTicketInput): Promise<{ ticket: Ticket }> =>
@@ -223,7 +223,35 @@ export const createTicket = (proof: CallerProof, input: NewTicketInput): Promise
         ...(input.property?.trim() ? { property: input.property.trim() } : {}),
         ...(input.needed_by ? { needed_by: input.needed_by } : {}),
         ...(input.images?.length ? { images: input.images } : {}),
+        ...(input.priority ? { priority: input.priority } : {}),
     });
+
+/* ── The team's own reads ────────────────────────────────────────────────── */
+
+/**
+ * Every client's requests, newest first, for the team. Staff only on the server
+ * (verifyStaff); a client session gets the same 403 as an unlisted address.
+ * Pass `before` from the previous page's next_before to keep going.
+ */
+export const fetchAllTickets = (opts: { before?: string | null; status?: string; client_slug?: string } = {}): Promise<{ viewer: Viewer; tickets: Ticket[]; total: number; next_before: string | null }> =>
+    callFunction("ticket-list-all", {
+        ...(opts.before ? { before: opts.before } : {}),
+        ...(opts.status ? { status: opts.status } : {}),
+        ...(opts.client_slug ? { client_slug: opts.client_slug } : {}),
+    });
+
+/** The clients a team member may raise a request for: every dashboard, by name. */
+export interface ClientOption {
+    slug: string;
+    name: string;
+}
+export const fetchClientOptions = async (): Promise<ClientOption[]> => {
+    const { data } = await supabase.from("dashboard_pages").select("slug, client_name, data").order("client_name", { ascending: true });
+    return ((data ?? []) as Array<{ slug: string; client_name: string | null; data: { client_name?: string } | null }>)
+        .filter((r) => /-dashboard$/.test(r.slug))
+        .map((r) => ({ slug: r.slug, name: (r.client_name ?? r.data?.client_name ?? "").trim() || r.slug.replace(/-dashboard$/, "") }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+};
 
 /* ── Attachments ─────────────────────────────────────────────────────────── */
 

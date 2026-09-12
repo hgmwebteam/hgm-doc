@@ -40,6 +40,7 @@ import { PromptLibraryScreen } from "@/pages/team/prompt-library-screen";
 import { QuestionsScreen } from "@/pages/team/questions-screen";
 import { ReadingYourClientsScreen } from "@/pages/team/reading-your-clients-screen";
 import { RequestsScreen } from "@/pages/team/requests-screen";
+import { TeamReportScreen, TeamTicketsScreen } from "@/pages/team/tickets-screen";
 import { RoadmapScreen } from "@/pages/team/roadmap-screen";
 import { SafeBrowsingScreen } from "@/pages/team/safe-browsing-screen";
 import { SettingsScreen } from "@/pages/team/settings-screen";
@@ -55,6 +56,8 @@ import "@/styles/globals.css";
 // shown globally — it's a team-only settings shortcut that lives in the dashboard
 // rail, and it must never appear on client-facing pages (owner guides, popups, etc.).
 const PAGES_WITHOUT_FLOATING_CHROME = [
+    "/team/tickets",
+    "/team/tickets/new",
     "/designsystem",
     "/home",
     "/home2",
@@ -206,6 +209,9 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/host-onboarding-form" element={<HostOnboardingFormPage />} />
                         <Route path="/client-onboarding-form" element={<ClientOnboardingFormPage />} />
                         <Route path="/requests" element={<RequestsScreen />} />
+                        {/* Client requests, for the team: every client's, and the form that raises one. */}
+                        <Route path="/team/tickets" element={<TeamTicketsScreen />} />
+                        <Route path="/team/tickets/new" element={<TeamReportScreen />} />
                         <Route path="/designsystem" element={<DesignSystemScreen />} />
                         <Route path="/home2" element={<HomeTwoScreen />} />
                         <Route path="/settings" element={<SettingsScreen />} />

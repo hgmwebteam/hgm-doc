@@ -37,6 +37,7 @@ import {
     formatStampShort,
     formatStampWithTime,
     initialOf,
+    isTeamAddress,
     promiseBlock,
     topicLabel,
 } from "@/pages/client/help/help-model";
@@ -488,7 +489,11 @@ export const HelpRequestDetail = ({
                             {"  "}
                             <span aria-hidden="true">&middot;</span>
                             {"  "}
-                            submitted {(ticket.submitted_by_name ?? "").trim() ? `by ${ticket.submitted_by_name!.trim()}, ` : ""}
+                            {/* A team member raising for a client is named as such: the client
+                                should never wonder who "Kyle" is or why he is in their history. */}
+                            {isTeamAddress(ticket.submitted_by)
+                                ? `raised for you by ${(ticket.submitted_by_name ?? "").trim() || "HiddenGem"} at HiddenGem, `
+                                : `submitted ${(ticket.submitted_by_name ?? "").trim() ? `by ${ticket.submitted_by_name!.trim()}, ` : ""}`}
                             {formatStampShort(ticket.created_at)}
                         </span>
                     </p>

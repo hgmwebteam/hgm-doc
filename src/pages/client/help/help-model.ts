@@ -49,6 +49,29 @@ export interface TicketTopic {
  * about what it holds, and the first `ticket.detail.length` would throw in production
  * rather than in the type-checker.
  */
+export type Priority = "low" | "medium" | "high" | "urgent";
+
+/**
+ * The Figma's Priority/Chip and Priority/Legend: four values from the platform's own
+ * triage enum, each with its tint and the one-line meaning shown under the chips "so
+ * people pick by consequence, not by mood - the cure for everything being marked urgent".
+ * Chip tints are the utility pairs the file binds them to: blue, success, warning, error.
+ */
+export const PRIORITIES: { key: Priority; label: string; meaning: string; dot: string; chip: string; pill: string }[] = [
+    { key: "low", label: "Low", meaning: "Cosmetic or nice-to-have. Nobody is blocked.", dot: "bg-fg-brand-primary", chip: "bg-brand-primary ring-brand", pill: "bg-brand-primary text-fg-brand-primary" },
+    { key: "medium", label: "Medium", meaning: "Something is wrong but there is a workaround. Fix this week.", dot: "bg-green-700", chip: "bg-green-50 ring-green-700", pill: "bg-green-50 text-green-800" },
+    { key: "high", label: "High", meaning: "A client-facing feature is broken or a client is asking. Fix today.", dot: "bg-yellow-700", chip: "bg-yellow-50 ring-yellow-700", pill: "bg-yellow-50 text-yellow-800" },
+    { key: "urgent", label: "Urgent", meaning: "Revenue is stopping: bookings, payments or the site are down. Drop everything.", dot: "bg-red-600", chip: "bg-red-50 ring-red-600", pill: "bg-red-50 text-red-700" },
+];
+export const priorityMeta = (key: Priority | null | undefined) => PRIORITIES.find((p) => p.key === key) ?? null;
+
+/** Whether an address is the team's. Mirrors the server's domain test for the one purpose of wording a byline. */
+export const isTeamAddress = (email: string | null | undefined): boolean => {
+    const e = (email ?? "").trim().toLowerCase();
+    const at = e.lastIndexOf("@");
+    return at > 0 && e.slice(at + 1) === "hiddengem.media";
+};
+
 export interface Ticket {
     id: string;
     reference: string;
@@ -65,6 +88,10 @@ export interface Ticket {
     client_name?: string | null;
     submitted_by?: string | null;
     submitted_by_name?: string | null;
+    /** Set by the team on their own form; null when a client raised it. */
+    priority?: Priority | null;
+    /** On the team's cross-client list. */
+    client_slug?: string | null;
     assignee_name?: string | null;
     assignee_email?: string | null;
     account_manager_email?: string | null;

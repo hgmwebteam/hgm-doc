@@ -106,10 +106,8 @@ export type Via = "allowlist" | "staff";
  *                    dashboard's list, OR the dashboard has no list, OR there
  *                    is no such dashboard. ONE reason for all three on purpose:
  *                    telling them apart is a slug-existence oracle.
- *   staff_read_only  staff may look and may not act. Only create and withdraw
- *                    return it.
  */
-export type RefusalReason = "not_listed" | "staff_read_only";
+export type RefusalReason = "not_listed";
 
 export type GateResult =
     | {
@@ -235,6 +233,32 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
 };
 
 /**
+ * Staff, with no client in the picture.
+ *
+ * The team's own surfaces - every client's requests in one list, the form that
+ * raises one for any client - have no dashboard to check an allowlist against.
+ * The three tests are exactly verifyCaller's (staff.mts), and a session that
+ * fails them gets the same refusal a client gets off an allowlist, so the
+ * team endpoints tell an outsider nothing the client endpoints do not. The
+ * caller's slug is "all": that is what the access log records the read under.
+ */
+export const verifyStaff = async (accessToken: string): Promise<GateResult> => {
+    if (!accessToken || accessToken.length < 20 || accessToken.length > 4096) {
+        return { ok: false, status: 401, error: "Sign in to use the help centre." };
+    }
+    const { data: authData, error: authError } = await portalDb().auth.getUser(accessToken);
+    const who = normEmail(authData?.user?.email ?? "");
+    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the help centre." };
+    if (!isStaffUser(authData?.user)) return { ok: false, status: 403, error: "Not authorised.", reason: "not_listed" };
+    return {
+        ok: true,
+        via: "staff",
+        accessListEmpty: false,
+        caller: { slug: "all", clientName: "", email: who, name: who.split("@")[0] },
+    };
+};
+
+/**
  * What the screen is told about who is looking. Enough to announce a staff
  * view and to say, on an empty dashboard, that no client can use it yet - and
  * nothing a client should not see about themselves.
@@ -247,17 +271,6 @@ export const viewerOf = (gate: Extract<GateResult, { ok: true }>) => ({
     clientName: gate.caller.clientName,
     accessListEmpty: gate.accessListEmpty,
 });
-
-/**
- * The refusal an endpoint sends when a caller may look but may not act.
- * Reason-coded so the screen can say the right thing rather than "not
- * authorised" to somebody who is, in fact, authorised to be there.
- */
-export const staffReadOnly = (what: string): Response =>
-    Response.json(
-        { error: `As HiddenGem staff you can read this client's requests, but ${what} has to come from the client themselves.`, reason: "staff_read_only" satisfies RefusalReason },
-        { status: 403 },
-    );
 
 /**
  * A read by somebody who is not the client, on the record.

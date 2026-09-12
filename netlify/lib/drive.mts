@@ -656,7 +656,10 @@ export const uploadTicketImages = async (opts: {
     if (rejectedNote) parts.push(rejectedNote.trim());
 
     return {
-        folderUrl: target.folderUrl,
+        // The folder is a link the client sees. A folder none of their files
+        // reached is a link to nothing, so it is only handed back when at least
+        // one file is in it (found in review, 12 Sep 2026).
+        folderUrl: files.length ? target.folderUrl : null,
         uploaded: files.length + heldBack,
         files: [...files, ...held],
         // Drive is the destination; anything sitting anywhere else is a job

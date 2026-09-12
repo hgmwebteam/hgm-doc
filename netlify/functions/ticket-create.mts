@@ -274,6 +274,80 @@ const asNote = (notes: string[]): string | null => {
  *  Supabase Storage, which is quick, and the note says so. */
 const IMAGE_BUDGET_MS = 16_000;
 
+/**
+ * Store a request's images, list each one on the ticket, and record the count.
+ *
+ * Shared by the ordinary path and the duplicate-window path below, because a
+ * retry that carries the images the first attempt lost has to store them the
+ * same way. Never throws: uploadTicketImages says honestly where the images
+ * ended up, and every write after it only ADDS to the row. `priorNotes` is
+ * whatever intake_notes already carries, so this joins rather than replaces.
+ *
+ * Mutates `row` to match what is now stored, so the answer the client gets
+ * is the row as it is, not as it was inserted.
+ */
+const storeImagesFor = async (
+    db: ReturnType<typeof reportingDb>,
+    row: Record<string, unknown> & { id: string; reference: string },
+    clientName: string,
+    images: TicketImage[],
+    priorNotes: string[],
+    deadline: number,
+): Promise<void> => {
+    try {
+        const stored = await uploadTicketImages({ clientName, reference: row.reference, images, deadline });
+        // ONE ROW PER FILE, BEFORE THE COUNT. The brain reads these rows when
+        // it creates the Asana task and puts each file on it (attachments.ts
+        // over there); a count alone left the task saying "1 image" over
+        // nothing. Written before the ticket's own patch so that by the time
+        // image_count says N, N rows exist. A row that fails to insert is a
+        // file the task will not carry: the brain builds its attachments line
+        // from the rows, not the count, so the task says so too.
+        let recorded = 0;
+        if (stored.files.length) {
+            const { error: attErr } = await db.from("ticket_attachments").insert(
+                stored.files.map((f) => ({
+                    ticket_id: row.id,
+                    store: f.store,
+                    bucket: f.store === "portal" ? f.bucket : null,
+                    path: f.store === "portal" ? f.path : null,
+                    drive_file_id: f.store === "drive" ? f.driveFileId : null,
+                    drive_url: f.store === "drive" ? f.driveUrl : null,
+                    file_name: f.fileName,
+                    mime: f.mime,
+                    bytes: f.bytes,
+                })),
+            );
+            if (attErr) console.error("[ticket-create] could not record the attachments", attErr.message, row.reference);
+            else recorded = stored.files.length;
+        }
+        const unrecorded = stored.files.length - recorded;
+
+        const patch: Record<string, unknown> = { image_count: stored.uploaded, updated_at: new Date().toISOString() };
+        if (stored.folderUrl) patch.drive_folder_url = stored.folderUrl;
+        // A human step is owed only when something is not where it should be. The
+        // note joins whatever is already there, so one field answers "what does
+        // somebody have to do about this ticket".
+        const attachmentNote = unrecorded
+            ? `${unrecorded} stored image(s) could not be listed on the ticket, so the Asana task will not carry them; they are still where the images for this request are kept.`
+            : "";
+        if (stored.note || attachmentNote) patch.intake_notes = asNote([...priorNotes, stored.note, attachmentNote]);
+
+        const { error: patchErr } = await db.from("tickets").update(patch).eq("id", row.id);
+        if (patchErr) {
+            console.error("[ticket-create] could not record where the images went", patchErr.message, row.reference);
+        } else {
+            // intake_notes stays off the answer: it is a note for the team and
+            // TICKET_COLUMNS has never carried it.
+            row.image_count = stored.uploaded;
+            if (stored.folderUrl) row.drive_folder_url = stored.folderUrl;
+        }
+    } catch (err) {
+        // For the module failing outright, not for its logic, which never throws.
+        console.error("[ticket-create] image storage failed outright", err instanceof Error ? err.message : String(err), row.reference);
+    }
+};
+
 const tellTheBrain = async (ticketId: string): Promise<void> => {
     if (!BRAIN_TICKET_URL || !BRAIN_API_KEY) {
         console.error("[ticket-create] BRAIN_TICKETS_RECEIVED_URL / BRAIN_API_KEY are not set - ticket left for the sweep", ticketId);
@@ -403,7 +477,9 @@ export default async (req: Request) => {
         const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
         const { data: recent } = await db
             .from("tickets")
-            .select(TICKET_COLUMNS)
+            // intake_notes as well, for the one write this path can make below;
+            // it is stripped from the answer.
+            .select(`${TICKET_COLUMNS}, intake_notes`)
             .eq("client_slug", caller.slug)
             .eq("submitted_by", caller.email)
             .eq("title", title)
@@ -414,8 +490,33 @@ export default async (req: Request) => {
         if (recent && recent.length) {
             // The first attempt landed; only the answer was lost. Handing back the ticket it
             // made is both true and what the client wanted, and it creates no second task.
-            console.warn("[ticket-create] repeat submission inside the window, returning the existing ticket", (recent[0] as { reference: string }).reference);
-            return Response.json({ ticket: recent[0] }, { status: 201 });
+            const { intake_notes: priorNotes, ...existing } = recent[0] as Record<string, unknown> & {
+                id: string;
+                reference: string;
+                client_name: string | null;
+                intake_notes: string | null;
+            };
+            console.warn("[ticket-create] repeat submission inside the window, returning the existing ticket", existing.reference);
+
+            // THE IMAGES THE FIRST ATTEMPT LOST. The invocation that is most likely to
+            // have died is the one carrying images - they are the slow part - and it
+            // dies AFTER the row exists and BEFORE anything is stored. So the retry
+            // is the only copy of the photos, and answering with the bare ticket
+            // dropped them on the floor (found in review, 12 Sep 2026). Stored only
+            // when the ticket lists nothing yet: rows are the truth, not
+            // image_count, because the first attempt can also have died between
+            // writing the rows and patching the count.
+            if (images.length) {
+                const { count } = await db.from("ticket_attachments").select("id", { count: "exact", head: true }).eq("ticket_id", existing.id);
+                if (count === 0) {
+                    const prior = typeof priorNotes === "string" && priorNotes ? [priorNotes.replace(/^Unresolved on receipt: /, "")] : [];
+                    await storeImagesFor(db, existing, existing.client_name || caller.clientName, images, prior, startedAt + IMAGE_BUDGET_MS);
+                    // The first attempt never got this far, so the brain has not been told.
+                    // Idempotent on its side, so telling it again costs nothing if it had.
+                    await tellTheBrain(existing.id);
+                }
+            }
+            return Response.json({ ticket: existing }, { status: 201 });
         }
 
         /* ── who they are ────────────────────────────────────────────────── */
@@ -472,69 +573,9 @@ export default async (req: Request) => {
         });
         if (eventErr) console.error("[ticket-create] received event failed", eventErr.message, row.reference);
 
-        if (images.length) {
-            // uploadTicketImages never throws and says honestly where the images ended up.
-            // The try/catch is for the module failing to load at all, not for its logic.
-            try {
-                const stored = await uploadTicketImages({
-                    clientName: identity.clientName,
-                    reference: row.reference,
-                    images,
-                    // Leaves room for the write-back below, the brain handoff and
-                    // the response itself, all inside the platform's 26s.
-                    deadline: startedAt + IMAGE_BUDGET_MS,
-                });
-                // ONE ROW PER FILE, BEFORE THE COUNT. The brain reads these rows when
-                // it creates the Asana task and puts each file on it (attachments.ts
-                // over there); a count alone left the task saying "1 image" over
-                // nothing. Written before the ticket's own patch so that by the time
-                // image_count says N, N rows exist. A row that fails to insert is a
-                // file the task will not carry, and the note says so - the bytes are
-                // still where the note says they are.
-                let recorded = 0;
-                if (stored.files.length) {
-                    const { error: attErr } = await db.from("ticket_attachments").insert(
-                        stored.files.map((f) => ({
-                            ticket_id: row.id,
-                            store: f.store,
-                            bucket: f.store === "portal" ? f.bucket : null,
-                            path: f.store === "portal" ? f.path : null,
-                            drive_file_id: f.store === "drive" ? f.driveFileId : null,
-                            drive_url: f.store === "drive" ? f.driveUrl : null,
-                            file_name: f.fileName,
-                            mime: f.mime,
-                            bytes: f.bytes,
-                        })),
-                    );
-                    if (attErr) console.error("[ticket-create] could not record the attachments", attErr.message, row.reference);
-                    else recorded = stored.files.length;
-                }
-                const unrecorded = stored.files.length - recorded;
-
-                const patch: Record<string, unknown> = { image_count: stored.uploaded, updated_at: new Date().toISOString() };
-                if (stored.folderUrl) patch.drive_folder_url = stored.folderUrl;
-                // A human step is owed only when something is not where it should be. The
-                // note joins whatever resolveIdentity already left, so one field answers
-                // "what does somebody have to do about this ticket".
-                const attachmentNote = unrecorded
-                    ? `${unrecorded} stored image(s) could not be listed on the ticket, so the Asana task will not carry them; they are still where the images for this request are kept.`
-                    : "";
-                if (stored.note || attachmentNote) patch.intake_notes = asNote([...identity.notes, stored.note, attachmentNote]);
-
-                const { error: patchErr } = await db.from("tickets").update(patch).eq("id", row.id);
-                if (patchErr) {
-                    console.error("[ticket-create] could not record where the images went", patchErr.message, row.reference);
-                } else {
-                    // The answer has to match the row that is now stored, not the one that
-                    // was inserted a moment ago. intake_notes stays off it: it is a note for
-                    // the team and TICKET_COLUMNS has never carried it.
-                    row.image_count = stored.uploaded;
-                    if (stored.folderUrl) row.drive_folder_url = stored.folderUrl;
-                }
-            } catch (err) {
-                console.error("[ticket-create] image storage failed outright", err instanceof Error ? err.message : String(err), row.reference);
-            }
-        }
+        // Leaves room for the write-back, the brain handoff and the response
+        // itself, all inside the platform's 26s.
+        if (images.length) await storeImagesFor(db, row, identity.clientName, images, identity.notes, startedAt + IMAGE_BUDGET_MS);
 
         await tellTheBrain(row.id);
 

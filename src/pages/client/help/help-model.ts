@@ -472,4 +472,61 @@ export const averageDaysLabel = (tickets: Ticket[]): string => {
     if (!spans.length) return "None yet this month";
     const mean = spans.reduce((a, b) => a + b, 0) / spans.length;
     return mean < 0.5 ? "Same-day average" : `${mean.toFixed(1)} day average`;
+
+// requests screen
+
+/*
+ * Month names written out here rather than asked of Intl: Chrome's en-GB short month
+ * for September is "Sept", and the frame writes "raised 8 Sep". A table cannot drift
+ * with the browser's locale data.
+ */
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** A plain `date` column parses as a local day; a timestamptz as the instant it is. */
+const dateOf = (iso: string | null | undefined): Date | null => {
+    if (!iso) return null;
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso.trim()) ? parseDayLocal(iso) : new Date(iso);
+    return !d || Number.isNaN(d.getTime()) ? null : d;
+};
+
+/** "12 September": the requests list's due date, day and full month, no year. */
+export const formatDueDay = (iso: string | null | undefined): string => {
+    const d = dateOf(iso);
+    return d ? `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}` : "";
+};
+
+/** "8 Sep": the day a request was raised, three-letter month. */
+export const formatRaisedDay = (iso: string | null | undefined): string => {
+    const d = dateOf(iso);
+    return d ? `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}` : "";
+};
+
+/**
+ * The list row's right-hand line. "Due 12 September" while the request is open and a
+ * date has been promised; "Completed in 3 days" (or "Completed same day") counted from
+ * the day it was raised to the day it was finished; "Withdrawn" when it was; and
+ * nothing at all for an open request with no promised date, because there is no date
+ * to show and the row does not invent one.
+ */
+export const requestDueLine = (t: Ticket): string => {
+    if (t.status === "withdrawn") return "Withdrawn";
+    if (t.status === "completed") {
+        const days = elapsedDays(t.created_at, t.completed_at);
+        if (days === null) return "Completed";
+        return days === 0 ? "Completed same day" : `Completed in ${days} ${days === 1 ? "day" : "days"}`;
+    }
+    if (isOpen(t) && t.promised_date) return `Due ${formatDueDay(t.promised_date)}`;
+    return "";
+};
+
+/**
+ * The meta line under a row title, ONE text node as the frame draws it:
+ * "{topic label}  ·  raised {d Mon}" with two spaces either side of the dot, kept from
+ * collapsing by non-breaking spaces. Without a raise date it is the topic label alone.
+ */
+export const requestMetaLine = (topics: TicketTopic[], t: Ticket): string => {
+    const raised = formatRaisedDay(t.created_at);
+    const label = topicLabel(topics, t.topic);
+    return raised ? `${label}\u00a0\u00a0·\u00a0\u00a0raised ${raised}` : label;
 };

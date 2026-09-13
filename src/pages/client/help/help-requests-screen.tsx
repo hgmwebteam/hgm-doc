@@ -1,32 +1,19 @@
 /**
  * 02 REQUESTS - every request this client has raised, filterable, newest first.
  *
- * The help centre's shared building blocks live in help-atoms.tsx, measured against the
- * Figma file's component nodes; this file keeps its older atom exports as thin wrappers
- * over them so the screens that still import from here compile while they are rebuilt.
+ * Built against the Figma file "Reporting System" (key rdig9bGu5N0KogiBW8H2CF), frames
+ * "Desktop · Light / 2 My requests" (117:14) and "Mobile · Light / 390 My requests"
+ * (121:49), node for node; an automated proof holds the page against those trees, so
+ * every size, colour and gap here is the file's, not a preference. The building blocks
+ * are the atoms in help-atoms.tsx (measured against the file's components) and the
+ * `--hc-*` tokens and `hc-t-*` type utilities of src/styles/help-centre.css.
+ *
+ * The older atom exports at the top of this file are thin wrappers over those atoms,
+ * kept so the screens that still import from here (the request detail, the team's
+ * tickets screen) compile while they are rebuilt. New code imports from help-atoms.tsx.
  * The shell in help-center-screen.tsx WRAPS the other two screens rather than being
  * imported by them, so the dependency graph runs requests-screen -> request-detail ->
  * center-screen in one direction with no cycle.
- *
- * ── THE DESIGN THIS FOLLOWS ─────────────────────────────────────────────────
- * The Figma file "Reporting System", page "Help Center": frames "Desktop · Light / 1 Help
- * home, 2 My requests, 3 Request detail" and their "Mobile · Light / 390" pairs, plus the
- * "Build notes · Accessibility and states" frame beside them. Every size, colour and
- * spacing below is that file's, not a preference:
- *
- *   type      display/hero 40/44 -1 (desktop page title)  display/title 28/32 -0.5
- *             heading/section 18/24 -0.2   label/field 14/20 500   body/input 16/24
- *             body/helper 13/20   caption/meta 13/16 500 +0.2   button/label 15/20 600
- *             mono/id Geist Mono 13/16 (the hc-t-* utilities in help-centre.css)
- *   colour    the file's "HGM Portal Tokens" collection, both modes, as the --hc-* custom
- *             properties in help-centre.css (generated from help-centre-tokens.json)
- *   radius    cards xl (12), tiles and stats lg (10), pills full
- *   elevation "elevation/card": 0 1px 2px rgba(23,23,23,.04) and 0 8px 24px -4px
- *             rgba(23,23,23,.05). Two layers, both quiet.
- *   rhythm    desktop gutters 200 on 1440 (a 1040 column), body top 56, sections 40, card
- *             padding 24. Mobile gutters 16, body top 24, sections 24 (16 on the list), card
- *             padding 16. Everything on the 8-point grid.
- *   targets   primary button 48, chips 44, rows 56 to 72, nothing under 44.
  *
  * ── WHAT THIS SCREEN PROMISES ───────────────────────────────────────────────
  * A withdrawn request STAYS on the list and gets its own filter. Nothing a client raised
@@ -36,7 +23,7 @@
 import type { ReactNode } from "react";
 import { AlertCircle, Inbox01 } from "@untitledui-pro/icons/line";
 import { Link } from "react-router";
-import { Button, Card, Eyebrow as AtomEyebrow, MonoRef as AtomMonoRef, type PillTone, StatusPill as AtomStatusPill } from "@/pages/client/help/help-atoms";
+import { Button, Card, Eyebrow as AtomEyebrow, FilterChip, MonoRef as AtomMonoRef, type PillTone, StatusPill as AtomStatusPill } from "@/pages/client/help/help-atoms";
 import {
     FILTERS,
     type RequestFilter,
@@ -45,14 +32,14 @@ import {
     type TicketCounts,
     type TicketStatus,
     type TicketTopic,
-    formatDayMonth,
-    elapsedDays,
-    formatDayMonthShort,
     matchesFilter,
+    requestDueLine,
+    requestMetaLine,
     requestsSummary,
     topicLabel,
 } from "@/pages/client/help/help-model";
 import { cx } from "@/utils/cx";
+import "@/pages/client/help/help-requests-screen.css";
 
 /* ── The legacy atoms ────────────────────────────────────────────────────────
    The building blocks now live in help-atoms.tsx, measured against the Figma file's
@@ -195,67 +182,59 @@ export const EmptyNote = ({ title, detail, action }: { title: string; detail: st
 /* ── 02 REQUESTS ─────────────────────────────────────────────────────────── */
 
 /**
- * The right-hand line on a row: the promised date, or what stands in for one. The Figma
- * shows "Due 12 September" on open rows and "Finished in 3 days" on completed ones. Nothing
- * here is promised that the row does not carry: a request with no promised_date shows the
- * day it was raised, because that is the only date we hold about it.
- */
-/** The frame's right-hand line: "Due 12 September", "Completed in 3 days", "Withdrawn". */
-const dueLine = (t: Ticket): string => {
-    if (t.status === "withdrawn") return "Withdrawn";
-    if (t.status === "completed") {
-        const days = elapsedDays(t.created_at, t.completed_at);
-        return days === null ? "Completed" : days === 0 ? "Completed same day" : `Completed in ${days} ${days === 1 ? "day" : "days"}`;
-    }
-    if (t.promised_date) return `Due ${formatDayMonth(t.promised_date)}`;
-    return "";
-};
-
-/**
- * One row, the desktop shape: a list card with alternating rows and a hairline between
- * them (Figma "Requests" frame), title in label/field, meta in mono plus helper, the due
- * line right-aligned, the pill last. On a phone each row is its own card with the pill and
- * the due line in a footer row ("Mobile · Light / 390 My requests").
+ * One request, at both widths, read from the frames node for node.
  *
- * A whole-row link, so the tap target is the row and not just the title.
+ * Desktop ("Requests" 117:43, one "Request" frame per row): 76 tall, padding 16 by 20,
+ * gap 16, the words filling on the left (the title in label/field, then a 20px meta
+ * line: the mono reference and ONE helper text "{topic}  ·  raised {d Mon}", gap 8),
+ * then the due line in body/helper text/secondary, then the pill. Rows alternate
+ * bg/primary and bg/secondary, and every row but the first carries a 1px border/secondary
+ * on top drawn INSIDE its 76, so it has 15 of padding above the words instead of 16.
+ *
+ * Phone ("Request" 121:75): each row is its own card, 124 tall, padding 16, gap 10, with
+ * elevation/card: the title in body/input, the meta line (the reference, then the topic
+ * label alone), and a footer with the pill first and the due line filling to the right.
+ *
+ * One DOM for both: the words column, then the pill and the due line, which are a footer
+ * row on a phone and (through `sm:contents`) two more items of the row on desktop, the
+ * pill ordered last. The meta line's two spellings are both in the DOM and one is hidden
+ * per width, because the frame's desktop node holds the raise date and its phone node
+ * does not.
+ *
+ * The whole row is one link to the request, so the tap target is the row itself. The
+ * list card clips its rows to its radius, which would also clip the page's focus ring
+ * (drawn 2px outside a control), so a row draws its ring 2px inside itself instead
+ * (help-requests-screen.css); it stays visible on every row, including the first and
+ * last.
  */
 const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: TicketTopic[]; slug: string; index: number }) => {
-    const raised = formatDayMonthShort(ticket.created_at);
-    const due = dueLine(ticket);
+    const due = requestDueLine(ticket);
+    const tinted = index % 2 === 1;
     return (
-        <li className={cx(index > 0 && "sm:border-t sm:border-secondary")}>
+        <li>
             <Link
                 to={`/${slug}/help/requests/${ticket.reference}`}
                 className={cx(
-                    // Phone: a card. Desktop: a row inside the list card, alternating tint.
-                    "block rounded-xl bg-primary p-4 ring-1 ring-secondary transition duration-100 ease-linear hover:bg-primary_hover motion-reduce:transition-none",
-                    "sm:rounded-none sm:px-5 sm:py-4 sm:ring-0",
-                    index % 2 === 1 && "sm:bg-secondary sm:hover:bg-tertiary",
-                    FOCUS,
+                    "hc-hover hc-requests-row flex cursor-pointer",
+                    // Phone: a card of its own.
+                    "flex-col gap-2.5 rounded-(--hc-radius-xl) border border-(--hc-border-secondary) bg-(--hc-bg-primary) p-[15px] shadow-(--hc-elevation-card) hover:bg-(--hc-bg-primary_hover)",
+                    // Desktop: a row inside the list card.
+                    "sm:flex-row sm:items-center sm:gap-4 sm:rounded-none sm:border-0 sm:px-5 sm:py-4 sm:shadow-none",
+                    tinted ? "sm:bg-(--hc-bg-secondary) sm:hover:bg-(--hc-bg-tertiary)" : "sm:bg-(--hc-bg-primary) sm:hover:bg-(--hc-bg-primary_hover)",
+                    index > 0 && "sm:border-t sm:border-(--hc-border-secondary) sm:pt-[15px]",
                 )}
             >
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-4">
-                    <div className="min-w-0 flex-1">
-                        <p className={cx("text-pretty text-primary", T.body, "sm:text-[14px] sm:leading-5 sm:font-medium")}>{ticket.title}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <MonoRef>{ticket.reference}</MonoRef>
-                            <span className={cx(T.helper, "text-tertiary")}>
-                                {topicLabel(topics, ticket.topic)}
-                                {raised && (
-                                    <>
-                                        {"  "}
-                                        <MetaDot />
-                                        {"  "}
-                                        raised {raised}
-                                    </>
-                                )}
-                            </span>
-                        </div>
+                <div className="flex min-w-0 flex-col gap-2.5 sm:flex-1 sm:gap-1">
+                    <p className="hc-t-body-input text-(--hc-text-primary) sm:hc-t-label-field">{ticket.title}</p>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <MonoRef>{ticket.reference}</MonoRef>
+                        <span className="hc-t-body-helper min-w-0 flex-1 truncate text-(--hc-text-tertiary) sm:hidden">{topicLabel(topics, ticket.topic)}</span>
+                        <span className="hc-t-body-helper hidden min-w-0 truncate text-(--hc-text-tertiary) sm:inline">{requestMetaLine(topics, ticket)}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-3 sm:justify-end">
-                        <StatusPill status={ticket.status} className="sm:order-2" />
-                        {due && <span className={cx(T.helper, "text-secondary sm:order-1 sm:text-right")}>{due}</span>}
-                    </div>
+                </div>
+                <div className="flex items-center gap-2 sm:contents">
+                    <StatusPill status={ticket.status} className="shrink-0 sm:order-last" />
+                    {due && <span className="hc-t-body-helper min-w-0 flex-1 text-right whitespace-nowrap text-(--hc-text-secondary) sm:flex-none">{due}</span>}
                 </div>
             </Link>
         </li>
@@ -281,6 +260,20 @@ const emptyCopy: Record<RequestFilter, { title: string; detail: string }> = {
     },
 };
 
+/**
+ * The list: "Desktop · Light / 2 My requests" (117:14) and "Mobile · Light / 390 My
+ * requests" (121:49).
+ *
+ * Desktop, a 40 rhythm: the heading row (the hero title and "{n} requests. {m} open." in
+ * body/helper, gap 4, with the 176-wide primary Button "New request" centred beside
+ * them), the four filter chips at 36 with 8 between, then the one list card. Phone, a 16
+ * rhythm: the title in display/title, the helper in body/input, the chips at 44, then a
+ * card per request. The 390 frame draws no "New request" button, so none is shown there;
+ * the help home carries the raise action on a phone.
+ *
+ * Filters narrow one list that is already present rather than swapping panels, so they
+ * are toggle buttons with aria-pressed inside one group (build notes), not tabs.
+ */
 export const HelpRequestsScreen = ({
     tickets,
     counts,
@@ -302,60 +295,31 @@ export const HelpRequestsScreen = ({
     const shown = tickets.filter((t) => matchesFilter(t, filter));
 
     return (
-        <div className="flex flex-col gap-4 sm:gap-6">
-            {/* Heading row: title and summary on the left, the one primary action on the
-                right ("Desktop · Light / 2 My requests"). On a phone the button moves under
-                the heading, full width, as the mobile frame has it. */}
-            <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-1">
-                    <h1 className={cx("text-primary", T.title, "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>Requests</h1>
-                    <p className={cx("text-tertiary", T.body, "sm:text-[13px] sm:leading-[18px]")}>{requestsSummary(counts)}</p>
+        <div className="flex flex-col gap-4 sm:gap-10">
+            <header className="flex items-center gap-4">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <h1 className="hc-t-display-title text-(--hc-text-primary) sm:hc-t-display-hero">Requests</h1>
+                    <p className="hc-t-body-input text-(--hc-text-tertiary) sm:hc-t-body-helper">{requestsSummary(counts)}</p>
                 </div>
                 {!readOnly && (
-                    <PrimaryButton as="link" to={`/${slug}/help`} className="w-full sm:w-auto">
-                        New request
-                    </PrimaryButton>
+                    <div className="hidden shrink-0 sm:block">
+                        <Button to={`/${slug}/help`}>New request</Button>
+                    </div>
                 )}
             </header>
 
-            {/* Filters, not tabs. They narrow one list that is already present rather than
-                swapping panels, so they are buttons carrying aria-pressed (build notes).
-                Selected: bg/brand-primary, border/brand, text/brand-secondary. 44 tall. */}
             <div role="group" aria-label="Filter requests" className="flex flex-wrap items-center gap-2">
-                {FILTERS.map((f) => {
-                    const active = f.key === filter;
-                    return (
-                        <button
-                            key={f.key}
-                            type="button"
-                            aria-pressed={active}
-                            onClick={() => onFilterChange(f.key)}
-                            className={cx(
-                                "inline-flex min-h-11 items-center rounded-full px-4 whitespace-nowrap ring-1 transition duration-100 ease-linear motion-reduce:transition-none",
-                                T.helper,
-                                FOCUS,
-                                active ? "bg-brand-primary text-fg-brand-primary ring-brand" : "bg-primary text-secondary ring-secondary hover:bg-primary_hover",
-                            )}
-                        >
-                            {f.label}
-                        </button>
-                    );
-                })}
+                {FILTERS.map((f) => (
+                    <FilterChip key={f.key} selected={f.key === filter} onClick={() => onFilterChange(f.key)} className="cursor-pointer">
+                        {f.label}
+                    </FilterChip>
+                ))}
             </div>
 
             {shown.length === 0 ? (
                 <EmptyNote title={emptyCopy[filter].title} detail={emptyCopy[filter].detail} />
             ) : (
-                // Phone: stacked cards with a gap. Desktop: one list card, rows flush.
-                <ul
-                    className={cx(
-                        "flex flex-col gap-3",
-                        "sm:gap-0 sm:overflow-hidden sm:rounded-xl sm:bg-primary sm:ring-1 sm:ring-secondary",
-                        // The literal, not `sm:${ELEVATION}`: Tailwind reads classes out of the
-                        // source text and a template string is invisible to it.
-                        "sm:shadow-[0_1px_2px_rgba(23,23,23,0.04),0_8px_24px_-4px_rgba(23,23,23,0.05)]",
-                    )}
-                >
+                <ul className="flex flex-col gap-4 sm:gap-0 sm:overflow-hidden sm:rounded-(--hc-radius-xl) sm:border sm:border-(--hc-border-secondary) sm:bg-(--hc-bg-primary) sm:shadow-(--hc-elevation-card)">
                     {shown.map((t, i) => (
                         <RequestRow key={t.id} ticket={t} topics={topics} slug={slug} index={i} />
                     ))}

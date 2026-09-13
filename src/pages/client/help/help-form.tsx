@@ -31,7 +31,7 @@
  * Nothing here decides who may submit; the server does. This is the picture.
  * House style: no em or en dashes anywhere.
  */
-import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type KeyboardEvent, type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type ClientOption, HelpApiError, MAX_DETAIL, MAX_IMAGE_BYTES, MAX_IMAGE_PAYLOAD_BYTES, MAX_IMAGES, MAX_TITLE, type NewTicketInput, type TicketImage, fetchTicket, isAllowedImage, prepareImage } from "@/pages/client/help/help-api";
 import { Banner, Button, FieldSelect, FieldTextarea, FieldUpload, FileThumbnail, MonoRef, PRIORITY_LEVELS, PriorityChip, PriorityDot, PriorityLegend, type PriorityLevel, formatFileSize } from "@/pages/client/help/help-atoms";
 import type { Priority, TicketTopic } from "@/pages/client/help/help-model";
@@ -41,7 +41,16 @@ import { cx } from "@/utils/cx";
 
 const LEDE = "Tell us what is wrong and who it affects. Jarvis turns it into an Asana task and hands it to whoever on the team has capacity, so nothing needs chasing.";
 const LEDE_SHORT = "Tell us what is wrong and who it affects. Jarvis turns it into an Asana task and hands it to whoever has capacity.";
+// A client reads client words: Jarvis and Asana are the team's tools, not theirs.
+const CLIENT_LEDE = "Tell us what is wrong and where. It goes straight to the team responsible, and you can follow it here.";
+const CLIENT_DESCRIPTION_HELPER = "Start with one line that says what is wrong. That line becomes the request's title; everything after it is the detail.";
+const CLIENT_TRUST_LINE = "You will get a confirmation here, and the request appears in your list straight away.";
+const CLIENT_SENDING_LINE = "Sending your request. This usually takes a second or two.";
+const CLIENT_SUCCESS_BODY = "It is on its way to the team responsible. You will see who has it here, and your account manager will confirm when it is done.";
+const CLIENT_OWNER_PENDING = "Assigning…";
+const TITLE_TOO_LONG = "Keep the first line under 140 characters; the rest can go on the next line.";
 const CLIENT_HELPER = "The client this ticket is for. Jarvis uses it to file the task in the right place.";
+const OWN_CLIENT_HELPER = "Your account. Requests you raise here go on your own list.";
 const CLIENT_ERROR = "Choose which client this is about, so it reaches the right team.";
 const PRIORITY_ERROR = "Pick the priority that matches the consequence, using the guide below.";
 const CATEGORY_ERROR = "Choose the category that fits, so it reaches the right team.";
@@ -68,17 +77,21 @@ const TEAM_TOPIC = "website";
  */
 const EYEBROW = "text-[12px] leading-4 font-medium tracking-[1.2px] text-(--hc-fg-brand-primary)";
 
-const FormHeading = ({ eyebrow, title, lede }: { eyebrow: string; title: string; lede?: boolean }) => (
+const FormHeading = ({ eyebrow, title, lede, titleRef }: { eyebrow: string; title: string; lede?: "team" | "client"; titleRef?: Ref<HTMLHeadingElement> }) => (
     <header className="flex flex-col gap-2">
         <p className={EYEBROW}>{eyebrow}</p>
-        {/* display/title on desktop; the 390 frames set the title at 24/30 with the same tracking. */}
-        <h1 className="text-[24px] leading-[30px] font-semibold tracking-[-0.5px] text-(--hc-text-primary) sm:hc-t-display-title">{title}</h1>
-        {lede && (
+        {/* display/title on desktop; the 390 frames set the title at 24/30 with the same tracking.
+            Focusable so a submit can hand focus to the outcome (build notes). */}
+        <h1 ref={titleRef} tabIndex={-1} className="text-[24px] leading-[30px] font-semibold tracking-[-0.5px] text-(--hc-text-primary) outline-none sm:hc-t-display-title">
+            {title}
+        </h1>
+        {lede === "team" && (
             <>
                 <p className="hc-t-body-input hidden text-(--hc-text-secondary) sm:block">{LEDE}</p>
                 <p className="text-[15px] leading-[22px] font-normal text-(--hc-text-secondary) sm:hidden">{LEDE_SHORT}</p>
             </>
         )}
+        {lede === "client" && <p className="text-[15px] leading-[22px] font-normal text-(--hc-text-secondary) sm:hc-t-body-input">{CLIENT_LEDE}</p>}
     </header>
 );
 
@@ -190,6 +203,8 @@ export interface RequestFormProps {
     onCreated: (reference: string, slug: string, sent: { title: string; priority: Priority | null }) => void;
     /** Kept for callers that listened for the team's client choice; the form no longer needs anything back. */
     onClientChange?: (slug: string) => void;
+    /** "Report another ticket": the form mounts again and the first field takes focus. */
+    focusFirstField?: boolean;
     /** The client's own slug, when mode is client. */
     slug?: string;
 }
@@ -202,7 +217,7 @@ export interface RequestFormProps {
  */
 const sentSlugs = new Map<string, string>();
 
-export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, onSubmit, onCreated, onClientChange, slug }: RequestFormProps) => {
+export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, onSubmit, onCreated, onClientChange, slug, focusFirstField }: RequestFormProps) => {
     const team = mode === "team";
     const [client, setClient] = useState(team ? "" : (slug ?? ""));
     const [category, setCategory] = useState(fixedTopic?.key ?? "");
@@ -214,7 +229,17 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     const [touched, setTouched] = useState(false);
     const [error, setError] = useState("");
     const bannerRef = useRef<HTMLDivElement>(null);
+    const formTitleRef = useRef<HTMLHeadingElement>(null);
+    useEffect(() => {
+        if (!focusFirstField) return;
+        // The team's first field is the client select; a client's is the category.
+        const first = document.getElementById(mode === "team" ? "client" : "category") as HTMLElement | null;
+        (first ?? formTitleRef.current)?.focus();
+        // Once, on mount.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const filesRef = useRef(files);
+    const [fileNews, setFileNews] = useState("");
     filesRef.current = files;
 
     // The client's composer replaces the help home in place, so focus moves into it (the
@@ -244,7 +269,10 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     const priorityMissing = team && !priority;
     const categoryMissing = !team && !category;
     const descriptionMissing = firstLine.length < 3;
-    const missing = [clientMissing && "choose a client", priorityMissing && "pick a priority", categoryMissing && "choose a category", descriptionMissing && "describe what is happening"].filter((m): m is string => !!m);
+    // The server keeps 140 characters of the first line as the title; rather than cut a
+    // sentence mid-word on the way out, the form says so and waits.
+    const titleTooLong = firstLine.length > MAX_TITLE;
+    const missing = [clientMissing && "choose a client", priorityMissing && "pick a priority", categoryMissing && "choose a category", (descriptionMissing || titleTooLong) && "describe what is happening"].filter((m): m is string => !!m);
     const banner = touched && missing.length ? composeBanner(missing) : null;
 
     const addFiles = useCallback(async (picked: File[]) => {
@@ -270,6 +298,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
         }
         if (problem) setFileError(problem);
         if (!accepted.length) return;
+        setFileNews(accepted.length === 1 ? `${accepted[0].att.name} added.` : `${accepted.length} files added.`);
         setFiles((prev) => [...prev, ...accepted.map((a) => a.att)]);
         // Compress in the background; the thumbnail is already on the page with the
         // original name and size, and the send waits for the bytes.
@@ -306,11 +335,19 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
 
     const removeFile = (id: number) => {
         setFileError("");
-        setFiles((prev) => {
-            const gone = prev.find((f) => f.id === id);
-            if (gone?.previewUrl) URL.revokeObjectURL(gone.previewUrl);
-            return prev.filter((f) => f.id !== id);
-        });
+        const list = filesRef.current;
+        const at = list.findIndex((f) => f.id === id);
+        const gone = list[at];
+        if (gone) setFileNews(`${gone.name} removed.`);
+        if (gone?.previewUrl) URL.revokeObjectURL(gone.previewUrl);
+        setFiles((prev) => prev.filter((f) => f.id !== id));
+        // Focus follows the list: the next file's remove button, else the drop zone's
+        // input, so a keyboard user is never dropped on the page body.
+        const next = list[at + 1] ?? list[at - 1];
+        setTimeout(() => {
+            const target = next ? (document.querySelector(`[data-file-id="${next.id}"] button`) as HTMLElement | null) : (document.getElementById("screenshots") as HTMLElement | null);
+            target?.focus();
+        }, 0);
     };
 
     const submit = async (e: FormEvent) => {
@@ -348,7 +385,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
 
     return (
         <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "HELP CENTER"} title={team ? "Report a ticket" : "Raise a request"} lede />
+            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "HELP CENTER"} title={team ? "Report a ticket" : "Raise a request"} lede={team ? "team" : "client"} titleRef={formTitleRef} />
 
             {banner && (
                 <div ref={bannerRef} tabIndex={-1}>
@@ -370,7 +407,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                     }}
                     options={team ? clients.map((c) => ({ value: c.slug, label: c.name })) : [{ value: slug ?? "", label: clientName }]}
                     placeholder="Choose a client"
-                    helper={CLIENT_HELPER}
+                    helper={team ? CLIENT_HELPER : OWN_CLIENT_HELPER}
                     error={touched && clientMissing ? CLIENT_ERROR : undefined}
                     disabled={!team}
                     className={SELECT_CURSOR}
@@ -412,10 +449,14 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
 
                 <FieldUpload id="screenshots" label="Screenshots" requirement="Optional" attachedCount={files.length} onFiles={(picked) => void addFiles(picked)} error={fileError || undefined} accept="image/png,image/jpeg,image/webp" />
 
+                {/* Adds and removes are announced here; the list itself stays as drawn. */}
+                <p aria-live="polite" className="sr-only">
+                    {fileNews}
+                </p>
                 {files.length > 0 && (
                     <ul className="flex flex-col gap-2">
                         {files.map((f) => (
-                            <FileThumbnail key={f.id} name={f.name} meta={`${formatFileSize(f.size)} · uploaded`} previewUrl={f.previewUrl} onRemove={() => removeFile(f.id)} className="[&_button]:cursor-pointer" />
+                            <FileThumbnail key={f.id} name={f.name} meta={`${formatFileSize(f.size)} · uploaded`} previewUrl={f.previewUrl} onRemove={() => removeFile(f.id)} className="[&_button]:cursor-pointer" data-file-id={f.id} />
                         ))}
                     </ul>
                 )}
@@ -427,8 +468,8 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                     value={text}
                     onChange={(v) => setText(v.slice(0, MAX_DETAIL + MAX_TITLE))}
                     placeholder="What is happening, and where?"
-                    helper={DESCRIPTION_HELPER}
-                    error={touched && descriptionMissing ? DESCRIPTION_ERROR : undefined}
+                    helper={team ? DESCRIPTION_HELPER : CLIENT_DESCRIPTION_HELPER}
+                    error={touched && descriptionMissing ? DESCRIPTION_ERROR : titleTooLong ? TITLE_TOO_LONG : undefined}
                 />
 
                 {error && (
@@ -440,13 +481,13 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-4">
                         <Button type="submit" loading={busy} className={busy ? "max-sm:w-full" : "max-sm:w-full cursor-pointer"}>
-                            Submit ticket
+                            {team ? "Submit ticket" : "Submit request"}
                         </Button>
                     </div>
                     {/* The submitting frame draws the sending line against the right edge of
                         the column on desktop (13:510); the resting trust line sits left. */}
                     <p className={cx("hc-t-body-helper text-center text-(--hc-text-tertiary)", busy ? "sm:text-right" : "sm:text-left")} role="status">
-                        {busy ? SENDING_LINE : TRUST_LINE}
+                        {busy ? (team ? SENDING_LINE : CLIENT_SENDING_LINE) : team ? TRUST_LINE : CLIENT_TRUST_LINE}
                     </p>
                 </div>
             </form>
@@ -490,7 +531,12 @@ export interface RequestSentProps {
  */
 export const RequestSent = ({ reference, title, clientName, priority, team, primary, secondary, slug }: RequestSentProps) => {
     const pollSlug = slug ?? sentSlugs.get(reference) ?? "";
-    const [asana, setAsana] = useState(ASANA_PENDING);
+    const [asana, setAsana] = useState(team ? ASANA_PENDING : CLIENT_OWNER_PENDING);
+    // Focus lands on the outcome's title so a reader hears it (build notes).
+    const sentTitleRef = useRef<HTMLHeadingElement>(null);
+    useEffect(() => {
+        sentTitleRef.current?.focus();
+    }, []);
 
     useEffect(() => {
         if (!pollSlug) return;
@@ -502,9 +548,13 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
             try {
                 const res = await fetchTicket({ slug: pollSlug, email: "" }, reference);
                 if (stopped) return;
+                // An owner is an owner even when the staff registry gave no display name:
+                // the mailbox stands in, capitalised, rather than waiting two minutes.
                 const name = (res.ticket.assignee_name ?? "").trim();
-                if (name) {
-                    setAsana(`Assigned to ${name}`);
+                const mailbox = (res.ticket.assignee_email ?? "").trim().split("@")[0] ?? "";
+                const owner = name || (mailbox ? mailbox.charAt(0).toUpperCase() + mailbox.slice(1) : "");
+                if (owner || res.ticket.status === "assigned" || res.ticket.status === "in_progress") {
+                    setAsana(owner ? `Assigned to ${owner}` : "Assigned to the team");
                     return;
                 }
                 if (res.events.some((e) => e.kind === "route_failed")) {
@@ -517,7 +567,7 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
             if (Date.now() - started < 120_000) timer = setTimeout(() => void tick(), 4000);
             // Two minutes without an owner: stop pretending the task is being made this
             // second. The account manager is the person who resolves it either way.
-            else setAsana((current) => (current === ASANA_PENDING ? "Your account manager will confirm the owner." : current));
+            else setAsana((current) => (current === ASANA_PENDING || current === CLIENT_OWNER_PENDING ? "Your account manager will confirm the owner." : current));
         };
         timer = setTimeout(() => void tick(), 4000);
         return () => {
@@ -530,15 +580,15 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
 
     return (
         <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "HELP CENTER"} title="Ticket sent" />
-            <Banner kind="success" title="Jarvis has it">
-                {SUCCESS_BODY}
+            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "HELP CENTER"} title={team ? "Ticket sent" : "Request sent"} titleRef={sentTitleRef} />
+            <Banner kind="success" title={team ? "Jarvis has it" : "The team has it"}>
+                {team ? SUCCESS_BODY : CLIENT_SUCCESS_BODY}
             </Banner>
             <div className="flex flex-col gap-4 rounded-(--hc-radius-xl) border border-(--hc-border-secondary) bg-(--hc-bg-secondary) p-[15px]">
                 <p className="hc-t-body-input text-(--hc-text-primary)">{title}</p>
                 <dl className="flex flex-col gap-4">
                     <div className="flex items-center justify-between gap-4">
-                        <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Ticket</dt>
+                        <dt className="hc-t-body-helper text-(--hc-text-tertiary)">{team ? "Ticket" : "Reference"}</dt>
                         <dd className="flex">
                             <MonoRef className="text-(--hc-text-primary)">{reference}</MonoRef>
                         </dd>
@@ -556,7 +606,7 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
                         </div>
                     )}
                     <div className="flex items-center justify-between gap-4">
-                        <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Asana</dt>
+                        <dt className="hc-t-body-helper text-(--hc-text-tertiary)">{team ? "Asana" : "Owner"}</dt>
                         <dd className="hc-t-label-field text-right text-(--hc-text-secondary)" role="status">
                             {asana}
                         </dd>

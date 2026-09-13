@@ -42,15 +42,15 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Website and pages. Put the property's name in the first line; that line becomes the title of the task the team works from. In the description, say what the property needs: a new page, photos, the booking link, a listing to copy from. Attach screenshots or images if you have them.",
+                    "Raise a request under Website and pages. Put the property's name in the first line, so the request is easy to find in your list. In the description, say what the property needs: a new page, photos, the booking link, a listing to copy from. Attach screenshots or images if you have them.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "The request is turned into one task on the web team's board with a named owner. Once that has happened, the request shows as Assigned and the owner's name appears on it. When the owner starts, it moves to In progress, and any update the team writes on the task appears on the request's timeline.",
-                    "If the category cannot be routed at that moment, the request stays at Received and your account manager is asked to pick it up by hand. Nothing is lost.",
+                    "The request is turned into one task on the web team's board with a named owner. Once that has happened, the request shows as Assigned and the owner's name appears on it, with your account manager's name beside it.",
+                    "If the request cannot be routed at that moment, it stays at Received and your account manager is asked to pick it up by hand. Nothing is lost.",
                 ],
             },
             {
@@ -77,8 +77,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "The request is turned into one task with a named owner on the team, and the request shows as Assigned with that name on it. Work in progress and any notes the team writes appear on the request's timeline, so you can see where it stands without asking.",
-                    "If the category cannot be routed at that moment, the request stays at Received and your account manager is asked to pick it up by hand.",
+                    "Reporting and tracking does not have its own board yet, so the request stays at Received and your account manager is asked to pick it up by hand; once they have given it to someone, the request shows as Assigned with that name on it.",
                 ],
             },
             {
@@ -103,8 +102,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "The request is turned into one task with a named owner, and the request shows as Assigned with that name on it. When work starts it shows as In progress, and updates from the team appear on the request's timeline.",
-                    "If the category cannot be routed at that moment, the request stays at Received and your account manager is asked to pick it up by hand.",
+                    "Booking and listings does not have its own board yet, so the request stays at Received and your account manager is asked to pick it up by hand; once they have given it to someone, the request shows as Assigned with that name on it.",
                 ],
             },
             {
@@ -124,20 +122,20 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "The category decides the owner",
                 paragraphs: [
-                    "Every request goes under one of six categories: Website and pages, Paid media, Content and social, Booking and listings, Reporting and tracking, and Other. Each category has its own board and its own owner on the team, and a request is turned into one task on that board with that owner. The owner's name appears on your request once it is assigned.",
-                    "Other is for anything that does not fit the five. It is read on receipt and given to the right person by hand.",
+                    "Every request goes under one of six categories: Website and pages, Paid media, Content and social, Booking and listings, Reporting and tracking, and Other. Website and pages goes straight to the web team: one task on their board, given to whichever of the team has the lightest load that minute, and that person's name appears on your request.",
+                    "The other five categories do not have their own boards yet. A request under them stays at Received while your account manager is asked to give it to the right person by hand; once they have, the request shows as Assigned with that name on it.",
                 ],
             },
             {
                 heading: "The owner",
                 paragraphs: [
-                    "The owner does the work and writes updates on the task. Those updates appear on your request's timeline, along with each change of status: Received, Assigned, In progress, Completed.",
+                    "The owner does the work. Your request's timeline records each change of status: Received when you raise it, Assigned when it has an owner, Completed when the work is closed, or Withdrawn if you take it back.",
                 ],
             },
             {
                 heading: "Your account manager",
                 paragraphs: [
-                    "Your account manager is named on every request. They are asked to step in whenever a request cannot be routed automatically, and they are told the moment a task is closed so they can confirm completion with you. They are also who to ask if a request needs to change hands.",
+                    "Your account manager's name appears on a request once it has an owner. They are asked to step in whenever a request cannot be routed automatically, and they are told the moment a task is closed so they can confirm completion with you. They are also who to ask if a request needs to change hands.",
                 ],
             },
         ],
@@ -185,6 +183,22 @@ export const HelpGuidePage = ({ guide, slug }: { guide: HelpGuide; slug: string 
                     Back to the help centre
                 </Link>
             </div>
+            {/* The other guides. The help home lists them only from 640px up (the 390
+                frame has no Reference row), so on a phone this is the way between them. */}
+            <nav aria-labelledby="hc-more-guides" className="flex flex-col gap-2 border-t border-(--hc-border-secondary) pt-6">
+                <h2 id="hc-more-guides" className="hc-t-caption-meta text-(--hc-text-tertiary)">
+                    MORE GUIDES
+                </h2>
+                <ul className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-6">
+                    {HELP_GUIDES.filter((g) => g.slug !== guide.slug).map((g) => (
+                        <li key={g.slug} className="flex">
+                            <Link to={`/${slug}/help/guides/${g.slug}`} className="inline-flex min-h-11 items-center rounded-(--hc-radius-sm) hc-t-body-helper text-(--hc-text-brand-secondary) underline">
+                                {g.title}
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
         </article>
     );
 };

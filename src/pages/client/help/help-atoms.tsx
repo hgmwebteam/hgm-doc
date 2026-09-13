@@ -129,7 +129,7 @@ export const HelpFrame = ({ topBar, children, className }: { topBar: ReactNode; 
     <div className={cx("hc min-h-dvh bg-(--hc-bg-page)", className)}>
         <a
             href="#main"
-            className="hc-t-label-field sr-only rounded-(--hc-radius-lg) bg-(--hc-bg-brand-solid) px-4 py-2 text-(--hc-text-primary_on-brand) focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
+            className="hc-t-label-field sr-only rounded-(--hc-radius-lg) bg-(--hc-bg-brand-solid) px-4 py-2 text-(--hc-text-primary_on-brand) focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2"
         >
             Skip to content
         </a>
@@ -183,7 +183,7 @@ export type TopBarProps = {
  */
 export const TopBar = ({ app, brandTo, right, initial, accountName, menu }: TopBarProps) => (
     <div className="relative flex h-16 items-center justify-between border-b border-(--hc-border-secondary) bg-(--hc-bg-page) px-6">
-        <Link to={brandTo} className="flex h-6 shrink-0 items-center gap-2 rounded-(--hc-radius-sm)">
+        <Link to={brandTo} className="relative flex h-6 shrink-0 items-center gap-2 rounded-(--hc-radius-sm) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']">
             <GemIcon />
             <span className="hc-t-label-field whitespace-nowrap text-(--hc-text-primary)">HiddenGem Media</span>
             <span className="hc-t-label-field whitespace-nowrap text-(--hc-text-tertiary)">/</span>
@@ -214,35 +214,61 @@ export const TopBar = ({ app, brandTo, right, initial, accountName, menu }: TopB
 const AccountMenu = ({ initial, accountName, email, links = [], onSignOut }: { initial: string; accountName: string; email: string; links?: Array<{ label: string; to: string }>; onSignOut: () => void }) => {
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+    // Menu keyboard behaviour (build notes: the avatar is a control): the first item
+    // takes focus when it opens, arrows move between items, Escape closes and hands
+    // focus back to the button, and focus leaving the menu closes it.
+    const items = () => Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? []);
     useEffect(() => {
         if (!open) return;
+        items()[0]?.focus();
         const onDown = (e: MouseEvent) => {
             if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
         };
         const onKey = (e: globalThis.KeyboardEvent) => {
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") {
+                setOpen(false);
+                buttonRef.current?.focus();
+                return;
+            }
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                const list = items();
+                if (!list.length) return;
+                e.preventDefault();
+                const at = list.indexOf(document.activeElement as HTMLElement);
+                const next = e.key === "ArrowDown" ? (at + 1) % list.length : (at - 1 + list.length) % list.length;
+                list[next].focus();
+            }
+        };
+        const onFocusOut = (e: FocusEvent) => {
+            if (rootRef.current && e.relatedTarget && !rootRef.current.contains(e.relatedTarget as Node)) setOpen(false);
         };
         document.addEventListener("mousedown", onDown);
         document.addEventListener("keydown", onKey);
+        rootRef.current?.addEventListener("focusout", onFocusOut);
+        const root = rootRef.current;
         return () => {
             document.removeEventListener("mousedown", onDown);
             document.removeEventListener("keydown", onKey);
+            root?.removeEventListener("focusout", onFocusOut);
         };
     }, [open]);
     return (
         <div ref={rootRef} className="relative">
             <button
+                ref={buttonRef}
                 type="button"
                 aria-label={`Account, ${accountName}`}
                 aria-haspopup="menu"
                 aria-expanded={open}
                 onClick={() => setOpen((o) => !o)}
-                className="hc-hover hc-t-caption-meta flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-(--hc-radius-full) border border-(--hc-fg-brand-primary) bg-(--hc-bg-brand-primary) text-(--hc-text-primary)"
+                className="hc-hover hc-t-caption-meta relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-(--hc-radius-full) border border-(--hc-fg-brand-primary) bg-(--hc-bg-brand-primary) text-(--hc-text-primary) after:absolute after:-inset-1.5 after:content-['']"
             >
                 {initial}
             </button>
             {open && (
-                <div role="menu" className="absolute top-10 right-0 z-20 flex w-64 flex-col gap-1 rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-primary) p-2 shadow-(--hc-elevation-card)">
+                <div ref={menuRef} role="menu" className="absolute top-10 right-0 z-20 flex w-64 flex-col gap-1 rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-primary) p-2 shadow-(--hc-elevation-card)">
                     <p className="hc-t-body-helper truncate px-2 py-1.5 text-(--hc-text-tertiary)">{email}</p>
                     {links.map((l) => (
                         <Link key={l.to} role="menuitem" to={l.to} onClick={() => setOpen(false)} className="hc-hover hc-t-label-field cursor-pointer rounded-(--hc-radius-md) px-2 py-2 text-(--hc-text-primary) hover:bg-(--hc-bg-secondary)">
@@ -435,14 +461,16 @@ export const MonoRef = ({ children, className }: { children: ReactNode; classNam
 );
 
 /** The 8px brand dot on a topic tile (fg/brand-primary, radius full). An empty span: nothing to announce. */
-export const Marker = ({ className }: { className?: string }) => <span className={cx("inline-block size-2 shrink-0 rounded-(--hc-radius-full) bg-(--hc-fg-brand-primary)", className)} />;
+export const Marker = ({ className }: { className?: string }) => <span aria-hidden="true" className={cx("inline-block size-2 shrink-0 rounded-(--hc-radius-full) bg-(--hc-fg-brand-primary)", className)} />;
 
 /**
  * The "›" at the end of a tile: a text glyph in heading/section, text/tertiary, not an
  * icon. Not aria-hidden, because the frame draws it as a text node and the parity
  * proof reads it as one; a screen reader treats the glyph as punctuation.
  */
-export const Chevron = ({ className }: { className?: string }) => <span className={cx("hc-t-heading-section shrink-0 text-(--hc-text-tertiary)", className)}>›</span>;
+// aria-hidden: decorative, per the build notes, so a tile's accessible name is its label
+// alone. The parity proof reads painted text, hidden from readers or not.
+export const Chevron = ({ className }: { className?: string }) => <span aria-hidden="true" className={cx("hc-t-heading-section shrink-0 text-(--hc-text-tertiary)", className)}>›</span>;
 
 /* ── Fields ──────────────────────────────────────────────────────────────── */
 
@@ -693,6 +721,8 @@ export const FieldUpload = ({
                     accept={accept}
                     multiple
                     disabled={disabled}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={`${id}-rules`}
                     className="sr-only"
                     onChange={(e) => {
                         take(e.target.files);
@@ -702,7 +732,15 @@ export const FieldUpload = ({
                 />
                 <UploadIcon className={error ? "text-(--hc-text-error-primary)" : "text-(--hc-fg-brand-primary)"} />
                 <span className="hc-t-label-field text-center whitespace-nowrap text-(--hc-text-primary)">{title}</span>
-                <span className={cx("hc-t-body-helper w-full text-center", error ? "text-(--hc-text-error-primary)" : over ? "text-(--hc-text-secondary)" : "text-(--hc-text-tertiary)")}>{error ?? rules}</span>
+                {/* The rules line doubles as the error line, announced when it changes; a
+                    60-character file name in an error must wrap, not widen the page. */}
+                <span
+                    id={`${id}-rules`}
+                    aria-live="polite"
+                    className={cx("hc-t-body-helper w-full min-w-0 text-center break-words", error ? "text-(--hc-text-error-primary)" : over ? "text-(--hc-text-secondary)" : "text-(--hc-text-tertiary)")}
+                >
+                    {error ?? rules}
+                </span>
             </label>
         </div>
     );
@@ -725,6 +763,7 @@ export const FileThumbnail = ({
     onRemove,
     className,
     as: Tag = "li",
+    ...rest
 }: {
     name: string;
     /** "1.2 MB · uploaded" */
@@ -733,8 +772,10 @@ export const FileThumbnail = ({
     onRemove: () => void;
     className?: string;
     as?: "li" | "div";
+    /** Lets a caller find the row again (a remove moves focus to the next one). */
+    "data-file-id"?: number | string;
 }) => (
-    <Tag className={cx("flex h-14 items-center gap-4 rounded-(--hc-radius-md) border border-(--hc-border-primary) bg-(--hc-bg-tertiary) px-[7px]", className)}>
+    <Tag {...rest} className={cx("flex h-14 items-center gap-4 rounded-(--hc-radius-md) border border-(--hc-border-primary) bg-(--hc-bg-tertiary) px-[7px]", className)}>
         <span className="size-10 shrink-0 overflow-hidden rounded-(--hc-radius-sm) bg-(--hc-bg-brand-primary)">
             {previewUrl && <img src={previewUrl} alt="" className="size-full object-cover" draggable={false} />}
         </span>

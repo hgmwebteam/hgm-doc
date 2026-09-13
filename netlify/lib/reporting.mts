@@ -71,6 +71,19 @@ export const portalDb = (): SupabaseClient => {
 
 export const normEmail = (e: string) => e.trim().toLowerCase();
 
+/**
+ * A staff member's name for the record: what Google put in user_metadata
+ * (full_name, then name), else the mailbox with a capital, never the raw
+ * "leshan". Clients see it on requests the team raised for them.
+ */
+export const staffName = (user: { user_metadata?: Record<string, unknown> } | null | undefined, email: string): string => {
+    const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+    const given = [meta.full_name, meta.name].map((v) => (typeof v === "string" ? v.trim() : "")).find((v) => v.length > 0);
+    if (given) return given.slice(0, 120);
+    const box = email.split("@")[0] ?? "";
+    return box ? box.charAt(0).toUpperCase() + box.slice(1) : email;
+};
+
 /** Mirrors src/pages/client/dashboard/dashboard-model.ts. Kept in step deliberately. */
 interface DashboardUser {
     email: string;
@@ -224,7 +237,9 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
             ok: true,
             via: "staff",
             accessListEmpty: listed.length === 0,
-            caller: { slug, clientName, email: who, name: who.split("@")[0] },
+            // The person's name as Google gave it (user_metadata.full_name), or the
+            // mailbox capitalised: "raised by Leshan Patterson", not "by leshan".
+            caller: { slug, clientName, email: who, name: staffName(authData?.user, who) },
         };
     }
 
@@ -267,7 +282,7 @@ export const verifyStaff = async (accessToken: string): Promise<GateResult> => {
         ok: true,
         via: "staff",
         accessListEmpty: false,
-        caller: { slug: "all", clientName: "", email: who, name: who.split("@")[0] },
+        caller: { slug: "all", clientName: "", email: who, name: staffName(authData?.user, who) },
     };
 };
 

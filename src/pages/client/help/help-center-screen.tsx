@@ -68,7 +68,7 @@ import {
     ticketsWithOwner,
 } from "@/pages/client/help/help-model";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
-import { ErrorNote, HelpRequestsScreen, HelpSpinner, T } from "@/pages/client/help/help-requests-screen";
+import { ErrorNote, HelpRequestsScreen, HelpSpinner } from "@/pages/client/help/help-requests-screen";
 import { cx } from "@/utils/cx";
 
 /* ── The gate ────────────────────────────────────────────────────────────── */
@@ -271,13 +271,13 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
  * dashboards were in that state when this was written.
  */
 const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
-    <div className="mb-6 rounded-xl bg-brand-primary px-4 py-3 ring-1 ring-brand sm:mb-10 sm:px-5 sm:py-4" role="status">
-        <p className={cx(T.label, "text-primary")}>You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem Media staff.</p>
-        <p className={cx(T.helper, "mt-1 text-pretty text-secondary")}>
+    <div className="mb-6 rounded-(--hc-radius-xl) border border-(--hc-border-brand) bg-(--hc-bg-brand-primary) px-[15px] py-[11px] sm:mb-10 sm:px-[19px] sm:py-[15px]" role="status">
+        <p className="hc-t-label-field text-(--hc-text-primary)">You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem Media staff.</p>
+        <p className="hc-t-body-helper mt-1 text-pretty text-(--hc-text-secondary)">
             A request you raise here is recorded as raised by you, for the client, and they will see it in their list. You can withdraw the ones you raised.
         </p>
         {viewer.accessListEmpty && (
-            <p className={cx(T.helper, "mt-2 text-pretty text-secondary")}>
+            <p className="hc-t-body-helper mt-2 text-pretty text-(--hc-text-secondary)">
                 Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this help centre. Add them in the
                 dashboard's Access panel.
             </p>
@@ -317,13 +317,19 @@ const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; 
                         links: [
                             { label: "Your requests", to: `/${slug}/help/requests` },
                             { label: "Help home", to: `/${slug}/help` },
+                            // The Reference guides are listed on the home from 640px up only;
+                            // on a phone this is the way in.
+                            { label: "Guides", to: `/${slug}/help/guides/${HELP_GUIDES[0].slug}` },
                         ],
                         onSignOut: () => void signOutHere(),
                     }}
                 />
             }
         >
-            <div className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 sm:px-6 sm:pt-14 sm:pb-16 lg:px-0">{children}</div>
+            {/* The gutters stay until xl: below it a 1040 column would run to the edge
+                between 1024 and 1087 (the old lg:px-0 did). Tailwind orders an arbitrary
+                min-[] variant before sm:, so sm:px-6 would win over it; xl: sorts after. */}
+            <div className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 sm:px-6 sm:pt-14 sm:pb-16 xl:px-0">{children}</div>
         </HelpFrame>
     );
 };
@@ -520,11 +526,13 @@ const Composer = ({
     proof,
     clientName,
     isStaff,
+    focusFirstField,
     onCancel,
     onCreated,
 }: {
     topic: TicketTopic | null;
     topics: TicketTopic[];
+    focusFirstField?: boolean;
     proof: CallerProof;
     clientName: string;
     /** Staff raise through the same form; the difference is on the server and in the lede. */
@@ -543,6 +551,7 @@ const Composer = ({
         </button>
         <RequestForm
             mode="client"
+            focusFirstField={focusFirstField}
             slug={proof.slug}
             // Every category, so the select can change it; the tile's own category is
             // the preselection, not the only option.
@@ -578,8 +587,8 @@ const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { ref
                 clientName={clientName}
                 priority={null}
                 team={false}
-                primary={{ label: "Report another ticket", onClick: onRaiseAnother }}
-                secondary={{ label: "Back to portal", onClick: onBack }}
+                primary={{ label: "Raise another request", onClick: onRaiseAnother }}
+                secondary={{ label: "Back to help centre", onClick: onBack }}
             />
         </div>
     );
@@ -617,10 +626,15 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const [viewer, setViewer] = useState<Viewer | null>(null);
     // The list's filter, seeded from ?filter= so a stat row on the home can open the
     // list already narrowed ("In progress" -> open, "Completed this month" -> completed).
-    const [filter, setFilter] = useState<RequestFilter>(() => {
-        const wanted = new URLSearchParams(window.location.search).get("filter");
-        return wanted === "open" || wanted === "completed" || wanted === "withdrawn" ? wanted : "all";
-    });
+    // The list's filter IS the URL (?filter=open), read on every render: the four help
+    // routes share this one mounted screen, so a state seeded once at mount would ignore
+    // a stat row's link taken after the home had loaded. A chip writes it back.
+    const [filterParams, setFilterParams] = useSearchParams();
+    const wantedFilter = filterParams.get("filter");
+    const filter: RequestFilter = wantedFilter === "open" || wantedFilter === "completed" || wantedFilter === "withdrawn" ? wantedFilter : "all";
+    const setFilter = (next: RequestFilter) => setFilterParams(next === "all" ? {} : { filter: next }, { replace: true });
+    // After "Raise another request" the fresh composer puts focus on its first field.
+    const [raiseAgain, setRaiseAgain] = useState(false);
     const [created, setCreated] = useState<{ reference: string; title: string } | null>(null);
 
     /**
@@ -659,7 +673,9 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         const resolve = () => {
             void currentCaller(slug).then((caller) => {
                 if (!live) return;
-                setProof(caller);
+                // The same person is the same proof: a token refresh must not refetch
+                // the list and reset a detail page (and its withdraw card) under a client.
+                setProof((prev) => (prev && caller && prev.slug === caller.slug && prev.email === caller.email ? prev : caller));
                 setCallerResolved(true);
             });
         };
@@ -756,7 +772,10 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     // Counted from the rows on screen rather than trusting the server's totals, so a
     // withdrawal cannot leave "7 requests. 2 open." disagreeing with the list under it while
     // a refetch is in flight. The server's own counts are kept for the first paint.
-    const counts = tickets.length > 0 || serverCounts === null ? countsFor(tickets) : serverCounts;
+    // The list is capped at 200 rows; past that the server's counts are the truth and
+    // the rows are a page. Under the cap the rows are complete and can be counted here,
+    // which also keeps the summary right while a withdrawal is in flight.
+    const counts = serverCounts !== null && tickets.length >= 200 ? serverCounts : countsFor(tickets);
 
     const body = () => {
         if (loading && tickets.length === 0 && topics.length === 0) return <HelpSpinner label="Loading your requests" />;
@@ -783,6 +802,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                     onBack={() => setCreated(null)}
                     onRaiseAnother={() => {
                         setCreated(null);
+                        setRaiseAgain(true);
                         openComposer("any");
                     }}
                 />
@@ -794,6 +814,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 <Composer
                     topic={composing === "any" ? null : composing}
                     topics={topics}
+                    focusFirstField={raiseAgain}
                     proof={proof}
                     clientName={viewer?.clientName || clientName}
                     isStaff={isStaff}

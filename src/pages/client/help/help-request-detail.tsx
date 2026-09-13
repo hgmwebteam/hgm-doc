@@ -29,7 +29,7 @@
  *
  * House style: no em or en dashes anywhere.
  */
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { type CallerProof, HelpApiError, fetchTicket, withdrawTicket } from "@/pages/client/help/help-api";
 import { Button, Card, ErrorIcon, Eyebrow, MonoRef, type PillTone, SpinnerIcon, StatusPill } from "@/pages/client/help/help-atoms";
@@ -184,7 +184,7 @@ const FactRow = ({ ticket }: { ticket: Ticket }) => {
     const none = canWithdraw(ticket) ? "Not yet" : "None";
     return (
         <div className="grid grid-cols-2 gap-x-2 gap-y-4 sm:grid-cols-4 sm:gap-2">
-            <Fact label="PROPERTY" value={property || "All properties"} />
+            <Fact label="PROPERTY" value={property || "Not given"} />
             <Fact label="ASSIGNED TO" value={owner || none} />
             <Fact label="ACCOUNT MANAGER" value={am || none} />
             <Fact label="ELAPSED" value={elapsed || "Today"} />
@@ -201,8 +201,11 @@ const FactRow = ({ ticket }: { ticket: Ticket }) => {
  * text node, as the frame draws it, so it is not hidden from assistive technology: the
  * step's own words carry the state either way.
  */
+// aria-hidden: the build notes make the dots decorative; the step's words carry its
+// state ("Received", "In progress"), and a reader should not hear a tick or a bullet.
 const StepDot = ({ state, n }: { state: StepState; n: number }) => (
     <span
+        aria-hidden="true"
         className={cx(
             "hc-t-caption-meta flex size-6 shrink-0 items-center justify-center rounded-(--hc-radius-full)",
             state === "done" && "bg-(--hc-utility-success-bg) text-(--hc-utility-success-fg)",
@@ -225,15 +228,24 @@ const StepDot = ({ state, n }: { state: StepState; n: number }) => (
 const Timeline = ({ ticket, events }: { ticket: Ticket; events: TicketEvent[] }) => {
     const steps = timelineSteps(ticket, events);
     return (
+        <>
+        {/* The build notes ask for h2 Timeline; the frame draws no heading, so it is for readers only. */}
+        <h2 id="hc-timeline" className="sr-only">
+            Timeline
+        </h2>
         <ol
-            aria-label="Timeline"
+            aria-labelledby="hc-timeline"
             className="flex flex-col gap-3.5 rounded-(--hc-radius-xl) border border-(--hc-border-secondary) bg-(--hc-bg-primary) p-[15px] shadow-(--hc-elevation-card) sm:gap-4 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
         >
             {steps.map((step, i) => (
                 <li key={step.key} className="flex items-start gap-3" aria-current={step.state === "now" ? "step" : undefined}>
                     <StepDot state={step.state} n={i + 1} />
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <p className="hc-t-label-field text-(--hc-text-primary)">{step.label}</p>
+                        <p className="hc-t-label-field text-(--hc-text-primary)">
+                            {step.label}
+                            {/* The state in words for a reader, since the dot is decorative (build notes). */}
+                            <span className="sr-only">{step.state === "done" ? ", done" : step.state === "now" ? ", happening now" : ", to come"}</span>
+                        </p>
                         {step.wide === step.narrow ? (
                             <p className={HELPER_TERTIARY}>
                                 <Linkified text={step.wide} />
@@ -250,6 +262,7 @@ const Timeline = ({ ticket, events }: { ticket: Ticket; events: TicketEvent[] })
                 </li>
             ))}
         </ol>
+        </>
     );
 };
 
@@ -271,7 +284,10 @@ const TeamUpdates = ({ events }: { events: TicketEvent[] }) => {
 
     return (
         <>
-            <section aria-label="Team updates" className="hidden flex-col gap-3 border-t border-(--hc-border-secondary) pt-[15px] sm:flex">
+            <section aria-labelledby="hc-updates" className="hidden flex-col gap-3 border-t border-(--hc-border-secondary) pt-[15px] sm:flex">
+                <h2 id="hc-updates" className="sr-only">
+                    Updates from the team
+                </h2>
                 <Eyebrow>TEAM UPDATES</Eyebrow>
                 <ul className="flex flex-col gap-3">
                     {updates.map((e) => (
@@ -314,6 +330,13 @@ const WithdrawBlock = ({ ticket, proof, onWithdrawn }: { ticket: Ticket; proof: 
     const [confirming, setConfirming] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    // Keyboard and screen-reader users follow focus: the confirm card takes it when
+    // it appears, and "Keep it open" hands it back to the link.
+    const confirmRef = useRef<HTMLDivElement>(null);
+    const linkRef = useRef<HTMLButtonElement>(null);
+    useEffect(() => {
+        if (confirming) confirmRef.current?.focus();
+    }, [confirming]);
 
     if (!canWithdraw(ticket)) return null;
     // ONLY THE PERSON WHO RAISED IT. That is the server's rule (a colleague on the same
@@ -336,10 +359,12 @@ const WithdrawBlock = ({ ticket, proof, onWithdrawn }: { ticket: Ticket; proof: 
     if (!confirming) {
         return (
             <button
+                ref={linkRef}
                 type="button"
                 onClick={() => setConfirming(true)}
-                // 16 under the card on the desktop, where the column's rhythm is 40.
-                className={cx("hc-hover w-max cursor-pointer rounded-(--hc-radius-sm) hover:underline sm:-mt-6", HELPER_TERTIARY)}
+                // 16 under the card on the desktop, where the column's rhythm is 40. The
+                // pseudo-element is the 44px target; the text stays 20 tall.
+                className={cx("hc-hover relative w-max cursor-pointer rounded-(--hc-radius-sm) after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline sm:-mt-6", HELPER_TERTIARY)}
             >
                 Withdraw this request
             </button>
@@ -348,6 +373,7 @@ const WithdrawBlock = ({ ticket, proof, onWithdrawn }: { ticket: Ticket; proof: 
 
     return (
         <Card as="section" flat className="flex flex-col gap-3 sm:-mt-6">
+            <div ref={confirmRef} tabIndex={-1} role="group" aria-label={`Withdraw ${ticket.reference}?`} className="outline-none" />
             <p className="hc-t-label-field text-(--hc-text-primary)">Withdraw {ticket.reference}?</p>
             <p className={cx("max-w-[60ch]", HELPER_TERTIARY)}>
                 We will stop work on it and mark it withdrawn. It stays on your list with everything on it, so you can always look back at what you asked for.
@@ -359,7 +385,17 @@ const WithdrawBlock = ({ ticket, proof, onWithdrawn }: { ticket: Ticket; proof: 
             )}
             {/* Full width and the primary on top at 390 (build notes); two 176 buttons on the desktop. */}
             <div className="flex flex-col-reverse gap-2 sm:grid sm:grid-cols-[176px_176px]">
-                <Button variant="secondary" fill disabled={busy} className={busy ? undefined : "cursor-pointer"} onClick={() => setConfirming(false)}>
+                <Button
+                    variant="secondary"
+                    fill
+                    disabled={busy}
+                    className={busy ? undefined : "cursor-pointer"}
+                    onClick={() => {
+                        setConfirming(false);
+                        // Back to the link that opened the card, once it is on the page again.
+                        setTimeout(() => linkRef.current?.focus(), 0);
+                    }}
+                >
                     Keep it open
                 </Button>
                 <Button fill loading={busy} className={busy ? undefined : "cursor-pointer"} onClick={submit}>
@@ -391,6 +427,9 @@ export const HelpRequestDetail = ({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [missing, setMissing] = useState(false);
+    // What a screen reader hears after a withdrawal, and where focus goes: the title.
+    const [announce, setAnnounce] = useState("");
+    const titleRef = useRef<HTMLHeadingElement>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -417,12 +456,22 @@ export const HelpRequestDetail = ({
     // The 390 frame's body starts 20 under the top bar where the shell (shared with the
     // other help screens) gives 24, hence the 4px pull-up below 640px. body/input at
     // 390, body/helper on the desktop, text/brand-secondary at both.
+    // Links Linkified writes inside steps and updates carry the portal's classes, which
+    // in dark mode are a grey; the wrapper repaints them with the hc token. The
+    // "All requests" link keeps its 20px line and gets a 44px hit area from the
+    // pseudo-element (build notes).
     const shell = (children: ReactNode) => (
-        <div className="-mt-1 flex flex-col gap-4 sm:mt-0 sm:gap-10">
-            <Link to={`/${slug}/help/requests`} className="hc-t-body-input sm:hc-t-body-helper hc-hover w-max rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) hover:underline">
+        <div className="-mt-1 flex flex-col gap-4 sm:mt-0 sm:gap-10 [&_a.text-brand-secondary]:text-(--hc-text-brand-secondary)">
+            <Link
+                to={`/${slug}/help/requests`}
+                className="hc-t-body-input sm:hc-t-body-helper hc-hover relative w-max rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline"
+            >
                 All requests
             </Link>
             {children}
+            <p aria-live="polite" className="sr-only">
+                {announce}
+            </p>
         </div>
     );
 
@@ -454,7 +503,9 @@ export const HelpRequestDetail = ({
                 has no chrome and the blocks stand 16 apart. */}
             <article className="flex flex-col gap-4 sm:gap-6 sm:rounded-(--hc-radius-xl) sm:border sm:border-(--hc-border-secondary) sm:bg-(--hc-bg-primary) sm:p-[23px] sm:shadow-(--hc-elevation-card)">
                 <header className="flex flex-col gap-1.5">
-                    <h1 className="hc-t-display-title sm:hc-t-display-hero text-(--hc-text-primary)">{ticket.title}</h1>
+                    <h1 ref={titleRef} tabIndex={-1} className="hc-t-display-title sm:hc-t-display-hero text-(--hc-text-primary) outline-none">
+                        {ticket.title}
+                    </h1>
                     <p className="flex items-center gap-2">
                         <MonoRef>{ticket.reference}</MonoRef>
                         {/* One text node either way: the 390 frame stops at the topic, the
@@ -474,7 +525,8 @@ export const HelpRequestDetail = ({
                 ticket={ticket}
                 proof={proof}
                 onWithdrawn={() => {
-                    void load();
+                    setAnnounce(`${ticket.reference} withdrawn.`);
+                    void load().then(() => titleRef.current?.focus());
                     onTicketChanged();
                 }}
             />

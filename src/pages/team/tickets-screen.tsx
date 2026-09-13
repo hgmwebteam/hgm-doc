@@ -35,7 +35,8 @@ import { supabase } from "@/lib/supabase";
 import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics, signOutHere } from "@/pages/client/help/help-api";
 import { Banner, Button, Card, ChevronDownIcon, FilterChip, GemIcon, HelpFrame, MonoRef, PRIORITY_LEVELS, type PillTone, PriorityDot, type PriorityLevel, StatusPill, TopBar, firstNameOf, initialOf } from "@/pages/client/help/help-atoms";
 import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
-import { type Priority, type Ticket, type TicketStatus, type TicketTopic, elapsedDays, formatDayMonth, formatDayMonthShort, topicLabel } from "@/pages/client/help/help-model";
+import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatDueDay, formatRaisedDay, requestDueLine, topicLabel } from "@/pages/client/help/help-model";
+import "@/pages/client/help/help-requests-screen.css";
 import { cx } from "@/utils/cx";
 
 /* ── chrome ──────────────────────────────────────────────────────────────── */
@@ -129,13 +130,11 @@ const PILL: Record<TicketStatus, { label: string; tone: PillTone }> = {
  * columns, so they go through the day parser, never new Date().
  */
 const dueLine = (t: Ticket): string => {
-    if (t.status === "withdrawn") return "Withdrawn";
-    if (t.status === "completed") {
-        const days = elapsedDays(t.created_at, t.completed_at);
-        return days === null ? "Completed" : days === 0 ? "Completed the same day" : `Completed in ${days} ${days === 1 ? "day" : "days"}`;
-    }
-    if (t.promised_date) return `Due ${formatDayMonth(t.promised_date)}`;
-    return t.needed_by ? `Asked for by ${formatDayMonth(t.needed_by)}` : "";
+    // The client list's line first (Withdrawn, Completed in n days, Due d Month), from
+    // the same helper, so the two lists never word a date two ways.
+    const shared = requestDueLine(t);
+    if (shared) return shared;
+    return t.needed_by ? `Asked for by ${formatDueDay(t.needed_by)}` : "";
 };
 
 const isLevel = (p: Priority | null | undefined): p is PriorityLevel => !!p && PRIORITY_LEVELS.some((l) => l.value === p);
@@ -252,7 +251,7 @@ export const TeamTicketsScreen = () => {
                     <p className="hc-t-body-helper text-(--hc-text-tertiary)" role="status">
                         Loading every client's requests
                     </p>
-                ) : shown.length === 0 ? (
+                ) : error && tickets.length === 0 ? null : shown.length === 0 ? (
                     <Card className="flex flex-col items-center gap-2 py-12 text-center">
                         <p className="hc-t-label-field text-(--hc-text-primary)">Nothing here</p>
                         <p className="hc-t-body-helper max-w-[42ch] text-(--hc-text-tertiary)">No request matches that filter. Raise one with the button above.</p>
@@ -268,14 +267,14 @@ export const TeamTicketsScreen = () => {
                                 <li key={t.id} className={cx(i > 0 && "border-t border-(--hc-border-secondary)", i % 2 === 1 && "bg-(--hc-bg-secondary)")}>
                                     <Link
                                         to={`/${shortSlug(t.client_slug)}/help/requests/${t.reference}`}
-                                        className="hc-hover flex cursor-pointer flex-col gap-2.5 px-4 py-4 hover:bg-(--hc-bg-primary_hover) sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+                                        className="hc-hover hc-requests-row flex cursor-pointer flex-col gap-2.5 px-4 py-4 hover:bg-(--hc-bg-primary_hover) sm:flex-row sm:items-center sm:gap-4 sm:px-5"
                                     >
                                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                                             <p className="hc-t-label-field text-(--hc-text-primary)">{t.title}</p>
                                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                                 <MonoRef>{t.reference}</MonoRef>
                                                 <span className="hc-t-body-helper text-(--hc-text-tertiary)">
-                                                    {`${clientName}  ·  ${topicLabel(topics, t.topic)}  ·  raised ${formatDayMonthShort(t.created_at)}${by ? ` by ${by}` : ""}`}
+                                                    {`${clientName}  ·  ${topicLabel(topics, t.topic)}  ·  raised ${formatRaisedDay(t.created_at)}${by ? ` by ${by}` : ""}`}
                                                 </span>
                                             </div>
                                         </div>
@@ -315,6 +314,8 @@ export const TeamReportScreen = () => {
     const navigate = useNavigate();
     const [clients, setClients] = useState<ClientOption[]>([]);
     const [done, setDone] = useState<{ reference: string; slug: string; title: string; clientName: string; priority: Priority | null } | null>(null);
+    // Set after "Report another ticket", so the fresh form puts focus on its first field.
+    const [again, setAgain] = useState(false);
 
     useEffect(() => {
         if (isTeam) void fetchClientOptions().then(setClients);
@@ -334,12 +335,19 @@ export const TeamReportScreen = () => {
                         priority={done.priority}
                         team
                         slug={done.slug}
-                        primary={{ label: "Report another ticket", onClick: () => setDone(null) }}
+                        primary={{
+                            label: "Report another ticket",
+                            onClick: () => {
+                                setAgain(true);
+                                setDone(null);
+                            },
+                        }}
                         secondary={{ label: "Back to portal", onClick: () => navigate("/team/tickets") }}
                     />
                 ) : (
                     <RequestForm
                         mode="team"
+                        focusFirstField={again}
                         clients={clients}
                         topics={[]}
                         clientName=""

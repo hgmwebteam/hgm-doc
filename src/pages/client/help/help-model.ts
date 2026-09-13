@@ -278,6 +278,9 @@ export const elapsedDays = (fromIso: string, toIso?: string | null): number | nu
 
 export const elapsedLabel = (t: Ticket): string => {
     const end = t.completed_at ?? t.withdrawn_at ?? null;
+    // A closed request with no closing stamp has no span to count; a growing
+    // number would be a lie about a thing that has stopped.
+    if (!end && (t.status === "completed" || t.status === "withdrawn")) return "";
     const days = elapsedDays(t.created_at, end);
     if (days === null) return "";
     const word = days === 0 ? "Today" : days === 1 ? "1 day" : `${days} days`;
@@ -412,7 +415,13 @@ export const canWithdraw = (t: Ticket): boolean => isOpen(t);
 /* ── Small shared helpers ────────────────────────────────────────────────── */
 
 /** The topic's label, falling back to the raw key so an unseeded topic still reads as something. */
-export const topicLabel = (topics: TicketTopic[], key: string): string => topics.find((t) => t.key === key)?.label ?? key;
+/** The category's label; a category no longer listed (deactivated) reads as words, not a key. */
+export const topicLabel = (topics: TicketTopic[], key: string): string => {
+    const known = topics.find((t) => t.key === key)?.label;
+    if (known) return known;
+    const words = key.replace(/[-_]+/g, " ").trim();
+    return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
+};
 
 /**
  * Who wrote a team update, for the byline.
@@ -513,7 +522,7 @@ export const formatRaisedDay = (iso: string | null | undefined): string => {
 export const requestDueLine = (t: Ticket): string => {
     if (t.status === "withdrawn") return "Withdrawn";
     if (t.status === "completed") {
-        const days = elapsedDays(t.created_at, t.completed_at);
+        const days = t.completed_at ? elapsedDays(t.created_at, t.completed_at) : null;
         if (days === null) return "Completed";
         return days === 0 ? "Completed same day" : `Completed in ${days} ${days === 1 ? "day" : "days"}`;
     }
@@ -599,7 +608,9 @@ export const timelineSteps = (ticket: Ticket, events: TicketEvent[]): TimelineSt
     const assignedWide = assignedTime ? `${assignedTime}. ${setWhat}${withinMinute ? " within the minute" : ""}.` : `${setWhat}.`;
 
     const startedBody = (started?.body ?? "").trim() || (started ? formatDayMonthTime(started.created_at) : "");
-    const completedTime = completed ? formatDayMonthTime(completed.created_at) : formatDayMonthTime(ticket.completed_at);
+    // The ticket's completed_at is the moment the task was closed; the event's
+    // created_at is when the sweep noticed, up to half an hour later.
+    const completedTime = ticket.completed_at ? formatDayMonthTime(ticket.completed_at) : completed ? formatDayMonthTime(completed.created_at) : "";
     const expectedWide = promised ? `Expected ${formatWeekdayDayMonth(ticket.promised_date)}.` : "Done. The request stays here for your records.";
     const expectedNarrow = promised ? `Expected ${formatWeekdayDayMonth(ticket.promised_date)}` : expectedWide;
 

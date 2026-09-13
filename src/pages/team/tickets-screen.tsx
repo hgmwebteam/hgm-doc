@@ -32,6 +32,7 @@ import { Link, useNavigate } from "react-router";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { supabase } from "@/lib/supabase";
 import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics } from "@/pages/client/help/help-api";
+import { HelpFrame, TopBar, firstNameOf, initialOf } from "@/pages/client/help/help-atoms";
 import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
 import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatDayShort, formatStampShort, priorityMeta } from "@/pages/client/help/help-model";
 import {
@@ -52,46 +53,17 @@ import { cx } from "@/utils/cx";
 
 /* ── chrome ──────────────────────────────────────────────────────────────── */
 
-const GemMark = () => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M7 4h10l4 5-9 11L3 9l4-5Z" stroke="#f5c518" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M3 9h18M12 20 8 9l2-5M12 20l4-11-2-5" stroke="#f5c518" strokeWidth="1.4" strokeLinejoin="round" />
-    </svg>
-);
-
-/** The Figma TopBar with "Reporting System" as the app name and "Signed in as {person}". */
-const TeamShell = ({ email, children }: { email: string; children: React.ReactNode }) => {
-    const person = email.split("@")[0];
-    const initial = (person[0] ?? "?").toUpperCase();
+/**
+ * The page: HelpFrame around the file's TopBar with "Reporting System" as the app name
+ * and "Signed in as {first name}" on the right; the avatar is named "Account, {name}".
+ * The screens own the column inside main.
+ */
+const TeamShell = ({ email, name, children }: { email: string; name: string; children: React.ReactNode }) => {
+    const person = firstNameOf(name) || email.split("@")[0];
     return (
-        <div className="min-h-dvh bg-secondary">
-            <a href="#team-main" className={cx("sr-only rounded-lg bg-brand-solid px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50", T.label, FOCUS)}>
-                Skip to content
-            </a>
-            <header className="border-b border-secondary bg-secondary">
-                <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
-                    <Link to="/dashboard" className={cx("inline-flex h-11 items-center gap-2.5 rounded", FOCUS)} aria-label="Back to the team dashboard">
-                        <GemMark />
-                        <span className={cx(T.label, "text-primary")}>
-                            HiddenGem Media
-                        </span>
-                        <span className={cx(T.label, "text-tertiary")} aria-hidden="true">
-                            /
-                        </span>
-                        <span className={cx(T.label, "text-fg-brand-primary")}>Reporting System</span>
-                    </Link>
-                    <div className="flex items-center gap-2.5">
-                        <span className={cx(T.helper, "hidden text-secondary sm:inline")}>Signed in as {person}</span>
-                        <span role="img" aria-label={`Account, ${email}`} className={cx("flex size-8 items-center justify-center rounded-full bg-brand-primary ring-1 ring-brand", T.caption, "text-primary")}>
-                            {initial}
-                        </span>
-                    </div>
-                </div>
-            </header>
-            <main id="team-main" tabIndex={-1} className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 outline-none sm:px-6 sm:pt-14 sm:pb-24 lg:px-0">
-                {children}
-            </main>
-        </div>
+        <HelpFrame topBar={<TopBar app="Reporting System" brandTo="/dashboard" right={`Signed in as ${person}`} initial={initialOf(person)} accountName={name || person} />}>
+            <div className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 sm:px-6 sm:pt-14 sm:pb-24 lg:px-0">{children}</div>
+        </HelpFrame>
     );
 };
 
@@ -120,7 +92,7 @@ const useTeam = () => {
     const { user, loading } = useAuthUser();
     const email = (user?.email ?? "").trim().toLowerCase();
     const isTeam = /@hiddengem\.media$/.test(email);
-    return { email, isTeam, loading };
+    return { email, name: user?.name ?? "", isTeam, loading };
 };
 
 /* ── the list ────────────────────────────────────────────────────────────── */
@@ -153,7 +125,7 @@ const dueLine = (t: Ticket): string => {
 };
 
 export const TeamTicketsScreen = () => {
-    const { email, isTeam, loading: authLoading } = useTeam();
+    const { email, name, isTeam, loading: authLoading } = useTeam();
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [total, setTotal] = useState(0);
     const [next, setNext] = useState<string | null>(null);
@@ -192,7 +164,7 @@ export const TeamTicketsScreen = () => {
     if (!isTeam) return <TeamGate />;
 
     return (
-        <TeamShell email={email}>
+        <TeamShell email={email} name={name}>
             <div className="flex flex-col gap-4 sm:gap-6">
                 <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-1">
@@ -324,7 +296,7 @@ export const TeamTicketsScreen = () => {
 /* ── Report a ticket ─────────────────────────────────────────────────────── */
 
 export const TeamReportScreen = () => {
-    const { email, isTeam, loading: authLoading } = useTeam();
+    const { email, name, isTeam, loading: authLoading } = useTeam();
     const navigate = useNavigate();
     const [clients, setClients] = useState<ClientOption[]>([]);
     const [topics, setTopics] = useState<TicketTopic[]>([]);
@@ -346,7 +318,7 @@ export const TeamReportScreen = () => {
 
     if (done) {
         return (
-            <TeamShell email={email}>
+            <TeamShell email={email} name={name}>
                 <RequestSent
                     reference={done.reference}
                     title={done.title}
@@ -361,7 +333,7 @@ export const TeamReportScreen = () => {
     }
 
     return (
-        <TeamShell email={email}>
+        <TeamShell email={email} name={name}>
             <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
                 <TextLink to="/team/tickets" className="w-max">
                     <ArrowNarrowLeft className="size-4" aria-hidden="true" />

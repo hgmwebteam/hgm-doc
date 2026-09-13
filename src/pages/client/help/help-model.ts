@@ -95,6 +95,7 @@ export interface Ticket {
     assignee_name?: string | null;
     assignee_email?: string | null;
     account_manager_email?: string | null;
+    account_manager_name?: string | null;
     promised_date?: string | null;
     completed_at?: string | null;
     completed_by?: string | null;

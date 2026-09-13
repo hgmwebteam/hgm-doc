@@ -22,7 +22,7 @@ import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFr
  */
 
 const COLUMNS =
-    "id, reference, client_slug, client_name, topic, title, status, priority, created_at, needed_by, promised_date, submitted_by, submitted_by_name, assignee_name, account_manager_email, completed_at, withdrawn_at";
+    "id, reference, client_slug, client_name, topic, title, status, priority, created_at, needed_by, promised_date, submitted_by, submitted_by_name, assignee_name, account_manager_email, account_manager_name, completed_at, withdrawn_at";
 
 const PAGE = 200;
 const STATUSES = ["received", "assigned", "in_progress", "completed", "withdrawn"] as const;

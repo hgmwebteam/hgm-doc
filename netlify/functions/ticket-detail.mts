@@ -30,7 +30,7 @@ import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFr
  *  rather than stripped afterwards, so a new column has to be added here on purpose before a
  *  client can ever see it. */
 const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, priority, image_count, drive_folder_url, client_slug, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
+    "id, reference, topic, title, status, created_at, detail, property, needed_by, priority, image_count, drive_folder_url, client_slug, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, account_manager_name, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
 
 /** `mirrored_to_asana` is deliberately not among them: whether we managed to copy an update
  *  into Asana is a fact about our plumbing, not about the client's request. */

@@ -29,7 +29,7 @@ import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFr
  *  Internal routing columns (tenant_id, portal_client_id, asana_*, derived_subject, routed_at,
  *  route_error) are absent by construction rather than stripped afterwards. */
 const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, image_count, drive_folder_url, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
+    "id, reference, topic, title, status, created_at, detail, property, needed_by, image_count, drive_folder_url, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, account_manager_name, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
 
 /** Matches OPEN_STATUSES in src/pages/client/help/help-model.ts, where canWithdraw() shows or
  *  hides the button. That copy decides what a client is offered; this one decides what

@@ -86,7 +86,7 @@ const DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
  *  derived_subject, routed_at and route_error are all internal routing state. derived_subject
  *  in particular is OUR summary of their words, not theirs. */
 const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, priority, image_count, drive_folder_url, client_slug, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
+    "id, reference, topic, title, status, created_at, detail, property, needed_by, priority, image_count, drive_folder_url, client_slug, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, account_manager_name, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
 
 /* ── cleaning what a person typed ────────────────────────────────────────── */
 

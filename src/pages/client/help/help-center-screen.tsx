@@ -37,8 +37,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ArrowNarrowLeft, ChevronRight } from "@untitledui-pro/icons/line";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
+import { HelpFrame, TopBar, initialOf } from "@/pages/client/help/help-atoms";
 import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
 import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
 import {
@@ -313,87 +314,37 @@ const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
 /* ── The shell chrome ────────────────────────────────────────────────────── */
 
 /**
- * The Figma's TopBar component, as the page header.
+ * The page: HelpFrame (the `hc` token scope, bg/page, the skip link, header and main)
+ * around the file's TopBar with "Help Center" as the app name.
  *
- * 64 tall, bg/page with a hairline below in border/secondary, 24 of padding. Left: the gem
- * mark in brand gold, "HiddenGem Media" in label/field, a "/" in text/tertiary, and the app
- * name in the brand colour. Right: "{client} · {person}" in body/helper (hidden on a phone,
- * as the mobile frame has it) and a 32px avatar with the initial on a brand tint. On a
- * phone the brand still reads "HiddenGem Media": the company is named in full everywhere
- * on the help centre, by the owner's instruction (12 Sep 2026).
+ * The right-hand text is ONE node, "{client}  ·  {person}", two spaces either side of
+ * the dot as the frame has it; the avatar is named "Account, {person}" (build notes).
+ * The person is the name the server holds for them, falling back to the mailbox name.
+ * The brand still reads "HiddenGem Media" at 390 by the owner's instruction (12 Sep
+ * 2026), though the frame shortens it there.
  *
- * The mark is a link back to the dashboard, because the old chrome's one job was that
- * link and it should not be lost; the avatar is named "Account, {person}" (build notes).
+ * The screens own the column inside main: a 1040 column (the file's 1440 minus 200
+ * gutters), body top 56 and a 40 rhythm on desktop; 16 gutters, top 24 and a 24 rhythm
+ * on a phone.
  */
-const GemMark = () => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M7 4h10l4 5-9 11L3 9l4-5Z" stroke="#f5c518" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M3 9h18M12 20 8 9l2-5M12 20l4-11-2-5" stroke="#f5c518" strokeWidth="1.4" strokeLinejoin="round" />
-    </svg>
-);
-
-const TopBar = ({ slug, clientName, email, name }: { slug: string; clientName: string; email: string; name?: string }) => {
+const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; clientName: string; email: string; name?: string; children: React.ReactNode }) => {
     const person = (name ?? "").trim() || email.split("@")[0];
-    const initial = (person[0] ?? "?").toUpperCase();
     return (
-        <header className="border-b border-secondary bg-secondary">
-            <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
-                <Link to={`/${slug}`} className={cx("inline-flex h-11 items-center gap-2.5 rounded", FOCUS)} aria-label="Back to the dashboard">
-                    <GemMark />
-                    <span className={cx(T.label, "text-primary")}>
-                        HiddenGem Media
-                    </span>
-                    <span className={cx(T.label, "text-tertiary")} aria-hidden="true">
-                        /
-                    </span>
-                    <span className={cx(T.label, "text-fg-brand-primary")}>Help Center</span>
-                </Link>
-                <div className="flex items-center gap-2.5">
-                    <span className={cx(T.helper, "hidden text-secondary sm:inline")}>
-                        {clientName ? `${clientName}  ·  ` : ""}
-                        {person}
-                    </span>
-                    <span
-                        role="img"
-                        aria-label={`Account, ${email}`}
-                        className={cx("flex size-8 items-center justify-center rounded-full bg-brand-primary ring-1 ring-brand", T.caption, "text-primary")}
-                    >
-                        {initial}
-                    </span>
-                </div>
-            </div>
-        </header>
+        <HelpFrame
+            topBar={
+                <TopBar
+                    app="Help Center"
+                    brandTo={`/${slug}`}
+                    right={clientName ? `${clientName}  ·  ${person}` : person}
+                    initial={initialOf(person)}
+                    accountName={person}
+                />
+            }
+        >
+            <div className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 sm:px-6 sm:pt-14 sm:pb-16 lg:px-0">{children}</div>
+        </HelpFrame>
     );
 };
-
-/**
- * The page. A 1040 column (the Figma's 1440 minus 200 gutters), body top 56 and a 40
- * rhythm on desktop; 16 gutters, top 24 and a 24 rhythm on a phone. header / main / footer
- * landmarks with a skip link first in the tab order, per the build notes.
- */
-const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; clientName: string; email: string; name?: string; children: React.ReactNode }) => (
-    // The frame's ground is bg/secondary with white cards on it. White on white was the
-    // single biggest reason the built pages read as a different design.
-    <div className="min-h-dvh bg-secondary">
-        <a
-            href="#help-main"
-            className={cx(
-                "sr-only rounded-lg bg-brand-solid px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50",
-                T.label,
-                FOCUS,
-            )}
-        >
-            Skip to content
-        </a>
-        <TopBar slug={slug} clientName={clientName} email={email} name={name} />
-        <main id="help-main" tabIndex={-1} className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 outline-none sm:px-6 sm:pt-14 sm:pb-16 lg:px-0">
-            {children}
-        </main>
-        <footer className="mx-auto w-full max-w-[1040px] px-4 pb-8 sm:px-6 lg:px-0">
-            <p className={cx(T.helper, "text-tertiary")}>HiddenGem Media</p>
-        </footer>
-    </div>
-);
 
 /* ── 01 HELP HOME ────────────────────────────────────────────────────────── */
 

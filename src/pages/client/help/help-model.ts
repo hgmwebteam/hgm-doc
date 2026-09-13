@@ -426,3 +426,50 @@ export const actorName = (e: TicketEvent): string => (e.actor_name ?? "").trim()
 
 /** First letter of a name, for the update avatars. */
 export const initialOf = (name: string): string => (name.trim()[0] ?? "?").toUpperCase();
+
+// home screen
+
+/**
+ * The "In progress" count on the help home: requests an owner has. Received is
+ * excluded on purpose, because nobody has picked it up yet, and the card's
+ * second line ("Next due ...") is only ever about work somebody is doing.
+ */
+export const ticketsWithOwner = (tickets: Ticket[]): Ticket[] => tickets.filter((t) => t.status === "assigned" || t.status === "in_progress");
+
+/**
+ * "Next due 12 September": the earliest promised date among the requests an owner
+ * has, or "No date set yet" when none of them carries one. Never an estimate.
+ */
+export const nextDueLabel = (tickets: Ticket[]): string => {
+    const dates = ticketsWithOwner(tickets)
+        .map((t) => t.promised_date)
+        .filter((d): d is string => !!d)
+        .sort();
+    const day = dates[0] ? formatDayMonth(dates[0]) : "";
+    return day ? `Next due ${day}` : "No date set yet";
+};
+
+/** The requests completed inside the current calendar month, for the second stat. */
+export const completedThisMonthTickets = (tickets: Ticket[]): Ticket[] => {
+    const now = new Date();
+    return tickets.filter((t) => {
+        if (t.status !== "completed" || !t.completed_at) return false;
+        const d = new Date(t.completed_at);
+        return !Number.isNaN(d.getTime()) && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    });
+};
+
+/**
+ * "3.2 day average": the mean of whole days from raised to completed over this
+ * month's completions, to one decimal ("1.0 day average", not "1 day"). Under half
+ * a day it reads "Same-day average". With nothing completed this month there is no
+ * mean, and the line says so rather than showing a zero that looks like a speed.
+ */
+export const averageDaysLabel = (tickets: Ticket[]): string => {
+    const spans = completedThisMonthTickets(tickets)
+        .map((t) => elapsedDays(t.created_at, t.completed_at))
+        .filter((d): d is number => d !== null);
+    if (!spans.length) return "None yet this month";
+    const mean = spans.reduce((a, b) => a + b, 0) / spans.length;
+    return mean < 0.5 ? "Same-day average" : `${mean.toFixed(1)} day average`;
+};

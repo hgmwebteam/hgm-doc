@@ -1,7 +1,16 @@
 /**
- * 01 HELP HOME, plus the shell the other two help screens are rendered inside.
+ * 01 HELP HOME, plus the shell the other help screens are rendered inside.
  *
- * Route: /{client}-dashboard/help, and /{client}-dashboard/help/requests[/REQ-nnnn].
+ * Routes: /{client}-dashboard/help (the home, and with ?raise=<topic> the composer),
+ * /help/requests[/REQ-nnnn] (the list and the detail, help-requests-screen.tsx and
+ * help-request-detail.tsx) and /help/guides/<slug> (help-center-guides.tsx).
+ *
+ * ── THE FIGMA FRAMES ────────────────────────────────────────────────────────
+ * The home is built node for node from "Desktop · Light / 1 Help home" (1440) and
+ * "Mobile · Light / 390 Help home" in the file "Reporting System", on the atoms in
+ * help-atoms.tsx and the tokens in help-centre.css, and an automated proof holds the
+ * rendered page against both frames. Copy is the frames', verbatim; the numbers on the
+ * position card are the client's own tickets (help-model.ts, "home screen").
  *
  * ── WHY THE SHELL WRAPS RATHER THAN GETS IMPORTED ───────────────────────────
  * HelpCenterScreen owns the gate, the one fetch of topics and tickets, and the page chrome,
@@ -16,30 +25,20 @@
  * Jarvis; the only channel here is a request, which becomes a ticket with a named owner.
  * If a box for typing at an assistant ever appears on this page, it is a bug.
  *
- * ── LIGHT MODE, AND WHY THE TOKENS ARE STILL USED ───────────────────────────
- * The approved design is light. Rather than pin the page to light and have it fight a
- * client whose dashboard is already dark, every colour is a semantic token, and every pair
- * was MEASURED in both themes rather than eyeballed: the tokens are resolved out of the
- * built stylesheet and converted oklch -> sRGB -> relative luminance.
+ * ── BOTH THEMES ─────────────────────────────────────────────────────────────
+ * Every colour on the home is a --hc-* token, so the page flips with the portal's
+ * .dark-mode to the file's Dark values with no code of its own. The gate and the refused
+ * panel, which sit outside the help frame, use the portal's semantic tokens as before.
  *
- * Every shipped text pair clears WCAG AA's 4.5:1. The floor is the Completed chip at
- * 4.72:1 in light and the active filter chip's label at 5.31:1 in dark; body text sits at
- * 7.47:1 and headings at 17.16:1 or better.
- *
- * Two pairs were CHANGED after measuring rather than argued around, and both are worth
- * knowing about before softening anything here:
- *   - text-quaternary is ruled out everywhere. It does not fail (4.53:1 on the page
- *     ground, 4.73:1 on a card) but clearing by 0.03 on the smallest type on the page is
- *     not a margin worth having.
- *   - white/80 on bg-brand-solid resolves to rgb(204 224 248) and measures 3.94:1, which
- *     DOES fail. The filter-chip counts are solid white for that reason.
+ * House style: no em or en dashes anywhere.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { ArrowNarrowLeft, ChevronRight } from "@untitledui-pro/icons/line";
-import { useNavigate, useParams } from "react-router";
+import { ArrowNarrowLeft } from "@untitledui-pro/icons/line";
+import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
-import { HelpFrame, TopBar, initialOf } from "@/pages/client/help/help-atoms";
+import { Button, Card, Chevron, Eyebrow, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
+import { HELP_GUIDES, HelpGuidePage, findHelpGuide } from "@/pages/client/help/help-center-guides";
 import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
 import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
 import {
@@ -57,46 +56,20 @@ import {
     type Viewer,
 } from "@/pages/client/help/help-api";
 import {
-    LIFECYCLE,
-    elapsedDays,
-    formatDayMonth,
     type RequestFilter,
     type Ticket,
     type TicketCounts,
     type TicketTopic,
-    completedThisMonth,
+    averageDaysLabel,
+    completedThisMonthTickets,
     countsFor,
-    topicTurnaroundLabel,
+    nextDueLabel,
+    ticketsWithOwner,
 } from "@/pages/client/help/help-model";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
-import {
-    ErrorNote,
-    Eyebrow,
-    FOCUS,
-    HelpRequestsScreen,
-    HelpSpinner,
-    Panel,
-    PrimaryButton,
-    T,
-    TextLink,
-} from "@/pages/client/help/help-requests-screen";
+import { ErrorNote, HelpRequestsScreen, HelpSpinner, T } from "@/pages/client/help/help-requests-screen";
 import { cx } from "@/utils/cx";
 
-/* ── Shared field styling ────────────────────────────────────────────────── */
-
-/**
- * text-md, not text-sm, on every field a client TYPES into.
- *
- * 16px is the threshold below which iOS Safari zooms the viewport on focus, which on a
- * 390px frame throws the client out of the layout mid-sentence and does not zoom back. The
- * labels around them stay at 14px; only the fields themselves are bumped.
- *
- * The file picker is deliberately NOT on this rule and an audit that flags it as an input
- * under 16px is reading the tag, not the behaviour: tapping a file input opens the system
- * picker rather than focusing a text caret, so it never triggers the zoom this exists to
- * prevent. Its 14px label is text-tertiary, measured at 7.80:1, so it is a size choice and
- * not a legibility one.
- */
 /* ── The gate ────────────────────────────────────────────────────────────── */
 
 /**
@@ -171,7 +144,7 @@ const HelpGate = ({
                     type="button"
                     onClick={signIn}
                     disabled={busy}
-                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-solid_hover disabled:opacity-60"
+                    className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-solid_hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     {busy ? "Opening Google..." : "Sign in with Google"}
                 </button>
@@ -257,7 +230,7 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
                     type="button"
                     onClick={switchAccount}
                     disabled={busy}
-                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-solid_hover disabled:opacity-60"
+                    className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-solid_hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     {busy ? "Opening Google..." : "Use a different Google account"}
                 </button>
@@ -349,267 +322,183 @@ const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; 
 /* ── 01 HELP HOME ────────────────────────────────────────────────────────── */
 
 /**
- * "What do you need?" - the topic tiles, from the Figma's Card/Raise a request.
+ * The topic tiles inside Card/Raise a request, from the file: each Topic is
+ * bg/secondary with a 1px border/secondary, radius/lg, padding 14 by 16 (13 by 15 plus
+ * the border), gap 12: the 8px Marker, the Words (label/field over body/helper, gap 2)
+ * and the "›" glyph in heading/section. 70 tall. Gap 8 between tiles.
  *
- * Each tile: bg/secondary, a hairline in border/secondary, radius/lg, 14 by 16 padding, an
- * 8px brand dot (decorative, aria-hidden - the build notes), the label in label/field and
- * the description in body/helper. Two to a row on desktop, stacked on a phone. Each topic
- * is a control, not a heading. The topics themselves come from the database: today that is
- * Website and Other, and the tiles follow whatever is seeded.
+ * Each tile is a LINK (build notes: "each topic is a link, not a heading") to the help
+ * home with ?raise=<topic>, which opens the composer with that category preselected. A
+ * real URL, so the back button closes the composer and a tile can be sent to someone.
+ * The topics come from ticket-topics in sort_order; nothing here is a fixed list.
  */
-const TopicTiles = ({ topics, onPick }: { topics: TicketTopic[]; onPick: (t: TicketTopic) => void }) => (
-    <ul className="flex flex-col gap-2">
-        {topics.map((topic) => {
-            const turnaround = topicTurnaroundLabel(topic);
-            return (
-                <li key={topic.key}>
-                    <button
-                        type="button"
-                        onClick={() => onPick(topic)}
-                        className={cx(
-                            "flex min-h-[68px] w-full items-center gap-3 rounded-[10px] bg-secondary px-4 py-3.5 text-left ring-1 ring-secondary transition duration-100 ease-linear hover:bg-tertiary hover:ring-brand motion-reduce:transition-none",
-                            FOCUS,
-                        )}
-                    >
-                        <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-brand-solid" />
-                        <span className="min-w-0 flex-1">
-                            <span className={cx("block text-primary", T.label)}>{topic.label}</span>
-                            {topic.description && <span className={cx("mt-0.5 block text-pretty text-tertiary", T.helper)}>{topic.description}</span>}
-                            {turnaround && <span className={cx("mt-1 block text-fg-brand-primary", T.helper)}>Turnaround: {turnaround}</span>}
-                        </span>
-                        <ChevronRight className="size-4 shrink-0 text-tertiary" aria-hidden="true" />
-                    </button>
-                </li>
-            );
-        })}
+const TopicTiles = ({ topics, slug }: { topics: TicketTopic[]; slug: string }) => (
+    <ul className="flex w-full flex-col gap-2">
+        {topics.map((topic) => (
+            <li key={topic.key}>
+                <Link
+                    to={raiseHref(slug, topic.key)}
+                    className="hc-hover flex w-full items-center gap-3 rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-secondary) px-[15px] py-[13px] hover:bg-(--hc-bg-primary_hover) hover:border-(--hc-border-brand)"
+                >
+                    <Marker />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="hc-t-label-field text-(--hc-text-primary)">{topic.label}</span>
+                        {topic.description && <span className="hc-t-body-helper text-(--hc-text-tertiary)">{topic.description}</span>}
+                    </span>
+                    <Chevron />
+                </Link>
+            </li>
+        ))}
     </ul>
 );
 
+/** /{slug}/help?raise=website, or ?raise=any for the button (the composer then shows the category selector). */
+const raiseHref = (slug: string, topicKey: string | "any"): string => `/${slug}/help?raise=${encodeURIComponent(topicKey)}`;
+
 /**
- * One stat row inside "Where things stand": a 32px count badge on a tint, the label in
- * label/field, the second line in body/helper. Warning tint for what is in progress,
- * success tint for what finished this month. Nothing on the second line is invented: it
- * says the next promised date only when one exists, and otherwise says that plainly.
+ * One Stat row inside Card/Open right now: bg/secondary, radius/lg, padding 12, gap 12.
+ * The Count is a 32px square (36 at 390) on the utility tint with the number in
+ * label/field in the utility foreground; the Words are label/field over body/helper.
+ *
+ * The count is read once: it is inside the row's text, so the row announces "2 In
+ * progress, Next due 12 September" with nothing repeated and nothing hidden.
  */
 const StatRow = ({ count, label, detail, tone }: { count: number; label: string; detail: string; tone: "warning" | "success" }) => (
-    <li className="flex items-center gap-3 rounded-[10px] bg-secondary p-3">
+    <li className="flex w-full items-center gap-3 rounded-(--hc-radius-lg) bg-(--hc-bg-secondary) p-3">
         <span
-            aria-hidden="true"
             className={cx(
-                "flex size-8 shrink-0 items-center justify-center rounded-lg tabular-nums",
-                T.label,
-                tone === "warning" ? "bg-yellow-50 text-yellow-800" : "bg-green-50 text-green-800",
+                "hc-t-label-field flex size-9 shrink-0 items-center justify-center rounded-(--hc-radius-md) tabular-nums sm:size-8",
+                tone === "warning" ? "bg-(--hc-utility-warning-bg) text-(--hc-utility-warning-fg)" : "bg-(--hc-utility-success-bg) text-(--hc-utility-success-fg)",
             )}
         >
             {count}
         </span>
-        <span className="min-w-0 flex-1">
-            <span className={cx("block text-primary", T.label)}>
-                <span className="sr-only">{count} </span>
-                {label}
-            </span>
-            <span className={cx("mt-0.5 block text-pretty text-tertiary", T.helper)}>{detail}</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="hc-t-label-field text-(--hc-text-primary)">{label}</span>
+            <span className="hc-t-body-helper text-(--hc-text-tertiary)">{detail}</span>
         </span>
     </li>
 );
 
-/** The next promised date across open requests, or null when none carries one. */
-const nextPromised = (tickets: Ticket[]): string | null => {
-    const dates = tickets
-        .filter((t) => (t.status === "received" || t.status === "assigned" || t.status === "in_progress") && t.promised_date)
-        .map((t) => t.promised_date as string)
-        .sort();
-    return dates[0] ? formatDayMonth(dates[0]) : null;
-};
-
 /**
- * "Where things stand" - the Figma's Card/Open right now, 344 wide on desktop and the
- * first thing after the heading on a phone (where the primary button comes first of all).
+ * Card/Open right now, titled "Current position": 344 wide on desktop, padding 24,
+ * gap 16; full width at 390, padding 16, gap 12. Two Stat rows, then on desktop only
+ * the primary Button (FILL), the helper line and "View all requests"; the 390 frame
+ * draws the card with the two stats alone (the button sits under the heading there).
  *
- * Its two counts are what is open and what finished this month. The primary action sits
- * under them with the trust line "You will see the date before you send it." - which is
- * only true once topics carry a turnaround, so until then the line says what IS true: that
- * a person will own it. Then the link to everything.
+ * The numbers are the client's own: "In progress" is what an owner has, "Next due" the
+ * earliest promised date among those, "Completed this month" this calendar month's
+ * completions and the mean days from raised to done over them (help-model.ts, under
+ * "home screen").
  */
-const WhereThingsStand = ({
-    tickets,
-    counts,
-    slug,
-    clientName,
-    viewingAsStaff,
-    onRaise,
-}: {
-    tickets: Ticket[];
-    counts: TicketCounts;
-    slug: string;
-    clientName?: string;
-    viewingAsStaff: boolean;
-    onRaise: () => void;
-}) => {
-    const open = tickets.filter((t) => t.status === "received" || t.status === "assigned" || t.status === "in_progress").length;
-    const done = completedThisMonth(tickets);
-    const next = nextPromised(tickets);
-    // "3.2 day average" in the frame: the mean days from raised to completed, over this
-    // month's completions that carry both stamps. Null when there are none.
-    const spans = tickets
-        .filter((t) => t.status === "completed" && t.completed_at && new Date(t.completed_at).getMonth() === new Date().getMonth())
-        .map((t) => elapsedDays(t.created_at, t.completed_at))
-        .filter((d): d is number => d !== null);
-    const avg = spans.length ? (spans.reduce((a, b) => a + b, 0) / spans.length).toFixed(1).replace(/\.0$/, "") : null;
-    const whose = viewingAsStaff ? clientName || "This client" : "You";
-    return (
-        <Panel className="flex flex-col gap-4 p-4 sm:p-6">
-            <h2 className={cx(T.section, "text-primary")}>Current position</h2>
-            {counts.total === 0 ? (
-                <p className={cx(T.helper, "text-pretty text-tertiary")}>
-                    {whose} {viewingAsStaff ? "has" : "have"} not raised anything yet. When {viewingAsStaff ? "they" : "you"} do, it appears here with its reference and
-                    where it stands.
-                </p>
-            ) : (
-                <ul className="flex flex-col gap-3">
-                    <StatRow count={open} label="In progress" detail={next ? `Next due ${next}` : "No dates set yet"} tone="warning" />
-                    <StatRow
-                        count={done}
-                        label="Completed this month"
-                        detail={avg === null ? (done === 0 ? "None yet this month" : "On your record") : avg === "0" ? "Same-day average" : `${avg} day average`}
-                        tone="success"
-                    />
-                </ul>
-            )}
-            <div className="hidden flex-col gap-2 sm:flex">
-                <PrimaryButton onClick={onRaise} className="w-full">
-                    Raise a request
-                </PrimaryButton>
-                <p className={cx(T.helper, "text-pretty text-tertiary")}>You get a reference straight away. No completion dates are shown yet.</p>
-            </div>
-            {counts.total > 0 && (
-                <TextLink to={`/${slug}/help/requests`} className="min-h-0">
-                    View all requests
-                </TextLink>
-            )}
-        </Panel>
-    );
-};
-
-const HelpHome = ({
-    tickets,
-    counts,
-    topics,
-    slug,
-    onPickTopic,
-    onRaise,
-    viewingAsStaff,
-    clientName,
-}: {
-    tickets: Ticket[];
-    counts: TicketCounts;
-    topics: TicketTopic[];
-    slug: string;
-    onPickTopic: (t: TicketTopic) => void;
-    /** The primary button: the form with a topic selector. */
-    onRaise: () => void;
-    /** Staff. Only the pronouns change: "Flohom has not raised anything yet", not "You have". */
-    viewingAsStaff: boolean;
-    clientName?: string;
-}) => {
-    // "Raise a request" opens the form. It used to scroll to the tiles when there was
-    // more than one topic, which read as the button doing nothing. The form carries its
-    // own topic selector for exactly this path; a tile still opens it with the topic set.
-    const raise = () => onRaise();
-
-    return (
-        <div className="flex flex-col gap-6 sm:gap-10">
-            {/* Heading: eyebrow, the hero title, a lede at most 680 wide. */}
-            <header className="flex flex-col gap-2">
-                <Eyebrow>Help Center</Eyebrow>
-                {/* Exact, not aspirational. The earlier lines promised "a date" the page
-                    itself says lower down is not published yet, and "an owner within a
-                    minute" while both topics have no board and nothing is assigned at all.
-                    These say what the page does: you raise it, you get a reference, and
-                    this is where you see what happens to it. */}
-                <h1 className={cx("text-primary", T.title, "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>Every request has an owner.</h1>
-                <p className={cx("max-w-[680px] text-pretty text-secondary", T.body, "sm:text-[13px] sm:leading-[18px]")}>
-                    Raise it here, see who has it, and follow it until it closes. No chasing.
-                </p>
-            </header>
-
-            {/* Two columns on desktop: the topics card fills, the side card is 344 wide. On a
-                phone the side card comes first, because its button is the primary action
-                and the mobile frame puts it first. */}
-            <PrimaryButton onClick={raise} className="w-full sm:hidden">
+const CurrentPosition = ({ tickets, slug }: { tickets: Ticket[]; slug: string }) => (
+    <Card as="section" className="flex w-full flex-col gap-3 sm:w-[344px] sm:shrink-0 sm:gap-4">
+        <h2 id="hc-position" className="hc-t-heading-section text-(--hc-text-primary)">
+            Current position
+        </h2>
+        <ul className="flex w-full flex-col gap-3 sm:gap-4">
+            <StatRow count={ticketsWithOwner(tickets).length} label="In progress" detail={nextDueLabel(tickets)} tone="warning" />
+            <StatRow count={completedThisMonthTickets(tickets).length} label="Completed this month" detail={averageDaysLabel(tickets)} tone="success" />
+        </ul>
+        <div className="hidden sm:contents">
+            <Button to={raiseHref(slug, "any")} fill>
                 Raise a request
-            </PrimaryButton>
-
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-                <div className="order-2 min-w-0 flex-1 sm:order-1">
-                    <Panel className="flex flex-col gap-4 p-4 sm:p-6">
-                        <div className="flex flex-col gap-1">
-                            <h2 className={cx(T.section, "text-primary")}>Raise a request</h2>
-                            <p className={cx(T.helper, "text-pretty text-tertiary")}>Pick a category. Each goes straight to the team that does it.</p>
-                        </div>
-                        <TopicTiles topics={topics} onPick={onPickTopic} />
-                    </Panel>
-                </div>
-                <div className="order-1 w-full sm:order-2 sm:w-[344px] sm:shrink-0">
-                    <WhereThingsStand tickets={tickets} counts={counts} slug={slug} clientName={clientName} viewingAsStaff={viewingAsStaff} onRaise={raise} />
-                </div>
-            </div>
-
-            {/* The frame's "Reference" row: a label and underlined links. The guides it
-                links to do not exist yet, so the row carries the one reference that does,
-                opened in place. */}
-            <details className="group">
-                <summary className={cx("flex cursor-pointer list-none flex-wrap items-center gap-x-6 gap-y-2 rounded", FOCUS)}>
-                    <span className={cx(T.helper, "text-secondary")}>Reference</span>
-                    <span className={cx(T.helper, "text-fg-brand-primary underline")}>How a request moves</span>
-                </summary>
-                <div className="mt-4">
-                    <ReferenceList />
-                </div>
-            </details>
+            </Button>
+            <p className="hc-t-body-helper text-(--hc-text-tertiary)">The date is shown before submission.</p>
+            {/* body/helper at 20 tall as the frame draws it; the 44px target the build
+                notes ask for is the pseudo-element, which moves nothing. */}
+            <Link
+                to={`/${slug}/help/requests`}
+                className="hc-t-body-helper relative w-full rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline"
+            >
+                View all requests
+            </Link>
         </div>
-    );
-};
+    </Card>
+);
 
 /**
- * The reference list, restyled to the Figma's timeline rows: a 24px numbered dot in
- * bg/tertiary with a hairline, label/field, body/helper. The note underneath is the honest
- * half of the page: no completion date is published to clients yet, and a page that
- * implied one would be doing exactly what this feature exists to stop.
+ * The Guides row under the columns, desktop only (the 390 frame has none): "Reference"
+ * in caption/meta, then the four guide links in body/helper, underlined, text/brand-
+ * secondary, 24 apart and vertically centred. The heading is the row's own label, so
+ * the landmark reads "Reference" and the four links are its contents.
  */
-const ReferenceList = () => (
-    <section className="flex flex-col gap-4">
-        <Panel className="p-4 sm:p-6">
-            <ol className="flex flex-col gap-4">
-                {LIFECYCLE.map((step, i) => (
-                    <li key={step.status} className="flex gap-3">
-                        <span
-                            aria-hidden="true"
-                            className={cx("flex size-6 shrink-0 items-center justify-center rounded-full bg-tertiary text-tertiary ring-1 ring-secondary tabular-nums", T.caption)}
-                        >
-                            {i + 1}
-                        </span>
-                        <div className="min-w-0">
-                            <p className={cx(T.label, "text-primary")}>{step.label}</p>
-                            <p className={cx(T.helper, "mt-0.5 text-pretty text-tertiary")}>{step.detail}</p>
-                        </div>
-                    </li>
-                ))}
-            </ol>
-        </Panel>
-        <p className={cx(T.helper, "max-w-[68ch] text-pretty text-tertiary")}>
-            We do not show completion dates yet. You will see who has your request, but no date beside it. When we start setting dates, they will appear
-            here.
-        </p>
-    </section>
+const GuidesRow = ({ slug }: { slug: string }) => (
+    <nav aria-labelledby="hc-reference" className="hidden w-full items-center gap-6 sm:flex">
+        <h2 id="hc-reference" className="hc-t-caption-meta text-(--hc-text-tertiary)">
+            Reference
+        </h2>
+        <ul className="flex items-center gap-6">
+            {HELP_GUIDES.map((g) => (
+                <li key={g.slug} className="flex">
+                    <Link
+                        to={`/${slug}/help/guides/${g.slug}`}
+                        className="hc-t-body-helper relative rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline after:absolute after:inset-x-0 after:-inset-y-3 after:content-['']"
+                    >
+                        {g.title}
+                    </Link>
+                </li>
+            ))}
+        </ul>
+    </nav>
+);
+
+/**
+ * The home, node for node from "Desktop · Light / 1 Help home" and "Mobile · Light /
+ * 390 Help home":
+ *
+ *   Heading    eyebrow "HELP CENTER" (caption/meta), the hero in display/hero on
+ *              desktop and display/title at 390, the lede in body/helper at most 680
+ *              wide on desktop and body/input at 390. The two ledes differ by a
+ *              sentence, so each is its own node shown at its own width.
+ *   390 only   the primary Button "New request", full width, straight under the heading
+ *   Columns    Card/Raise a request (fills; heading, the lede on desktop only, the
+ *              tiles) and Card/Open right now (344). At 390 the position card comes
+ *              first and the two stack 24 apart.
+ *   Guides     the Reference row, desktop only.
+ *
+ * Section gap 40 on desktop, 24 at 390. Heading order: h1 the hero, h2 the two cards,
+ * h2 Reference. The topics are links, not headings.
+ */
+const HelpHome = ({ tickets, topics, slug }: { tickets: Ticket[]; topics: TicketTopic[]; slug: string }) => (
+    <div className="flex flex-col gap-6 sm:gap-10">
+        <header className="flex flex-col gap-2">
+            <Eyebrow>HELP CENTER</Eyebrow>
+            <h1 className="hc-t-display-title sm:hc-t-display-hero w-full text-(--hc-text-primary)">Every request has an owner and a date.</h1>
+            <p className="hc-t-body-input text-(--hc-text-secondary) sm:hidden">Raised here, assigned within the minute, and visible until it closes.</p>
+            <p className="hc-t-body-helper hidden max-w-[680px] text-(--hc-text-secondary) sm:block">
+                Raised here, assigned within the minute, and visible until it closes. No follow-up required.
+            </p>
+        </header>
+
+        <Button to={raiseHref(slug, "any")} fill className="sm:hidden">
+            New request
+        </Button>
+
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            <Card as="section" className="order-2 flex min-w-0 flex-1 flex-col gap-2 sm:order-1 sm:gap-4">
+                <h2 id="hc-raise" className="hc-t-heading-section text-(--hc-text-primary)">
+                    Raise a request
+                </h2>
+                <p className="hc-t-body-helper hidden text-(--hc-text-tertiary) sm:block">Select a category. Each routes directly to the team accountable for it.</p>
+                <TopicTiles topics={topics} slug={slug} />
+            </Card>
+            <div className="order-1 flex w-full sm:order-2 sm:w-auto">
+                <CurrentPosition tickets={tickets} slug={slug} />
+            </div>
+        </div>
+
+        <GuidesRow slug={slug} />
+    </div>
 );
 
 /* ── The composer ────────────────────────────────────────────────────────── */
 
 /**
  * Raising a request: the shared RequestForm (help-form.tsx), which is the Figma's form
- * for the client and the team alike. This wrapper owns the API call - the server decides
- * who may submit - and the way back.
+ * for the client and the team alike, in its 560 column. This wrapper owns the API call
+ * (the server decides who may submit) and the way back. The category comes from the
+ * URL (?raise=<topic>), so a tile, the button and a guide all open the same thing.
  */
 const Composer = ({
     topic,
@@ -633,7 +522,7 @@ const Composer = ({
         <button
             type="button"
             onClick={onCancel}
-            className={cx("-ml-1 inline-flex min-h-11 w-max items-center gap-1.5 rounded px-1 text-fg-brand-primary hover:underline", T.helper, FOCUS)}
+            className="hc-t-body-helper -ml-1 inline-flex min-h-11 w-max cursor-pointer items-center gap-1.5 rounded-(--hc-radius-sm) px-1 text-(--hc-text-brand-secondary) hover:underline"
         >
             <ArrowNarrowLeft className="size-4" aria-hidden="true" />
             Back to the help centre
@@ -654,9 +543,11 @@ const Composer = ({
     </div>
 );
 
-/** What a client sees the moment a request lands: the frame's success screen. */
-const CreatedNote = ({ sent, slug, clientName, onRaiseAnother }: { sent: { reference: string; title: string }; slug: string; clientName: string; onRaiseAnother: () => void }) => {
-    const navigate = useNavigate();
+/**
+ * What a client sees the moment a request lands: the frame's success card. "Back to
+ * portal" returns to the help home; "Report another ticket" reopens the composer.
+ */
+const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { reference: string; title: string }; clientName: string; onBack: () => void; onRaiseAnother: () => void }) => {
     const headingRef = useRef<HTMLDivElement>(null);
     // Focus moves to the confirmation so the outcome is announced. Submitting a form and
     // being dropped back at its top with no announcement is the classic silent success.
@@ -671,8 +562,8 @@ const CreatedNote = ({ sent, slug, clientName, onRaiseAnother }: { sent: { refer
                 clientName={clientName}
                 priority={null}
                 team={false}
-                primary={{ label: "Follow this request", onClick: () => navigate(`/${slug}/help/requests/${sent.reference}`) }}
-                secondary={{ label: "Raise another", onClick: onRaiseAnother }}
+                primary={{ label: "Report another ticket", onClick: onRaiseAnother }}
+                secondary={{ label: "Back to portal", onClick: onBack }}
             />
         </div>
     );
@@ -680,10 +571,10 @@ const CreatedNote = ({ sent, slug, clientName, onRaiseAnother }: { sent: { refer
 
 /* ── The route component ─────────────────────────────────────────────────── */
 
-export type HelpView = "home" | "list" | "detail";
+export type HelpView = "home" | "list" | "detail" | "guide";
 
 export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
-    const { clientSlug = "", reference = "" } = useParams<{ clientSlug: string; reference: string }>();
+    const { clientSlug = "", reference = "", guide = "" } = useParams<{ clientSlug: string; reference: string; guide: string }>();
     // The dashboard answers on both /paradise-pointe-dashboard and the short /paradise-pointe,
     // so the help centre has to as well. Normalised once here; everything downstream, the
     // session keys included, sees the full slug.
@@ -709,9 +600,20 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     /** Who the server said is looking. Null until the first successful read. */
     const [viewer, setViewer] = useState<Viewer | null>(null);
     const [filter, setFilter] = useState<RequestFilter>("all");
-    /** The form's topic: one from a tile, or null from the button, which then shows the selector. */
-    const [composing, setComposing] = useState<TicketTopic | null | "any">(null);
     const [created, setCreated] = useState<{ reference: string; title: string } | null>(null);
+
+    /**
+     * The composer is a URL, not a flag: /help?raise=website opens it with that category,
+     * ?raise=any with the selector, and no parameter is the home. A tile is therefore a
+     * real link, the back button closes the form, and a guide can open the composer
+     * under its own category with nothing more than an href. A key that matches no
+     * topic (a stale link) falls back to the selector rather than a blank form.
+     */
+    const [params, setParams] = useSearchParams();
+    const raise = params.get("raise");
+    const composing: TicketTopic | "any" | null = raise === null ? null : (topics.find((t) => t.key === raise) ?? "any");
+    const openComposer = (topicKey: string | "any") => setParams({ raise: topicKey });
+    const closeComposer = (replace = false) => setParams({}, { replace });
 
     /* The client's own name and their AM's chosen backdrop. Read straight from
        dashboard_pages with the public anon key, exactly as the dashboard does. Nothing here
@@ -757,7 +659,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         setRefusal(null);
         setViewer(null);
         setGateNotice("Your session expired. Sign in again to see your requests.");
-    }, [slug]);
+    }, []);
 
     const load = useCallback(
         async (p: CallerProof) => {
@@ -800,19 +702,16 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     /**
      * The confirmation belongs to one moment, not to the section.
      *
-     * All three help routes render THIS component, and react-router builds each match with
+     * All four help routes render THIS component, and react-router builds each match with
      * `createElement(RenderedRoute, { match, routeContext, children })` and no `key` (see
      * RenderedRoute in react-router's chunk-4ZMWKKQ3.mjs). Same type, same position, no key,
-     * so React keeps the instance and only swaps the `view` prop - moving between the three
+     * so React keeps the instance and only swaps the `view` prop - moving between the
      * screens does not remount anything. That is the point: the list and the topics are
      * fetched once for the section, not once per screen. The cost is that anything meant to
      * be momentary survives a navigation too. Without this, a client who raises a request,
      * opens it, then presses back lands on the help home and is told "Request received
      * REQ-nnnn" for a request they raised several screens ago, which reads as a second one
      * having been sent.
-     *
-     * `composing` is deliberately NOT cleared here. A half-typed request surviving a look at
-     * the list is a draft being kept, not a stale message.
      */
     useEffect(() => {
         if (view !== "home") setCreated(null);
@@ -820,12 +719,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
 
     if (!callerResolved) return null;
     if (!proof) {
-        return (
-            <HelpGate
-                clientRow={clientRow}
-                notice={gateNotice}
-            />
-        );
+        return <HelpGate clientRow={clientRow} notice={gateNotice} />;
     }
 
     const clientName = clientRow?.clientName ?? "";
@@ -847,24 +741,28 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         if (loading && tickets.length === 0 && topics.length === 0) return <HelpSpinner label="Loading your requests" />;
 
         if (view === "detail") {
-            return (
-                <HelpRequestDetail proof={proof} reference={reference} slug={slug} topics={topics} onTicketChanged={() => void load(proof)} />
-            );
+            return <HelpRequestDetail proof={proof} reference={reference} slug={slug} topics={topics} onTicketChanged={() => void load(proof)} />;
         }
 
         if (view === "list") {
             return <HelpRequestsScreen tickets={tickets} counts={counts} topics={topics} slug={slug} filter={filter} onFilterChange={setFilter} />;
         }
 
+        if (view === "guide") {
+            const found = findHelpGuide(guide);
+            // A guide that does not exist is not a page: back to the home, where the four that do are listed.
+            return found ? <HelpGuidePage guide={found} slug={slug} /> : <Navigate to={`/${slug}/help`} replace />;
+        }
+
         if (created) {
             return (
                 <CreatedNote
                     sent={created}
-                    slug={slug}
                     clientName={viewer?.clientName || clientName}
+                    onBack={() => setCreated(null)}
                     onRaiseAnother={() => {
                         setCreated(null);
-                        setComposing(null);
+                        openComposer("any");
                     }}
                 />
             );
@@ -878,28 +776,19 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                     proof={proof}
                     clientName={viewer?.clientName || clientName}
                     isStaff={isStaff}
-                    onCancel={() => setComposing(null)}
+                    onCancel={() => closeComposer()}
                     onCreated={(ref, sentTitle) => {
                         setCreated({ reference: ref, title: sentTitle });
-                        setComposing(null);
+                        // Replace, so the back button from the confirmation does not land
+                        // on the emptied form as though nothing had been sent.
+                        closeComposer(true);
                         void load(proof);
                     }}
                 />
             );
         }
 
-        return (
-            <HelpHome
-                tickets={tickets}
-                counts={counts}
-                topics={topics}
-                slug={slug}
-                onPickTopic={setComposing}
-                onRaise={() => setComposing("any")}
-                viewingAsStaff={isStaff}
-                clientName={viewer?.clientName || clientName}
-            />
-        );
+        return <HelpHome tickets={tickets} topics={topics} slug={slug} />;
     };
 
     return (

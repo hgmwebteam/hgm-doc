@@ -253,6 +253,7 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/:clientSlug/help" element={<HelpCenterScreen view="home" />} />
                         <Route path="/:clientSlug/help/requests" element={<HelpCenterScreen view="list" />} />
                         <Route path="/:clientSlug/help/requests/:reference" element={<HelpCenterScreen view="detail" />} />
+                        <Route path="/:clientSlug/help/guides/:guide" element={<HelpCenterScreen view="guide" />} />
                         <Route path="/:clientSlug" element={<ClientScreen />} />
                         <Route path="*" element={<NotFound />} />
                     </Routes>

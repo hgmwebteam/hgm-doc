@@ -472,6 +472,7 @@ export const averageDaysLabel = (tickets: Ticket[]): string => {
     if (!spans.length) return "None yet this month";
     const mean = spans.reduce((a, b) => a + b, 0) / spans.length;
     return mean < 0.5 ? "Same-day average" : `${mean.toFixed(1)} day average`;
+};
 
 // requests screen
 
@@ -529,6 +530,7 @@ export const requestMetaLine = (topics: TicketTopic[], t: Ticket): string => {
     const raised = formatRaisedDay(t.created_at);
     const label = topicLabel(topics, t.topic);
     return raised ? `${label}\u00a0\u00a0·\u00a0\u00a0raised ${raised}` : label;
+};
 
 // detail screen
 

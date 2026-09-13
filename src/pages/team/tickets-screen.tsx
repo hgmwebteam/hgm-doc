@@ -2,8 +2,9 @@
  * THE TEAM'S VIEW OF EVERY CLIENT'S REQUESTS, and the form that raises one.
  *
  *   /team/tickets       every request across every client, newest first
- *   /team/tickets/new   "Report a ticket": the Figma's Screens page, frames
- *                       "Desktop / 1 Default .. 5 Success" and "Mobile / 390"
+ *   /team/tickets/new   "Report a ticket": the Figma file's fourteen form frames
+ *                       ("Desktop · Light / 1 Default .. 5 Success", "Mobile · Light /
+ *                       390 Default, Filled", and the same in Dark)
  *
  * ── WHO ─────────────────────────────────────────────────────────────────────
  * Staff. The browser checks the session's domain the way every team page in
@@ -13,42 +14,28 @@
  * client session that calls the function gets 403.
  *
  * ── THE DESIGN ──────────────────────────────────────────────────────────────
- * Same system as the client help centre (help-requests-screen.tsx documents
- * the tokens, type scale and rhythm): the TopBar with the app name, the 1040
- * column, cards with elevation/card. The form is the Figma's 560 column:
- * eyebrow "REPORTING SYSTEM" in the brand colour with 1.2 tracking, "Report a
- * ticket", the lede, then Client (Field/Select), Topic, Priority (Priority/Chip
- * over Priority/Legend), Screenshots (Field/Upload), Description
- * (Field/Textarea, where the first line becomes the title), and the Actions
- * row with Cancel, the primary, and the trust line right-aligned. The error and
- * success states are the Banner component, kind=error and kind=success.
+ * The help centre's atoms (help-atoms.tsx), and nothing else: the TopBar with
+ * "Reporting System" as the app name, the Button, the FilterChips, the
+ * StatusPill, the MonoRef, the card. The form is help-form.tsx, which is the
+ * frames; the page around it is the frames' Body: the 560 column with the body
+ * 56 from the top bar on desktop (96 below), 16px gutters and 24 from the top
+ * at 390 (40 below).
  *
- * The list has no frame in the file; it is the Requests list with one more
- * fact per row - the client - and a priority pill where one was set.
+ * The list has no frame in the file. It is the help centre's Requests list with
+ * two more facts per row, the client and the priority, laid out the way that
+ * frame lays its rows out: a card of 76px rows, alternating bg/primary and
+ * bg/secondary with a border/secondary hairline between them.
+ *
+ * House style: no em or en dashes anywhere.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowNarrowLeft } from "@untitledui-pro/icons/line";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { supabase } from "@/lib/supabase";
 import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics } from "@/pages/client/help/help-api";
-import { HelpFrame, TopBar, firstNameOf, initialOf } from "@/pages/client/help/help-atoms";
+import { Banner, Button, Card, ChevronDownIcon, FilterChip, GemIcon, HelpFrame, MonoRef, PRIORITY_LEVELS, type PillTone, PriorityDot, type PriorityLevel, StatusPill, TopBar, firstNameOf, initialOf } from "@/pages/client/help/help-atoms";
 import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
-import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatDayShort, formatStampShort, priorityMeta } from "@/pages/client/help/help-model";
-import {
-    ErrorNote,
-    Eyebrow,
-    FOCUS,
-    HelpSpinner,
-    MetaDot,
-    MonoRef,
-    Panel,
-    PrimaryButton,
-    SecondaryButton,
-    StatusPill,
-    T,
-    TextLink,
-} from "@/pages/client/help/help-requests-screen";
+import { type Priority, type Ticket, type TicketStatus, type TicketTopic, elapsedDays, formatDayMonth, formatDayMonthShort, topicLabel } from "@/pages/client/help/help-model";
 import { cx } from "@/utils/cx";
 
 /* ── chrome ──────────────────────────────────────────────────────────────── */
@@ -56,16 +43,26 @@ import { cx } from "@/utils/cx";
 /**
  * The page: HelpFrame around the file's TopBar with "Reporting System" as the app name
  * and "Signed in as {first name}" on the right; the avatar is named "Account, {name}".
- * The screens own the column inside main.
+ * The form frames pad the bar 16 at 390 (the help centre's keep 24), which the wrapper
+ * sets on the bar since the atom has one padding at every width.
  */
-const TeamShell = ({ email, name, children }: { email: string; name: string; children: React.ReactNode }) => {
+const TeamShell = ({ email, name, children }: { email: string; name: string; children: ReactNode }) => {
     const person = firstNameOf(name) || email.split("@")[0];
     return (
-        <HelpFrame topBar={<TopBar app="Reporting System" brandTo="/dashboard" right={`Signed in as ${person}`} initial={initialOf(person)} accountName={name || person} />}>
-            <div className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 sm:px-6 sm:pt-14 sm:pb-24 lg:px-0">{children}</div>
+        <HelpFrame
+            topBar={
+                <div className="[&>div]:px-4 sm:[&>div]:px-6">
+                    <TopBar app="Reporting System" brandTo="/dashboard" right={`Signed in as ${person}`} initial={initialOf(person)} accountName={name || person} />
+                </div>
+            }
+        >
+            {children}
         </HelpFrame>
     );
 };
+
+/** The frames' Body around the 560 form column: top 56 and bottom 96 on desktop, 24 and 40 inside 16px gutters at 390. */
+const FormPage = ({ children }: { children: ReactNode }) => <div className="px-4 pt-6 pb-10 sm:px-6 sm:pt-14 sm:pb-24">{children}</div>;
 
 /** A team page's sign-in panel: Google, the same as everywhere else in the team area. */
 const TeamGate = () => {
@@ -75,15 +72,15 @@ const TeamGate = () => {
         await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.href, queryParams: { prompt: "select_account" } } });
     };
     return (
-        <div className="flex min-h-dvh items-center justify-center bg-secondary p-6">
-            <div className="w-full max-w-sm rounded-2xl bg-primary p-8 text-center shadow-2xl ring-1 ring-secondary">
-                <img src="/hgm logo/Favicon ON LIGHT.svg" alt="HiddenGem Media" className="mx-auto size-11" draggable={false} />
-                <h1 className={cx(T.section, "mt-5 text-primary")}>Team sign-in</h1>
-                <p className={cx(T.helper, "mt-2 text-pretty text-tertiary")}>Client requests are for the HiddenGem Media team. Sign in with your hiddengem.media Google account.</p>
-                <PrimaryButton onClick={signIn} disabled={busy} className="mt-6 w-full">
-                    {busy ? "Opening Google..." : "Sign in with Google"}
-                </PrimaryButton>
-            </div>
+        <div className="hc flex min-h-dvh items-center justify-center bg-(--hc-bg-page) p-6">
+            <Card className="flex w-full max-w-sm flex-col items-center gap-4 text-center">
+                <GemIcon className="size-8" />
+                <h1 className="hc-t-heading-section text-(--hc-text-primary)">Team sign-in</h1>
+                <p className="hc-t-body-helper text-(--hc-text-tertiary)">Client requests are for the HiddenGem Media team. Sign in with your hiddengem.media Google account.</p>
+                <Button fill onClick={signIn} loading={busy} className={busy ? undefined : "cursor-pointer"}>
+                    {busy ? "Opening Google" : "Sign in with Google"}
+                </Button>
+            </Card>
         </div>
     );
 };
@@ -97,13 +94,9 @@ const useTeam = () => {
 
 /* ── the list ────────────────────────────────────────────────────────────── */
 
-const PriorityPill = ({ value }: { value: Priority | null | undefined }) => {
-    const m = priorityMeta(value);
-    if (!m) return null;
-    return <span className={cx("inline-flex items-center rounded-full px-3 py-1.5 whitespace-nowrap", T.caption, m.pill)}>{m.label}</span>;
-};
+type ListFilter = "all" | "open" | TicketStatus;
 
-const LIST_FILTERS: { key: "all" | "open" | TicketStatus; label: string }[] = [
+const LIST_FILTERS: { key: ListFilter; label: string }[] = [
     { key: "all", label: "All" },
     { key: "open", label: "Open" },
     { key: "in_progress", label: "In progress" },
@@ -111,27 +104,46 @@ const LIST_FILTERS: { key: "all" | "open" | TicketStatus; label: string }[] = [
     { key: "withdrawn", label: "Withdrawn" },
 ];
 const OPEN: TicketStatus[] = ["received", "assigned", "in_progress"];
-const matches = (t: Ticket, f: (typeof LIST_FILTERS)[number]["key"]) => (f === "all" ? true : f === "open" ? OPEN.includes(t.status) : t.status === f);
+const matches = (t: Ticket, f: ListFilter) => (f === "all" ? true : f === "open" ? OPEN.includes(t.status) : t.status === f);
 
-const dueLine = (t: Ticket): string => {
-    if (t.status === "withdrawn") return t.withdrawn_at ? `Withdrawn ${formatStampShort(t.withdrawn_at)}` : "Withdrawn";
-    if (t.status === "completed") return t.completed_at ? `Completed ${formatStampShort(t.completed_at)}` : "Completed";
-    // promised_date and needed_by are plain DATE columns. Read as a timestamp
-    // they are UTC midnight, which in New York is the evening before: REQ-2664
-    // asked for 29 September and the list said 28. formatDayShort parses a
-    // day as a local day.
-    if (t.promised_date) return `Due ${formatDayShort(t.promised_date)}`;
-    return t.needed_by ? `Asked for by ${formatDayShort(t.needed_by)}` : "";
+/** Status/Pill, per status: the label carries the state, the tone reinforces it. */
+const PILL: Record<TicketStatus, { label: string; tone: PillTone }> = {
+    received: { label: "Received", tone: "with-the-team" },
+    assigned: { label: "Assigned", tone: "with-the-team" },
+    in_progress: { label: "In progress", tone: "in-progress" },
+    completed: { label: "Completed", tone: "done" },
+    withdrawn: { label: "Withdrawn", tone: "withdrawn" },
 };
+
+/**
+ * The row's right-hand fact, the way the requests frame words it: "Due 12 September",
+ * "Completed in 3 days", "Withdrawn"; "Asked for by 29 September" when the client gave
+ * a date and nothing is promised yet. promised_date and needed_by are plain DATE
+ * columns, so they go through the day parser, never new Date().
+ */
+const dueLine = (t: Ticket): string => {
+    if (t.status === "withdrawn") return "Withdrawn";
+    if (t.status === "completed") {
+        const days = elapsedDays(t.created_at, t.completed_at);
+        return days === null ? "Completed" : days === 0 ? "Completed the same day" : `Completed in ${days} ${days === 1 ? "day" : "days"}`;
+    }
+    if (t.promised_date) return `Due ${formatDayMonth(t.promised_date)}`;
+    return t.needed_by ? `Asked for by ${formatDayMonth(t.needed_by)}` : "";
+};
+
+const isLevel = (p: Priority | null | undefined): p is PriorityLevel => !!p && PRIORITY_LEVELS.some((l) => l.value === p);
+
+const shortSlug = (slug: string | null | undefined) => (slug ?? "").replace(/-dashboard$/, "");
 
 export const TeamTicketsScreen = () => {
     const { email, name, isTeam, loading: authLoading } = useTeam();
     const [tickets, setTickets] = useState<Ticket[]>([]);
+    const [topics, setTopics] = useState<TicketTopic[]>([]);
     const [total, setTotal] = useState(0);
     const [next, setNext] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [filter, setFilter] = useState<(typeof LIST_FILTERS)[number]["key"]>("all");
+    const [filter, setFilter] = useState<ListFilter>("all");
     const [client, setClient] = useState("");
 
     const load = useCallback(async (before: string | null = null) => {
@@ -152,9 +164,21 @@ export const TeamTicketsScreen = () => {
         if (isTeam) void load();
     }, [isTeam, load]);
 
+    // The category labels come from the database, never a list here. The endpoint
+    // needs a slug only to prove who is asking, so the first request's client will do.
+    const firstSlug = tickets.find((t) => t.client_slug)?.client_slug ?? "";
+    useEffect(() => {
+        if (!firstSlug || topics.length) return;
+        fetchTopics({ slug: firstSlug, email })
+            .then((r) => setTopics(r.topics ?? []))
+            .catch(() => {
+                // The key stands in for the label until the next load.
+            });
+    }, [firstSlug, email, topics.length]);
+
     const clients = useMemo(() => {
         const seen = new Map<string, string>();
-        for (const t of tickets) if (t.client_slug) seen.set(t.client_slug, (t.client_name ?? "").trim() || t.client_slug.replace(/-dashboard$/, ""));
+        for (const t of tickets) if (t.client_slug) seen.set(t.client_slug, (t.client_name ?? "").trim() || shortSlug(t.client_slug));
         return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
     }, [tickets]);
     const shown = tickets.filter((t) => matches(t, filter) && (!client || t.client_slug === client));
@@ -165,116 +189,98 @@ export const TeamTicketsScreen = () => {
 
     return (
         <TeamShell email={email} name={name}>
-            <div className="flex flex-col gap-4 sm:gap-6">
+            <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-6 px-4 pt-6 pb-10 sm:gap-10 sm:px-6 sm:pt-14 sm:pb-16 xl:px-0">
                 <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-1">
-                        <Eyebrow>Reporting System</Eyebrow>
-                        <h1 className={cx("text-primary", T.title, "sm:text-[40px] sm:leading-[44px] sm:tracking-[-1px]")}>Client requests</h1>
-                        <p className={cx("text-tertiary", T.body, "sm:text-[13px] sm:leading-[18px]")}>
+                        <h1 className="hc-t-display-title text-(--hc-text-primary) sm:hc-t-display-hero">Client requests</h1>
+                        <p className="hc-t-body-helper text-(--hc-text-tertiary)">
                             {total} {total === 1 ? "request" : "requests"} across every client. {openCount} open.
                         </p>
                     </div>
-                    <PrimaryButton as="link" to="/team/tickets/new" className="w-full sm:w-auto">
+                    <Button to="/team/tickets/new" className="max-sm:w-full cursor-pointer">
                         Report a ticket
-                    </PrimaryButton>
+                    </Button>
                 </header>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div role="group" aria-label="Filter by status" className="flex flex-wrap items-center gap-2">
-                        {LIST_FILTERS.map((f) => {
-                            const active = f.key === filter;
-                            const n = tickets.filter((t) => matches(t, f.key)).length;
-                            return (
-                                <button
-                                    key={f.key}
-                                    type="button"
-                                    aria-pressed={active}
-                                    onClick={() => setFilter(f.key)}
-                                    className={cx(
-                                        "inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 whitespace-nowrap ring-1 transition duration-100 ease-linear motion-reduce:transition-none",
-                                        T.helper,
-                                        FOCUS,
-                                        active ? "bg-brand-primary text-fg-brand-primary ring-brand" : "bg-primary text-secondary ring-secondary hover:bg-primary_hover",
-                                    )}
-                                >
-                                    {f.label}
-                                    <span className={cx("tabular-nums", active ? "text-fg-brand-primary" : "text-tertiary")}>{n}</span>
-                                </button>
-                            );
-                        })}
+                        {LIST_FILTERS.map((f) => (
+                            <FilterChip key={f.key} selected={f.key === filter} onClick={() => setFilter(f.key)} className="cursor-pointer">
+                                {f.label}
+                            </FilterChip>
+                        ))}
                     </div>
                     <label className="flex items-center gap-2">
-                        <span className={cx(T.helper, "text-tertiary")}>Client</span>
-                        <select
-                            value={client}
-                            onChange={(e) => setClient(e.target.value)}
-                            className={cx("h-11 rounded-lg bg-primary px-3 text-primary ring-1 ring-primary outline-none focus:ring-2 focus:ring-brand", T.helper)}
-                        >
-                            <option value="">Every client</option>
-                            {clients.map(([slug, name]) => (
-                                <option key={slug} value={slug}>
-                                    {name}
-                                </option>
-                            ))}
-                        </select>
+                        <span className="hc-t-body-helper text-(--hc-text-tertiary)">Client</span>
+                        <span className="relative">
+                            <select
+                                value={client}
+                                onChange={(e) => setClient(e.target.value)}
+                                className="hc-focus-border hc-hover hc-t-body-helper block h-11 cursor-pointer appearance-none rounded-(--hc-radius-md) border border-(--hc-border-primary) bg-(--hc-bg-primary) pr-[43px] pl-[13px] text-(--hc-text-primary) focus:border-2 focus:border-(--hc-border-brand) focus:pl-[12px] sm:h-9"
+                            >
+                                <option value="">Every client</option>
+                                {clients.map(([slug, clientName]) => (
+                                    <option key={slug} value={slug}>
+                                        {clientName}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-[11px] -translate-y-1/2 text-(--hc-text-tertiary)" />
+                        </span>
                     </label>
                 </div>
 
-                {error && <ErrorNote message={error} onRetry={() => void load()} />}
+                {error && (
+                    <Banner kind="error" title="The list did not load">
+                        {error}
+                    </Banner>
+                )}
+                {error && (
+                    <Button variant="secondary" onClick={() => void load()} className="cursor-pointer">
+                        Try again
+                    </Button>
+                )}
 
                 {loading && tickets.length === 0 ? (
-                    <HelpSpinner label="Loading every client's requests" />
+                    <p className="hc-t-body-helper text-(--hc-text-tertiary)" role="status">
+                        Loading every client's requests
+                    </p>
                 ) : shown.length === 0 ? (
-                    <Panel className="px-5 py-12 text-center">
-                        <p className={cx(T.label, "text-primary")}>Nothing here</p>
-                        <p className={cx(T.helper, "mx-auto mt-1.5 max-w-[42ch] text-pretty text-tertiary")}>No request matches that filter. Raise one with the button above.</p>
-                    </Panel>
+                    <Card className="flex flex-col items-center gap-2 py-12 text-center">
+                        <p className="hc-t-label-field text-(--hc-text-primary)">Nothing here</p>
+                        <p className="hc-t-body-helper max-w-[42ch] text-(--hc-text-tertiary)">No request matches that filter. Raise one with the button above.</p>
+                    </Card>
                 ) : (
-                    <ul className={cx("flex flex-col gap-3", "sm:gap-0 sm:overflow-hidden sm:rounded-xl sm:bg-primary sm:ring-1 sm:ring-secondary", "sm:shadow-[0_1px_2px_rgba(23,23,23,0.04),0_8px_24px_-4px_rgba(23,23,23,0.05)]")}>
+                    <ul className="flex flex-col overflow-hidden rounded-(--hc-radius-xl) border border-(--hc-border-secondary) bg-(--hc-bg-primary) shadow-(--hc-elevation-card)">
                         {shown.map((t, i) => {
-                            const clientName = (t.client_name ?? "").trim() || (t.client_slug ?? "").replace(/-dashboard$/, "");
-                            const short = (t.client_slug ?? "").replace(/-dashboard$/, "");
+                            const clientName = (t.client_name ?? "").trim() || shortSlug(t.client_slug);
                             const due = dueLine(t);
+                            const by = (t.submitted_by_name ?? "").trim();
+                            const pill = PILL[t.status];
                             return (
-                                <li key={t.id} className={cx(i > 0 && "sm:border-t sm:border-secondary")}>
+                                <li key={t.id} className={cx(i > 0 && "border-t border-(--hc-border-secondary)", i % 2 === 1 && "bg-(--hc-bg-secondary)")}>
                                     <Link
-                                        to={`/${short}/help/requests/${t.reference}`}
-                                        className={cx(
-                                            "block rounded-xl bg-primary p-4 ring-1 ring-secondary transition duration-100 ease-linear hover:bg-primary_hover motion-reduce:transition-none",
-                                            "sm:rounded-none sm:px-5 sm:py-4 sm:ring-0",
-                                            i % 2 === 1 && "sm:bg-secondary sm:hover:bg-tertiary",
-                                            FOCUS,
-                                        )}
+                                        to={`/${shortSlug(t.client_slug)}/help/requests/${t.reference}`}
+                                        className="hc-hover flex cursor-pointer flex-col gap-2.5 px-4 py-4 hover:bg-(--hc-bg-primary_hover) sm:flex-row sm:items-center sm:gap-4 sm:px-5"
                                     >
-                                        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-4">
-                                            <div className="min-w-0 flex-1">
-                                                <p className={cx(T.label, "text-primary")}>
-                                                    <span className="text-fg-brand-primary">{clientName}</span>
-                                                    {"  "}
-                                                    <MetaDot />
-                                                    {"  "}
-                                                    {t.title}
-                                                </p>
-                                                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                    <MonoRef>{t.reference}</MonoRef>
-                                                    <span className={cx(T.helper, "text-tertiary")}>
-                                                        {t.topic.charAt(0).toUpperCase() + t.topic.slice(1)}
-                                                        {"  "}
-                                                        <MetaDot />
-                                                        {"  "}
-                                                        {formatStampShort(t.created_at)}
-                                                        {(t.submitted_by_name ?? "").trim() ? ` by ${t.submitted_by_name!.trim()}` : ""}
-                                                        {(t.assignee_name ?? "").trim() ? `  ·  with ${t.assignee_name!.trim()}` : ""}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center justify-between gap-2 sm:justify-end">
-                                                {due && <span className={cx(T.helper, "text-secondary sm:text-right")}>{due}</span>}
-                                                <span className="flex items-center gap-2">
-                                                    <PriorityPill value={t.priority} />
-                                                    <StatusPill status={t.status} />
+                                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                            <p className="hc-t-label-field text-(--hc-text-primary)">{t.title}</p>
+                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                <MonoRef>{t.reference}</MonoRef>
+                                                <span className="hc-t-body-helper text-(--hc-text-tertiary)">
+                                                    {`${clientName}  ·  ${topicLabel(topics, t.topic)}  ·  raised ${formatDayMonthShort(t.created_at)}${by ? ` by ${by}` : ""}`}
                                                 </span>
                                             </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:justify-end">
+                                            {isLevel(t.priority) && (
+                                                <span className="hc-t-body-helper inline-flex items-center gap-2 text-(--hc-text-secondary)">
+                                                    <PriorityDot level={t.priority} />
+                                                    {PRIORITY_LEVELS.find((l) => l.value === t.priority)?.label}
+                                                </span>
+                                            )}
+                                            {due && <span className="hc-t-body-helper text-(--hc-text-secondary)">{due}</span>}
+                                            <StatusPill label={pill.label} tone={pill.tone} />
                                         </div>
                                     </Link>
                                 </li>
@@ -285,7 +291,9 @@ export const TeamTicketsScreen = () => {
 
                 {next && !loading && (
                     <div className="flex justify-center">
-                        <SecondaryButton onClick={() => void load(next)}>Show older requests</SecondaryButton>
+                        <Button variant="secondary" onClick={() => void load(next)} className="cursor-pointer">
+                            Show older requests
+                        </Button>
                     </div>
                 )}
             </div>
@@ -299,68 +307,52 @@ export const TeamReportScreen = () => {
     const { email, name, isTeam, loading: authLoading } = useTeam();
     const navigate = useNavigate();
     const [clients, setClients] = useState<ClientOption[]>([]);
-    const [topics, setTopics] = useState<TicketTopic[]>([]);
     const [done, setDone] = useState<{ reference: string; slug: string; title: string; clientName: string; priority: Priority | null } | null>(null);
 
     useEffect(() => {
         if (isTeam) void fetchClientOptions().then(setClients);
     }, [isTeam]);
 
-    // Topics are global rows; the endpoint needs a slug only to prove who is asking, so
-    // they are fetched once a client is chosen.
-    const onClientChange = (slug: string) => {
-        setTopics([]);
-        if (slug) void fetchTopics({ slug, email }).then((r) => setTopics(r.topics ?? []));
-    };
-
     if (authLoading) return null;
     if (!isTeam) return <TeamGate />;
 
-    if (done) {
-        return (
-            <TeamShell email={email} name={name}>
-                <RequestSent
-                    reference={done.reference}
-                    title={done.title}
-                    clientName={done.clientName}
-                    priority={done.priority}
-                    team
-                    primary={{ label: "Report another ticket", onClick: () => setDone(null) }}
-                    secondary={{ label: "All requests", onClick: () => navigate("/team/tickets") }}
-                />
-            </TeamShell>
-        );
-    }
-
     return (
         <TeamShell email={email} name={name}>
-            <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-                <TextLink to="/team/tickets" className="w-max">
-                    <ArrowNarrowLeft className="size-4" aria-hidden="true" />
-                    All requests
-                </TextLink>
-                <RequestForm
-                    mode="team"
-                    clients={clients}
-                    topics={topics}
-                    clientName=""
-                    email={email}
-                    onClientChange={onClientChange}
-                    onSubmit={async (input) => {
-                        const res = await createTicket({ slug: input.slug, email }, input);
-                        return { reference: res.ticket.reference };
-                    }}
-                    onCreated={(reference, slug, sent) =>
-                        setDone({
-                            reference,
-                            slug: slug.replace(/-dashboard$/, ""),
-                            title: sent.title,
-                            clientName: clients.find((c) => c.slug === slug)?.name ?? slug.replace(/-dashboard$/, ""),
-                            priority: sent.priority,
-                        })
-                    }
-                />
-            </div>
+            <FormPage>
+                {done ? (
+                    <RequestSent
+                        reference={done.reference}
+                        title={done.title}
+                        clientName={done.clientName}
+                        priority={done.priority}
+                        team
+                        slug={done.slug}
+                        primary={{ label: "Report another ticket", onClick: () => setDone(null) }}
+                        secondary={{ label: "Back to portal", onClick: () => navigate("/team/tickets") }}
+                    />
+                ) : (
+                    <RequestForm
+                        mode="team"
+                        clients={clients}
+                        topics={[]}
+                        clientName=""
+                        email={email}
+                        onSubmit={async (input) => {
+                            const res = await createTicket({ slug: input.slug, email }, input);
+                            return { reference: res.ticket.reference };
+                        }}
+                        onCreated={(reference, slug, sent) =>
+                            setDone({
+                                reference,
+                                slug,
+                                title: sent.title,
+                                clientName: clients.find((c) => c.slug === slug)?.name ?? shortSlug(slug),
+                                priority: sent.priority,
+                            })
+                        }
+                    />
+                )}
+            </FormPage>
         </TeamShell>
     );
 };

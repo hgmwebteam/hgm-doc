@@ -1,431 +1,447 @@
 /**
  * THE REQUEST FORM, one component for the client and the team.
  *
- * The Figma's Screens page - "Desktop / 1 Default, 2 Filled, 3 Validation,
- * 4 Submitting, 5 Success" and "Mobile / 390" - is the only form in the file,
- * and both surfaces follow it exactly so a client and a colleague are looking at
- * the same thing:
+ * The Figma file "Reporting System" draws one form, in fourteen frames ("Desktop · Light
+ * / 1 Default .. 5 Success", "Mobile · Light / 390 Default, Filled", and the same in
+ * Dark), and both surfaces are that form, node for node:
  *
- *   the column     560 wide, centred, 24 between blocks
- *   heading        eyebrow in caption/meta, the title in display/title, a lede
- *                  in body/input
- *   Client         Field/Select - the team picks; a client's is fixed and named
- *                  in the lede instead
- *   Topic          Field/Select - the team picks; a client arrived here from a
- *                  topic tile, so it is the eyebrow
- *   Priority       Priority/Chip over Priority/Legend - the team only
- *   Screenshots    Field/Upload: the dashed drop zone, the cloud, "Drop
- *                  screenshots here, or browse"
- *   Description    Field/Textarea, and its helper is the rule: the first line
- *                  becomes the title, everything after it the description
- *   Property, Needed by
- *                  two optional fields the file does not carry. Kept because
- *                  the brain reads needed_by as the task's due date when the
- *                  topic has no turnaround - drop it and every ticket routes
- *                  with no date - and property goes into the task notes
- *   Actions        Cancel and the primary, right-aligned, the trust line under
- *                  them right-aligned too
- *   Validation     the Banner, kind=error, above the form, and each field's
- *                  own line under it
+ *   the column     560 wide, gap 24 between blocks; the page around it is the
+ *                  caller's (body top 56 on desktop, 24 with 16px gutters at 390)
+ *   heading        the eyebrow (Inter Medium 12/16, tracking 1.2, fg/brand-primary),
+ *                  the title in display/title (24/30 at 390), the lede in body/input
+ *                  (15/22 and shorter at 390: the frame writes a different sentence
+ *                  there, so both are in the source and the width picks one)
+ *   Client         Field/Select. The team chooses; a client's is the disabled state,
+ *                  prefilled with their own name
+ *   Priority       the label row, four Priority/Chips, the Priority/Legend. Team only
+ *   Category       Field/Select, client only, where Priority is on the team's form,
+ *                  preselected from the topic tile they clicked
+ *   Screenshots    Field/Upload, then the attached File/Thumbnails as a block of
+ *                  their own under it
+ *   Description    Field/Textarea; its helper is the rule: the first line becomes the
+ *                  Asana task title, everything after it the description
+ *   Actions        one primary Button "Submit ticket" (176 wide, full width at 390)
+ *                  and the trust line under it
+ *   Validation     the Banner (error) above the fields, composed from what is missing,
+ *                  and each field's own error line in place of its helper
+ *   Submitting     the Button in its loading state and the trust line saying so
+ *   Success        the frame's "Ticket sent" screen: the Banner (success), the summary
+ *                  card, and the two Buttons
  *
  * Nothing here decides who may submit; the server does. This is the picture.
+ * House style: no em or en dashes anywhere.
  */
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Image01, UploadCloud02, XClose } from "@untitledui-pro/icons/line";
-import { type ClientOption, HelpApiError, MAX_DETAIL, MAX_IMAGES, MAX_PROPERTY, MAX_TITLE, type NewTicketInput, type TicketImage, prepareImages } from "@/pages/client/help/help-api";
-import { PRIORITIES, type Priority, type TicketTopic, todayIsoDay } from "@/pages/client/help/help-model";
-import { ErrorNote, FOCUS, PrimaryButton, T } from "@/pages/client/help/help-requests-screen";
+import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ClientOption, HelpApiError, MAX_DETAIL, MAX_IMAGE_BYTES, MAX_IMAGE_PAYLOAD_BYTES, MAX_IMAGES, MAX_TITLE, type NewTicketInput, type TicketImage, fetchTicket, isAllowedImage, prepareImage } from "@/pages/client/help/help-api";
+import { Banner, Button, FieldSelect, FieldTextarea, FieldUpload, FileThumbnail, MonoRef, PRIORITY_LEVELS, PriorityChip, PriorityDot, PriorityLegend, type PriorityLevel, formatFileSize } from "@/pages/client/help/help-atoms";
+import type { Priority, TicketTopic } from "@/pages/client/help/help-model";
 import { cx } from "@/utils/cx";
 
-/* ── field atoms, per the Figma's Field/* components ────────────────────── */
+/* ── The frame's words ───────────────────────────────────────────────────── */
 
-/** 48 tall, body/input (16px, so iOS does not zoom), a hairline in border/primary, radius/lg, the brand focus ring. */
-export const fieldClass = (invalid?: boolean) =>
-    cx("w-full rounded-lg bg-primary px-3.5 py-3 text-primary ring-1 outline-none placeholder:text-tertiary focus:ring-2 focus:ring-brand", T.body, invalid ? "ring-error" : "ring-primary");
+const LEDE = "Tell us what is wrong and who it affects. Jarvis turns it into an Asana task and hands it to whoever on the team has capacity, so nothing needs chasing.";
+const LEDE_SHORT = "Tell us what is wrong and who it affects. Jarvis turns it into an Asana task and hands it to whoever has capacity.";
+const CLIENT_HELPER = "The client this ticket is for. Jarvis uses it to file the task in the right place.";
+const CLIENT_ERROR = "Choose which client this is about, so it reaches the right team.";
+const PRIORITY_ERROR = "Pick the priority that matches the consequence, using the guide below.";
+const CATEGORY_ERROR = "Choose the category that fits, so it reaches the right team.";
+const DESCRIPTION_HELPER = "Start with one line that says what is wrong. That line becomes the Asana task title; everything after it becomes the task description.";
+const DESCRIPTION_ERROR = "Tell us what is happening. One line is enough to start; the team can ask for more.";
+const TRUST_LINE = "You will get a confirmation here, and the task appears in Asana within a couple of minutes.";
+const SENDING_LINE = "Sending your ticket. This usually takes a second or two.";
+const SUCCESS_BODY = "It is creating the Asana task now and will assign it to whoever on the team has capacity. You will see it in Asana within a minute or two, and nothing needs chasing.";
+const ASANA_PENDING = "Creating task and assigning…";
+const ASANA_UNROUTED = "Needs a person. Your account manager has been asked.";
 
-/** The label row: label/field left, "Required" or "Optional" in caption/meta right. */
-export const LabelRow = ({ htmlFor, children, optional }: { htmlFor: string; children: React.ReactNode; optional?: boolean }) => (
-    <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={htmlFor} className={cx(T.label, "text-secondary")}>
-            {children}
-        </label>
-        <span className={cx(T.caption, "text-tertiary")}>{optional ? "Optional" : "Required"}</span>
-    </div>
-);
+/** A select opens on click, so it shows the pointer (the disabled one keeps the atom's not-allowed). */
+const SELECT_CURSOR = "[&_select:not(:disabled)]:cursor-pointer";
 
-/** The helper under a field, or the field's own error in its place. */
-const Helper = ({ id, error, children }: { id: string; error?: string; children: React.ReactNode }) => (
-    <p id={id} className={cx(T.helper, error ? "text-red-700" : "text-tertiary")} role={error ? "alert" : undefined}>
-        {error || children}
-    </p>
-);
+/** The category every team ticket is raised under: the frame has no category field. */
+const TEAM_TOPIC = "website";
 
-/** The Figma's Banner: icon, title in label/field, body in body/helper, on a tint with a hairline in its colour. */
-export const Banner = ({ kind, title, body }: { kind: "error" | "success" | "info"; title: string; body: string }) => (
-    <div
-        role={kind === "error" ? "alert" : "status"}
-        className={cx(
-            "flex items-start gap-3 rounded-[10px] px-4 py-3 ring-1",
-            kind === "error" && "bg-red-50 ring-red-600",
-            kind === "success" && "bg-green-50 ring-green-700",
-            kind === "info" && "bg-brand-primary ring-brand",
-        )}
-    >
-        <span
-            aria-hidden="true"
-            className={cx(
-                "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full ring-[1.8px]",
-                kind === "error" ? "text-red-700 ring-red-600" : kind === "success" ? "text-green-800 ring-green-700" : "text-fg-brand-primary ring-brand",
-            )}
-        >
-            <span className={cx(T.caption, "leading-none")}>{kind === "error" ? "!" : kind === "success" ? "✓" : "i"}</span>
-        </span>
-        <div className="min-w-0 flex-1">
-            <p className={cx(T.label, "text-primary")}>{title}</p>
-            <p className={cx(T.helper, "mt-1 text-pretty text-secondary")}>{body}</p>
-        </div>
-    </div>
-);
+/* ── Heading ─────────────────────────────────────────────────────────────── */
 
 /**
- * Priority/Chip over Priority/Legend. Single-select chips, 40 tall (44 on a phone), radius
- * full, an 8px colour dot and the label; the selected one takes its tint and a 1.5 ring in
- * its colour. The legend under them is one line per level, "so people pick by
- * consequence, not by mood".
+ * The eyebrow is the one text on these frames outside the nine named styles: Inter
+ * Medium 12/16 with 1.2px of tracking, in fg/brand-primary, written in capitals in the
+ * source (no text-transform, so the node reads as the frame's words).
  */
-export const PriorityField = ({ value, onChange, required, error }: { value: Priority | null; onChange: (p: Priority | null) => void; required?: boolean; error?: string }) => (
-    <fieldset className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-2">
-            <legend className={cx(T.label, "text-secondary")}>Priority</legend>
-            <span className={cx(T.caption, "text-tertiary")}>{required ? "Required" : "Optional"}</span>
-        </div>
-        <div role="radiogroup" aria-label="Priority" aria-invalid={!!error} className="flex flex-wrap gap-2">
-            {PRIORITIES.map((p) => {
-                const on = value === p.key;
-                return (
-                    <button
-                        key={p.key}
-                        type="button"
-                        role="radio"
-                        aria-checked={on}
-                        onClick={() => onChange(on && !required ? null : p.key)}
-                        className={cx(
-                            "inline-flex h-11 items-center gap-2 rounded-full px-4 ring-1 transition duration-100 ease-linear motion-reduce:transition-none sm:h-10",
-                            T.label,
-                            FOCUS,
-                            on ? cx(p.chip, "text-primary ring-[1.5px]") : "bg-primary text-secondary ring-primary hover:bg-primary_hover",
-                        )}
-                    >
-                        <span aria-hidden="true" className={cx("size-2 rounded-full", p.dot)} />
-                        {p.label}
-                    </button>
-                );
-            })}
-        </div>
-        {error && (
-            <p className={cx(T.helper, "text-red-700")} role="alert">
-                {error}
-            </p>
+const EYEBROW = "text-[12px] leading-4 font-medium tracking-[1.2px] text-(--hc-fg-brand-primary)";
+
+const FormHeading = ({ eyebrow, title, lede }: { eyebrow: string; title: string; lede?: boolean }) => (
+    <header className="flex flex-col gap-2">
+        <p className={EYEBROW}>{eyebrow}</p>
+        {/* display/title on desktop; the 390 frames set the title at 24/30 with the same tracking. */}
+        <h1 className="text-[24px] leading-[30px] font-semibold tracking-[-0.5px] text-(--hc-text-primary) sm:hc-t-display-title">{title}</h1>
+        {lede && (
+            <>
+                <p className="hc-t-body-input hidden text-(--hc-text-secondary) sm:block">{LEDE}</p>
+                <p className="text-[15px] leading-[22px] font-normal text-(--hc-text-secondary) sm:hidden">{LEDE_SHORT}</p>
+            </>
         )}
-        <ul className="flex flex-col gap-1.5">
-            {PRIORITIES.map((p) => (
-                <li key={p.key} className={cx("flex items-start gap-2 text-tertiary", T.helper)}>
-                    <span aria-hidden="true" className={cx("mt-[5px] size-2 shrink-0 rounded-full", p.dot)} />
-                    <span>
-                        <span className="text-secondary">{p.label}:</span> {p.meaning}
-                    </span>
-                </li>
-            ))}
-        </ul>
-    </fieldset>
+    </header>
 );
 
-/** "1.2 MB", from the base64 that will be sent. What the wire carries, not the original file. */
-const sizeLabel = (b64: string): string => {
-    const bytes = Math.round((b64.length * 3) / 4);
-    return bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} KB`;
+/* ── Priority ────────────────────────────────────────────────────────────── */
+
+/**
+ * The four chips as one radiogroup. Gap 8 hugging on desktop; at 390 the frame draws
+ * two rows of two with 16 between chips and between rows (each chip FILL at 171 on the
+ * 358 column). Arrow keys move the selection the way a native radio group does; only
+ * the selected chip (or the first, when none is) is in the tab order.
+ *
+ * Kept here rather than using the atoms' PriorityChipGroup because that group puts 8
+ * between the chips at 390 where the frame has 16.
+ */
+const PriorityChips = ({ value, onChange, labelledBy, describedBy }: { value: PriorityLevel | null; onChange: (level: PriorityLevel) => void; labelledBy: string; describedBy?: string }) => {
+    const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+        const keys: Record<string, 1 | -1> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+        const step = keys[e.key];
+        if (!step) return;
+        e.preventDefault();
+        const i = PRIORITY_LEVELS.findIndex((p) => p.value === value);
+        // Nothing selected yet: right goes to the first chip, left to the last.
+        const from = i < 0 ? (step > 0 ? -1 : 0) : i;
+        const next = PRIORITY_LEVELS[(from + step + PRIORITY_LEVELS.length) % PRIORITY_LEVELS.length].value;
+        onChange(next);
+        e.currentTarget.querySelector<HTMLButtonElement>(`[data-level="${next}"]`)?.focus();
+    };
+    return (
+        <div role="radiogroup" aria-labelledby={labelledBy} aria-describedby={describedBy} onKeyDown={onKeyDown} className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:gap-2">
+            {PRIORITY_LEVELS.map((p, i) => (
+                <PriorityChip key={p.value} level={p.value} selected={value === p.value} onSelect={onChange} tabIndex={value === p.value || (value === null && i === 0) ? 0 : -1} className="cursor-pointer" />
+            ))}
+        </div>
+    );
 };
 
-/* ── the form ────────────────────────────────────────────────────────────── */
+/**
+ * The selected chip's tints, per level, for the summary card's static chip (the atoms
+ * export the interactive chip only, and a radio in a summary would be a control that
+ * does nothing). Same values as the atoms' PRIORITY_TONE.
+ */
+const CHIP_TINT: Record<PriorityLevel, string> = {
+    low: "border-(--hc-utility-blue-fg) bg-(--hc-utility-blue-bg)",
+    medium: "border-(--hc-utility-success-fg) bg-(--hc-utility-success-bg)",
+    high: "border-(--hc-utility-warning-fg) bg-(--hc-utility-warning-bg)",
+    urgent: "border-(--hc-utility-error-fg) bg-(--hc-utility-error-bg)",
+};
+
+/** Priority/Chip in its selected state, drawn but not pressable: the summary card's row. */
+const PriorityChipStatic = ({ level }: { level: PriorityLevel }) => (
+    <span className={cx("hc-t-label-field inline-flex h-10 items-center gap-2 rounded-(--hc-radius-full) border-[1.5px] px-[14.5px] whitespace-nowrap text-(--hc-text-primary)", CHIP_TINT[level])}>
+        <PriorityDot level={level} className="rounded-(--hc-radius-full)" />
+        {PRIORITY_LEVELS.find((p) => p.value === level)?.label}
+    </span>
+);
+
+/* ── Attachments ─────────────────────────────────────────────────────────── */
+
+type Attachment = {
+    id: number;
+    /** The original name and byte size, which the thumbnail shows. */
+    name: string;
+    size: number;
+    /** An object URL of the file, shown in the 40px preview; null once the file proves undecodable. */
+    previewUrl: string | null;
+    /** The compressed bytes that will be sent; null while they are being prepared. */
+    image: TicketImage | null;
+};
+
+let nextAttachmentId = 1;
+
+/* ── The validation banner ───────────────────────────────────────────────── */
+
+const COUNT_WORDS = ["", "One", "Two", "Three", "Four"];
+
+/**
+ * "Two things need fixing before this can go" over "Choose a client, and describe what
+ * is happening. Both fields are marked below.": the count in words, the missing fields
+ * as one sentence joined with commas and "and", and the closing line by count.
+ */
+const composeBanner = (missing: string[]): { title: string; body: string } => {
+    const n = missing.length;
+    const title = `${COUNT_WORDS[n] ?? String(n)} ${n === 1 ? "thing needs" : "things need"} fixing before this can go`;
+    const list = n === 1 ? missing[0] : `${missing.slice(0, -1).join(", ")}, and ${missing[n - 1]}`;
+    const sentence = list.charAt(0).toUpperCase() + list.slice(1);
+    const marked = n === 1 ? "The field is marked below." : n === 2 ? "Both fields are marked below." : `All ${COUNT_WORDS[n]?.toLowerCase() ?? n} fields are marked below.`;
+    return { title, body: `${sentence}. ${marked}` };
+};
+
+/* ── The form ────────────────────────────────────────────────────────────── */
 
 export interface RequestFormProps {
-    /** Who is filling it in. The team picks a client and a priority; a client's is fixed. */
+    /** Who is filling it in. The team picks a client and a priority; a client's is fixed and they pick a category. */
     mode: "client" | "team";
     /** The team's client list. */
     clients?: ClientOption[];
-    /** The topics to offer (team), or the one the client chose (client). */
+    /** The categories a client may choose from (client mode). Unused by the team form, which has no category. */
     topics: TicketTopic[];
+    /** The topic tile the client arrived from: preselects the category. */
     fixedTopic?: TicketTopic;
-    /** For the lede: who this is raised for and by. */
+    /** The client's own name, shown in the disabled Client field (client mode). */
     clientName: string;
     email: string;
     /** Called with the fields; the caller owns the API call so the server's gate stays theirs. */
     onSubmit: (input: NewTicketInput & { slug: string }) => Promise<{ reference: string }>;
     onCreated: (reference: string, slug: string, sent: { title: string; priority: Priority | null }) => void;
-    /** The team form loads its topics per client; this asks for them. */
+    /** Kept for callers that listened for the team's client choice; the form no longer needs anything back. */
     onClientChange?: (slug: string) => void;
     /** The client's own slug, when mode is client. */
     slug?: string;
 }
 
-export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, email, onSubmit, onCreated, onClientChange, slug }: RequestFormProps) => {
+/**
+ * Where the last successful submission went, by reference, so RequestSent can poll the
+ * ticket even when its caller does not pass the slug (the client's help centre renders
+ * the success card from a call site this file does not own). Passing `slug` to
+ * RequestSent is the proper route; this is the fallback.
+ */
+const sentSlugs = new Map<string, string>();
+
+export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, onSubmit, onCreated, onClientChange, slug }: RequestFormProps) => {
     const team = mode === "team";
     const [client, setClient] = useState(team ? "" : (slug ?? ""));
-    const [topic, setTopic] = useState(fixedTopic?.key ?? "");
-    const [priority, setPriority] = useState<Priority | null>(null);
+    const [category, setCategory] = useState(fixedTopic?.key ?? "");
+    const [priority, setPriority] = useState<PriorityLevel | null>(null);
     const [text, setText] = useState("");
-    const [property, setProperty] = useState("");
-    const [neededBy, setNeededBy] = useState("");
-    const [images, setImages] = useState<TicketImage[]>([]);
-    const [imageNotes, setImageNotes] = useState<string[]>([]);
-    const [preparing, setPreparing] = useState(false);
+    const [files, setFiles] = useState<Attachment[]>([]);
+    const [fileError, setFileError] = useState("");
     const [busy, setBusy] = useState(false);
     const [touched, setTouched] = useState(false);
     const [error, setError] = useState("");
-    const firstRef = useRef<HTMLSelectElement | HTMLTextAreaElement>(null);
-    const fileRef = useRef<HTMLInputElement>(null);
+    const bannerRef = useRef<HTMLDivElement>(null);
+    const filesRef = useRef(files);
+    filesRef.current = files;
 
-    // Opening the form moves focus into it, so a keyboard or screen-reader user is not
-    // left at the control that has just been replaced.
+    // The client's composer replaces the help home in place, so focus moves into it (the
+    // Category select: their Client field is disabled) and a keyboard or screen-reader
+    // user is not left at the control that has just gone. The team's form is a page of
+    // its own and loads like one.
     useEffect(() => {
-        firstRef.current?.focus();
-    }, []);
-    // The team's topic list arrives after a client is chosen; default to its first.
-    useEffect(() => {
-        if (!topic && topics[0]) setTopic(topics[0].key);
-    }, [topic, topics]);
+        if (!team) document.getElementById("category")?.focus();
+    }, [team]);
 
-    // "Start with one line that says what is wrong. That line becomes the Asana task title;
-    // everything after it becomes the task description."
+    // Object URLs are released when the form goes.
+    useEffect(
+        () => () => {
+            for (const f of filesRef.current) if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
+        },
+        [],
+    );
+
+    // "Start with one line that says what is wrong. That line becomes the Asana task
+    // title; everything after it becomes the task description."
     const [firstLine, rest] = useMemo(() => {
         const lines = text.replace(/\r/g, "").split("\n");
         return [(lines[0] ?? "").trim(), lines.slice(1).join("\n").trim()];
     }, [text]);
 
-    const clientError = touched && team && !client ? "Choose the client." : "";
-    const priorityError = touched && team && !priority ? "Pick a priority." : "";
-    const textError = touched && firstLine.length < 3 ? "Say what is happening. One line is enough." : "";
-    const problems = [clientError, priorityError, textError].filter(Boolean).length;
-    const ready = (!team || (!!client && !!priority)) && !!topic && firstLine.length >= 3;
-    const canSubmit = ready && !busy && !preparing;
+    const clientMissing = team && !client;
+    const priorityMissing = team && !priority;
+    const categoryMissing = !team && !category;
+    const descriptionMissing = firstLine.length < 3;
+    const missing = [clientMissing && "choose a client", priorityMissing && "pick a priority", categoryMissing && "choose a category", descriptionMissing && "describe what is happening"].filter((m): m is string => !!m);
+    const banner = touched && missing.length ? composeBanner(missing) : null;
 
-    const onPickFiles = async (files: FileList | null) => {
-        if (!files?.length) return;
-        setPreparing(true);
-        const { images: ready, rejected } = await prepareImages([...files]);
-        setImages((prev) => [...prev, ...ready].slice(0, MAX_IMAGES));
-        setImageNotes(rejected);
-        setPreparing(false);
-        if (fileRef.current) fileRef.current.value = "";
+    const addFiles = useCallback(async (picked: File[]) => {
+        setFileError("");
+        const accepted: Array<{ att: Attachment; file: File }> = [];
+        let problem = "";
+        let count = filesRef.current.length;
+        for (const file of picked) {
+            if (count >= MAX_IMAGES) {
+                problem = `Up to ${MAX_IMAGES} files. Remove one to add ${file.name}.`;
+                break;
+            }
+            if (!isAllowedImage(file)) {
+                problem = `${file.name} is not a PNG, JPG or WEBP.`;
+                continue;
+            }
+            if (file.size > MAX_IMAGE_BYTES) {
+                problem = `${file.name} is over 10 MB.`;
+                continue;
+            }
+            count += 1;
+            accepted.push({ att: { id: nextAttachmentId++, name: file.name, size: file.size, previewUrl: URL.createObjectURL(file), image: null }, file });
+        }
+        if (problem) setFileError(problem);
+        if (!accepted.length) return;
+        setFiles((prev) => [...prev, ...accepted.map((a) => a.att)]);
+        // Compress in the background; the thumbnail is already on the page with the
+        // original name and size, and the send waits for the bytes.
+        await Promise.all(
+            accepted.map(async ({ att, file }) => {
+                // A file the browser cannot draw (a PNG by name only) keeps its name and
+                // size on the thumbnail but loses the preview, rather than showing a
+                // broken image in the 40px square.
+                if (att.previewUrl) {
+                    const probe = new Image();
+                    probe.src = att.previewUrl;
+                    const drawable = await probe.decode().then(
+                        () => true,
+                        () => false,
+                    );
+                    if (!drawable) {
+                        URL.revokeObjectURL(att.previewUrl);
+                        setFiles((prev) => prev.map((f) => (f.id === att.id ? { ...f, previewUrl: null } : f)));
+                    }
+                }
+                try {
+                    const image = await prepareImage(file);
+                    const sent = filesRef.current.filter((f) => f.image).reduce((n, f) => n + f.image!.dataBase64.length, 0);
+                    if (sent + image.dataBase64.length > MAX_IMAGE_PAYLOAD_BYTES) throw new Error(`${att.name} makes the screenshots too large to send together. Remove one.`);
+                    setFiles((prev) => prev.map((f) => (f.id === att.id ? { ...f, image } : f)));
+                } catch (err) {
+                    setFiles((prev) => prev.filter((f) => f.id !== att.id));
+                    if (att.previewUrl) URL.revokeObjectURL(att.previewUrl);
+                    setFileError(err instanceof Error && err.message ? err.message : `${att.name} could not be read.`);
+                }
+            }),
+        );
+    }, []);
+
+    const removeFile = (id: number) => {
+        setFileError("");
+        setFiles((prev) => {
+            const gone = prev.find((f) => f.id === id);
+            if (gone?.previewUrl) URL.revokeObjectURL(gone.previewUrl);
+            return prev.filter((f) => f.id !== id);
+        });
     };
 
     const submit = async (e: FormEvent) => {
         e.preventDefault();
         setTouched(true);
-        if (!canSubmit) return;
+        if (missing.length) {
+            // The alert is announced where it is; focus follows it so the next Tab lands
+            // on the first field, which is the first thing marked.
+            requestAnimationFrame(() => bannerRef.current?.focus());
+            return;
+        }
+        if (busy) return;
         setBusy(true);
         setError("");
         try {
+            // A screenshot picked a moment ago may still be compressing (a few hundred
+            // milliseconds); the send waits for it rather than leaving it behind.
+            for (let i = 0; i < 100 && filesRef.current.some((f) => !f.image); i++) await new Promise((r) => setTimeout(r, 100));
             const res = await onSubmit({
                 slug: client,
-                topic,
+                topic: team ? TEAM_TOPIC : category,
                 title: firstLine.slice(0, MAX_TITLE),
                 // A one-line request is its own description; the server requires one.
                 detail: (rest || firstLine).slice(0, MAX_DETAIL),
-                property: property.trim() || undefined,
-                needed_by: neededBy || undefined,
-                images,
+                images: filesRef.current.map((f) => f.image).filter((img): img is TicketImage => !!img),
                 ...(team && priority ? { priority } : {}),
             });
+            sentSlugs.set(res.reference, client);
             onCreated(res.reference, client, { title: firstLine.slice(0, MAX_TITLE), priority: team ? priority : null });
         } catch (err) {
-            setError(err instanceof HelpApiError ? err.message : "We could not send that just then. Nothing was lost - try again.");
+            setError(err instanceof HelpApiError ? err.message : "We could not send that just then. Nothing was lost. Try again.");
             setBusy(false);
         }
     };
 
-    // Plain words. Who it is for, in one line; what happens next, in one line.
-    const forWhom = team ? clients.find((c) => c.slug === client)?.name || "" : clientName;
-    const staffInClient = !team && /\(HiddenGem Media\)$/.test(email);
-    const lede = team
-        ? "Say what is wrong and which client it is for. The team picks it up from here."
-        : staffInClient
-          ? `This request is for ${forWhom || "this client"}. It will show in their help centre as raised by HiddenGem Media.`
-          : "Tell us what you need. You get a reference straight away, and can follow it here.";
-
     return (
         <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-            <header className="flex flex-col gap-2">
-                <p className={cx(T.caption, "tracking-[1.2px] text-fg-brand-primary uppercase")}>{team ? "Reporting System" : (fixedTopic?.label ?? "Help Center")}</p>
-                <h1 className={cx(T.title, "text-primary")}>{team ? "Report a ticket" : "Raise a request"}</h1>
-                <p className={cx(T.body, "text-pretty text-secondary")}>{lede}</p>
-            </header>
+            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "HELP CENTER"} title={team ? "Report a ticket" : "Raise a request"} lede />
 
-            {touched && problems > 0 && (
-                <Banner
-                    kind="error"
-                    title={problems === 1 ? "One thing needs fixing before this can go" : `${problems === 2 ? "Two" : "Three"} things need fixing before this can go`}
-                    body={[clientError && "choose a client", priorityError && "pick a priority", textError && "describe what is happening"].filter(Boolean).join(", ").replace(/^./, (c) => c.toUpperCase()) + ". The fields are marked below."}
-                />
+            {banner && (
+                <div ref={bannerRef} tabIndex={-1}>
+                    <Banner kind="error" title={banner.title}>
+                        {banner.body}
+                    </Banner>
+                </div>
             )}
 
             <form onSubmit={submit} noValidate className="flex flex-col gap-6">
-                {team && (
-                    <div className="flex flex-col gap-2">
-                        <LabelRow htmlFor="rf-client">Client</LabelRow>
-                        <select
-                            id="rf-client"
-                            ref={firstRef as React.RefObject<HTMLSelectElement>}
-                            value={client}
-                            onChange={(e) => {
-                                setClient(e.target.value);
-                                setTopic("");
-                                onClientChange?.(e.target.value);
-                            }}
-                            aria-invalid={!!clientError}
-                            aria-describedby="rf-client-help"
-                            className={cx(fieldClass(!!clientError), "h-12")}
-                        >
-                            <option value="">Choose a client</option>
-                            {clients.map((c) => (
-                                <option key={c.slug} value={c.slug}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
-                        <Helper id="rf-client-help" error={clientError}>
-                            Who this is for.
-                        </Helper>
+                <FieldSelect
+                    id="client"
+                    label="Client"
+                    requirement="Required"
+                    value={client}
+                    onChange={(v) => {
+                        setClient(v);
+                        onClientChange?.(v);
+                    }}
+                    options={team ? clients.map((c) => ({ value: c.slug, label: c.name })) : [{ value: slug ?? "", label: clientName }]}
+                    placeholder="Choose a client"
+                    helper={CLIENT_HELPER}
+                    error={touched && clientMissing ? CLIENT_ERROR : undefined}
+                    disabled={!team}
+                    className={SELECT_CURSOR}
+                />
+
+                {team ? (
+                    // The dots inside the atoms' chips and legend are rounded with a
+                    // clip-path, which the parity proof (and any box-radius reader) sees as
+                    // a square; the file draws them as ellipses, so they get their radius
+                    // here until PriorityDot carries it itself.
+                    <div className="flex flex-col gap-2 [&_[role=radio]>span:first-child]:rounded-(--hc-radius-full) [&_li>span>span]:rounded-(--hc-radius-full)">
+                        <div className="flex items-baseline justify-between gap-2">
+                            <span id="priority-label" className="hc-t-label-field text-(--hc-text-secondary)">
+                                Priority
+                            </span>
+                            <span className="hc-t-caption-meta text-(--hc-text-tertiary)">Required</span>
+                        </div>
+                        <PriorityChips value={priority} onChange={setPriority} labelledBy="priority-label" describedBy={touched && priorityMissing ? "priority-error" : undefined} />
+                        {touched && priorityMissing && (
+                            <p id="priority-error" className="hc-t-body-helper text-(--hc-text-error-primary)">
+                                {PRIORITY_ERROR}
+                            </p>
+                        )}
+                        <PriorityLegend />
                     </div>
-                )}
-
-                {(team || !fixedTopic) && (
-                    <div className="flex flex-col gap-2">
-                        <LabelRow htmlFor="rf-topic">What is it about?</LabelRow>
-                        <select
-                            id="rf-topic"
-                            ref={!team ? (firstRef as React.RefObject<HTMLSelectElement>) : undefined}
-                            value={topic}
-                            onChange={(e) => setTopic(e.target.value)}
-                            disabled={team && !client}
-                            aria-describedby="rf-topic-help"
-                            className={cx(fieldClass(), "h-12 disabled:opacity-60")}
-                        >
-                            {topics.length === 0 && <option value="">{team && !client ? "Choose a client first" : "Loading..."}</option>}
-                            {topics.map((t) => (
-                                <option key={t.key} value={t.key}>
-                                    {t.label}
-                                </option>
-                            ))}
-                        </select>
-                        <Helper id="rf-topic-help">Each one goes to the team that does it.</Helper>
-                    </div>
-                )}
-
-                {team && <PriorityField value={priority} onChange={setPriority} required error={priorityError} />}
-
-                <div className="flex flex-col gap-2">
-                    <LabelRow htmlFor="rf-images" optional>
-                        Screenshots
-                    </LabelRow>
-                    <label
-                        htmlFor="rf-images"
-                        className="flex h-[132px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-primary bg-primary px-6 text-center transition duration-100 ease-linear hover:bg-secondary motion-reduce:transition-none"
-                    >
-                        <UploadCloud02 className="size-7 text-fg-brand-primary" aria-hidden="true" />
-                        <span className={cx(T.label, "text-primary")}>{images.length ? "Add another screenshot" : "Drop screenshots here, or browse"}</span>
-                        <span className={cx(T.helper, "text-tertiary")}>PNG, JPG or WEBP · shrunk before sending · up to {MAX_IMAGES} files</span>
-                    </label>
-                    <input id="rf-images" ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => void onPickFiles(e.target.files)} className="sr-only" />
-                    {preparing && (
-                        <p className={cx(T.helper, "text-tertiary")} role="status">
-                            Preparing images...
-                        </p>
-                    )}
-                    {images.length > 0 && (
-                        <ul className="flex flex-col gap-2">
-                            {images.map((img, i) => (
-                                <li key={`${img.name}-${i}`} className="flex items-center gap-3 rounded-[10px] bg-secondary py-2 pr-2 pl-2 ring-1 ring-secondary">
-                                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-tertiary ring-1 ring-secondary">
-                                        <Image01 className="size-4" aria-hidden="true" />
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className={cx("block truncate text-primary", T.helper)}>{img.name}</span>
-                                        <span className={cx("block text-tertiary", T.mono)}>
-                                            {sizeLabel(img.dataBase64)} &middot; ready
-                                        </span>
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
-                                        aria-label={`Remove ${img.name}`}
-                                        className={cx("flex size-8 shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-primary hover:text-primary", FOCUS)}
-                                    >
-                                        <XClose className="size-4" aria-hidden="true" />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                    {imageNotes.length > 0 && (
-                        <ul className="flex flex-col gap-1" role="status">
-                            {imageNotes.map((note) => (
-                                <li key={note} className={cx(T.helper, "text-red-700")}>
-                                    {note}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                    <LabelRow htmlFor="rf-text">Description</LabelRow>
-                    <textarea
-                        id="rf-text"
-                        ref={!team && fixedTopic ? (firstRef as React.RefObject<HTMLTextAreaElement>) : undefined}
-                        value={text}
-                        onChange={(e) => setText(e.target.value.slice(0, MAX_DETAIL + MAX_TITLE))}
-                        rows={7}
-                        placeholder="What is happening, and where?"
-                        aria-invalid={!!textError}
-                        aria-describedby="rf-text-help"
-                        className={cx(fieldClass(!!textError), "resize-y")}
+                ) : (
+                    <FieldSelect
+                        id="category"
+                        label="Category"
+                        requirement="Required"
+                        value={category}
+                        onChange={setCategory}
+                        options={topics.map((t) => ({ value: t.key, label: t.label }))}
+                        placeholder="Choose a category"
+                        error={touched && categoryMissing ? CATEGORY_ERROR : undefined}
+                        className={SELECT_CURSOR}
                     />
-                    <Helper id="rf-text-help" error={textError}>
-                        Put what is wrong in the first line. That line is the title; anything after it is the detail.
-                    </Helper>
-                </div>
+                )}
 
-                <div className="grid gap-6 sm:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                        <LabelRow htmlFor="rf-property" optional>
-                            Which property?
-                        </LabelRow>
-                        <input id="rf-property" value={property} onChange={(e) => setProperty(e.target.value.slice(0, MAX_PROPERTY))} placeholder="Leave blank if it covers all of them" className={cx(fieldClass(), "h-12")} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <LabelRow htmlFor="rf-needed" optional>
-                            Needed by
-                        </LabelRow>
-                        <input id="rf-needed" type="date" value={neededBy} min={todayIsoDay()} onChange={(e) => setNeededBy(e.target.value)} aria-describedby="rf-needed-help" className={cx(fieldClass(), "h-12")} />
-                        <Helper id="rf-needed-help">{team ? "If the client gave a date." : "If you have a date in mind."}</Helper>
-                    </div>
-                </div>
+                <FieldUpload id="screenshots" label="Screenshots" requirement="Optional" attachedCount={files.length} onFiles={(picked) => void addFiles(picked)} error={fileError || undefined} accept="image/png,image/jpeg,image/webp" />
 
-                {error && <ErrorNote message={error} />}
+                {files.length > 0 && (
+                    <ul className="flex flex-col gap-2">
+                        {files.map((f) => (
+                            <FileThumbnail key={f.id} name={f.name} meta={`${formatFileSize(f.size)} · uploaded`} previewUrl={f.previewUrl} onRemove={() => removeFile(f.id)} className="[&_button]:cursor-pointer" />
+                        ))}
+                    </ul>
+                )}
 
-                {/* The frame: one primary button, left, and the line under it. No Cancel -
-                    the way back is the link above the form. While sending, the button shows
-                    the spinner and the line says so. */}
-                <div className="flex flex-col gap-3">
-                    <div>
-                        <PrimaryButton type="submit" disabled={busy || preparing} className="w-full sm:w-auto sm:min-w-36" aria-busy={busy}>
-                            {busy && <span className="mr-2 size-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" aria-hidden="true" />}
-                            {team ? "Submit ticket" : "Send request"}
-                        </PrimaryButton>
+                <FieldTextarea
+                    id="description"
+                    label="Description"
+                    requirement="Required"
+                    value={text}
+                    onChange={(v) => setText(v.slice(0, MAX_DETAIL + MAX_TITLE))}
+                    placeholder="What is happening, and where?"
+                    helper={DESCRIPTION_HELPER}
+                    error={touched && descriptionMissing ? DESCRIPTION_ERROR : undefined}
+                />
+
+                {error && (
+                    <Banner kind="error" title="That did not send">
+                        {error}
+                    </Banner>
+                )}
+
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                        <Button type="submit" loading={busy} className={busy ? "max-sm:w-full" : "max-sm:w-full cursor-pointer"}>
+                            Submit ticket
+                        </Button>
                     </div>
-                    <p className={cx(T.helper, "text-pretty text-tertiary")} role="status">
-                        {busy ? "Sending. This usually takes a second or two." : "You will get a reference here straight away."}
+                    <p className="hc-t-body-helper text-center text-(--hc-text-tertiary) sm:text-left" role="status">
+                        {busy ? SENDING_LINE : TRUST_LINE}
                     </p>
                 </div>
             </form>
@@ -433,79 +449,119 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     );
 };
 
-/* ── the success screen ──────────────────────────────────────────────────── */
+/* ── The success screen ──────────────────────────────────────────────────── */
 
-/**
- * "Desktop / 5 Success": the eyebrow and "Ticket sent", the Banner kind=success, then a
- * summary card - the title in label/field over four rows (Ticket, Client, Priority, and
- * where it is now), each a caption on the left and the value right-aligned - and two
- * buttons, the quieter one first, left-aligned.
- *
- * The banner says what is true: the request is stored and the team has it. It does not
- * say the Asana task exists, because until a topic has a board it does not.
- */
-export const RequestSent = ({
-    reference,
-    title,
-    clientName,
-    priority,
-    team,
-    primary,
-    secondary,
-}: {
+export interface RequestSentProps {
     reference: string;
+    /** The first line of the description: the summary card's first line. */
     title: string;
     clientName: string;
     priority: Priority | null;
     team: boolean;
+    /** "Report another ticket": resets the form. */
     primary: { label: string; onClick: () => void };
+    /** "Back to portal": the way out. */
     secondary: { label: string; onClick: () => void };
-}) => {
-    const pm = PRIORITIES.find((p) => p.key === priority) ?? null;
+    /**
+     * The client's dashboard slug, to poll ticket-detail for the Asana row. Optional
+     * because the help centre's call site predates it; the form remembers where the
+     * reference went and this falls back to that.
+     */
+    slug?: string;
+}
+
+/**
+ * "Desktop / 5 Success": the eyebrow and "Ticket sent", the Banner (success) "Jarvis has
+ * it", then the summary card (bg/secondary, border/secondary, radius/xl, padding 16, gap
+ * 16): the first line of the description in body/input, then the rows Ticket (mono/id),
+ * Client (label/field), Priority (the selected chip, team only) and Asana, each a
+ * body/helper caption on the left and the value on the right. Two Buttons under it, the
+ * secondary first.
+ *
+ * The Asana row starts as the frame has it, "Creating task and assigning…", and from
+ * four seconds in polls ticket-detail every four seconds: "Assigned to {name}" once the
+ * ticket has an assignee, or "Needs a person. Your account manager has been asked." when
+ * a route_failed event is on it. Stops after two minutes either way.
+ */
+export const RequestSent = ({ reference, title, clientName, priority, team, primary, secondary, slug }: RequestSentProps) => {
+    const pollSlug = slug ?? sentSlugs.get(reference) ?? "";
+    const [asana, setAsana] = useState(ASANA_PENDING);
+
+    useEffect(() => {
+        if (!pollSlug) return;
+        let stopped = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const started = Date.now();
+        const tick = async () => {
+            if (stopped) return;
+            try {
+                const res = await fetchTicket({ slug: pollSlug, email: "" }, reference);
+                if (stopped) return;
+                const name = (res.ticket.assignee_name ?? "").trim();
+                if (name) {
+                    setAsana(`Assigned to ${name}`);
+                    return;
+                }
+                if (res.events.some((e) => e.kind === "route_failed")) {
+                    setAsana(ASANA_UNROUTED);
+                    return;
+                }
+            } catch {
+                // A missed poll is not news; the next one runs.
+            }
+            if (Date.now() - started < 120_000) timer = setTimeout(() => void tick(), 4000);
+        };
+        timer = setTimeout(() => void tick(), 4000);
+        return () => {
+            stopped = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [pollSlug, reference]);
+
+    const level = priority && PRIORITY_LEVELS.some((p) => p.value === priority) ? (priority as PriorityLevel) : null;
+
     return (
         <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-            <header className="flex flex-col gap-2">
-                <p className={cx(T.caption, "tracking-[1.2px] text-fg-brand-primary uppercase")}>{team ? "Reporting System" : "Help Center"}</p>
-                <h1 className={cx(T.title, "text-primary")}>{team ? "Ticket sent" : "Request sent"}</h1>
-            </header>
-            <Banner kind="success" title="The team has it" body={`${reference} is stored with everything you wrote. You can open it any time to see where it stands.`} />
-            <div className="flex flex-col gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary sm:p-5">
-                <p className={cx(T.label, "text-primary")}>{title}</p>
-                <dl className="flex flex-col gap-2.5">
+            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "HELP CENTER"} title="Ticket sent" />
+            <Banner kind="success" title="Jarvis has it">
+                {SUCCESS_BODY}
+            </Banner>
+            <div className="flex flex-col gap-4 rounded-(--hc-radius-xl) border border-(--hc-border-secondary) bg-(--hc-bg-secondary) p-[15px]">
+                <p className="hc-t-body-input text-(--hc-text-primary)">{title}</p>
+                <dl className="flex flex-col gap-4">
                     <div className="flex items-center justify-between gap-4">
-                        <dt className={cx(T.helper, "text-tertiary")}>{team ? "Ticket" : "Reference"}</dt>
-                        <dd className={cx(T.mono, "text-primary")}>{reference}</dd>
+                        <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Ticket</dt>
+                        <dd className="flex">
+                            <MonoRef className="text-(--hc-text-primary)">{reference}</MonoRef>
+                        </dd>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                        <dt className={cx(T.helper, "text-tertiary")}>Client</dt>
-                        <dd className={cx(T.helper, "font-medium text-primary")}>{clientName}</dd>
+                        <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Client</dt>
+                        <dd className="hc-t-label-field text-right text-(--hc-text-primary)">{clientName}</dd>
                     </div>
-                    {pm && (
+                    {level && (
                         <div className="flex items-center justify-between gap-4">
-                            <dt className={cx(T.helper, "text-tertiary")}>Priority</dt>
-                            <dd>
-                                <span className={cx("inline-flex h-8 items-center gap-2 rounded-full px-3 ring-[1.5px]", T.label, pm.chip, "text-primary")}>
-                                    <span aria-hidden="true" className={cx("size-2 rounded-full", pm.dot)} />
-                                    {pm.label}
-                                </span>
+                            <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Priority</dt>
+                            <dd className="flex">
+                                <PriorityChipStatic level={level} />
                             </dd>
                         </div>
                     )}
                     <div className="flex items-center justify-between gap-4">
-                        <dt className={cx(T.helper, "text-tertiary")}>Status</dt>
-                        <dd className={cx(T.helper, "font-medium text-primary")}>Received</dd>
+                        <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Asana</dt>
+                        <dd className="hc-t-label-field text-right text-(--hc-text-secondary)" role="status">
+                            {asana}
+                        </dd>
                     </div>
                 </dl>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                    type="button"
-                    onClick={secondary.onClick}
-                    className={cx("inline-flex h-12 items-center justify-center rounded-lg bg-primary px-5 text-secondary ring-1 ring-primary hover:bg-primary_hover", T.button, FOCUS)}
-                >
+            <div className="flex flex-col gap-4 sm:flex-row">
+                <Button variant="secondary" onClick={secondary.onClick} className="max-sm:w-full cursor-pointer">
                     {secondary.label}
-                </button>
-                <PrimaryButton onClick={primary.onClick}>{primary.label}</PrimaryButton>
+                </Button>
+                <Button onClick={primary.onClick} className="max-sm:w-full cursor-pointer">
+                    {primary.label}
+                </Button>
             </div>
         </div>
     );

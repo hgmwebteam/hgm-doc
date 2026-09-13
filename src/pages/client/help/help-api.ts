@@ -197,6 +197,13 @@ export const useDifferentAccount = async (): Promise<void> => {
     });
 };
 
+/** Signs out and reloads the page, which brings up the sign-in panel. The avatar menu's
+ *  "Sign out": nothing else is prompted, unlike useDifferentAccount. */
+export const signOutHere = async (): Promise<void> => {
+    await supabase.auth.signOut();
+    window.location.assign(window.location.pathname);
+};
+
 /** Closes a request and marks it withdrawn. The row is never deleted. */
 export const withdrawTicket = (proof: CallerProof, reference: string): Promise<{ ticket: Ticket }> =>
     callFunction("ticket-withdraw", { slug: proof.slug, reference, confirm: true });

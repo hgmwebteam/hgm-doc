@@ -52,6 +52,7 @@ import {
     fullDashboardSlug,
     currentCaller,
     useDifferentAccount,
+    signOutHere,
     type RefusalReason,
     type Viewer,
 } from "@/pages/client/help/help-api";
@@ -311,6 +312,14 @@ const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; 
                     right={clientName ? `${clientName}  ·  ${person}` : person}
                     initial={initialOf(person)}
                     accountName={person}
+                    menu={{
+                        email,
+                        links: [
+                            { label: "Your requests", to: `/${slug}/help/requests` },
+                            { label: "Help home", to: `/${slug}/help` },
+                        ],
+                        onSignOut: () => void signOutHere(),
+                    }}
                 />
             }
         >
@@ -363,8 +372,12 @@ const raiseHref = (slug: string, topicKey: string | "any"): string => `/${slug}/
  * The count is read once: it is inside the row's text, so the row announces "2 In
  * progress, Next due 12 September" with nothing repeated and nothing hidden.
  */
-const StatRow = ({ count, label, detail, tone }: { count: number; label: string; detail: string; tone: "warning" | "success" }) => (
-    <li className="flex w-full items-center gap-3 rounded-(--hc-radius-lg) bg-(--hc-bg-secondary) p-3">
+const StatRow = ({ count, label, detail, tone, to }: { count: number; label: string; detail: string; tone: "warning" | "success"; to: string }) => (
+    // The row is a link to the list it summarises. The 390 frame draws no "View all
+    // requests" and no navigation, so without this a phone would have no way from the
+    // home to the list; the row looks exactly as drawn either way.
+    <li>
+    <Link to={to} className="hc-hover flex w-full cursor-pointer items-center gap-3 rounded-(--hc-radius-lg) bg-(--hc-bg-secondary) p-3 hover:bg-(--hc-bg-tertiary)">
         <span
             className={cx(
                 "hc-t-label-field flex size-9 shrink-0 items-center justify-center rounded-(--hc-radius-md) tabular-nums sm:size-8",
@@ -377,6 +390,7 @@ const StatRow = ({ count, label, detail, tone }: { count: number; label: string;
             <span className="hc-t-label-field text-(--hc-text-primary)">{label}</span>
             <span className="hc-t-body-helper text-(--hc-text-tertiary)">{detail}</span>
         </span>
+    </Link>
     </li>
 );
 
@@ -397,8 +411,8 @@ const CurrentPosition = ({ tickets, slug }: { tickets: Ticket[]; slug: string })
             Current position
         </h2>
         <ul className="flex w-full flex-col gap-3 sm:gap-4">
-            <StatRow count={ticketsWithOwner(tickets).length} label="In progress" detail={nextDueLabel(tickets)} tone="warning" />
-            <StatRow count={completedThisMonthTickets(tickets).length} label="Completed this month" detail={averageDaysLabel(tickets)} tone="success" />
+            <StatRow count={ticketsWithOwner(tickets).length} label="In progress" detail={nextDueLabel(tickets)} tone="warning" to={`/${slug}/help/requests?filter=open`} />
+            <StatRow count={completedThisMonthTickets(tickets).length} label="Completed this month" detail={averageDaysLabel(tickets)} tone="success" to={`/${slug}/help/requests?filter=completed`} />
         </ul>
         <div className="hidden sm:contents">
             <Button to={raiseHref(slug, "any")} fill>
@@ -530,7 +544,9 @@ const Composer = ({
         <RequestForm
             mode="client"
             slug={proof.slug}
-            topics={topic ? [topic] : topics}
+            // Every category, so the select can change it; the tile's own category is
+            // the preselection, not the only option.
+            topics={topics}
             fixedTopic={topic ?? undefined}
             clientName={clientName}
             email={isStaff ? `${proof.email} (HiddenGem Media)` : proof.email}
@@ -599,7 +615,12 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const [refusal, setRefusal] = useState<{ reason: RefusalReason; message: string } | null>(null);
     /** Who the server said is looking. Null until the first successful read. */
     const [viewer, setViewer] = useState<Viewer | null>(null);
-    const [filter, setFilter] = useState<RequestFilter>("all");
+    // The list's filter, seeded from ?filter= so a stat row on the home can open the
+    // list already narrowed ("In progress" -> open, "Completed this month" -> completed).
+    const [filter, setFilter] = useState<RequestFilter>(() => {
+        const wanted = new URLSearchParams(window.location.search).get("filter");
+        return wanted === "open" || wanted === "completed" || wanted === "withdrawn" ? wanted : "all";
+    });
     const [created, setCreated] = useState<{ reference: string; title: string } | null>(null);
 
     /**

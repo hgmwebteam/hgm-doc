@@ -32,7 +32,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import { Link, useNavigate } from "react-router";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { supabase } from "@/lib/supabase";
-import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics } from "@/pages/client/help/help-api";
+import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics, signOutHere } from "@/pages/client/help/help-api";
 import { Banner, Button, Card, ChevronDownIcon, FilterChip, GemIcon, HelpFrame, MonoRef, PRIORITY_LEVELS, type PillTone, PriorityDot, type PriorityLevel, StatusPill, TopBar, firstNameOf, initialOf } from "@/pages/client/help/help-atoms";
 import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
 import { type Priority, type Ticket, type TicketStatus, type TicketTopic, elapsedDays, formatDayMonth, formatDayMonthShort, topicLabel } from "@/pages/client/help/help-model";
@@ -52,7 +52,14 @@ const TeamShell = ({ email, name, children }: { email: string; name: string; chi
         <HelpFrame
             topBar={
                 <div className="[&>div]:px-4 sm:[&>div]:px-6">
-                    <TopBar app="Reporting System" brandTo="/dashboard" right={`Signed in as ${person}`} initial={initialOf(person)} accountName={name || person} />
+                    <TopBar
+                        app="Reporting System"
+                        brandTo="/dashboard"
+                        right={`Signed in as ${person}`}
+                        initial={initialOf(person)}
+                        accountName={name || person}
+                        menu={{ email, links: [{ label: "Client requests", to: "/team/tickets" }, { label: "Report a ticket", to: "/team/tickets/new" }], onSignOut: () => void signOutHere() }}
+                    />
                 </div>
             }
         >

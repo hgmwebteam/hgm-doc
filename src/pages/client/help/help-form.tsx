@@ -164,7 +164,10 @@ const composeBanner = (missing: string[]): { title: string; body: string } => {
     const title = `${COUNT_WORDS[n] ?? String(n)} ${n === 1 ? "thing needs" : "things need"} fixing before this can go`;
     const list = n === 1 ? missing[0] : `${missing.slice(0, -1).join(", ")}, and ${missing[n - 1]}`;
     const sentence = list.charAt(0).toUpperCase() + list.slice(1);
-    const marked = n === 1 ? "The field is marked below." : n === 2 ? "Both fields are marked below." : `All ${COUNT_WORDS[n]?.toLowerCase() ?? n} fields are marked below.`;
+    // Three missing fields have to fit the banner's one line (492px at 13px), so the
+    // sentence is the shorter form: no Oxford comma, and "below" closes it.
+    if (n >= 3) return { title, body: `${missing.slice(0, -1).map((m, i) => (i === 0 ? m.charAt(0).toUpperCase() + m.slice(1) : m)).join(", ")} and ${missing[n - 1]} below.` };
+    const marked = n === 1 ? "The field is marked below." : "Both fields are marked below.";
     return { title, body: `${sentence}. ${marked}` };
 };
 
@@ -440,7 +443,9 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                             Submit ticket
                         </Button>
                     </div>
-                    <p className="hc-t-body-helper text-center text-(--hc-text-tertiary) sm:text-left" role="status">
+                    {/* The submitting frame draws the sending line against the right edge of
+                        the column on desktop (13:510); the resting trust line sits left. */}
+                    <p className={cx("hc-t-body-helper text-center text-(--hc-text-tertiary)", busy ? "sm:text-right" : "sm:text-left")} role="status">
                         {busy ? SENDING_LINE : TRUST_LINE}
                     </p>
                 </div>

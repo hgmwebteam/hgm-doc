@@ -158,6 +158,12 @@ export type TopBarProps = {
     initial: string;
     /** Names the avatar "Account, {accountName}" (build notes). */
     accountName: string;
+    /**
+     * What the avatar opens. The build notes call it a control, not decoration; the
+     * frame gives it no destination, so it is a small menu: who is signed in, the
+     * links the caller passes, and Sign out. Without this it is a plain badge.
+     */
+    menu?: { email: string; links?: Array<{ label: string; to: string }>; onSignOut: () => void };
 };
 
 /**
@@ -175,8 +181,8 @@ export type TopBarProps = {
  * stroke to fg/brand-primary, not border/brand; in Light they differ), radius full,
  * the initial in caption/meta text/primary.
  */
-export const TopBar = ({ app, brandTo, right, initial, accountName }: TopBarProps) => (
-    <div className="flex h-16 items-center justify-between border-b border-(--hc-border-secondary) bg-(--hc-bg-page) px-6">
+export const TopBar = ({ app, brandTo, right, initial, accountName, menu }: TopBarProps) => (
+    <div className="relative flex h-16 items-center justify-between border-b border-(--hc-border-secondary) bg-(--hc-bg-page) px-6">
         <Link to={brandTo} className="flex h-6 shrink-0 items-center gap-2 rounded-(--hc-radius-sm)">
             <GemIcon />
             <span className="hc-t-label-field whitespace-nowrap text-(--hc-text-primary)">HiddenGem Media</span>
@@ -185,16 +191,72 @@ export const TopBar = ({ app, brandTo, right, initial, accountName }: TopBarProp
         </Link>
         <div className="flex shrink-0 items-center gap-2">
             {right && <span className="hc-t-body-helper hidden whitespace-pre text-(--hc-text-secondary) sm:inline">{right}</span>}
-            <span
-                role="img"
-                aria-label={`Account, ${accountName}`}
-                className="hc-t-caption-meta flex size-8 shrink-0 items-center justify-center rounded-(--hc-radius-full) border border-(--hc-fg-brand-primary) bg-(--hc-bg-brand-primary) text-(--hc-text-primary)"
-            >
-                {initial}
-            </span>
+            {menu ? (
+                <AccountMenu initial={initial} accountName={accountName} {...menu} />
+            ) : (
+                <span
+                    role="img"
+                    aria-label={`Account, ${accountName}`}
+                    className="hc-t-caption-meta flex size-8 shrink-0 items-center justify-center rounded-(--hc-radius-full) border border-(--hc-fg-brand-primary) bg-(--hc-bg-brand-primary) text-(--hc-text-primary)"
+                >
+                    {initial}
+                </span>
+            )}
         </div>
     </div>
 );
+
+/**
+ * The avatar as a control: a button that opens a small card under it with who is
+ * signed in, the caller's links and Sign out. Closed, it is pixel for pixel the
+ * frame's avatar. Escape and a click outside close it.
+ */
+const AccountMenu = ({ initial, accountName, email, links = [], onSignOut }: { initial: string; accountName: string; email: string; links?: Array<{ label: string; to: string }>; onSignOut: () => void }) => {
+    const [open, setOpen] = useState(false);
+    const rootRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const onDown = (e: MouseEvent) => {
+            if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+        };
+        const onKey = (e: globalThis.KeyboardEvent) => {
+            if (e.key === "Escape") setOpen(false);
+        };
+        document.addEventListener("mousedown", onDown);
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("mousedown", onDown);
+            document.removeEventListener("keydown", onKey);
+        };
+    }, [open]);
+    return (
+        <div ref={rootRef} className="relative">
+            <button
+                type="button"
+                aria-label={`Account, ${accountName}`}
+                aria-haspopup="menu"
+                aria-expanded={open}
+                onClick={() => setOpen((o) => !o)}
+                className="hc-hover hc-t-caption-meta flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-(--hc-radius-full) border border-(--hc-fg-brand-primary) bg-(--hc-bg-brand-primary) text-(--hc-text-primary)"
+            >
+                {initial}
+            </button>
+            {open && (
+                <div role="menu" className="absolute top-10 right-0 z-20 flex w-64 flex-col gap-1 rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-primary) p-2 shadow-(--hc-elevation-card)">
+                    <p className="hc-t-body-helper truncate px-2 py-1.5 text-(--hc-text-tertiary)">{email}</p>
+                    {links.map((l) => (
+                        <Link key={l.to} role="menuitem" to={l.to} onClick={() => setOpen(false)} className="hc-hover hc-t-label-field cursor-pointer rounded-(--hc-radius-md) px-2 py-2 text-(--hc-text-primary) hover:bg-(--hc-bg-secondary)">
+                            {l.label}
+                        </Link>
+                    ))}
+                    <button type="button" role="menuitem" onClick={onSignOut} className="hc-hover hc-t-label-field cursor-pointer rounded-(--hc-radius-md) px-2 py-2 text-left text-(--hc-text-primary) hover:bg-(--hc-bg-secondary)">
+                        Sign out
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
 
 /** "Marcus Webb" -> "M"; "" -> "?". The avatar's letter. */
 export const initialOf = (name: string): string => (name.trim()[0] ?? "?").toUpperCase();
@@ -236,6 +298,10 @@ export const Button = (props: ButtonProps) => {
     const { variant = "primary", loading = false, disabled = false, fill = false, className, children } = props;
     const base = cx(
         "hc-t-button-label hc-hover inline-flex h-12 w-[176px] shrink-0 items-center justify-center gap-2 rounded-(--hc-radius-lg) whitespace-nowrap",
+        // Tailwind v4's preflight leaves a button at the arrow cursor; the owner's
+        // rule is that anything clickable shows a pointer (13 Sep 2026).
+        !disabled && !loading && "cursor-pointer",
+        loading && "cursor-progress",
         fill && "w-full",
         variant === "primary" && !loading && !disabled && "bg-(--hc-bg-brand-solid) px-6 text-(--hc-text-primary_on-brand) hover:bg-(--hc-bg-brand-solid_hover)",
         variant === "primary" && loading && "bg-(--hc-bg-brand-solid_hover) px-6 text-(--hc-text-primary_on-brand)",
@@ -329,7 +395,7 @@ export const FilterChip = ({
         aria-pressed={selected}
         {...rest}
         className={cx(
-            "hc-focus-border hc-hover hc-t-body-helper inline-flex h-11 items-center rounded-(--hc-radius-full) border px-[15px] whitespace-nowrap sm:h-9 sm:px-[13px]",
+            "hc-focus-border hc-hover hc-t-body-helper inline-flex h-11 cursor-pointer items-center rounded-(--hc-radius-full) border px-[15px] whitespace-nowrap sm:h-9 sm:px-[13px]",
             selected
                 ? "border-(--hc-border-brand) bg-(--hc-bg-brand-primary) text-(--hc-text-brand-secondary)"
                 : "border-(--hc-border-primary) bg-(--hc-bg-primary) text-(--hc-text-secondary) hover:bg-(--hc-bg-primary_hover)",
@@ -448,10 +514,12 @@ export const FieldSelect = ({ id: givenId, label, requirement, value, onChange, 
                         "hc-focus-border hc-t-body-input hc-hover block h-12 w-full appearance-none rounded-(--hc-radius-md) border pr-[51px] pl-[15px]",
                         "focus:border-2 focus:border-(--hc-border-brand) focus:pl-[14px]",
                         error ? "border-(--hc-border-error)" : "border-(--hc-border-primary)",
-                        disabled ? "cursor-not-allowed bg-(--hc-bg-tertiary) text-(--hc-text-tertiary)" : value ? "bg-(--hc-bg-primary) text-(--hc-text-primary)" : "bg-(--hc-bg-primary) text-(--hc-text-tertiary)",
+                        disabled ? "cursor-not-allowed bg-(--hc-bg-tertiary) text-(--hc-text-tertiary)" : value ? "cursor-pointer bg-(--hc-bg-primary) text-(--hc-text-primary)" : "cursor-pointer bg-(--hc-bg-primary) text-(--hc-text-tertiary)",
                     )}
                 >
-                    <option value="">{placeholder}</option>
+                    <option value="" disabled>
+                        {placeholder}
+                    </option>
                     {options.map((o) => (
                         <option key={o.value} value={o.value}>
                             {o.label}
@@ -678,7 +746,7 @@ export const FileThumbnail = ({
             type="button"
             onClick={onRemove}
             aria-label={`Remove ${name}`}
-            className="hc-hover relative flex size-10 shrink-0 items-center justify-center rounded-(--hc-radius-sm) text-(--hc-text-secondary) after:absolute after:-inset-0.5 after:content-[''] hover:text-(--hc-text-primary)"
+            className="hc-hover relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-(--hc-radius-sm) text-(--hc-text-secondary) after:absolute after:-inset-0.5 after:content-[''] hover:text-(--hc-text-primary)"
         >
             <XIcon />
         </button>
@@ -707,12 +775,10 @@ const PRIORITY_TONE: Record<PriorityLevel, { dot: string; selected: string }> = 
 
 /**
  * The 8px priority dot on its own, for a chip, a legend row or a summary. The file
- * draws it as an ELLIPSE, which has no corner radius of its own, so it is rounded with
- * a clip-path rather than a border-radius: the same circle to the eye, and the box the
- * parity proof reads for an ellipse node.
+ * draws it as an ELLIPSE; a full border radius is the same circle.
  */
 export const PriorityDot = ({ level, className }: { level: PriorityLevel; className?: string }) => (
-    <span className={cx("inline-block size-2 shrink-0 [clip-path:circle(50%_at_50%_50%)]", PRIORITY_TONE[level].dot, className)} />
+    <span className={cx("inline-block size-2 shrink-0 rounded-(--hc-radius-full)", PRIORITY_TONE[level].dot, className)} />
 );
 
 /**
@@ -741,7 +807,7 @@ export const PriorityChip = ({
             onClick={() => onSelect(level)}
             {...rest}
             className={cx(
-                "hc-focus-border hc-hover hc-t-label-field inline-flex h-10 items-center justify-center gap-2 rounded-(--hc-radius-full) border whitespace-nowrap",
+                "hc-focus-border hc-hover hc-t-label-field inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-(--hc-radius-full) border whitespace-nowrap",
                 selected ? cx("border-[1.5px] px-[14.5px] text-(--hc-text-primary)", PRIORITY_TONE[level].selected) : "border-(--hc-border-primary) bg-(--hc-bg-primary) px-[15px] text-(--hc-text-secondary) hover:bg-(--hc-bg-primary_hover)",
                 "focus-visible:border-2 focus-visible:border-(--hc-border-brand) focus-visible:px-[14px]",
                 className,
@@ -784,7 +850,7 @@ export const PriorityChipGroup = ({
         e.currentTarget.querySelector<HTMLButtonElement>(`[data-level="${next}"]`)?.focus();
     };
     return (
-        <div role="radiogroup" aria-labelledby={labelledBy} onKeyDown={onKeyDown} className={cx("grid grid-cols-2 gap-2 sm:flex sm:flex-wrap", className)}>
+        <div role="radiogroup" aria-labelledby={labelledBy} onKeyDown={onKeyDown} className={cx("grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:gap-2", className)}>
             {PRIORITY_LEVELS.map((p, i) => (
                 <PriorityChip key={p.value} level={p.value} selected={value === p.value} onSelect={onChange} tabIndex={value === p.value || (value === null && i === 0) ? 0 : -1} />
             ))}

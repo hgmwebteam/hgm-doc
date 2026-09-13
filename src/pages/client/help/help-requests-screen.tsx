@@ -303,7 +303,7 @@ export const HelpRequestsScreen = ({
                 </div>
                 {!readOnly && (
                     <div className="hidden shrink-0 sm:block">
-                        <Button to={`/${slug}/help`}>New request</Button>
+                        <Button to={`/${slug}/help?raise=any`}>New request</Button>
                     </div>
                 )}
             </header>

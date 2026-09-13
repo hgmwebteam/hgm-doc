@@ -72,13 +72,17 @@ export default async (req: Request) => {
         }
         if (!ticket) return jsonError(404, "We could not find a request with that reference.");
 
-        const { data: events, error: eventsErr } = await db
+        // Staff see route_failed: the Report a ticket success card polls this to say
+        // "Needs a person" when the brain refused to open an unowned task. A client
+        // still never receives it (the note above stands for them).
+        let query = db
             .from("ticket_events")
             .select(EVENT_COLUMNS)
             .eq("ticket_id", (ticket as { id: string }).id)
-            .neq("kind", "route_failed")
             .order("created_at", { ascending: true })
             .limit(MAX_EVENTS);
+        if (gate.via !== "staff") query = query.neq("kind", "route_failed");
+        const { data: events, error: eventsErr } = await query;
 
         if (eventsErr) {
             // The ticket is the answer; the timeline is the detail on it. Losing the timeline

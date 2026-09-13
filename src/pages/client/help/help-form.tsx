@@ -515,6 +515,9 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
                 // A missed poll is not news; the next one runs.
             }
             if (Date.now() - started < 120_000) timer = setTimeout(() => void tick(), 4000);
+            // Two minutes without an owner: stop pretending the task is being made this
+            // second. The account manager is the person who resolves it either way.
+            else setAsana((current) => (current === ASANA_PENDING ? "Your account manager will confirm the owner." : current));
         };
         timer = setTimeout(() => void tick(), 4000);
         return () => {

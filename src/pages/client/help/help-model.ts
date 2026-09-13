@@ -426,3 +426,122 @@ export const actorName = (e: TicketEvent): string => (e.actor_name ?? "").trim()
 
 /** First letter of a name, for the update avatars. */
 export const initialOf = (name: string): string => (name.trim()[0] ?? "?").toUpperCase();
+
+// detail screen
+
+/**
+ * Small counts as words, the way the detail frame writes "Three screenshots attached."
+ * Past twelve a numeral reads better than "thirteen", so the word list stops there.
+ */
+export const countWord = (n: number): string => {
+    const words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+    const w = words[n];
+    return w ? w.charAt(0).toUpperCase() + w.slice(1) : String(n);
+};
+
+/** "Three screenshots attached." or "One screenshot attached."; empty when there are none, so nothing claims an attachment that does not exist. */
+export const screenshotsSentence = (count: number | null | undefined): string => {
+    const n = count ?? 0;
+    if (n <= 0) return "";
+    return `${countWord(n)} ${n === 1 ? "screenshot" : "screenshots"} attached.`;
+};
+
+export type StepState = "done" | "now" | "todo";
+
+/**
+ * One row of the request timeline. `wide` is the sentence the 1440 frame writes under
+ * the step and `narrow` the shorter one the 390 frame writes (usually just the time);
+ * both are one text node so the screen can show either without splitting a sentence.
+ */
+export interface TimelineStep {
+    key: string;
+    label: string;
+    state: StepState;
+    wide: string;
+    narrow: string;
+}
+
+const eventAt = (events: TicketEvent[], kind: TicketEventKind): TicketEvent | undefined =>
+    [...events].filter((e) => e.kind === kind).sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
+
+/**
+ * The four lifecycle steps the detail frame draws, with the ones that happened ticked,
+ * the current one marked and the rest numbered, plus a fifth "Withdrawn" step when the
+ * client withdrew it. Every date is an event's own stamp; nothing is estimated except
+ * the last step's "Expected {day}", which repeats the promised date already on the
+ * page. No promised date, no expectation: the step says what completion means instead.
+ */
+export const timelineSteps = (ticket: Ticket, events: TicketEvent[]): TimelineStep[] => {
+    const received = eventAt(events, "received");
+    const assigned = eventAt(events, "assigned");
+    const started = eventAt(events, "in_progress");
+    const completed = eventAt(events, "completed");
+    const withdrawn = eventAt(events, "withdrawn");
+    const rank: Record<TicketStatus, number> = { received: 0, assigned: 1, in_progress: 2, completed: 3, withdrawn: -1 };
+    const reached = rank[ticket.status];
+    const open = ticket.status !== "completed" && ticket.status !== "withdrawn";
+    const promised = !!ticket.promised_date;
+    const owner = (ticket.assignee_name ?? "").trim();
+
+    const receivedAt = received?.created_at ?? ticket.created_at;
+    const receivedTime = formatDayMonthTime(receivedAt);
+    const shots = screenshotsSentence(ticket.image_count);
+
+    // "Within the minute" is only said when it is true of the two stamps.
+    const withinMinute = !!assigned && new Date(assigned.created_at).getTime() - new Date(receivedAt).getTime() <= 60_000;
+    const assignedTime = assigned ? formatDayMonthTime(assigned.created_at) : "";
+    const setWhat = promised ? "Owner and date set" : "Owner set";
+    const assignedWide = assignedTime ? `${assignedTime}. ${setWhat}${withinMinute ? " within the minute" : ""}.` : `${setWhat}.`;
+
+    const startedBody = (started?.body ?? "").trim() || (started ? formatDayMonthTime(started.created_at) : "");
+    const completedTime = completed ? formatDayMonthTime(completed.created_at) : formatDayMonthTime(ticket.completed_at);
+    const expectedWide = promised ? `Expected ${formatWeekdayDayMonth(ticket.promised_date)}.` : "Done. The request stays here for your records.";
+    const expectedNarrow = promised ? `Expected ${formatWeekdayDayMonth(ticket.promised_date)}` : expectedWide;
+
+    const steps: TimelineStep[] = [
+        {
+            key: "received",
+            label: "Received",
+            state: "done",
+            wide: shots ? `${receivedTime}. ${shots}` : receivedTime,
+            narrow: receivedTime,
+        },
+        {
+            key: "assigned",
+            label: owner ? `Assigned to ${owner}` : "Assigned",
+            state: assigned || reached >= 1 ? "done" : "todo",
+            wide: assigned || reached >= 1 ? assignedWide : "A named person on the team takes it.",
+            narrow: assigned || reached >= 1 ? assignedTime || assignedWide : "A named person on the team takes it.",
+        },
+        {
+            key: "in_progress",
+            label: "In progress",
+            state: started || reached >= 2 ? "done" : "todo",
+            wide: started || reached >= 2 ? startedBody || "Work has started." : "Work starts. Updates from the team appear here.",
+            narrow: started || reached >= 2 ? startedBody || "Work has started." : "Work starts. Updates from the team appear here.",
+        },
+        {
+            key: "completed",
+            label: "Completed and verified",
+            state: reached >= 3 ? "done" : "todo",
+            wide: reached >= 3 ? completedTime || "Done." : expectedWide,
+            narrow: reached >= 3 ? completedTime || "Done." : expectedNarrow,
+        },
+    ];
+
+    if (ticket.status === "withdrawn") {
+        // The lifecycle stopped here: the steps that had not happened are dropped, and
+        // the withdrawal is the last thing on the list, with its own stamp.
+        const at = formatDayMonthTime(withdrawn?.created_at ?? ticket.withdrawn_at);
+        const kept = steps.filter((s) => s.state === "done");
+        return [...kept, { key: "withdrawn", label: "Withdrawn", state: "done", wide: at || "By you.", narrow: at || "By you." }];
+    }
+
+    if (open) {
+        // The current step is the last one that happened; the frame marks it with a
+        // dot on the warning tint rather than a tick.
+        const last = steps.map((s) => s.state).lastIndexOf("done");
+        if (last >= 0) steps[last].state = "now";
+    }
+    return steps;
+};

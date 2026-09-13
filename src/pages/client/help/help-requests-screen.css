@@ -1,0 +1,16 @@
+/*
+ * The requests list's rows (help-requests-screen.tsx).
+ *
+ * The page's focus ring (help-centre.css, `.hc :focus-visible`) sits 2px OUTSIDE a
+ * control. From 640px up a row lives inside the list card, which clips to its 12px
+ * radius, so a ring outside the row would be cut off on the first and last rows and on
+ * both sides of every other. There the row draws the same 2px border/brand ring 2px
+ * inside its own edge instead, where nothing clips it. On a phone each row is its own
+ * card with nothing around it, and the page's ring stands. Unlayered, like the rule it
+ * refines, and more specific than it, so it wins without an important.
+ */
+@media (min-width: 640px) {
+    .hc .hc-requests-row:focus-visible {
+        outline-offset: -2px;
+    }
+}

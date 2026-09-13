@@ -54,8 +54,10 @@ const TeamShell = ({ email, name, children }: { email: string; name: string; chi
             topBar={
                 <div className="[&>div]:px-4 sm:[&>div]:px-6">
                     <TopBar
-                        app="Reporting System"
-                        brandTo="/dashboard"
+                        crumbs={[
+                            { label: "HiddenGem Media", to: "/dashboard" },
+                            { label: "Reporting System" },
+                        ]}
                         right={`Signed in as ${person}`}
                         initial={initialOf(person)}
                         accountName={name || person}

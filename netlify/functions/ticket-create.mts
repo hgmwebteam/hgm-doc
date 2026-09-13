@@ -411,11 +411,13 @@ export default async (req: Request) => {
         // the team's own form. So a staff-raised ticket is recorded under the
         // staff address in submitted_by, the client's screens say it was raised
         // for them by HiddenGem, and the person who raised it may withdraw it -
-        // the same rule as for a client. Priority is the one thing only staff may
-        // set: a client marking everything urgent is what a triage field exists
-        // to prevent, so a client's value is dropped rather than refused.
+        // the same rule as for a client. Priority was staff-only at first; the
+        // owner opened it to clients on 13 Sep 2026, with the legend as the guide.
         const caller = gate.caller;
-        const priority = gate.via === "staff" ? cleanPriority(body.priority) : null;
+        // Everyone sets a priority now (owner, 13 Sep 2026: the client's form carries
+        // the same four levels and the legend that explains them). The team's task
+        // notes say who raised the ticket, so a client's "urgent" reads as a client's.
+        const priority = cleanPriority(body.priority);
 
         /* ── what they typed ─────────────────────────────────────────────── */
 

@@ -266,7 +266,8 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     }, [text]);
 
     const clientMissing = team && !client;
-    const priorityMissing = team && !priority;
+    // Everyone picks a priority now (owner, 13 Sep 2026); the legend says what each means.
+    const priorityMissing = !priority;
     const categoryMissing = !team && !category;
     const descriptionMissing = firstLine.length < 3;
     // The server keeps 140 characters of the first line as the title; rather than cut a
@@ -373,10 +374,10 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                 // A one-line request is its own description; the server requires one.
                 detail: (rest || firstLine).slice(0, MAX_DETAIL),
                 images: filesRef.current.map((f) => f.image).filter((img): img is TicketImage => !!img),
-                ...(team && priority ? { priority } : {}),
+                ...(priority ? { priority } : {}),
             });
             sentSlugs.set(res.reference, client);
-            onCreated(res.reference, client, { title: firstLine.slice(0, MAX_TITLE), priority: team ? priority : null });
+            onCreated(res.reference, client, { title: firstLine.slice(0, MAX_TITLE), priority });
         } catch (err) {
             setError(err instanceof HelpApiError ? err.message : "We could not send that just then. Nothing was lost. Try again.");
             setBusy(false);
@@ -413,27 +414,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                     className={SELECT_CURSOR}
                 />
 
-                {team ? (
-                    // The dots inside the atoms' chips and legend are rounded with a
-                    // clip-path, which the parity proof (and any box-radius reader) sees as
-                    // a square; the file draws them as ellipses, so they get their radius
-                    // here until PriorityDot carries it itself.
-                    <div className="flex flex-col gap-2 [&_[role=radio]>span:first-child]:rounded-(--hc-radius-full) [&_li>span>span]:rounded-(--hc-radius-full)">
-                        <div className="flex items-baseline justify-between gap-2">
-                            <span id="priority-label" className="hc-t-label-field text-(--hc-text-secondary)">
-                                Priority
-                            </span>
-                            <span className="hc-t-caption-meta text-(--hc-text-tertiary)">Required</span>
-                        </div>
-                        <PriorityChips value={priority} onChange={setPriority} labelledBy="priority-label" describedBy={touched && priorityMissing ? "priority-error" : undefined} />
-                        {touched && priorityMissing && (
-                            <p id="priority-error" className="hc-t-body-helper text-(--hc-text-error-primary)">
-                                {PRIORITY_ERROR}
-                            </p>
-                        )}
-                        <PriorityLegend />
-                    </div>
-                ) : (
+                {!team && (
                     <FieldSelect
                         id="category"
                         label="Category"
@@ -446,6 +427,25 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                         className={SELECT_CURSOR}
                     />
                 )}
+                {/* Priority, for the team and the client alike (owner, 13 Sep 2026: "I do not see
+                    this part"). The dots inside the atoms' chips and legend are rounded with a clip-path,
+                    which the parity proof (and any box-radius reader) sees as a square; the file draws
+                    them as ellipses, so they get their radius here until PriorityDot carries it itself. */}
+                <div className="flex flex-col gap-2 [&_[role=radio]>span:first-child]:rounded-(--hc-radius-full) [&_li>span>span]:rounded-(--hc-radius-full)">
+                    <div className="flex items-baseline justify-between gap-2">
+                        <span id="priority-label" className="hc-t-label-field text-(--hc-text-secondary)">
+                            Priority
+                        </span>
+                        <span className="hc-t-caption-meta text-(--hc-text-tertiary)">Required</span>
+                    </div>
+                    <PriorityChips value={priority} onChange={setPriority} labelledBy="priority-label" describedBy={touched && priorityMissing ? "priority-error" : undefined} />
+                    {touched && priorityMissing && (
+                        <p id="priority-error" className="hc-t-body-helper text-(--hc-text-error-primary)">
+                            {PRIORITY_ERROR}
+                        </p>
+                    )}
+                    <PriorityLegend />
+                </div>
 
                 <FieldUpload id="screenshots" label="Screenshots" requirement="Optional" attachedCount={files.length} onFiles={(picked) => void addFiles(picked)} error={fileError || undefined} accept="image/png,image/jpeg,image/webp" />
 

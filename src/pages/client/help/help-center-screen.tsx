@@ -37,7 +37,7 @@ import { supabase } from "@/lib/supabase";
 import { ArrowNarrowLeft } from "@untitledui-pro/icons/line";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
-import { Button, Card, Chevron, Eyebrow, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
+import { Button, Card, Chevron, type Crumb, Eyebrow, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
 import { HELP_GUIDES, HelpGuidePage, findHelpGuide } from "@/pages/client/help/help-center-guides";
 import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
 import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
@@ -301,14 +301,13 @@ const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
  * gutters), body top 56 and a 40 rhythm on desktop; 16 gutters, top 24 and a 24 rhythm
  * on a phone.
  */
-const HelpShell = ({ slug, clientName, email, name, children }: { slug: string; clientName: string; email: string; name?: string; children: React.ReactNode }) => {
+const HelpShell = ({ slug, clientName, email, name, crumbs, children }: { slug: string; clientName: string; email: string; name?: string; crumbs: Crumb[]; children: React.ReactNode }) => {
     const person = (name ?? "").trim() || email.split("@")[0];
     return (
         <HelpFrame
             topBar={
                 <TopBar
-                    app="Help Center"
-                    brandTo={`/${slug}`}
+                    crumbs={crumbs}
                     right={clientName ? `${clientName}  ·  ${person}` : person}
                     initial={initialOf(person)}
                     accountName={person}
@@ -833,8 +832,30 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         return <HelpHome tickets={tickets} topics={topics} slug={slug} />;
     };
 
+    // The breadcrumb is the path to here, every step a link (owner's rule, 13 Sep 2026:
+    // never a dead end). "Dashboard" is the client's own dashboard; "Help Center" the
+    // help home; the rest is the screen.
+    const base: Crumb[] = [
+        { label: "Dashboard", to: `/${slug}` },
+        { label: "Help Center", to: `/${slug}/help` },
+    ];
+    const crumbs: Crumb[] =
+        view === "detail"
+            ? [...base, { label: "Requests", to: `/${slug}/help/requests` }, { label: reference }]
+            : view === "list"
+              ? [...base, { label: "Requests" }]
+              : view === "guide"
+                ? [...base, { label: findHelpGuide(guide)?.title ?? "Guide" }]
+                : created
+                  // The success card lives at the home's own URL, so the "Help Center" link
+                  // alone would change nothing; it also puts the card away.
+                  ? [base[0], { ...base[1], onClick: () => setCreated(null) }, { label: "Request sent" }]
+                  : composing
+                    ? [...base, { label: "Raise a request" }]
+                    : base;
+
     return (
-        <HelpShell slug={slug} clientName={viewer?.clientName || clientName} email={proof.email} name={viewer?.name}>
+        <HelpShell slug={slug} clientName={viewer?.clientName || clientName} email={proof.email} name={viewer?.name} crumbs={crumbs}>
             {isStaff && viewer && <StaffBanner viewer={viewer} slug={slug} />}
             {error && (
                 <div className="mb-6">

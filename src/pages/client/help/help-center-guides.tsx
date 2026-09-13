@@ -65,19 +65,19 @@ export const HELP_GUIDES: HelpGuide[] = [
         slug: "monthly-reporting",
         title: "Monthly reporting",
         lede: "Questions about your report, your dashboard, or the tracking behind them.",
-        topicKey: "reporting-tracking",
+        topicKey: "other",
         sections: [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Reporting and tracking. Say which report or dashboard you mean and what you are asking for: a number that looks wrong, a metric you want added, a walkthrough of the month. A screenshot of the figure you are looking at helps.",
+                    "Raise a request under Other. Say which report or dashboard you mean and what you are asking for: a number that looks wrong, a metric you want added, a walkthrough of the month. A screenshot of the figure you are looking at helps.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "Reporting and tracking does not have its own board yet, so the request stays at Received and your account manager is asked to pick it up by hand; once they have given it to someone, the request shows as Assigned with that name on it.",
+                    "Requests under Other are given out by hand: the request stays at Received and your account manager is asked to pick it up; once they have given it to someone, the request shows as Assigned with that name on it.",
                 ],
             },
             {
@@ -90,19 +90,19 @@ export const HELP_GUIDES: HelpGuide[] = [
         slug: "booking-flow-changes",
         title: "Booking flow changes",
         lede: "Changes to how guests book: your property system, your channels, and the booking pages between them.",
-        topicKey: "booking-listings",
+        topicKey: "other",
         sections: [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Booking and listings. Name the property and the channel (your property management system, Airbnb, Vrbo, your own site) and describe the change or the fault: a rate, a minimum stay, dates that show as available when they are not, a listing that needs new photos. Screenshots of what a guest sees are the most useful thing you can attach.",
+                    "Raise a request under Website and pages when the change is on your own site, and under Other for your property management system or a channel (Airbnb, Vrbo). Name the property and the channel and describe the change or the fault: a rate, a minimum stay, dates that show as available when they are not, a listing that needs new photos. Screenshots of what a guest sees are the most useful thing you can attach.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "Booking and listings does not have its own board yet, so the request stays at Received and your account manager is asked to pick it up by hand; once they have given it to someone, the request shows as Assigned with that name on it.",
+                    "A website change goes straight to the web team with a named owner. Anything under Other is given out by hand: it stays at Received while your account manager is asked to pick it up, and shows as Assigned once they have.",
                 ],
             },
             {
@@ -122,8 +122,8 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "The category decides the owner",
                 paragraphs: [
-                    "Every request goes under one of six categories: Website and pages, Paid media, Content and social, Booking and listings, Reporting and tracking, and Other. Website and pages goes straight to the web team: one task on their board, given to whichever of the team has the lightest load that minute, and that person's name appears on your request.",
-                    "The other five categories do not have their own boards yet. A request under them stays at Received while your account manager is asked to give it to the right person by hand; once they have, the request shows as Assigned with that name on it.",
+                    "Every request goes under one of two categories: Website and pages, or Other. Website and pages goes straight to the web team: one task on their board, given to whichever of the team has the lightest load that minute, and that person's name appears on your request.",
+                    "Other is for everything else. A request under it stays at Received while your account manager is asked to give it to the right person by hand; once they have, the request shows as Assigned with that name on it.",
                 ],
             },
             {

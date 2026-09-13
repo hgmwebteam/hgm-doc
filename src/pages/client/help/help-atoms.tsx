@@ -36,7 +36,7 @@
  *
  * House style: no em or en dashes anywhere.
  */
-import { type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useCallback, useEffect, useId, useRef, useState } from "react";
+import { type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { cx } from "@/utils/cx";
 
@@ -142,11 +142,25 @@ export const HelpFrame = ({ topBar, children, className }: { topBar: ReactNode; 
 
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
 
+/**
+ * One breadcrumb segment. Every segment but the last links somewhere; the last is where
+ * the person is. `onClick` is for a segment whose destination is the current URL with a
+ * momentary state on top (the success card on the help home): the link still navigates,
+ * and the caller clears the state.
+ */
+export type Crumb = { label: string; to?: string; onClick?: () => void };
+
 export type TopBarProps = {
-    /** The app name after the slash, in the brand colour. */
-    app: "Help Center" | "Reporting System";
-    /** Where the brand links to: the client's dashboard, or the team's. */
-    brandTo: string;
+    /**
+     * The breadcrumb, first segment to last, with the gem in front of it. The frames
+     * draw two segments ("HiddenGem Media / Reporting System"); the client's help centre
+     * draws its whole path ("Dashboard / Help Center / Requests / REQ-2418") by the
+     * owner's rule (13 Sep 2026: never a dead end for the client). Every segment but the
+     * last is a link, the last is in the brand colour. When the trail will not fit the
+     * bar, the segments between the first and the last fold into one "…" button that
+     * unfolds them in place; nothing is dropped and nothing scrolls out of sight.
+     */
+    crumbs: Crumb[];
     /**
      * The one text node on the right, in body/helper: "Stay on 30a  ·  Marcus Webb" or
      * "Signed in as Leshan". Rendered white-space: pre, so the two spaces either side of
@@ -181,30 +195,128 @@ export type TopBarProps = {
  * stroke to fg/brand-primary, not border/brand; in Light they differ), radius full,
  * the initial in caption/meta text/primary.
  */
-export const TopBar = ({ app, brandTo, right, initial, accountName, menu }: TopBarProps) => (
-    <div className="relative flex h-16 items-center justify-between border-b border-(--hc-border-secondary) bg-(--hc-bg-page) px-6">
-        <Link to={brandTo} className="relative flex h-6 shrink-0 items-center gap-2 rounded-(--hc-radius-sm) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']">
-            <GemIcon />
-            <span className="hc-t-label-field whitespace-nowrap text-(--hc-text-primary)">HiddenGem Media</span>
-            <span className="hc-t-label-field whitespace-nowrap text-(--hc-text-tertiary)">/</span>
-            <span className="hc-t-label-field whitespace-nowrap text-(--hc-fg-brand-primary)">{app}</span>
-        </Link>
-        <div className="flex shrink-0 items-center gap-2">
-            {right && <span className="hc-t-body-helper hidden whitespace-pre text-(--hc-text-secondary) sm:inline">{right}</span>}
-            {menu ? (
-                <AccountMenu initial={initial} accountName={accountName} {...menu} />
-            ) : (
-                <span
-                    role="img"
-                    aria-label={`Account, ${accountName}`}
-                    className="hc-t-caption-meta flex size-8 shrink-0 items-center justify-center rounded-(--hc-radius-full) border border-(--hc-fg-brand-primary) bg-(--hc-bg-brand-primary) text-(--hc-text-primary)"
-                >
-                    {initial}
-                </span>
-            )}
+export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProps) => {
+    const navRef = useRef<HTMLElement>(null);
+    // The trail folds when it would not fit the bar (a phone showing "Dashboard /
+    // Help Center / Requests / REQ-2418"): the first and last segments stay and the
+    // ones between become one "…" button that unfolds them in place, wrapping to a
+    // second line inside the 64px bar. Nothing is dropped and nothing scrolls out of
+    // sight. Measured, not counted: three segments fit at 390 for "Requests" and do
+    // not for "Raise a request".
+    const [folded, setFolded] = useState(false);
+    const [unfolded, setUnfolded] = useState(false);
+    const [fit, setFit] = useState(0); // bumped when the bar's width or its font may have changed
+    const trail = JSON.stringify(crumbs.map((c) => c.label));
+    useLayoutEffect(() => {
+        setFolded(false);
+        setUnfolded(false);
+    }, [trail]);
+    useLayoutEffect(() => {
+        const nav = navRef.current;
+        const last = nav?.querySelector<HTMLElement>("[aria-current=page]");
+        if (!nav || !last || folded || unfolded || crumbs.length < 3) return;
+        // The last segment truncates rather than overflow, so the bar's own
+        // scroll width never says the trail is too long; ask the last segment how
+        // wide it wants to be.
+        const needed = last.offsetLeft + last.scrollWidth - nav.offsetLeft;
+        if (needed > nav.clientWidth + 1) setFolded(true);
+    }, [trail, fit, folded, unfolded, crumbs.length]);
+    useEffect(() => {
+        const remeasure = () => {
+            setFolded(false);
+            setUnfolded(false);
+            setFit((n) => n + 1);
+        };
+        // Only a change of width can change what fits. A phone fires resize as its
+        // address bar comes and goes while scrolling; that must not refold a trail
+        // the person has just opened.
+        let width = window.innerWidth;
+        const onResize = () => {
+            if (window.innerWidth === width) return;
+            width = window.innerWidth;
+            remeasure();
+        };
+        window.addEventListener("resize", onResize);
+        // Inter arrives after the first layout (display=swap): measure again in it.
+        let live = true;
+        document.fonts?.ready.then(() => {
+            if (live) remeasure();
+        });
+        return () => {
+            live = false;
+            window.removeEventListener("resize", onResize);
+        };
+    }, []);
+    useEffect(() => {
+        if (unfolded) navRef.current?.querySelector<HTMLElement>("[data-crumb='1']")?.focus();
+    }, [unfolded]);
+
+    const hidden = folded && !unfolded ? crumbs.slice(1, -1) : [];
+    const shown = hidden.length ? [crumbs[0], crumbs[crumbs.length - 1]] : crumbs;
+    const segment = (c: Crumb, last: boolean, index: number) => {
+        const colour = last ? "text-(--hc-fg-brand-primary)" : "text-(--hc-text-primary)";
+        return c.to && !last ? (
+            <Link to={c.to} onClick={c.onClick} data-crumb={index} className={cx("hc-t-label-field relative shrink-0 rounded-(--hc-radius-sm) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] hover:underline", colour)}>
+                {c.label}
+            </Link>
+        ) : (
+            <span aria-current={last ? "page" : undefined} className={cx("hc-t-label-field", last ? "min-w-0 truncate" : "shrink-0", colour)}>
+                {c.label}
+            </span>
+        );
+    };
+    const slash = <span className="hc-t-label-field shrink-0 text-(--hc-text-tertiary)">/</span>;
+    return (
+        <div className="relative flex h-16 items-center justify-between gap-4 border-b border-(--hc-border-secondary) bg-(--hc-bg-page) px-6">
+            <nav ref={navRef} aria-label="Breadcrumb" className={cx("flex min-h-6 min-w-0 flex-1 items-center gap-2 whitespace-nowrap", unfolded && "flex-wrap")}>
+                {crumbs.length > 0 && crumbs[0].to ? (
+                    <Link to={crumbs[0].to} className="relative flex h-6 shrink-0 items-center gap-2 rounded-(--hc-radius-sm) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']" aria-label={`${crumbs[0].label} (home)`}>
+                        <GemIcon />
+                    </Link>
+                ) : (
+                    <GemIcon />
+                )}
+                {shown.map((c, i) => {
+                    const last = i === shown.length - 1;
+                    const index = last ? crumbs.length - 1 : i;
+                    return (
+                        <span key={`${c.label}-${index}`} className="contents">
+                            {i > 0 && slash}
+                            {i > 0 && hidden.length > 0 && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUnfolded(true)}
+                                        aria-label={`Show ${hidden.length === 1 ? "the step" : `the ${hidden.length} steps`} between ${crumbs[0].label} and ${c.label}: ${hidden.map((h) => h.label).join(", ")}`}
+                                        className="hc-t-label-field relative shrink-0 cursor-pointer rounded-(--hc-radius-sm) px-1 text-(--hc-text-primary) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] hover:underline"
+                                    >
+                                        …
+                                    </button>
+                                    {slash}
+                                </>
+                            )}
+                            {segment(c, last, index)}
+                        </span>
+                    );
+                })}
+            </nav>
+            <div className="flex shrink-0 items-center gap-2">
+                {right && <span className="hc-t-body-helper hidden whitespace-pre text-(--hc-text-secondary) sm:inline">{right}</span>}
+                {menu ? (
+                    <AccountMenu initial={initial} accountName={accountName} {...menu} />
+                ) : (
+                    <span
+                        role="img"
+                        aria-label={`Account, ${accountName}`}
+                        className="hc-t-caption-meta flex size-8 shrink-0 items-center justify-center rounded-(--hc-radius-full) border border-(--hc-fg-brand-primary) bg-(--hc-bg-brand-primary) text-(--hc-text-primary)"
+                    >
+                        {initial}
+                    </span>
+                )}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 /**
  * The avatar as a control: a button that opens a small card under it with who is
@@ -800,10 +912,12 @@ export const FileThumbnail = ({
 export type PriorityLevel = "low" | "medium" | "high" | "urgent";
 
 export const PRIORITY_LEVELS: ReadonlyArray<{ value: PriorityLevel; label: string; meaning: string }> = [
-    { value: "low", label: "Low", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked." },
-    { value: "medium", label: "Medium", meaning: "Medium: Something is wrong but there is a workaround. Fix this week." },
-    { value: "high", label: "High", meaning: "High: A client-facing feature is broken or a client is asking. Fix today." },
-    { value: "urgent", label: "Urgent", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down. Drop everything." },
+    // The estimate per urgency is Brandon's note on the file (13 Sep 2026); the owner set
+    // Urgent at 24 hours. Low has no set time and says so.
+    { value: "low", label: "Low", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked. No set time; scheduled after the higher priorities." },
+    { value: "medium", label: "Medium", meaning: "Medium: Something is wrong but there is a workaround. Fix this week: within 5 working days." },
+    { value: "high", label: "High", meaning: "High: A client-facing feature is broken or a client is asking. Fix today: within 1 working day." },
+    { value: "urgent", label: "Urgent", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down. Drop everything: within 24 hours." },
 ];
 
 /** The dot and the selected chip, per level: utility blue, success, warning, error. */

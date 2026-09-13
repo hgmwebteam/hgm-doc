@@ -262,14 +262,21 @@ export interface TicketImage {
 }
 
 /**
+ * The form's file rules, as the Field/Upload component states them: "PNG, JPG or WEBP ·
+ * up to 10 MB each · up to 5 files". The server allows six and more formats; the form
+ * promises five and three, so the promise on the screen is the one that is enforced.
+ *
  * A Netlify synchronous function rejects a request body over 6MB outright, and the JSON
  * wrapper plus base64's 4/3 expansion means the real ceiling on raw bytes is well under
  * that. 4MB of encoded payload leaves comfortable headroom for the rest of the body, and
  * every image has already been squeezed to WebP by compressImageFile before it is counted,
  * so hitting this at all takes an unusual number of large files rather than one phone photo.
  */
-export const MAX_IMAGES = 6;
+export const MAX_IMAGES = 5;
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGE_PAYLOAD_BYTES = 4_000_000;
+const IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp)$/i;
 
 /**
  * Field caps, held EQUAL to the ones ticket-create.mts enforces rather than merely below
@@ -292,52 +299,20 @@ const splitDataUrl = (dataUrl: string): { mime: string; dataBase64: string } | n
     return { mime: m[1], dataBase64: m[2] };
 };
 
+/** True for a file the drop zone's rules line admits: PNG, JPG or WEBP, by type or, when the browser gives none, by extension. */
+export const isAllowedImage = (file: File): boolean => (file.type ? IMAGE_MIMES.has(file.type) : IMAGE_EXTENSIONS.test(file.name));
+
 /**
- * Compresses the picked files and shapes them for ticket-create.
- *
- * Returns the images it accepted together with a plain sentence for anything it refused,
- * rather than throwing: dropping one oversized file should not lose the other five, and the
- * client needs to be told which is which before they press send.
+ * Compresses one picked file and shapes it for ticket-create. The name sent is the
+ * original file name (the thumbnail shows the same name and the ORIGINAL byte size, which
+ * the caller keeps from the File itself); only the bytes are re-encoded. Throws when the
+ * file cannot be read at all, so the form can say which one.
  */
-export const prepareImages = async (files: File[]): Promise<{ images: TicketImage[]; rejected: string[] }> => {
-    const images: TicketImage[] = [];
-    const rejected: string[] = [];
-    let total = 0;
-
-    for (const file of files) {
-        if (images.length >= MAX_IMAGES) {
-            rejected.push(`${file.name} was not attached - ${MAX_IMAGES} images is the limit for one request.`);
-            continue;
-        }
-        if (!file.type.startsWith("image/")) {
-            rejected.push(`${file.name} was not attached - only images can go on a request.`);
-            continue;
-        }
-
-        let dataUrl: string;
-        try {
-            dataUrl = await compressImageFile(file);
-        } catch {
-            rejected.push(`${file.name} could not be read.`);
-            continue;
-        }
-
-        const parts = splitDataUrl(dataUrl);
-        if (!parts) {
-            rejected.push(`${file.name} could not be read.`);
-            continue;
-        }
-
-        if (total + parts.dataBase64.length > MAX_IMAGE_PAYLOAD_BYTES) {
-            rejected.push(`${file.name} was not attached - the images together are too large to send.`);
-            continue;
-        }
-
-        total += parts.dataBase64.length;
-        images.push({ name: file.name.slice(0, 120), mime: parts.mime, dataBase64: parts.dataBase64 });
-    }
-
-    return { images, rejected };
+export const prepareImage = async (file: File): Promise<TicketImage> => {
+    const dataUrl = await compressImageFile(file);
+    const parts = splitDataUrl(dataUrl);
+    if (!parts) throw new Error(`${file.name} could not be read.`);
+    return { name: file.name.slice(0, 120), mime: parts.mime, dataBase64: parts.dataBase64 };
 };
 
 /* ── The portal row ──────────────────────────────────────────────────────────

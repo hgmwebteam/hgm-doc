@@ -957,13 +957,16 @@ export const FileThumbnail = ({
 /** The platform's own enum (triage.ts). Do not rename. */
 export type PriorityLevel = "low" | "medium" | "high" | "urgent";
 
-export const PRIORITY_LEVELS: ReadonlyArray<{ value: PriorityLevel; label: string; meaning: string }> = [
-    // The estimate per urgency is Brandon's note on the file (13 Sep 2026); the owner set
-    // Urgent at 24 hours. Low has no set time and says so.
-    { value: "low", label: "Low", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked. No set time; scheduled after the higher priorities." },
-    { value: "medium", label: "Medium", meaning: "Medium: Something is wrong but there is a workaround. Fix this week: within 5 working days." },
-    { value: "high", label: "High", meaning: "High: A client-facing feature is broken or a client is asking. Fix today: within 1 working day." },
-    { value: "urgent", label: "Urgent", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down. Drop everything: within 24 hours." },
+export const PRIORITY_LEVELS: ReadonlyArray<{ value: PriorityLevel; label: string; estimate: string; meaning: string }> = [
+    // The estimate per urgency is Brandon's note on the file (13 Sep 2026). The owner set
+    // Urgent at 24 hours (13 Sep) and Low at 7 days (14 Sep, "in the pills"); Medium and
+    // High carry the numbers the legend already gave. `estimate` is the pill's words and
+    // the legend's, from this one table. The legend lines keep their line count at the
+    // 544 and 342 columns, so the form does not reflow (measured in Inter, 14 Sep).
+    { value: "low", label: "Low", estimate: "7 days", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked. Scheduled after the higher priorities: within 7 days." },
+    { value: "medium", label: "Medium", estimate: "5 days", meaning: "Medium: Something is wrong but there is a workaround. Fix this week: within 5 days of raising it." },
+    { value: "high", label: "High", estimate: "1 day", meaning: "High: A client-facing feature is broken or a client is asking. Fix today: within 1 day of raising it." },
+    { value: "urgent", label: "Urgent", estimate: "24 hours", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down. Drop everything: within 24 hours." },
 ];
 
 /** The dot and the selected chip, per level: utility blue, success, warning, error. */
@@ -984,7 +987,7 @@ export const PriorityDot = ({ level, className }: { level: PriorityLevel; classN
 
 /**
  * Priority/Chip: 40 tall, radius full, padding 0 16, gap 8, the dot then the label in
- * label/field. Unselected: bg/primary, 1px border/primary, text/secondary. Selected:
+ * label/field, then 4 and the level's estimate in body/helper text/tertiary. Unselected: bg/primary, 1px border/primary, text/secondary. Selected:
  * the level's utility tint, a 1.5px border in the level's utility colour, text/primary.
  * A radio: `role="radio"` with aria-checked, inside a PriorityChipGroup radiogroup.
  * Hugs its label on desktop; the group stretches it to half the row at 390.
@@ -1003,6 +1006,7 @@ export const PriorityChip = ({
             type="button"
             role="radio"
             aria-checked={selected}
+            aria-label={`${meta.label}, within ${meta.estimate}`}
             data-level={level}
             tabIndex={tabIndex}
             onClick={() => onSelect(level)}
@@ -1015,7 +1019,12 @@ export const PriorityChip = ({
             )}
         >
             <PriorityDot level={level} />
-            {meta.label}
+            <span>{meta.label}</span>
+            {/* The estimate, in body/helper text/tertiary, 4 after the label (owner, 14 Sep
+                2026: "these need date estimations in the pills"). The gap-2 row would put 8
+                between them; -ml-1 takes it to 4, which keeps the four chips on one row of
+                the 560 column. */}
+            <span className="hc-t-body-helper -ml-1 text-(--hc-text-tertiary)">{meta.estimate}</span>
         </button>
     );
 };

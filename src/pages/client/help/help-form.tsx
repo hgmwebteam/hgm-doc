@@ -144,7 +144,9 @@ const CHIP_TINT: Record<PriorityLevel, string> = {
 const PriorityChipStatic = ({ level }: { level: PriorityLevel }) => (
     <span className={cx("hc-t-label-field inline-flex h-10 items-center gap-2 rounded-(--hc-radius-full) border-[1.5px] px-[14.5px] whitespace-nowrap text-(--hc-text-primary)", CHIP_TINT[level])}>
         <PriorityDot level={level} className="rounded-(--hc-radius-full)" />
-        {PRIORITY_LEVELS.find((p) => p.value === level)?.label}
+        <span>{PRIORITY_LEVELS.find((p) => p.value === level)?.label}</span>
+        {/* The same estimate the pill carried when it was chosen, 4 after the label. */}
+        <span className="hc-t-body-helper -ml-1 text-(--hc-text-tertiary)">{PRIORITY_LEVELS.find((p) => p.value === level)?.estimate}</span>
     </span>
 );
 

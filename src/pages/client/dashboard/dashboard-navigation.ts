@@ -15,6 +15,7 @@ import {
     FileCheck02,
     Folder,
     Globe01,
+    HelpCircle,
     Image01,
     Image03,
     LayoutAlt01,
@@ -490,6 +491,10 @@ export const NAV_GROUPS: {
             // truncated to "Website Setup — Ow…", then "Website Setup Guide" to
             // "Website Setup Gui…".
             { id: "ownerguide", label: "Setup Guide", icon: BookOpen01 },
+            // A link, not a section: the client help centre at /{slug}/help, where a request
+            // becomes a ticket with a named owner. Last row in the menu on purpose - it is
+            // what a client reaches for when something is wrong with anything above it.
+            { id: "help", label: "Help Centre", icon: HelpCircle },
         ],
     },
 ];
@@ -511,6 +516,17 @@ export const HIDDEN_ITEMS: { id: SectionId; label: string; icon: typeof LayoutAl
     { id: "revenue", label: "Revenue & Results", icon: TrendUp01 },
     { id: "comms", label: "Communication Log", icon: MessageChatCircle },
 ];
+
+/**
+ * Menu rows that are links OUT rather than sections on this page.
+ *
+ * Both are in SECTIONS and in the search index, because a client should be able to find
+ * them by name, but neither has a body to switch to: "contentfolder" opens the client's
+ * drive and "help" navigates to /{slug}/help. Anything that turns a row into a view has to
+ * ask about this set first - setting activeSection to one of these renders an empty content
+ * area with no way back except the menu.
+ */
+export const LINK_ONLY_SECTIONS = new Set<SectionId>(["contentfolder", "help"]);
 
 /** Which group a section belongs to — drives the eyebrow above each section body. */
 export const phaseOfSection = (id: SectionId): PhaseId | null => NAV_GROUPS.find((g) => g.items.some((i) => i.id === id))?.phase ?? null;

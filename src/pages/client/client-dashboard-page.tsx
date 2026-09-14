@@ -131,6 +131,7 @@ import {
     type JourneyLink,
     type JourneyStepId,
     KICKOFF_CALENDLY,
+    LINK_ONLY_SECTIONS,
     NAV_GROUPS,
     OVERVIEW_ITEM,
     type PhaseId,
@@ -166,10 +167,12 @@ import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pag
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
     FLOW_FEEDBACK_KEY,
+    LANDING_FEEDBACK_KEY,
     type Suggestion,
     type SuggestionItem,
     applySuggestion,
     isFlowFeedbackKey,
+    isLandingFeedbackKey,
     labelForKey,
     valueForKey,
 } from "@/pages/client/dashboard/suggestions-model";
@@ -468,7 +471,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         const h = window.location.hash.replace("#", "");
         // "Soon" ids are in SECTIONS but have no section body yet, so honouring a hash
         // for one would render an empty page. Same exclusion the search index uses.
-        if (h && SECTIONS.some((s) => s.id === h && !("soon" in s && s.soon))) setActiveSection(h as SectionId);
+        //
+        // LINK_ONLY_SECTIONS is excluded for the same reason and a second one: those rows
+        // are links out (the content drive, the help centre), so there is nothing here to
+        // deep-link INTO, and honouring the hash by following the link would mean a URL
+        // ending "#help" silently threw the client off the dashboard on load.
+        if (h && SECTIONS.some((s) => s.id === h && !("soon" in s && s.soon)) && !LINK_ONLY_SECTIONS.has(h as SectionId)) {
+            setActiveSection(h as SectionId);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -873,17 +883,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [refreshSuggestions]);
 
     /* The table carries three kinds of row: Master Brand Document edits, welcome-email
-       feedback under `welcomeFlow.*`, and Pinned Posts feedback under `pinnedposts.*`. Split
-       them here so no section counts, lists or orphans another's. */
+       feedback under `welcomeFlow.*`, Landing page feedback under `landingPage.*`, and
+       Pinned Posts feedback under `pinnedposts.*`. Split them here so no section counts,
+       lists or orphans another's — a feedback key resolves to no document field, so one left
+       in would show up as a pending edit and then as an orphan. */
     const pinnedFeedback = suggestions.filter((s) => isPinnedKey(s.field_key));
-    const pendingSuggestions = suggestions.filter((s) => s.status === "pending" && !isPinnedKey(s.field_key) && !isFlowFeedbackKey(s.field_key));
+    const pendingSuggestions = suggestions.filter(
+        (s) => s.status === "pending" && !isPinnedKey(s.field_key) && !isFlowFeedbackKey(s.field_key) && !isLandingFeedbackKey(s.field_key),
+    );
     const pendingByKey = new Map<string, Suggestion[]>();
     for (const s of pendingSuggestions) pendingByKey.set(s.field_key, [...(pendingByKey.get(s.field_key) ?? []), s]);
     const resolvedByKey = new Map<string, Suggestion>();
     for (const s of suggestions) if (s.status !== "pending" && !resolvedByKey.has(s.field_key)) resolvedByKey.set(s.field_key, s);
     /** Pending rows whose key no longer resolves (their row was deleted) — surfaced to
      *  the team above the document, since no field exists to hang them on. */
-    const orphanedPending = isTeam ? pendingSuggestions.filter((s) => !isFlowFeedbackKey(s.field_key) && valueForKey(foundation, s.field_key) === null) : [];
+    const orphanedPending = isTeam
+        ? pendingSuggestions.filter(
+              (s) => !isFlowFeedbackKey(s.field_key) && !isLandingFeedbackKey(s.field_key) && valueForKey(foundation, s.field_key) === null,
+          )
+        : [];
 
     const acceptSuggestion = (s: Suggestion) => {
         const patch = applySuggestion(foundation, s.field_key, s.suggested_value);
@@ -1074,19 +1092,55 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
         await refreshSuggestions();
     };
-    const withdrawFlowFeedback = async (s: Suggestion) => {
+    /** Withdraw / resolve act on a row id, so both feedback families share them. */
+    const withdrawFeedback = async (s: Suggestion) => {
         if (!slug) return;
         if (identityEmail) await withdrawSuggestion(slug, identityEmail, s.id);
         else if (signedInAsTeam) await supabase.from("dashboard_suggestions").delete().eq("id", s.id).eq("status", "pending");
         await refreshSuggestions();
     };
     /** Feedback is never "applied" anywhere — done or dismissed is the whole outcome. */
-    const resolveFlowFeedback = async (s: Suggestion, status: "accepted" | "declined") => {
+    const resolveFeedback = async (s: Suggestion, status: "accepted" | "declined") => {
         await supabase
             .from("dashboard_suggestions")
             .update({ status, resolved_by: user?.email ?? "", resolved_at: new Date().toISOString() })
             .eq("id", s.id)
             .eq("status", "pending");
+        await refreshSuggestions();
+    };
+
+    /* ── Client feedback on the landing page ──
+       The same three calls again under LANDING_FEEDBACK_KEY. Separate from the Approve /
+       Request changes verdict in landing-page-section.tsx, which lives in landing_pages:
+       that one closes, this one stays open either side of it. */
+    const landingFeedback = suggestions.filter((s) => isLandingFeedbackKey(s.field_key));
+    const landingRevealed = (content.client_visible ?? DEFAULT_CLIENT_VISIBLE).includes("landing");
+    const canLandingFeedback = !isTeam && !isTemplate && landingRevealed && !!suggestAuthor;
+    const sendLandingFeedback = async (text: string) => {
+        if (!slug || !suggestAuthor) throw new Error("Sign in with your email to send feedback.");
+        const item = { fieldKey: LANDING_FEEDBACK_KEY, fieldLabel: "Landing page · feedback", currentValue: "", suggestedValue: text };
+        if (identityEmail) {
+            await sendSuggestions(slug, identityEmail, [item]);
+        } else {
+            // Team member previewing as the client — as themselves, so the function's
+            // one-open-note-per-author rule has to be reproduced by hand here.
+            await supabase
+                .from("dashboard_suggestions")
+                .delete()
+                .eq("slug", slug)
+                .eq("suggested_by", suggestAuthor)
+                .eq("status", "pending")
+                .eq("field_key", item.fieldKey);
+            const { error } = await supabase.from("dashboard_suggestions").insert({
+                slug,
+                field_key: item.fieldKey,
+                field_label: item.fieldLabel,
+                current_value: item.currentValue,
+                suggested_value: item.suggestedValue,
+                suggested_by: suggestAuthor,
+            });
+            if (error) throw new Error(error.message);
+        }
         await refreshSuggestions();
     };
 
@@ -1213,7 +1267,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [clientName]);
 
     /** True when a link-type nav row has nowhere to go yet — shown as "Soon". */
-    const navTargetMissing = (id: SectionId) => id === "contentfolder" && !content.brand.folder_link.trim();
+    const navTargetMissing = (id: SectionId) =>
+        (id === "contentfolder" && !content.brand.folder_link.trim()) ||
+        // The help centre is per-client and its URL is built from the slug, so the template
+        // copy of this page (which has no client behind it) has nowhere to send anyone.
+        (id === "help" && (!slug || isTemplate));
 
     /* ── Website Setup Guide answers ──
        Always merged, so the section and the badge never see a missing block. The team's
@@ -1255,7 +1313,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     // Overview is the main dashboard — always visible, never hideable, so a client can
     // never end up with nowhere to land. Same reasoning as the owner guide, where the
     // Welcome and Review steps can't be hidden either.
-    const revealedToClient = (id: SectionId) => id === "overview" || (!TEAM_ONLY_SECTIONS.has(id) && clientVisible.includes(id));
+    /**
+     * Overview and the Help Centre are the two rows that are never behind the eye toggle.
+     *
+     * Every other row is a deliverable an AM reveals when it actually ships, which is why the
+     * default is hidden. The help centre is not a deliverable: it is how a client tells us
+     * something is wrong with one. Leaving it on the toggle would mean every dashboard that
+     * already exists shows it as "Soon" and refuses to open, and the one client most in need
+     * of it - someone whose work has not landed yet - is the one least likely to have been
+     * granted it.
+     *
+     * It is safe to leave ungated here because this predicate only decides what is SHOWN.
+     * The help centre re-proves the caller server-side on every single call (verifyCaller in
+     * netlify/lib/reporting.mts) and refuses a dashboard whose access list is empty, saying
+     * so on screen. An always-visible row therefore reveals a door, never what is behind it.
+     */
+    const revealedToClient = (id: SectionId) =>
+        id === "overview" || id === "help" || (!TEAM_ONLY_SECTIONS.has(id) && clientVisible.includes(id));
     const toggleClientVisible = (id: SectionId) =>
         setContent((c) => {
             const cur = c.client_visible ?? DEFAULT_CLIENT_VISIBLE;
@@ -1389,11 +1463,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** True when the open section lives in this group — drives the group row's chip. */
     const groupHoldsActive = (phase: string) => (NAV_GROUPS.find((g) => g.phase === phase)?.items ?? []).some((s) => s.id === activeSection);
 
-    /** Nav rows are section switches, bar Folder of Content, which is a link out. */
+    /** Nav rows are section switches, bar the two link rows: Folder of Content and Help Centre. */
     const openNavItem = (id: SectionId) => {
         if (id === "contentfolder") {
             const url = content.brand.folder_link.trim();
             if (url) window.open(url, "_blank", "noopener,noreferrer");
+            return;
+        }
+        if (id === "help") {
+            // Guarded rather than trusting the caller: the menu row is already disabled when
+            // there is no client behind this page (navTargetMissing), but search reaches the
+            // same opener without that check, and an unguarded navigate would send the
+            // template copy to "//help".
+            if (!slug || isTemplate) return;
+            // Same tab and an SPA navigate, unlike Folder of Content. The help centre is part
+            // of the portal rather than somewhere else we are sending them, it reads the same
+            // `cd_unlock_${slug}` this page wrote so the client is asked for one field instead
+            // of two, and it has a Dashboard link straight back. Opening it in a new tab would
+            // break all three.
+            navigate(`/${slug}/help`);
             return;
         }
         setActiveSection(id);
@@ -2342,7 +2430,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
 
                             {/* Dashboard search — client-scoped, directly under the identity block */}
                             <div className="px-3 pt-3">
-                                <ClientSearchBar hits={searchHits} onSelect={setActiveSection} />
+                                {/* openNavItem, not setActiveSection: two rows in the menu are links
+                                    rather than sections (Folder of Content, Help Centre) and have no
+                                    body to switch to. Selecting one here used to set activeSection to
+                                    an id nothing renders, leaving a blank content area with no way
+                                    back except the menu. Routed through the same opener the menu uses,
+                                    a searched link opens the thing it names. */}
+                                <ClientSearchBar hits={searchHits} onSelect={openNavItem} />
                             </div>
 
                             {/* Overview — pinned above the groups as the client's main dashboard. Never
@@ -3355,6 +3449,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 isTemplate={isTemplate}
                                                                 teamName={user?.name ?? user?.email ?? ""}
                                                                 clientEmail={identityEmail}
+                                                                feedback={{
+                                                                    mode: isTeam ? "review" : canLandingFeedback ? "client" : "off",
+                                                                    items: landingFeedback,
+                                                                    author: suggestAuthor,
+                                                                    send: sendLandingFeedback,
+                                                                    withdraw: withdrawFeedback,
+                                                                    resolve: resolveFeedback,
+                                                                }}
                                                             />
                                                         </div>
                                                     </>
@@ -3412,8 +3514,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     items: flowFeedback,
                                                                     author: suggestAuthor,
                                                                     send: sendFlowFeedback,
-                                                                    withdraw: withdrawFlowFeedback,
-                                                                    resolve: resolveFlowFeedback,
+                                                                    withdraw: withdrawFeedback,
+                                                                    resolve: resolveFeedback,
                                                                 }}
                                                             />
                                                         </div>

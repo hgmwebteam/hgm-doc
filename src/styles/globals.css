@@ -206,6 +206,95 @@ input[type="search"]::-webkit-search-cancel-button {
 /* Skeleton shimmer (/animation section 15)                                    */
 /* -------------------------------------------------------------------------- */
 /*
+ * The launch meter under "Your journey" (JourneyProgress).
+ *
+ * One ramp, reused twice — the bar's fill and the percentage figure above it — so the two
+ * read as one object rather than two coloured things that happen to sit together.
+ *
+ * It starts on the brand blue and walks to pink, which is the point: a flat brand bar is
+ * honest but says nothing about getting closer, while the ramp means a client who is 80%
+ * of the way is looking at a visibly different, warmer bar than the one they started with.
+ * Every stop is a theme variable, so it re-resolves in dark mode instead of staying a
+ * light-mode ramp on a dark panel.
+ */
+:root {
+    /* The bar's own surfaces. NOT the bg-brand-* tokens: those flip to solid brand in dark
+       mode (bg-brand-secondary is brand-100 light, brand-600 dark), which made every empty
+       cell look filled on a dark dashboard. Mixed against the panel instead, so "empty"
+       stays quiet and the ramp is the only real colour on the bar. */
+    --journey-meter-track: var(--color-brand-50);
+    --journey-meter-current: var(--color-brand-100);
+    /* Brand blue the whole way, handing over to the logo's gold for the last cell.
+       Those are HiddenGem's two colours: #0066DE is the site's interactive blue, #FFCC00
+       the gem in the logo — so the bar runs in the brand and ends on the mark.
+
+       The handover is a hard stop, not a blend. Blue and gold sit opposite each other, so
+       any gradient between them passes through grey-green and the middle of the bar goes
+       muddy; landing the change on a cell divider instead reads as deliberate. The stop
+       comes from --journey-meter-gold-from, which the component measures off the real cell
+       count. */
+    --journey-meter-ramp: linear-gradient(
+        90deg,
+        var(--color-brand-800) 0%,
+        var(--color-brand-700) 26%,
+        var(--color-brand-600) 58%,
+        var(--color-brand-500) var(--journey-meter-gold-from, 92%),
+        rgb(255 204 0) var(--journey-meter-gold-from, 92%),
+        rgb(255 204 0) 100%
+    );
+    /* The rocket sits on that gold, where white would all but vanish. */
+    --journey-meter-rocket-ink: var(--color-brand-900);
+}
+
+/* Taken straight off the brand ramp rather than mixed into the panel: the dark panel is a
+   warm near-black, and a little blue stirred into it came out muddy purple. */
+.dark-mode {
+    --journey-meter-track: var(--color-brand-950);
+    --journey-meter-current: var(--color-brand-900);
+}
+
+.journey-meter-track {
+    background-color: var(--journey-meter-track);
+}
+
+/* The step a client should be on. A tint rather than a ramp slice: the ramp means done,
+   and colouring an unfinished cell with it would claim work that hasn't happened. */
+.journey-meter-current {
+    background-color: var(--journey-meter-current);
+}
+
+/* The element spans the whole bar and is clipped down to the filled part, so a stage keeps
+   its colour as the bar grows: at 40% the client sees the first 40% of the ramp, not a
+   whole ramp squeezed into 40% of the width.
+
+   No `position` here on purpose: this file is unlayered, so it would beat the element's own
+   `absolute` utility and drop the fill out of the track. The utility supplies it. */
+/* No sheen on this any more. It was one animating layer when the meter was a single thin
+   bar; the stage tracker draws one of these PER FILLED CELL, so a finished journey left
+   fourteen gradient layers animating forever on a page a client keeps open — a real cost
+   for pure decoration. The step card below already has the travelling beam, and two things
+   moving on one screen compete anyway. */
+.journey-meter-fill {
+    overflow: hidden;
+    background-image: var(--journey-meter-ramp);
+    background-repeat: no-repeat;
+}
+
+/* The percentage, painted with the same ramp. `text-fill-color` needs the -webkit- prefix
+   to work anywhere; the standard property is still not implemented outside it. */
+.journey-meter-rocket-ink {
+    color: var(--journey-meter-rocket-ink, var(--color-white));
+}
+
+.journey-meter-figure {
+    background-image: var(--journey-meter-ramp);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+}
+
+/*
  * A loading placeholder's sweep. Linear, 1.6s, and both are deliberate: eased
  * motion reads as an object sliding past, and a skeleton is the opposite of an
  * object — it is an absence. Under about 1.2s it reads as urgency, which is

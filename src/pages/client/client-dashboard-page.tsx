@@ -125,6 +125,8 @@ import {
     usersToAllowedEmails,
 } from "@/pages/client/dashboard/dashboard-model";
 import {
+    JOURNEY_BAR,
+    JOURNEY_STAGES,
     JOURNEY_STEPS,
     type JourneyLink,
     type JourneyStepId,
@@ -136,9 +138,13 @@ import {
     SECTIONS,
     type SearchHit,
     TEAM_ONLY_SECTIONS,
+    isJourneyItemDone,
     phaseOfSection,
+    toggleJourneyItemDone,
+    toggleJourneyStepDone,
 } from "@/pages/client/dashboard/dashboard-navigation";
 import { ExampleReelsSection } from "@/pages/client/dashboard/example-reels";
+import { JourneyProgress } from "@/pages/client/dashboard/journey-progress";
 import {
     FOUNDATION_SECTIONS,
     LEGACY_FOUNDATION_FIELDS,
@@ -170,6 +176,7 @@ import {
     labelForKey,
     valueForKey,
 } from "@/pages/client/dashboard/suggestions-model";
+import { mergeLiveContent, useDashboardLive } from "@/pages/client/dashboard/use-dashboard-live";
 import { type WebsiteSetup, mergeWebsiteSetup, saveWebsiteSetup, websiteSetupProgress } from "@/pages/client/dashboard/website-setup";
 import { type WebsiteSetupSaveState, WebsiteSetupSection } from "@/pages/client/dashboard/website-setup-section";
 import { HostOnboardingFormPage, ensureHostOnboardingForm, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
@@ -251,6 +258,42 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const savedRowRef = useRef<string | null>(JSON.stringify(initialData ?? null));
     /** Set by a blocked save; the next Save press overwrites deliberately. */
     const overwriteArmedRef = useRef(false);
+
+    /**
+     * Follow this client's row, so an AM's tick reaches an open dashboard in about a second
+     * instead of on the client's next page load. The launch meter is the reason — a client
+     * is told to watch it move — but every shared field rides along: reveal a section, add a
+     * link, change the status, and the client's screen catches up.
+     *
+     * Two things it must not do, and both have cost someone an afternoon elsewhere in this
+     * file:
+     *
+     *  - Never while an AM has the page UNLOCKED. Edit mode holds the whole dashboard in
+     *    local state, so applying a remote row mid-edit would silently discard everything
+     *    typed since they unlocked. They are not left blind: the save-conflict check in
+     *    persistAndLock re-reads the row and blocks the first Save when it has moved.
+     *  - Never `website_setup` while the client is mid-answer. That is the one key on this
+     *    row the client authors, written server-side by the website-setup function on an
+     *    800ms debounce, so a row that arrives while they type carries a version older than
+     *    what is on their screen. Replacing it would delete the sentence they are writing.
+     *
+     * Everything else is safe to take wholesale: no other part of `content` is edited
+     * locally except in edit mode, which the first rule already excludes.
+     */
+    useDashboardLive({
+        slug,
+        enabled: !!slug && !isTemplate,
+        onUpdate: (row) => {
+            if (!isLocked) return;
+            const incoming = mergeContent(row.data);
+            setContent((c) => mergeLiveContent(incoming, c, setupDirtyRef.current));
+            setClientName(row.client_name ?? "");
+            setClientWebsite(row.client_website ?? "");
+            // The baseline moves with it, so this tab's next save compares against the row
+            // as it now stands rather than reporting a conflict with a change it already has.
+            savedRowRef.current = JSON.stringify(row.data ?? null);
+        },
+    });
 
     /**
      * Clicking the client's logo or name enters the client preview — but only while locked.
@@ -1240,15 +1283,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [setupSave, setSetupSave] = useState<WebsiteSetupSaveState>("idle");
     const [setupSaveError, setSetupSaveError] = useState("");
     const setupSaveTimer = useRef<number | null>(null);
+    /** True from the client's first keystroke in the Website Setup Guide until that answer
+     *  is written. The one key on this row the client authors, so the one a live update
+     *  must leave alone. Stays true on a failed save — the text is still only local. */
+    const setupDirtyRef = useRef(false);
     const updateWebsiteSetup = (patch: Partial<WebsiteSetup>) => {
         const next = { ...websiteSetup, ...patch };
         setContent((c) => ({ ...c, website_setup: { ...mergeWebsiteSetup(c.website_setup), ...patch } }));
         if (isTeam || !slug || isTemplate) return;
+        // Typed but not yet written — see the live-update handler, which must not replace
+        // this key while it is true.
+        setupDirtyRef.current = true;
         if (setupSaveTimer.current) window.clearTimeout(setupSaveTimer.current);
         setSetupSave("saving");
         setupSaveTimer.current = window.setTimeout(() => {
             saveWebsiteSetup(slug, identityEmail, next)
                 .then(() => {
+                    setupDirtyRef.current = false;
                     setSetupSave("saved");
                     setSetupSaveError("");
                 })
@@ -1922,11 +1973,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [bookingOpen, slug, isTemplate]);
 
     const journeyDone = content.journey_done ?? [];
-    const toggleJourneyStep = (id: JourneyStepId) =>
-        setContent((c) => {
-            const cur = c.journey_done ?? [];
-            return { ...c, journey_done: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] };
-        });
+
+    /** Reducers and the legacy-row rules live in dashboard-navigation.ts, beside the steps
+     *  they encode and under dashboard-navigation.check.ts. These just bind them to state. */
+    const journeyItemDone = (stepId: JourneyStepId, itemId: string) => isJourneyItemDone(journeyDone, stepId, itemId);
+    const toggleJourneyStep = (id: JourneyStepId) => setContent((c) => ({ ...c, journey_done: toggleJourneyStepDone(c.journey_done ?? [], id) }));
+    const toggleJourneyItem = (stepId: JourneyStepId, itemId: string) =>
+        setContent((c) => ({ ...c, journey_done: toggleJourneyItemDone(c.journey_done ?? [], stepId, itemId) }));
 
     /* The three per-client links the journey points at. Pulled out as primitives so the
        memo below depends on the URLs themselves, not on the whole content object — which
@@ -1952,7 +2005,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const resolved = {
                 ...step,
                 href: step.href ?? (step.hrefFrom ? linkFor(step.hrefFrom) || undefined : undefined),
-                items: step.items?.map((item) => ({ ...item, url: linkFor(item.link) })),
+                items: step.items?.map((item) => ({
+                    ...item,
+                    url: linkFor(item.link),
+                    // Only a tickable step's items carry state; everywhere else this stays
+                    // false and the renderer draws no box, per JOURNEY_STEPS' items comment.
+                    done: step.itemsTickable ? journeyItemDone(step.id, item.id ?? item.label) : false,
+                })),
             };
             if (step.id === "form") {
                 return {
@@ -1978,6 +2037,19 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                           : step.detail,
                 };
             }
+            // A step built from tickable items has no state of its own: it is done when
+            // all of them are, and its progress is the count — which is what gives the
+            // launch meter a cell per piece.
+            if (step.itemsTickable && resolved.items?.length) {
+                const total = resolved.items.length;
+                const value = resolved.items.filter((item) => item.done).length;
+                return {
+                    ...resolved,
+                    done: value === total,
+                    progress: { value, total },
+                    detail: value === total ? "Every piece reviewed — thank you." : `${value} of ${total} pieces reviewed.`,
+                };
+            }
             return { ...resolved, done: journeyDone.includes(step.id), progress: null };
         });
     }, [intakeSubmitted, onboardingSubmitted, intakeInfo, onboardingInfo, journeyDone, chatLink, folderLink, onboardingCallUrl]);
@@ -1985,6 +2057,85 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const journeyDoneCount = journeySteps.filter((s) => s.done).length;
     /** First unfinished step — highlighted so a client can see what's next at a glance. */
     const journeyCurrentId = journeySteps.find((s) => !s.done)?.id ?? null;
+
+    /**
+     * The launch meter's cells and the stages bracketing them.
+     *
+     * The bar is a summary, so its composition lives in JOURNEY_BAR rather than being read
+     * off the step list — see the note there for what it leaves out and why. Here we only
+     * resolve each declared cell against live step state.
+     *
+     * One cell per thing a client can finish: a cell over a step ticked piece by piece
+     * becomes a cell per piece, which is what makes Marketing funnel the long stage and
+     * what lets a single review move the bar. Every cell is worth the same, so the bar's
+     * fill and the percentage above it are the same number.
+     *
+     * A cell fills fractionally wherever there is something real to count — a part-answered
+     * form, a funnel piece reviewed. A made-up fraction is never invented: a cell with
+     * nothing to count is 0 or 1.
+     */
+    const { journeyCells, journeyGroups } = useMemo(() => {
+        const fractionOf = (step: (typeof journeySteps)[number]) =>
+            step.done ? 1 : step.progress && step.progress.total > 0 ? step.progress.value / step.progress.total : 0;
+
+        const byId = new Map(journeySteps.map((step) => [step.id, step]));
+
+        const cellsFor = (bar: (typeof JOURNEY_BAR)[number], isLast: boolean) => {
+            const steps = bar.steps.map((id) => byId.get(id)).filter((step): step is (typeof journeySteps)[number] => !!step);
+            if (!steps.length) return [];
+
+            // A cell standing over one tickable step is really that step's pieces.
+            const [only] = steps;
+            if (steps.length === 1 && only.itemsTickable && only.items?.length) {
+                const nextUp = only.items.findIndex((item) => !item.done);
+                return only.items.map((item, i) => ({
+                    id: `${only.id}:${item.id ?? item.label}`,
+                    label: item.label,
+                    fraction: item.done ? 1 : 0,
+                    // The piece a client is on, not the whole step: the beam in the list
+                    // below marks the step, this marks the review inside it.
+                    current: only.id === journeyCurrentId && i === nextUp,
+                    rocket: false,
+                }));
+            }
+
+            return [
+                {
+                    id: bar.id,
+                    label: bar.label,
+                    // Merged cells (the two forms) average their steps, so finishing one of
+                    // two half-fills the cell instead of leaving it dark until both land.
+                    fraction: steps.reduce((sum, step) => sum + fractionOf(step), 0) / steps.length,
+                    current: steps.some((step) => step.id === journeyCurrentId),
+                    // The bar's last cell IS the destination, so it wears the rocket rather
+                    // than the bar growing an extra cell nobody can tick.
+                    rocket: isLast,
+                },
+            ];
+        };
+
+        const cells: ReturnType<typeof cellsFor> = [];
+        const counts = new Map<string, number>();
+        JOURNEY_BAR.forEach((bar, i) => {
+            const made = cellsFor(bar, i === JOURNEY_BAR.length - 1);
+            cells.push(...made);
+            counts.set(bar.stage, (counts.get(bar.stage) ?? 0) + made.length);
+        });
+
+        const groups = JOURNEY_STAGES.map((stage) => ({ id: stage.id, label: stage.label, cells: counts.get(stage.id) ?? 0 })).filter(
+            (group) => group.cells > 0,
+        );
+
+        return { journeyCells: cells, journeyGroups: groups };
+    }, [journeySteps, journeyCurrentId]);
+
+    /** "Up next", named down to the piece where a step has several. */
+    const journeyNextLabel = useMemo(() => {
+        const step = journeySteps.find((s) => s.id === journeyCurrentId);
+        if (!step) return null;
+        const piece = step.itemsTickable ? step.items?.find((item) => !item.done) : undefined;
+        return piece ? `${step.label} — ${piece.label}` : step.label;
+    }, [journeySteps, journeyCurrentId]);
     /** Whatever now follows the Kick-off Call — named in the booking confirmation so that
      *  copy can't go stale the next time the order is reshuffled. It has twice already. */
     const stepAfterKickoff = journeySteps[journeySteps.findIndex((s) => s.id === "kickoff") + 1] ?? null;
@@ -2945,13 +3096,22 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     : "Where you are, and what happens next."}
                                                             </p>
                                                         </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <ProgressBarCircle value={Math.round((journeyDoneCount / journeySteps.length) * 100)} size="xxs" />
-                                                            <span className="text-sm font-semibold text-secondary tabular-nums">
-                                                                {journeyDoneCount} of {journeySteps.length}
-                                                            </span>
-                                                        </div>
+                                                        <span className="text-sm font-semibold text-secondary tabular-nums">
+                                                            {journeyDoneCount} of {journeySteps.length}
+                                                        </span>
                                                     </div>
+
+                                                    {/* The launch meter. It replaces the small percentage ring that used to
+                                                        sit beside the heading: two readings of the same number is one too
+                                                        many, and the ring was the quieter of the two on the page a client
+                                                        opens to find out how close they are to going live. */}
+                                                    <JourneyProgress
+                                                        cells={journeyCells}
+                                                        groups={journeyGroups}
+                                                        stepsDone={journeyDoneCount}
+                                                        stepsTotal={journeySteps.length}
+                                                        nextLabel={journeyNextLabel}
+                                                    />
 
                                                     <ol className="mt-6 grid list-none gap-0 p-0">
                                                         {journeySteps.map((step, i) => {
@@ -3031,8 +3191,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         )}
 
                                                                         {/* Sub-items — the several separate things one step asks for.
-                                                                            No tick boxes: none of these are states we can observe, and
-                                                                            an empty box against a job already done reads as a failure.
+                                                                            Tick boxes only where the step says its items are tickable:
+                                                                            most of these aren't states we can observe, and an empty box
+                                                                            against a job already done reads as a failure. The funnel
+                                                                            reviews are the exception — the team ships each piece and
+                                                                            knows when it's signed off, so there each item carries its
+                                                                            own mark and its own jump into the section it names.
                                                                             An item whose link isn't filled in yet keeps its text and
                                                                             drops the button; only the team is told it's missing, since
                                                                             that's the team's job to fix, not the client's. */}
@@ -3049,42 +3213,102 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         step.itemsTitle ? "mt-2.5" : "mt-0",
                                                                                     )}
                                                                                 >
-                                                                                    {step.items.map((item) => (
-                                                                                        <li
-                                                                                            key={item.label}
-                                                                                            className="border-t border-secondary pt-3 first:border-t-0 first:pt-0"
-                                                                                        >
-                                                                                            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
-                                                                                                <span className="text-sm font-semibold text-secondary">
-                                                                                                    {item.label}
-                                                                                                </span>
-                                                                                                {item.url ? (
-                                                                                                    <Button
-                                                                                                        size="sm"
-                                                                                                        color="secondary"
-                                                                                                        href={item.url}
-                                                                                                        target="_blank"
-                                                                                                        rel="noopener noreferrer"
-                                                                                                        iconTrailing={LinkExternal01}
-                                                                                                    >
-                                                                                                        {item.action ?? "Open"}
-                                                                                                    </Button>
-                                                                                                ) : (
-                                                                                                    item.link &&
-                                                                                                    isTeam && (
-                                                                                                        <span className="text-xs text-warning-primary">
-                                                                                                            No link set — add it under Onboarding links.
+                                                                                    {step.items.map((item) => {
+                                                                                        // Same rule as the step-level jump: never offer a
+                                                                                        // client a way into a section they can't open.
+                                                                                        const itemTarget = item.to;
+                                                                                        const canOpenItem =
+                                                                                            !!itemTarget && (isTeam || revealedToClient(itemTarget));
+                                                                                        return (
+                                                                                            <li
+                                                                                                key={item.label}
+                                                                                                className="border-t border-secondary pt-3 first:border-t-0 first:pt-0"
+                                                                                            >
+                                                                                                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                                                                                                    <span className="flex min-w-0 items-center gap-2">
+                                                                                                        {step.itemsTickable && (
+                                                                                                            <span
+                                                                                                                aria-hidden="true"
+                                                                                                                className={cx(
+                                                                                                                    "grid size-4.5 shrink-0 place-items-center rounded-full transition duration-100 ease-linear",
+                                                                                                                    item.done
+                                                                                                                        ? "bg-success-solid text-white"
+                                                                                                                        : "ring-1 ring-secondary",
+                                                                                                                )}
+                                                                                                            >
+                                                                                                                {item.done && <Check className="size-3" />}
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                        <span
+                                                                                                            className={cx(
+                                                                                                                "text-sm font-semibold",
+                                                                                                                step.itemsTickable && !item.done
+                                                                                                                    ? "text-tertiary"
+                                                                                                                    : "text-secondary",
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            {item.label}
                                                                                                         </span>
-                                                                                                    )
+                                                                                                    </span>
+                                                                                                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                                                                                        {canOpenItem && itemTarget && (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="link-color"
+                                                                                                                iconTrailing={ArrowRight}
+                                                                                                                onClick={() => openNavItem(itemTarget)}
+                                                                                                            >
+                                                                                                                {item.action ?? "Open"}
+                                                                                                            </Button>
+                                                                                                        )}
+                                                                                                        {/* The AM's mark, edit mode only — the client
+                                                                                                            reads the tick, they don't set it. */}
+                                                                                                        {step.itemsTickable && !isLocked && isTeam && (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="secondary"
+                                                                                                                iconLeading={
+                                                                                                                    item.done ? RefreshCw01 : CheckCircle
+                                                                                                                }
+                                                                                                                onClick={() =>
+                                                                                                                    toggleJourneyItem(
+                                                                                                                        step.id,
+                                                                                                                        item.id ?? item.label,
+                                                                                                                    )
+                                                                                                                }
+                                                                                                            >
+                                                                                                                {item.done ? "Undo" : "Mark reviewed"}
+                                                                                                            </Button>
+                                                                                                        )}
+                                                                                                        {item.url ? (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="secondary"
+                                                                                                                href={item.url}
+                                                                                                                target="_blank"
+                                                                                                                rel="noopener noreferrer"
+                                                                                                                iconTrailing={LinkExternal01}
+                                                                                                            >
+                                                                                                                {item.action ?? "Open"}
+                                                                                                            </Button>
+                                                                                                        ) : (
+                                                                                                            item.link &&
+                                                                                                            isTeam && (
+                                                                                                                <span className="text-xs text-warning-primary">
+                                                                                                                    No link set — add it under Onboarding links.
+                                                                                                                </span>
+                                                                                                            )
+                                                                                                        )}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                                {item.note && (
+                                                                                                    <p className="mt-1 max-w-prose text-sm text-pretty text-tertiary">
+                                                                                                        {item.note}
+                                                                                                    </p>
                                                                                                 )}
-                                                                                            </div>
-                                                                                            {item.note && (
-                                                                                                <p className="mt-1 max-w-prose text-sm text-pretty text-tertiary">
-                                                                                                    {item.note}
-                                                                                                </p>
-                                                                                            )}
-                                                                                        </li>
-                                                                                    ))}
+                                                                                            </li>
+                                                                                        );
+                                                                                    })}
                                                                                 </ul>
                                                                             </div>
                                                                         )}
@@ -3176,7 +3400,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             {!isLocked &&
                                                                                 isTeam &&
                                                                                 (step.auto ? (
-                                                                                    <span className="text-xs text-quaternary">Tracked from the form itself</span>
+                                                                                    <span className="text-xs text-quaternary">
+                                                                                        Tracked from the form itself
+                                                                                    </span>
                                                                                 ) : (
                                                                                     <Button
                                                                                         size="sm"
@@ -3184,7 +3410,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         iconLeading={step.done ? RefreshCw01 : CheckCircle}
                                                                                         onClick={() => toggleJourneyStep(step.id)}
                                                                                     >
-                                                                                        {step.done ? "Mark not done" : "Mark done"}
+                                                                                        {/* A step ticked piece by piece keeps this as the
+                                                                                            all-at-once shortcut — "Mark done" would read as
+                                                                                            a second, competing state beside the item marks. */}
+                                                                                        {step.itemsTickable
+                                                                                            ? step.done
+                                                                                                ? "Undo all"
+                                                                                                : "Mark all reviewed"
+                                                                                            : step.done
+                                                                                              ? "Mark not done"
+                                                                                              : "Mark done"}
                                                                                     </Button>
                                                                                 ))}
                                                                         </div>

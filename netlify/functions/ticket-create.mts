@@ -500,6 +500,17 @@ export default async (req: Request) => {
             };
             console.warn("[ticket-create] repeat submission inside the window, returning the existing ticket", existing.reference);
 
+            // THE PRIORITY THE RETRY CARRIES. Between the attempt that died and this
+            // one the person may have changed the chip; the row keeps the first
+            // value and the task would be filed under it. Reconciled only while the
+            // ticket is still received: once routed, the Asana task's column holds
+            // the value and a silent change here would leave the two disagreeing.
+            if (priority && existing.priority !== priority && existing.status === "received") {
+                const { error: prioErr } = await db.from("tickets").update({ priority }).eq("id", existing.id).eq("status", "received").is("routed_at", null);
+                if (prioErr) console.warn("[ticket-create] could not carry the retry's priority onto the existing ticket", existing.reference, prioErr.message);
+                else existing.priority = priority;
+            }
+
             // THE IMAGES THE FIRST ATTEMPT LOST. The invocation that is most likely to
             // have died is the one carrying images - they are the slow part - and it
             // dies AFTER the row exists and BEFORE anything is stored. So the retry

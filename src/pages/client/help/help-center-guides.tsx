@@ -90,7 +90,7 @@ export const HELP_GUIDES: HelpGuide[] = [
         slug: "booking-flow-changes",
         title: "Booking flow changes",
         lede: "Changes to how guests book: your property system, your channels, and the booking pages between them.",
-        topicKey: "other",
+        topicKey: "any",
         sections: [
             {
                 heading: "What you do",

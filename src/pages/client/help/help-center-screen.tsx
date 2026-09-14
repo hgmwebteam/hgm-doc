@@ -66,6 +66,7 @@ import {
     countsFor,
     nextDueLabel,
     ticketsWithOwner,
+    type Priority,
 } from "@/pages/client/help/help-model";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
 import { ErrorNote, HelpRequestsScreen, HelpSpinner } from "@/pages/client/help/help-requests-screen";
@@ -537,7 +538,7 @@ const Composer = ({
     /** Staff raise through the same form; the difference is on the server and in the lede. */
     isStaff: boolean;
     onCancel: () => void;
-    onCreated: (reference: string, title: string) => void;
+    onCreated: (reference: string, title: string, priority: Priority | null) => void;
 }) => (
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
         <button
@@ -562,7 +563,7 @@ const Composer = ({
                 const res = await createTicket(proof, input);
                 return { reference: res.ticket.reference };
             }}
-            onCreated={(reference, _slug, sent) => onCreated(reference, sent.title)}
+            onCreated={(reference, _slug, sent) => onCreated(reference, sent.title, sent.priority)}
         />
     </div>
 );
@@ -571,7 +572,7 @@ const Composer = ({
  * What a client sees the moment a request lands: the frame's success card. "Back to
  * portal" returns to the help home; "Report another ticket" reopens the composer.
  */
-const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { reference: string; title: string }; clientName: string; onBack: () => void; onRaiseAnother: () => void }) => {
+const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { reference: string; title: string; priority: Priority | null }; clientName: string; onBack: () => void; onRaiseAnother: () => void }) => {
     const headingRef = useRef<HTMLDivElement>(null);
     // Focus moves to the confirmation so the outcome is announced. Submitting a form and
     // being dropped back at its top with no announcement is the classic silent success.
@@ -584,7 +585,7 @@ const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { ref
                 reference={sent.reference}
                 title={sent.title}
                 clientName={clientName}
-                priority={null}
+                priority={sent.priority}
                 team={false}
                 primary={{ label: "Raise another request", onClick: onRaiseAnother }}
                 secondary={{ label: "Back to help centre", onClick: onBack }}
@@ -634,7 +635,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const setFilter = (next: RequestFilter) => setFilterParams(next === "all" ? {} : { filter: next }, { replace: true });
     // After "Raise another request" the fresh composer puts focus on its first field.
     const [raiseAgain, setRaiseAgain] = useState(false);
-    const [created, setCreated] = useState<{ reference: string; title: string } | null>(null);
+    const [created, setCreated] = useState<{ reference: string; title: string; priority: Priority | null } | null>(null);
 
     /**
      * The composer is a URL, not a flag: /help?raise=website opens it with that category,
@@ -818,8 +819,8 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                     clientName={viewer?.clientName || clientName}
                     isStaff={isStaff}
                     onCancel={() => closeComposer()}
-                    onCreated={(ref, sentTitle) => {
-                        setCreated({ reference: ref, title: sentTitle });
+                    onCreated={(ref, sentTitle, sentPriority) => {
+                        setCreated({ reference: ref, title: sentTitle, priority: sentPriority });
                         // Replace, so the back button from the confirmation does not land
                         // on the emptied form as though nothing had been sent.
                         closeComposer(true);

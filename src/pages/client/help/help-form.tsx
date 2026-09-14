@@ -273,7 +273,9 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     // The server keeps 140 characters of the first line as the title; rather than cut a
     // sentence mid-word on the way out, the form says so and waits.
     const titleTooLong = firstLine.length > MAX_TITLE;
-    const missing = [clientMissing && "choose a client", priorityMissing && "pick a priority", categoryMissing && "choose a category", (descriptionMissing || titleTooLong) && "describe what is happening"].filter((m): m is string => !!m);
+    // In the order the fields sit on the form: the team's has no category, the client's
+    // has category above priority, so the banner reads down the page either way.
+    const missing = [clientMissing && "choose a client", categoryMissing && "choose a category", priorityMissing && "pick a priority", (descriptionMissing || titleTooLong) && "describe what is happening"].filter((m): m is string => !!m);
     const banner = touched && missing.length ? composeBanner(missing) : null;
 
     const addFiles = useCallback(async (picked: File[]) => {

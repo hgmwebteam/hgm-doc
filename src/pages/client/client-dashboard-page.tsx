@@ -173,6 +173,7 @@ import {
     labelForKey,
     valueForKey,
 } from "@/pages/client/dashboard/suggestions-model";
+import { mergeLiveContent, useDashboardLive } from "@/pages/client/dashboard/use-dashboard-live";
 import { type WebsiteSetup, mergeWebsiteSetup, saveWebsiteSetup, websiteSetupProgress } from "@/pages/client/dashboard/website-setup";
 import { type WebsiteSetupSaveState, WebsiteSetupSection } from "@/pages/client/dashboard/website-setup-section";
 import { HostOnboardingFormPage, ensureHostOnboardingForm, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
@@ -254,6 +255,42 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const savedRowRef = useRef<string | null>(JSON.stringify(initialData ?? null));
     /** Set by a blocked save; the next Save press overwrites deliberately. */
     const overwriteArmedRef = useRef(false);
+
+    /**
+     * Follow this client's row, so an AM's tick reaches an open dashboard in about a second
+     * instead of on the client's next page load. The launch meter is the reason — a client
+     * is told to watch it move — but every shared field rides along: reveal a section, add a
+     * link, change the status, and the client's screen catches up.
+     *
+     * Two things it must not do, and both have cost someone an afternoon elsewhere in this
+     * file:
+     *
+     *  - Never while an AM has the page UNLOCKED. Edit mode holds the whole dashboard in
+     *    local state, so applying a remote row mid-edit would silently discard everything
+     *    typed since they unlocked. They are not left blind: the save-conflict check in
+     *    persistAndLock re-reads the row and blocks the first Save when it has moved.
+     *  - Never `website_setup` while the client is mid-answer. That is the one key on this
+     *    row the client authors, written server-side by the website-setup function on an
+     *    800ms debounce, so a row that arrives while they type carries a version older than
+     *    what is on their screen. Replacing it would delete the sentence they are writing.
+     *
+     * Everything else is safe to take wholesale: no other part of `content` is edited
+     * locally except in edit mode, which the first rule already excludes.
+     */
+    useDashboardLive({
+        slug,
+        enabled: !!slug && !isTemplate,
+        onUpdate: (row) => {
+            if (!isLocked) return;
+            const incoming = mergeContent(row.data);
+            setContent((c) => mergeLiveContent(incoming, c, setupDirtyRef.current));
+            setClientName(row.client_name ?? "");
+            setClientWebsite(row.client_website ?? "");
+            // The baseline moves with it, so this tab's next save compares against the row
+            // as it now stands rather than reporting a conflict with a change it already has.
+            savedRowRef.current = JSON.stringify(row.data ?? null);
+        },
+    });
 
     /**
      * Clicking the client's logo or name enters the client preview — but only while locked.
@@ -1188,15 +1225,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [setupSave, setSetupSave] = useState<WebsiteSetupSaveState>("idle");
     const [setupSaveError, setSetupSaveError] = useState("");
     const setupSaveTimer = useRef<number | null>(null);
+    /** True from the client's first keystroke in the Website Setup Guide until that answer
+     *  is written. The one key on this row the client authors, so the one a live update
+     *  must leave alone. Stays true on a failed save — the text is still only local. */
+    const setupDirtyRef = useRef(false);
     const updateWebsiteSetup = (patch: Partial<WebsiteSetup>) => {
         const next = { ...websiteSetup, ...patch };
         setContent((c) => ({ ...c, website_setup: { ...mergeWebsiteSetup(c.website_setup), ...patch } }));
         if (isTeam || !slug || isTemplate) return;
+        // Typed but not yet written — see the live-update handler, which must not replace
+        // this key while it is true.
+        setupDirtyRef.current = true;
         if (setupSaveTimer.current) window.clearTimeout(setupSaveTimer.current);
         setSetupSave("saving");
         setupSaveTimer.current = window.setTimeout(() => {
             saveWebsiteSetup(slug, identityEmail, next)
                 .then(() => {
+                    setupDirtyRef.current = false;
                     setSetupSave("saved");
                     setSetupSaveError("");
                 })

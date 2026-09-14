@@ -157,8 +157,9 @@ export type TopBarProps = {
      * draws its whole path ("Dashboard / Help Center / Requests / REQ-2418") by the
      * owner's rule (13 Sep 2026: never a dead end for the client). Every segment but the
      * last is a link, the last is in the brand colour. When the trail will not fit the
-     * bar, the segments between the first and the last fold into one "…" button that
-     * unfolds them in place; nothing is dropped and nothing scrolls out of sight.
+     * bar, the segments between the first and the last fold into one "…" button (and
+     * the first too, when even that does not fit) that unfolds them in place; nothing
+     * is dropped and nothing scrolls out of sight.
      */
     crumbs: Crumb[];
     /**
@@ -198,32 +199,36 @@ export type TopBarProps = {
 export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProps) => {
     const navRef = useRef<HTMLElement>(null);
     // The trail folds when it would not fit the bar (a phone showing "Dashboard /
-    // Help Center / Requests / REQ-2418"): the first and last segments stay and the
-    // ones between become one "…" button that unfolds them in place, wrapping to a
-    // second line inside the 64px bar. Nothing is dropped and nothing scrolls out of
-    // sight. Measured, not counted: three segments fit at 390 for "Requests" and do
-    // not for "Raise a request".
-    const [folded, setFolded] = useState(false);
+    // Help Center / Requests / REQ-2418"). Level 1 keeps the first and last
+    // segments and folds the ones between into one "…" button; level 2, when even
+    // that does not fit ("Dashboard / … / Team responsibilities" at 390), folds the
+    // first segment too and leaves the gem (still the link home), "…" and the last.
+    // The button unfolds everything in place, wrapping inside the bar. Nothing is
+    // dropped and nothing scrolls out of sight. Measured, not counted: three
+    // segments fit at 390 for "Requests" and do not for "Raise a request".
+    const [fold, setFold] = useState<0 | 1 | 2>(0);
     const [unfolded, setUnfolded] = useState(false);
     const [fit, setFit] = useState(0); // bumped when the bar's width or its font may have changed
     const trail = JSON.stringify(crumbs.map((c) => c.label));
     useLayoutEffect(() => {
-        setFolded(false);
+        setFold(0);
         setUnfolded(false);
     }, [trail]);
     useLayoutEffect(() => {
         const nav = navRef.current;
         const last = nav?.querySelector<HTMLElement>("[aria-current=page]");
-        if (!nav || !last || folded || unfolded || crumbs.length < 3) return;
+        if (!nav || !last || unfolded) return;
         // The last segment truncates rather than overflow, so the bar's own
         // scroll width never says the trail is too long; ask the last segment how
         // wide it wants to be.
         const needed = last.offsetLeft + last.scrollWidth - nav.offsetLeft;
-        if (needed > nav.clientWidth + 1) setFolded(true);
-    }, [trail, fit, folded, unfolded, crumbs.length]);
+        if (needed <= nav.clientWidth + 1) return;
+        if (fold === 0 && crumbs.length >= 3) setFold(1);
+        else if (fold < 2 && crumbs.length >= 2) setFold(2);
+    }, [trail, fit, fold, unfolded, crumbs.length]);
     useEffect(() => {
         const remeasure = () => {
-            setFolded(false);
+            setFold(0);
             setUnfolded(false);
             setFit((n) => n + 1);
         };
@@ -247,12 +252,17 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
             window.removeEventListener("resize", onResize);
         };
     }, []);
-    useEffect(() => {
-        if (unfolded) navRef.current?.querySelector<HTMLElement>("[data-crumb='1']")?.focus();
-    }, [unfolded]);
 
-    const hidden = folded && !unfolded ? crumbs.slice(1, -1) : [];
-    const shown = hidden.length ? [crumbs[0], crumbs[crumbs.length - 1]] : crumbs;
+    // What is hidden behind "…": the middle at level 1, everything but the last at level 2.
+    const hiddenFrom = fold === 2 ? 0 : 1;
+    const hidden = fold > 0 && !unfolded ? crumbs.slice(hiddenFrom, -1) : [];
+    const shown = hidden.length ? [...(fold === 2 ? [] : [crumbs[0]]), crumbs[crumbs.length - 1]] : crumbs;
+    useEffect(() => {
+        // Unfolded by the button: focus lands on the first segment that was hidden
+        // (a link), so a keyboard user carries on from where the "…" was.
+        if (unfolded) navRef.current?.querySelector<HTMLElement>(`[data-crumb='${hiddenFrom}']`)?.focus();
+    }, [unfolded, hiddenFrom]);
+
     const segment = (c: Crumb, last: boolean, index: number) => {
         const colour = last ? "text-(--hc-fg-brand-primary)" : "text-(--hc-text-primary)";
         return c.to && !last ? (
@@ -266,9 +276,21 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
         );
     };
     const slash = <span className="hc-t-label-field shrink-0 text-(--hc-text-tertiary)">/</span>;
+    const foldButton = (
+        <button
+            type="button"
+            onClick={() => setUnfolded(true)}
+            aria-label={`Show ${hidden.length === 1 ? "the step" : `the ${hidden.length} steps`} before ${crumbs[crumbs.length - 1]?.label ?? ""}: ${hidden.map((h) => h.label).join(", ")}`}
+            className="hc-t-label-field relative shrink-0 cursor-pointer rounded-(--hc-radius-sm) px-1 text-(--hc-text-primary) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] hover:underline"
+        >
+            …
+        </button>
+    );
     return (
-        <div className="relative flex h-16 items-center justify-between gap-4 border-b border-(--hc-border-secondary) bg-(--hc-bg-page) px-6">
-            <nav ref={navRef} aria-label="Breadcrumb" className={cx("flex min-h-6 min-w-0 flex-1 items-center gap-2 whitespace-nowrap", unfolded && "flex-wrap")}>
+        // min-h, not h: 64 tall as the frame draws it, and taller only when a
+        // person has unfolded a trail that wraps.
+        <div className="relative flex min-h-16 items-center justify-between gap-4 border-b border-(--hc-border-secondary) bg-(--hc-bg-page) px-6">
+            <nav ref={navRef} aria-label="Breadcrumb" className={cx("flex min-h-6 min-w-0 flex-1 items-center gap-2 whitespace-nowrap", unfolded && "flex-wrap py-2")}>
                 {crumbs.length > 0 && crumbs[0].to ? (
                     <Link to={crumbs[0].to} className="relative flex h-6 shrink-0 items-center gap-2 rounded-(--hc-radius-sm) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']" aria-label={`${crumbs[0].label} (home)`}>
                         <GemIcon />
@@ -276,22 +298,21 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
                 ) : (
                     <GemIcon />
                 )}
+                {fold === 2 && hidden.length > 0 && (
+                    <>
+                        {foldButton}
+                        {slash}
+                    </>
+                )}
                 {shown.map((c, i) => {
                     const last = i === shown.length - 1;
                     const index = last ? crumbs.length - 1 : i;
                     return (
                         <span key={`${c.label}-${index}`} className="contents">
                             {i > 0 && slash}
-                            {i > 0 && hidden.length > 0 && (
+                            {i > 0 && fold === 1 && hidden.length > 0 && (
                                 <>
-                                    <button
-                                        type="button"
-                                        onClick={() => setUnfolded(true)}
-                                        aria-label={`Show ${hidden.length === 1 ? "the step" : `the ${hidden.length} steps`} between ${crumbs[0].label} and ${c.label}: ${hidden.map((h) => h.label).join(", ")}`}
-                                        className="hc-t-label-field relative shrink-0 cursor-pointer rounded-(--hc-radius-sm) px-1 text-(--hc-text-primary) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] hover:underline"
-                                    >
-                                        …
-                                    </button>
+                                    {foldButton}
                                     {slash}
                                 </>
                             )}

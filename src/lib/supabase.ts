@@ -113,14 +113,6 @@ export interface DocsRequest {
     created_at?: string;
 }
 
-export interface ChatWidgetPageData {
-    slug: string;
-    client_name: string;
-    client_website: string;
-    widget_id: string;
-    created_at?: string;
-}
-
 /**
  * The Client Overview Document — an internal brief the account manager works from.
  *

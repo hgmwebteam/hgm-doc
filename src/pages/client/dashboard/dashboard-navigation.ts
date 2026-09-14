@@ -353,7 +353,6 @@ export const NAV_GROUPS: {
 export const HIDDEN_ITEMS: { id: SectionId; label: string; icon: typeof LayoutAlt01 }[] = [
     { id: "website", label: "Website", icon: Globe01 },
     { id: "instagram", label: "Instagram", icon: Camera01 },
-    { id: "chatwidget", label: "Chat Widget", icon: MessageChatCircle },
     { id: "ghl", label: "GoHighLevel Setup", icon: Target04 },
     { id: "videos", label: "Video Guides", icon: PlayCircle },
     { id: "revenue", label: "Revenue & Results", icon: TrendUp01 },

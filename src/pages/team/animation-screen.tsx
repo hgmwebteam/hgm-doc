@@ -574,7 +574,6 @@ const galleryItems = [
     { label: SHOTS.metapixel.title, shot: SHOTS.metapixel.shot, note: "Client-facing setup guide, captured at 390×844" },
     { label: SHOTS.form.title, shot: SHOTS.form.shot, note: "The intake form hosts fill before a shoot" },
     { label: SHOTS.popup.title, shot: SHOTS.popup.shot, note: "Website popup setup, same capture rig" },
-    { label: "Chat widget", shot: undefined, note: "Capture owed — the placeholder is the convention" },
     { label: "Owner guide", shot: undefined, note: "Nine steps, per-client copies, capture owed" },
     { label: "Client dashboard", shot: undefined, note: "The big one. Capture owed" },
 ];
@@ -773,7 +772,7 @@ const CounterSection = () => (
 /* -------------------------------------------------------------------------- */
 
 const assetGroups = [
-    { name: "Guides", items: ["Meta Pixel setup — 12 steps", "Popup setup — 8 steps", "Chat widget — 6 steps", "Owner guide — 9 steps"] },
+    { name: "Guides", items: ["Meta Pixel setup — 12 steps", "Popup setup — 8 steps", "Owner guide — 9 steps"] },
     { name: "Forms", items: ["Brand Vision Form", "Client onboarding", "Host onboarding"] },
     { name: "Email", items: ["Booking confirmation", "Pre-arrival guide", "Post-stay thank you"] },
 ];

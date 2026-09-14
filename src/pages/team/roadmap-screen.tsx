@@ -137,7 +137,7 @@ const todayIso = () => {
 const DEFAULT_DATA: RoadmapData = {
     overview: {
         paragraph:
-            "hgm-doc is HiddenGem Media's client guide & documentation site. The team creates per-client setup guides — Meta Pixel, lead-capture popups, owner guides, chat widgets — from master templates, edits them in place, and shares them with clients via private URLs. Content persists to Supabase, and the site auto-deploys to Netlify on every push to main.",
+            "hgm-doc is HiddenGem Media's client guide & documentation site. The team creates per-client setup guides — Meta Pixel, lead-capture popups, owner guides — from master templates, edits them in place, and shares them with clients via private URLs. Content persists to Supabase, and the site auto-deploys to Netlify on every push to main.",
         internalFeatures: [
             { id: uid(), text: "Dashboard with department rails & client cards" },
             { id: uid(), text: "Sitewide search from the icon rail (Shift+F)" },
@@ -150,7 +150,6 @@ const DEFAULT_DATA: RoadmapData = {
             { id: uid(), text: "Meta Pixel setup guide" },
             { id: uid(), text: "Lead-capture popup guide" },
             { id: uid(), text: "Owner guide with credentials & checklists" },
-            { id: uid(), text: "Chat widget installation guide" },
             { id: uid(), text: "Private per-client page copies" },
             { id: uid(), text: "Light & dark mode" },
         ],
@@ -163,7 +162,7 @@ const DEFAULT_DATA: RoadmapData = {
             id: uid(),
             tier: "planned",
             title: "More per-client guide templates",
-            description: "Extend the template system beyond Meta Pixel, popups and chat widget.",
+            description: "Extend the template system beyond Meta Pixel and popups.",
         },
     ],
     log: [

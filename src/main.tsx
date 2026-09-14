@@ -5,7 +5,6 @@ import { AiChatWidget } from "@/components/application/ai-chat-widget";
 import { HelpMenu } from "@/components/application/help-menu";
 import { ThemeToggle } from "@/components/base/theme-toggle/theme-toggle";
 import { useAuthUser } from "@/hooks/use-auth-user";
-import { ChatWidgetScreen } from "@/pages/client/chat-widget-screen";
 import { ClientOnboardingFormPage } from "@/pages/client/client-onboarding-form-page";
 import { ClientScreen } from "@/pages/client/client-screen";
 import { HelpCenterScreen } from "@/pages/client/help/help-center-screen";
@@ -84,8 +83,8 @@ const PAGES_WITHOUT_FLOATING_CHROME = [
 
 // The floating "?" help menu is a team tool. It renders ONLY on internal team
 // pages and is hidden on every client-facing page — all client slugs
-// (`/{client}-leadcapture`, `-chatwidget`, `-metapixel`, `-dashboard`), owner
-// guides, and the shareable templates (`/popup`, `/chat-widget`, `/metapixel`) —
+// (`/{client}-leadcapture`, `-metapixel`, `-dashboard`), owner
+// guides, and the shareable templates (`/popup`, `/metapixel`) —
 // so it never appears on anything shared with a client.
 //
 // Pages that have the department icon rail dock Help there instead (see
@@ -228,7 +227,6 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/mockup" element={<MockupScreen />} />
                         <Route path="/background" element={<BackgroundScreen />} />
                         <Route path="/log-script" element={<LogScriptScreen />} />
-                        <Route path="/chat-widget" element={<ChatWidgetScreen isTemplate />} />
                         <Route path="/chat-widget-overview" element={<ChatWidgetOverviewScreen />} />
                         <Route path="/client-dashboard-overview" element={<ClientDashboardOverviewScreen />} />
                         <Route path="/owner-guide-overview" element={<OwnerGuideOverviewScreen />} />

@@ -2,13 +2,12 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { PixelPage } from "@/pages/client/pixel-page";
 import { PopupPage } from "@/pages/client/popup-page";
-import { ChatWidgetScreen } from "@/pages/client/chat-widget-screen";
 import { ClientDashboardPage } from "@/pages/client/client-dashboard-page";
 import { HostOnboardingFormPage } from "@/pages/client/host-onboarding-form-page";
 import { ClientOnboardingFormPage, type ClientOnboardingData } from "@/pages/client/client-onboarding-form-page";
 import { TemplateOneScreen } from "@/pages/templates/template-one-screen";
 import { NotFound } from "@/pages/not-found";
-import { supabase, type ChatWidgetPageData, type ClientPageData, type DashboardPageData, type HostOnboardingPageData, type LeadCapturePageData } from "@/lib/supabase";
+import { supabase, type ClientPageData, type DashboardPageData, type HostOnboardingPageData, type LeadCapturePageData } from "@/lib/supabase";
 
 type ClientOnboardingPageRow = {
     slug: string;
@@ -66,42 +65,6 @@ const LeadCaptureScreen = ({ slug }: { slug: string }) => {
             initialFormOption={data?.form_option || undefined}
             initialOptionBIntro={data?.option_b_intro || undefined}
             initialOptionBSteps={data?.option_b_steps?.length ? data.option_b_steps : undefined}
-        />
-    );
-};
-
-/* Chat-widget pages live at /{name}-chatwidget and load from chatwidget_pages. */
-const ChatWidgetClientScreen = ({ slug }: { slug: string }) => {
-    const [data, setData] = useState<ChatWidgetPageData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-
-    useEffect(() => {
-        setLoading(true);
-        setData(null);
-        setNotFound(false);
-        supabase
-            .from("chatwidget_pages")
-            .select("*")
-            .eq("slug", slug)
-            .single()
-            .then(({ data: row, error }) => {
-                if (!error && row) setData(row as ChatWidgetPageData);
-                else setNotFound(true);
-                setLoading(false);
-            });
-    }, [slug]);
-
-    if (loading) return <Spinner />;
-    if (notFound) return <NotFound />;
-
-    return (
-        <ChatWidgetScreen
-            key={slug}
-            slug={slug}
-            initialClientName={data?.client_name ?? ""}
-            initialClientWebsite={data?.client_website ?? ""}
-            initialWidgetId={data?.widget_id || undefined}
         />
     );
 };
@@ -220,10 +183,6 @@ export const ClientScreen = () => {
 
     if (clientSlug?.endsWith("-leadcapture")) {
         return <LeadCaptureScreen slug={clientSlug} />;
-    }
-
-    if (clientSlug?.endsWith("-chatwidget")) {
-        return <ChatWidgetClientScreen slug={clientSlug} />;
     }
 
     if (clientSlug?.endsWith("-dashboard")) {

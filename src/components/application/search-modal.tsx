@@ -25,7 +25,6 @@ export const STATIC_ITEMS: SearchItem[] = [
     { id: "s-requests", title: "Requests", subtitle: "Docs request queue", path: "/requests", kind: "Page", icon: Inbox01 },
     { id: "s-metapixel", title: "Meta Pixel template", subtitle: "New client pixel page", path: "/metapixel", kind: "Template", icon: Share07 },
     { id: "s-popup", title: "Popup template", subtitle: "New lead-capture page", path: "/popup", kind: "Template", icon: Mail01 },
-    { id: "s-chatwidget", title: "Chat Widget template", subtitle: "New client chat-widget page", path: "/chat-widget", kind: "Template", icon: MessageChatCircle },
     { id: "s-hostonboarding", title: "Brand Vision Form template", subtitle: "New brand vision form", path: "/brand-vision-form", kind: "Template", icon: Home02 },
     { id: "s-template1", title: "Template 1", subtitle: "Copyable document template", path: "/template-1", kind: "Page", icon: Code02 },
     { id: "s-emailflow", title: "Welcome Email Flow — Overview", subtitle: "AM email-flow builder project reference", path: "/welcome-email-flow-overview", kind: "Page", icon: Mail01 },
@@ -73,7 +72,7 @@ export async function fetchDynamicSearchItems(): Promise<SearchItem[]> {
     });
     // Documents created from /template-1 (or the dashboard's "Create a new page")
     // are regular pages, NOT templates — the only templates are the three
-    // client-page starters (Meta Pixel, Popup, Chat Widget).
+    // client-page starters (Meta Pixel, Popup).
     (docs.data as { slug: string; name?: string }[] | null)?.forEach((d) => {
         if (d.slug === "template-1") return; // the master is a static item
         items.push({ id: "tpl-" + d.slug, title: d.name || d.slug, subtitle: `Page · /${d.slug}`, path: `/${d.slug}`, kind: "Page", icon: Code02 });

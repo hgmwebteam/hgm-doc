@@ -13,12 +13,12 @@ import { createClient } from "@supabase/supabase-js";
  * tables, never arbitrary SQL, and never mutates anything.
  */
 
-const SYSTEM_PROMPT = `You are the internal AI assistant for HiddenGem Media's team documentation site (hgm-doc). You help the team find their own content: client pages, shareable templates (Meta Pixel, Popup/Lead Capture, Chat Widget, Host Onboarding Form, Owner Guide, Client Dashboard), saved prompts/patterns, and the client roster.
+const SYSTEM_PROMPT = `You are the internal AI assistant for HiddenGem Media's team documentation site (hgm-doc). You help the team find their own content: client pages, shareable templates (Meta Pixel, Popup/Lead Capture, Host Onboarding Form, Owner Guide, Client Dashboard), saved prompts/patterns, and the client roster.
 
 Structural facts you already know (never need a search for these, they're fixed):
 - Client tiers: Tier 0, Tier 1, Tier 2, Mastermind — every client belongs to exactly one.
 - Team departments (the icon rail): Clients, Website, AM, Docs.
-- Shareable templates: Meta Pixel, Popup/Lead Capture, Chat Widget, Host Onboarding Form, Owner Guide, Client Dashboard.
+- Shareable templates: Meta Pixel, Popup/Lead Capture, Host Onboarding Form, Owner Guide, Client Dashboard.
 These facts are only the fixed CATEGORY NAMES themselves — e.g. "what tiers exist" or "what departments are there" — answer directly from this list, don't search, don't say you don't know. They do NOT cover which client is in which tier, who their AM is, or any other per-client data — that's a lookup, always call search_site_content for it even though tiers are mentioned above.
 
 Use the search_site_content tool for anything that requires looking at actual saved data: a specific client's page or tier/AM/location, a saved prompt/pattern, or the client roster filtered by tier — e.g. "give me the template for popups", "find John's dashboard", "what tier is Acme in", "list Tier 0 clients". Always search before saying something doesn't exist or that you don't have the data.
@@ -28,7 +28,7 @@ When you get results back, answer concisely and include the relevant link(s) as 
 const SEARCH_TOOL: Anthropic.Tool = {
     name: "search_site_content",
     description:
-        "Search this app's own Supabase data — client pages (Meta Pixel, Popup, Chat Widget, Host Onboarding Form, Client Dashboard, Owner Guide), the Prompt & Pattern Library, and the client roster — by a free-text query, optionally filtered to one client tier. Use for any request naming a client, business, template, or prompt/pattern topic, or asking to list clients in a given tier.",
+        "Search this app's own Supabase data — client pages (Meta Pixel, Popup, Host Onboarding Form, Client Dashboard, Owner Guide), the Prompt & Pattern Library, and the client roster — by a free-text query, optionally filtered to one client tier. Use for any request naming a client, business, template, or prompt/pattern topic, or asking to list clients in a given tier.",
     input_schema: {
         type: "object",
         properties: {
@@ -59,10 +59,9 @@ async function searchSiteContent(supabaseAdmin: ReturnType<typeof createClient>,
     let clientsQuery = supabaseAdmin.from("clients").select("name,tier,am,location,link");
     clientsQuery = tier ? clientsQuery.eq("tier", tier).limit(20) : clientsQuery.ilike("name", like).limit(5);
 
-    const [prompts, clientPages, chatwidgets, leadcaptures, hostonb, dashboards, ownerguides, clients] = await Promise.all([
+    const [prompts, clientPages, leadcaptures, hostonb, dashboards, ownerguides, clients] = await Promise.all([
         supabaseAdmin.from("prompt_library").select("title,type,category,body,when_to_use").or(`title.ilike.${like},category.ilike.${like}`).limit(5),
         supabaseAdmin.from("client_pages").select("slug,client_name").ilike("client_name", like).limit(5),
-        supabaseAdmin.from("chatwidget_pages").select("slug,client_name").ilike("client_name", like).limit(5),
         supabaseAdmin.from("leadcapture_pages").select("slug,client_name").ilike("client_name", like).limit(5),
         supabaseAdmin.from("host_onboarding_pages").select("slug,client_name").ilike("client_name", like).limit(5),
         supabaseAdmin.from("dashboard_pages").select("slug,client_name").ilike("client_name", like).limit(5),
@@ -73,7 +72,6 @@ async function searchSiteContent(supabaseAdmin: ReturnType<typeof createClient>,
     const results: SearchResult[] = [];
     for (const p of prompts.data ?? []) results.push({ source: "Prompt & Pattern Library", title: p.title, subtitle: `${p.type} · ${p.category}`, snippet: p.when_to_use, content: p.body, url: "/prompt-library" });
     for (const c of clientPages.data ?? []) results.push({ source: "Meta Pixel page", title: c.client_name, url: `/${c.slug}` });
-    for (const c of chatwidgets.data ?? []) results.push({ source: "Chat Widget page", title: c.client_name, url: `/${c.slug}` });
     for (const c of leadcaptures.data ?? []) results.push({ source: "Lead Capture / Popup page", title: c.client_name, url: `/${c.slug}` });
     for (const c of hostonb.data ?? []) results.push({ source: "Host Onboarding Form", title: c.client_name, url: `/${c.slug}` });
     for (const c of dashboards.data ?? []) results.push({ source: "Client Dashboard", title: c.client_name, url: `/${c.slug}` });

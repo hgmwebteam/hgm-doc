@@ -19,11 +19,11 @@ export const slugify = (s: string) =>
 /** Slugs that are named routes (or route elsewhere) — a copy can't use these or it'd be unreachable. */
 const RESERVED_SLUGS = new Set([
     "template-1", "template", "dashboard", "roadmap", "requests", "settings",
-    "designsystem", "home2", "popup", "owner-guide", "chat-widget", "metapixel",
+    "designsystem", "home2", "popup", "owner-guide", "metapixel",
     "log-script",
 ]);
 export const isReservedSlug = (slug: string) =>
-    RESERVED_SLUGS.has(slug) || /-(leadcapture|chatwidget|dashboard)$/.test(slug);
+    RESERVED_SLUGS.has(slug) || /-(leadcapture|dashboard)$/.test(slug);
 
 /* ── Types ───────────────────────────────────────────────────────── */
 

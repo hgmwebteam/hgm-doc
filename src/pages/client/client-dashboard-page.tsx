@@ -21,7 +21,6 @@ import {
     HelpCircle,
     Image01,
     LinkExternal01,
-    MessageChatCircle,
     Moon01,
     Palette,
     Plus,
@@ -1398,9 +1397,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         patchGhl({ items: content.ghl.items.map((item, j) => (j === i ? { ...item, ...patch } : item)) });
     const updateMonth = (i: number, patch: Partial<RevenueMonth>) =>
         patchRevenue({ months: content.revenue.months.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
-    // By object reference, not index — this array now renders as two filtered views
-    // (Website / Chat Widget), so a positional index from one view can't safely
-    // address the full array.
+    // By object reference, not index — rows are removable, so a positional index
+    // captured at render can address the wrong link after a removal.
     const updateLink = (link: QuickLink, patch: Partial<QuickLink>) =>
         setContent((c) => ({ ...c, links: c.links.map((l) => (l === link ? { ...l, ...patch } : l)) }));
     const removeLink = (link: QuickLink) => setContent((c) => ({ ...c, links: c.links.filter((l) => l !== link) }));
@@ -1448,13 +1446,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
 
     const websiteHref = clientWebsite && (clientWebsite.startsWith("http") ? clientWebsite : `https://${clientWebsite}`);
 
-    // Split the shared `links` array by which funnel section it belongs on. The chat
-    // widget's own setup guide is Middle of funnel (it's what nurtures/answers guests);
-    // everything else (pixel tracking, lead-capture popup, and any custom link a team
-    // member adds) is a Top-of-funnel, on-site tool — same array, two filtered views,
-    // so nothing about the underlying data shape needs to change.
-    const chatWidgetLinks = content.links.filter((l) => l.url.includes("-chatwidget"));
-    const websiteLinks = content.links.filter((l) => !l.url.includes("-chatwidget"));
+    // Every link (pixel tracking, lead-capture popup, and any custom link a team member
+    // adds) is a Top-of-funnel, on-site tool, so the Website section renders the whole
+    // array. It was split in two views while the chat-widget guide lived on its own
+    // Middle-of-funnel section; that section is gone, the shape never changed.
+    const websiteLinks = content.links;
 
     // Client-scoped search index — sidebar sections, this client's own links, and their
     // FAQ questions. Nothing here reaches outside this one client's own content.
@@ -1473,7 +1469,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         const navHits = SECTIONS.filter((s) => !("soon" in s && s.soon) && canOpen(s.id)).map((s) => ({ id: s.id, label: s.label }));
         const linkHits = content.links
             .map((l) => ({
-                id: (l.url.includes("-chatwidget") ? "chatwidget" : "website") as SectionId,
+                id: "website" as SectionId,
                 label: l.title || "Untitled link",
                 sub: "Link",
             }))
@@ -3211,7 +3207,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                     <>
                                                         {/* This section renders its own component, so it was the one
                                                             section without an eyebrow — visible now that they name the
-                                                            phase, since its sibling Chat Widget shows "Phase 4". */}
+                                                            phase, like every sibling section does. */}
                                                         <SectionEyebrow section={activeSection} />
                                                         <div className="mt-6">
                                                             <WelcomeFlowSection
@@ -3446,7 +3442,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                         <p className="mt-3 text-md text-tertiary">
                                                             Your Brand Vision Form — {ONBOARDING_TOTAL_QUESTIONS} quick questions about why you built this
                                                             property, who it's for, and how it should feel. It takes 5–10 minutes, and it's what everything
-                                                            below is built from: your Master Document, brand kit, emails, and chat widget all start here.
+                                                            below is built from: your Master Document, brand kit and emails all start here.
                                                         </p>
 
                                                         <div className="mt-6 rounded-2xl bg-primary p-5 ring-1 ring-secondary">
@@ -5255,8 +5251,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             </div>
                                                                             <p className="mt-2 text-sm text-tertiary">
                                                                                 Answers this client gave against the previous version of this page. Move
-                                                                                anything worth keeping into the sections above — nothing here feeds the exports
-                                                                                or the chat widget.
+                                                                                anything worth keeping into the sections above — nothing here feeds the exports.
                                                                             </p>
                                                                             <div className="mt-4 flex flex-col gap-4">
                                                                                 {legacyFoundation.map((f) => (
@@ -6285,104 +6280,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         setContent((c) => ({
                                                                             ...c,
                                                                             links: [...c.links, { title: "New page", description: "", url: "" }],
-                                                                        }))
-                                                                    }
-                                                                    className="flex min-h-28 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-secondary text-sm font-medium text-tertiary transition duration-100 ease-linear hover:border-brand hover:text-brand-secondary"
-                                                                >
-                                                                    <Plus className="size-5" aria-hidden="true" />
-                                                                    Add link
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </Reveal>
-                                                )}
-
-                                                {/* ── Chat Widget — middle-of-funnel, answers guest questions from the Master Document ── */}
-                                                {activeSection === "chatwidget" && (
-                                                    <Reveal>
-                                                        <SectionEyebrow section={activeSection} />
-                                                        <SectionHeading>Chat Widget</SectionHeading>
-                                                        <p className="mt-3 text-md text-tertiary">
-                                                            An AI chat on your website that answers guest questions instantly, straight from your Master Brand
-                                                            Document — the properties, amenities, location and local favorites you've filled in there — so no
-                                                            question goes unanswered while you're offline.
-                                                        </p>
-
-                                                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                                                            {chatWidgetLinks.length === 0 && isLocked && (
-                                                                <p className="rounded-xl border border-dashed border-secondary px-4 py-5 text-sm text-quaternary italic sm:col-span-2">
-                                                                    Your chat widget setup guide will appear here once it's ready.
-                                                                </p>
-                                                            )}
-                                                            {chatWidgetLinks.map((link, i) =>
-                                                                isLocked ? (
-                                                                    <a
-                                                                        key={i}
-                                                                        href={link.url}
-                                                                        target={link.url.startsWith("/") ? undefined : "_blank"}
-                                                                        rel={link.url.startsWith("/") ? undefined : "noopener noreferrer"}
-                                                                        className="group rounded-xl p-5 ring-1 ring-secondary transition duration-100 ease-linear hover:ring-brand"
-                                                                    >
-                                                                        <div className="flex items-start justify-between gap-2">
-                                                                            <FeaturedIcon icon={MessageChatCircle} size="sm" color="brand" theme="light" />
-                                                                            <ArrowUpRight
-                                                                                className="size-4 text-fg-quaternary opacity-0 transition duration-100 ease-linear group-hover:opacity-100"
-                                                                                aria-hidden="true"
-                                                                            />
-                                                                        </div>
-                                                                        <p className="mt-3 text-sm font-semibold text-primary">{link.title}</p>
-                                                                        <p className="mt-1 text-sm text-tertiary">{link.description}</p>
-                                                                    </a>
-                                                                ) : (
-                                                                    <div key={i} className="flex flex-col gap-1.5 rounded-xl p-4 ring-1 ring-secondary">
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <input
-                                                                                type="text"
-                                                                                placeholder="Title"
-                                                                                value={link.title}
-                                                                                onChange={(e) => updateLink(link, { title: e.target.value })}
-                                                                                className={editInput("font-semibold")}
-                                                                            />
-                                                                            <button
-                                                                                type="button"
-                                                                                title="Remove link"
-                                                                                onClick={() => removeLink(link)}
-                                                                                className={removeButton}
-                                                                            >
-                                                                                <Trash01 className="size-4" aria-hidden="true" />
-                                                                            </button>
-                                                                        </div>
-                                                                        <input
-                                                                            type="text"
-                                                                            placeholder="Description"
-                                                                            value={link.description}
-                                                                            onChange={(e) => updateLink(link, { description: e.target.value })}
-                                                                            className={editInput("text-xs")}
-                                                                        />
-                                                                        <input
-                                                                            type="text"
-                                                                            placeholder="/acme-chatwidget"
-                                                                            value={link.url}
-                                                                            onChange={(e) => updateLink(link, { url: e.target.value })}
-                                                                            className={editInput("font-mono text-xs")}
-                                                                        />
-                                                                    </div>
-                                                                ),
-                                                            )}
-                                                            {!isLocked && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setContent((c) => ({
-                                                                            ...c,
-                                                                            links: [
-                                                                                ...c.links,
-                                                                                {
-                                                                                    title: "Chat Widget",
-                                                                                    description: "",
-                                                                                    url: slug ? `/${slug}-chatwidget` : "",
-                                                                                },
-                                                                            ],
                                                                         }))
                                                                     }
                                                                     className="flex min-h-28 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-secondary text-sm font-medium text-tertiary transition duration-100 ease-linear hover:border-brand hover:text-brand-secondary"

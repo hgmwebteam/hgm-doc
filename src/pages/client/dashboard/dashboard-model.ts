@@ -283,7 +283,6 @@ export const DEFAULT_GHL_ITEMS: GhlItem[] = [
 export const defaultLinks = (base: string): QuickLink[] => [
     { title: "Meta Pixel Setup Guide", description: "Install your tracking pixel step by step.", url: `/${base}-metapixel` },
     { title: "Lead Capture Popup", description: "Your website popup & inline form setup.", url: `/${base}-leadcapture` },
-    { title: "Chat Widget", description: "Add the website chat widget to your site.", url: `/${base}-chatwidget` },
 ];
 
 export const TEMPLATE_CONTENT: DashboardContent = {
@@ -428,7 +427,6 @@ export type SectionId =
     | "website"
     | "instagram"
     | "flow"
-    | "chatwidget"
     | "ghl"
     | "revenue"
     // Menu entries added with the client-facing side-menu rework. Landing, Pinned Posts and
@@ -438,6 +436,11 @@ export type SectionId =
     // "repeatflow" was here too until it was dropped from the menu in 2026-09. It never had
     // a section body, so nothing was left behind — but an older row's visible_sections may
     // still carry the string, where it now matches nothing and is ignored.
+    //
+    // "chatwidget" went the same way in 2026-09, when the GoHighLevel chat widget stopped
+    // being something we offer. Its section body and setup guide are gone; an older row may
+    // still carry the id in visible_sections, and a `/{client}-chatwidget` link in `links`,
+    // which now renders as an ordinary Website link.
     | "landing"
     | "pinnedposts"
     | "pinnedstories"

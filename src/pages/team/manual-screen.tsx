@@ -18,7 +18,6 @@ import {
     LayoutAlt01,
     LinkExternal01,
     Mail01,
-    MessageChatCircle,
     Package,
     Palette,
     SearchLg,
@@ -220,7 +219,6 @@ const CLIENT_PATTERNS: { pattern: string; what: string; template: string }[] = [
     },
     { pattern: "/{client}-metapixel (or any other suffix)", what: "Meta Pixel setup guide for that client. Table: client_pages.", template: "/metapixel" },
     { pattern: "/{client}-leadcapture", what: "Website popup / lead-capture page. Table: leadcapture_pages.", template: "/popup" },
-    { pattern: "/{client}-chatwidget", what: "Chat-widget setup page. Table: chatwidget_pages.", template: "/chat-widget" },
 ];
 
 /** The dashboard's side-menu groups, mirrored from dashboard-navigation.ts. */
@@ -309,7 +307,6 @@ const TABLES: { group: string; rows: { name: string; what: string }[] }[] = [
             },
             { name: "client_pages", what: "Meta Pixel setup pages ({client}-metapixel and any other suffix)." },
             { name: "leadcapture_pages", what: "Popup / lead-capture pages, incl. before-after images and form options." },
-            { name: "chatwidget_pages", what: "Chat-widget setup pages." },
             { name: "owner_guides", what: "Per-client owner guides — slug, share password, hidden steps. Guide content lives in sop_pages." },
             {
                 name: "client_onboarding_pages / host_onboarding_pages",
@@ -435,7 +432,6 @@ const LINK_GROUPS: { group: string; links: { to: string; what: string }[] }[] = 
             { to: "/client-dashboard", what: "Client dashboard template" },
             { to: "/metapixel", what: "Meta Pixel guide template" },
             { to: "/popup", what: "Lead-capture popup template" },
-            { to: "/chat-widget", what: "Chat-widget template" },
             { to: "/owner-guide", what: "Owner-guide template (client-facing, shareable)" },
         ],
     },
@@ -681,7 +677,6 @@ const DOCS_MENU: { id: string; label: string; icon: IconType; to: string }[] = [
     { id: "host-onboarding", label: "Brand Vision Form", icon: Home02, to: "/dashboard?dept=docs&tab=host-onboarding" },
     { id: "popups", label: "Popups", icon: Mail01, to: "/dashboard?dept=docs&tab=popups" },
     { id: "meta-pixel", label: "Meta Pixel", icon: Share07, to: "/dashboard?dept=docs&tab=meta-pixel" },
-    { id: "chat-widget", label: "Chat Widget", icon: MessageChatCircle, to: "/dashboard?dept=docs&tab=chat-widget" },
     // The scratch benches. Last on purpose — reference surfaces, not client deliverables.
     { id: "mockups", label: "Mockups & backdrops", icon: Image01, to: "/test" },
     { id: "backgrounds", label: "Backgrounds", icon: Palette, to: "/background" },

@@ -849,8 +849,10 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 ? [...base, { label: findHelpGuide(guide)?.title ?? "Guide" }]
                 : created
                   // The success card lives at the home's own URL, so the "Help Center" link
-                  // alone would change nothing; it also puts the card away.
-                  ? [base[0], { ...base[1], onClick: () => setCreated(null) }, { label: "Request sent" }]
+                  // alone would change nothing; it also puts the card away. Only on the
+                  // click that navigates here: a cmd/ctrl/shift/middle click opens the
+                  // home elsewhere and must leave this tab's card alone.
+                  ? [base[0], { ...base[1], onClick: (e) => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) setCreated(null); } }, { label: "Request sent" }]
                   : composing
                     ? [...base, { label: "Raise a request" }]
                     : base;

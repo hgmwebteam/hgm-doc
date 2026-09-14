@@ -36,7 +36,7 @@
  *
  * House style: no em or en dashes anywhere.
  */
-import { type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { type ButtonHTMLAttributes, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { cx } from "@/utils/cx";
 
@@ -148,7 +148,7 @@ export const HelpFrame = ({ topBar, children, className }: { topBar: ReactNode; 
  * momentary state on top (the success card on the help home): the link still navigates,
  * and the caller clears the state.
  */
-export type Crumb = { label: string; to?: string; onClick?: () => void };
+export type Crumb = { label: string; to?: string; onClick?: (e: ReactMouseEvent<HTMLAnchorElement>) => void };
 
 export type TopBarProps = {
     /**
@@ -219,10 +219,15 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
         const last = nav?.querySelector<HTMLElement>("[aria-current=page]");
         if (!nav || !last || unfolded) return;
         // The last segment truncates rather than overflow, so the bar's own
-        // scroll width never says the trail is too long; ask the last segment how
-        // wide it wants to be.
-        const needed = last.offsetLeft + last.scrollWidth - nav.offsetLeft;
-        if (needed <= nav.clientWidth + 1) return;
+        // scroll width never says the trail is too long; ask the last segment's
+        // TEXT how wide it wants to be. In floats: text-overflow clips on any
+        // overflow, and a rounded integer with a pixel of slack let a fraction
+        // through as an ellipsis on the reference's last character.
+        const range = document.createRange();
+        range.selectNodeContents(last);
+        const navBox = nav.getBoundingClientRect();
+        const needed = last.getBoundingClientRect().left - navBox.left + range.getBoundingClientRect().width;
+        if (needed <= navBox.width) return;
         if (fold === 0 && crumbs.length >= 3) setFold(1);
         else if (fold < 2 && crumbs.length >= 2) setFold(2);
     }, [trail, fit, fold, unfolded, crumbs.length]);
@@ -232,16 +237,35 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
             setUnfolded(false);
             setFit((n) => n + 1);
         };
-        // Only a change of width can change what fits. A phone fires resize as its
-        // address bar comes and goes while scrolling; that must not refold a trail
-        // the person has just opened.
-        let width = window.innerWidth;
+        // Only a change of WIDTH can change what fits. A phone fires resize as its
+        // address bar comes and goes while scrolling, and iOS Safari fires it on a
+        // pinch-zoom too (innerWidth there is the visual viewport); neither must
+        // refold a trail the person has just opened. The layout viewport is what
+        // the bar is laid out in.
+        const layoutWidth = () => document.documentElement.clientWidth;
+        let width = layoutWidth();
         const onResize = () => {
-            if (window.innerWidth === width) return;
-            width = window.innerWidth;
+            if (layoutWidth() === width) return;
+            width = layoutWidth();
             remeasure();
         };
         window.addEventListener("resize", onResize);
+        // The bar's own width moves without the window's: the right-hand text
+        // ("Paradise Pointe  ·  Marcus Webb") arrives after the first layout, when
+        // the client row loads, and takes its width from the nav. Watched by
+        // width alone, so the unfolded wrap (a height change) does not refold.
+        const nav = navRef.current;
+        let navWidth = nav?.getBoundingClientRect().width ?? 0;
+        const watcher =
+            typeof ResizeObserver === "undefined" || !nav
+                ? null
+                : new ResizeObserver(() => {
+                      const w = nav.getBoundingClientRect().width;
+                      if (Math.abs(w - navWidth) < 0.5) return;
+                      navWidth = w;
+                      remeasure();
+                  });
+        watcher?.observe(nav!);
         // Inter arrives after the first layout (display=swap): measure again in it.
         let live = true;
         document.fonts?.ready.then(() => {
@@ -250,6 +274,7 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
         return () => {
             live = false;
             window.removeEventListener("resize", onResize);
+            watcher?.disconnect();
         };
     }, []);
 

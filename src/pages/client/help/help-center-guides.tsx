@@ -129,7 +129,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "The owner",
                 paragraphs: [
-                    "The owner does the work. Your request's timeline records each change of status: Received when you raise it, Assigned when it has an owner, Completed when the work is closed, or Withdrawn if you take it back.",
+                    "The owner does the work. Your request's timeline records each change of status: Received when you raise it, Assigned when it has an owner, Completed when the work is closed, or Withdrawn if you take it back. When the person working on it has news for you, it appears on the request under Team updates, with their name and the time they wrote it.",
                 ],
             },
             {

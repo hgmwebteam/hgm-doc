@@ -16,6 +16,7 @@
  */
 import assert from "node:assert/strict";
 import {
+    JOURNEY_BAR,
     JOURNEY_STAGES,
     JOURNEY_STEPS,
     type JourneyStepId,
@@ -116,6 +117,47 @@ assert.deepEqual(twice, []);
     const last = JOURNEY_STEPS[JOURNEY_STEPS.length - 1].id;
     const lastStage = JOURNEY_STAGES[JOURNEY_STAGES.length - 1];
     assert.equal(lastStage.steps[lastStage.steps.length - 1], last, "the journey's last step must end the last stage");
+}
+
+/* 12. Every launch-meter cell names a real stage and real steps. The bar is declared apart
+       from the step list on purpose, so a rename on either side would otherwise drop a cell
+       or empty a stage with nothing failing. */
+{
+    const stages = new Set(JOURNEY_STAGES.map((stage) => stage.id));
+    const stepIds = new Set(JOURNEY_STEPS.map((step) => step.id));
+    const ids = JOURNEY_BAR.map((cell) => cell.id);
+    assert.equal(new Set(ids).size, ids.length, "two launch-meter cells share an id");
+    for (const cell of JOURNEY_BAR) {
+        assert.ok(stages.has(cell.stage), `bar cell "${cell.id}" names stage "${cell.stage}", which is not a launch-meter stage`);
+        assert.ok(cell.steps.length > 0, `bar cell "${cell.id}" names no steps, so it can never fill`);
+        for (const id of cell.steps) {
+            assert.ok(stepIds.has(id), `bar cell "${cell.id}" names step "${id}", which is not a journey step`);
+        }
+    }
+}
+
+/* 13. No step reaches the bar through two cells — it would be counted twice, and the bar
+       would run ahead of the work. */
+{
+    const named = JOURNEY_BAR.flatMap((cell) => cell.steps);
+    assert.equal(new Set(named).size, named.length, "a journey step is on the launch meter more than once");
+}
+
+/* 14. The bar's last cell is the one the rocket rides on, so it has to sit in the last
+       stage — otherwise the rocket lands mid-bar. Its step is the journey's last, so the
+       bar can never claim launch before the step list does. */
+{
+    const last = JOURNEY_BAR[JOURNEY_BAR.length - 1];
+    assert.equal(last.stage, JOURNEY_STAGES[JOURNEY_STAGES.length - 1].id, "the bar's last cell must sit in the last stage");
+    assert.deepEqual(last.steps, [JOURNEY_STEPS[JOURNEY_STEPS.length - 1].id], "the bar's last cell must be the journey's last step");
+}
+
+/* 15. Steps the bar leaves out are a deliberate, short list — not an accident. Anything
+       else dropped from JOURNEY_BAR would silently stop counting towards launch. */
+{
+    const onBar = new Set(JOURNEY_BAR.flatMap((cell) => cell.steps));
+    const off = JOURNEY_STEPS.filter((step) => !onBar.has(step.id)).map((step) => step.id);
+    assert.deepEqual(off, ["chat"], `the launch meter drops ${JSON.stringify(off)}; only joining the chat is meant to be off it`);
 }
 
 console.log("dashboard-navigation.check: all assertions passed");

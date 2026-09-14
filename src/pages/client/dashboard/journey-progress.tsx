@@ -1,12 +1,12 @@
-import type { FC, ReactNode } from "react";
+import type { CSSProperties, FC, ReactNode } from "react";
 import { Rocket01 } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
 
 /** One cell of the tracker: a journey step, or one piece of a step ticked piece by piece. */
 export interface JourneyCell {
     id: string;
-    /** One or two words, shown in caps inside the cell where there's room. */
-    short: string;
+    /** The milestone's name, written out in full and shown in caps where there's room. */
+    label: string;
     /** 0–1. A whole step or piece is 1; a step answered in parts is its fraction. */
     fraction: number;
     /** The cell a client should be on — the first unfinished one. */
@@ -137,6 +137,11 @@ export const JourneyProgress: FC<{
                 aria-valuemax={100}
                 aria-label="Progress to launch"
                 className="journey-meter-track relative mt-3.5 h-14 w-full overflow-hidden rounded-full ring-1 ring-secondary"
+                // Where the ramp hands over from brand blue to the logo's gold: the last
+                // cell's own edge, so the changeover always lands on a divider. Measured
+                // here rather than written into the CSS as a percentage, which would drift
+                // the moment the bar gains or loses a cell.
+                style={{ "--journey-meter-gold-from": `${startOf(count - 1)}%` } as CSSProperties}
             >
                 {/* Layer 1 — each cell's slice of the ramp, clipped to how much of it is
                     done. Full-width layers, so the colour is continuous across the bar. */}
@@ -260,7 +265,7 @@ const Cell: FC<{ left: number; width: number; divider?: boolean; tone: Tone; cli
     children,
 }) => {
     const column = (
-        <div className="absolute inset-y-0 grid min-w-0 place-items-center px-0.5" style={{ left: `${left}%`, width: `${width}%` }}>
+        <div className="absolute inset-y-0 grid min-w-0 place-items-center px-1.5" style={{ left: `${left}%`, width: `${width}%` }}>
             {divider && (
                 <span
                     className={cx("absolute inset-y-0 left-0 w-0.5 -translate-x-1/2 skew-x-[-12deg]", tone === "fill" ? "bg-white/35" : "bg-border-secondary")}
@@ -292,11 +297,16 @@ const Face: FC<{ cell: JourneyCell; tone: Tone }> = ({ cell, tone }) => {
             {cell.rocket ? (
                 // No name beside it: the bracket underneath already says Live, and the
                 // rocket is the one cell that needs no explaining.
-                <Rocket01 className={cx("size-5", text)} />
+                <Rocket01 className={cx("size-5", tone === "fill" ? "journey-meter-rocket-ink" : text)} />
             ) : (
                 <>
                     <span className={cx("size-1.5 rounded-full lg:hidden", tone === "fill" ? "bg-white/70" : "bg-border-secondary")} />
-                    <span className={cx("hidden max-w-full truncate text-[10px] font-bold tracking-wide uppercase lg:block", text)}>{cell.short}</span>
+                    {/* Wraps rather than truncates, the same way the stage brackets do.
+                        Names are written out in full, and "ONBOARDIN…" is a worse cell
+                        than two short lines — the bar is 56px tall, so there is room. */}
+                    <span className={cx("hidden max-w-full text-center text-[10px] leading-tight font-bold tracking-wide uppercase lg:block", text)}>
+                        {cell.label}
+                    </span>
                 </>
             )}
         </>

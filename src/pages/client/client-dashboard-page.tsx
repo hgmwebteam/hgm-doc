@@ -125,6 +125,7 @@ import {
     usersToAllowedEmails,
 } from "@/pages/client/dashboard/dashboard-model";
 import {
+    JOURNEY_BAR,
     JOURNEY_STAGES,
     JOURNEY_STEPS,
     type JourneyLink,
@@ -1927,56 +1928,70 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /**
      * The launch meter's cells and the stages bracketing them.
      *
-     * One cell per thing a client can finish, NOT per step: a step ticked piece by piece
-     * contributes a cell per piece, which is what makes the Marketing funnel stage the long
-     * one and what lets a single review move the bar. Every cell is worth the same, so the
-     * bar's fill and the percentage above it are the same number.
+     * The bar is a summary, so its composition lives in JOURNEY_BAR rather than being read
+     * off the step list — see the note there for what it leaves out and why. Here we only
+     * resolve each declared cell against live step state.
+     *
+     * One cell per thing a client can finish: a cell over a step ticked piece by piece
+     * becomes a cell per piece, which is what makes Marketing funnel the long stage and
+     * what lets a single review move the bar. Every cell is worth the same, so the bar's
+     * fill and the percentage above it are the same number.
      *
      * A cell fills fractionally wherever there is something real to count — a part-answered
-     * form, a funnel piece reviewed. A made-up fraction is never invented: a step with
+     * form, a funnel piece reviewed. A made-up fraction is never invented: a cell with
      * nothing to count is 0 or 1.
      */
     const { journeyCells, journeyGroups } = useMemo(() => {
         const fractionOf = (step: (typeof journeySteps)[number]) =>
             step.done ? 1 : step.progress && step.progress.total > 0 ? step.progress.value / step.progress.total : 0;
 
-        const cellsFor = (step: (typeof journeySteps)[number]) => {
-            const isLast = step.id === JOURNEY_STEPS[JOURNEY_STEPS.length - 1].id;
-            if (step.itemsTickable && step.items?.length) {
-                const nextUp = step.items.findIndex((item) => !item.done);
-                return step.items.map((item, i) => ({
-                    id: `${step.id}:${item.id ?? item.label}`,
-                    short: item.short ?? item.label,
+        const byId = new Map(journeySteps.map((step) => [step.id, step]));
+
+        const cellsFor = (bar: (typeof JOURNEY_BAR)[number], isLast: boolean) => {
+            const steps = bar.steps.map((id) => byId.get(id)).filter((step): step is (typeof journeySteps)[number] => !!step);
+            if (!steps.length) return [];
+
+            // A cell standing over one tickable step is really that step's pieces.
+            const [only] = steps;
+            if (steps.length === 1 && only.itemsTickable && only.items?.length) {
+                const nextUp = only.items.findIndex((item) => !item.done);
+                return only.items.map((item, i) => ({
+                    id: `${only.id}:${item.id ?? item.label}`,
+                    label: item.label,
                     fraction: item.done ? 1 : 0,
                     // The piece a client is on, not the whole step: the beam in the list
                     // below marks the step, this marks the review inside it.
-                    current: step.id === journeyCurrentId && i === nextUp,
+                    current: only.id === journeyCurrentId && i === nextUp,
                     rocket: false,
                 }));
             }
+
             return [
                 {
-                    id: step.id,
-                    short: step.short,
-                    fraction: fractionOf(step),
-                    current: step.id === journeyCurrentId,
-                    // The journey's last step IS the destination, so it wears the rocket
-                    // rather than the bar growing an extra cell nobody can tick.
+                    id: bar.id,
+                    label: bar.label,
+                    // Merged cells (the two forms) average their steps, so finishing one of
+                    // two half-fills the cell instead of leaving it dark until both land.
+                    fraction: steps.reduce((sum, step) => sum + fractionOf(step), 0) / steps.length,
+                    current: steps.some((step) => step.id === journeyCurrentId),
+                    // The bar's last cell IS the destination, so it wears the rocket rather
+                    // than the bar growing an extra cell nobody can tick.
                     rocket: isLast,
                 },
             ];
         };
 
-        const byId = new Map(journeySteps.map((step) => [step.id, step]));
         const cells: ReturnType<typeof cellsFor> = [];
-        const groups = JOURNEY_STAGES.map((stage) => {
-            const before = cells.length;
-            for (const id of stage.steps) {
-                const step = byId.get(id);
-                if (step) cells.push(...cellsFor(step));
-            }
-            return { id: stage.id, label: stage.label, cells: cells.length - before };
-        }).filter((group) => group.cells > 0);
+        const counts = new Map<string, number>();
+        JOURNEY_BAR.forEach((bar, i) => {
+            const made = cellsFor(bar, i === JOURNEY_BAR.length - 1);
+            cells.push(...made);
+            counts.set(bar.stage, (counts.get(bar.stage) ?? 0) + made.length);
+        });
+
+        const groups = JOURNEY_STAGES.map((stage) => ({ id: stage.id, label: stage.label, cells: counts.get(stage.id) ?? 0 })).filter(
+            (group) => group.cells > 0,
+        );
 
         return { journeyCells: cells, journeyGroups: groups };
     }, [journeySteps, journeyCurrentId]);

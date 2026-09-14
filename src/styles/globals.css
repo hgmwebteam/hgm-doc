@@ -221,14 +221,26 @@ input[type="search"]::-webkit-search-cancel-button {
        stays quiet and the ramp is the only real colour on the bar. */
     --journey-meter-track: var(--color-brand-50);
     --journey-meter-current: var(--color-brand-100);
+    /* Brand blue the whole way, handing over to the logo's gold for the last cell.
+       Those are HiddenGem's two colours: #0066DE is the site's interactive blue, #FFCC00
+       the gem in the logo — so the bar runs in the brand and ends on the mark.
+
+       The handover is a hard stop, not a blend. Blue and gold sit opposite each other, so
+       any gradient between them passes through grey-green and the middle of the bar goes
+       muddy; landing the change on a cell divider instead reads as deliberate. The stop
+       comes from --journey-meter-gold-from, which the component measures off the real cell
+       count. */
     --journey-meter-ramp: linear-gradient(
         90deg,
-        var(--color-bg-brand-solid) 0%,
-        var(--color-utility-brand-500) 30%,
-        var(--color-utility-indigo-500) 55%,
-        var(--color-utility-purple-500) 78%,
-        var(--color-utility-pink-500) 100%
+        var(--color-brand-800) 0%,
+        var(--color-brand-700) 26%,
+        var(--color-brand-600) 58%,
+        var(--color-brand-500) var(--journey-meter-gold-from, 92%),
+        rgb(255 204 0) var(--journey-meter-gold-from, 92%),
+        rgb(255 204 0) 100%
     );
+    /* The rocket sits on that gold, where white would all but vanish. */
+    --journey-meter-rocket-ink: var(--color-brand-900);
 }
 
 /* Taken straight off the brand ramp rather than mixed into the panel: the dark panel is a
@@ -267,6 +279,10 @@ input[type="search"]::-webkit-search-cancel-button {
 
 /* The percentage, painted with the same ramp. `text-fill-color` needs the -webkit- prefix
    to work anywhere; the standard property is still not implemented outside it. */
+.journey-meter-rocket-ink {
+    color: var(--journey-meter-rocket-ink, var(--color-white));
+}
+
 .journey-meter-figure {
     background-image: var(--journey-meter-ramp);
     background-clip: text;

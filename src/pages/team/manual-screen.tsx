@@ -955,8 +955,10 @@ export const ManualScreen = () => {
                                     reordering the journey never disturbs a client's recorded progress. The funnel step is ticked piece by piece and stores one{" "}
                                     <span className="font-mono text-sm">funnel:&#123;section&#125;</span> key per review, so each of the five moves the launch
                                     meter on its own; a row ticked before that split still carries the bare <span className="font-mono text-sm">funnel</span>{" "}
-                                    and is read as all five done. The side menu itself is drag-resizable from its right hairline (240–420px, remembered per
-                                    browser), numbers its rows continuously across groups, and shows a count per group.
+                                    and is read as all five done. The launch meter above the list is a summary rather than a mirror of it: joining the Google
+                                    Chat group is not on the bar, and the two intake forms share one cell that fills through both — so the bar can show fewer
+                                    milestones than the "x of 10 steps" beside it. The side menu itself is drag-resizable from its right hairline (240–420px,
+                                    remembered per browser), numbers its rows continuously across groups, and shows a count per group.
                                 </p>
                                 <div className="flex flex-col gap-3">
                                     {DASHBOARD_GROUPS.map((g) => (

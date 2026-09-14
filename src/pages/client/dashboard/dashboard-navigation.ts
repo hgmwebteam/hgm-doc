@@ -88,13 +88,6 @@ export type JourneyLink = "chat" | "folder" | "onboarding_call";
 export const JOURNEY_STEPS: {
     id: JourneyStepId;
     label: string;
-    /**
-     * The name this step wears inside the launch meter's stage — a tenth of a bar, so
-     * one or two short words in caps and nothing longer. Required, not optional: a new
-     * step without one would render as a numbered blank in the tracker, and the compiler
-     * catching that is cheaper than spotting it on a client's dashboard.
-     */
-    short: string;
     /** Step-level summary line. Omit when the item(s) below already say everything needed. */
     detail?: string;
     icon: FC<{ className?: string }>;
@@ -136,9 +129,6 @@ export const JOURNEY_STEPS: {
          */
         id?: string;
         label: string;
-        /** The name this item wears inside the launch meter, where a cell is narrow.
-         *  Falls back to `label` — only a tickable item ever reaches the meter. */
-        short?: string;
         note?: string;
         link?: JourneyLink;
         action?: string;
@@ -157,7 +147,6 @@ export const JOURNEY_STEPS: {
     {
         id: "chat",
         label: "Join the Google Chat group",
-        short: "Join",
         detail: "This is our primary channel for updates — please join as soon as possible to stay in the loop on progress.",
         icon: MessageChatCircle,
         hrefFrom: "chat",
@@ -169,7 +158,6 @@ export const JOURNEY_STEPS: {
     {
         id: "form",
         label: "Fill in the Onboarding Form",
-        short: "Form",
         detail: "Your business details and the logins we need.",
         icon: ClipboardCheck,
         to: "intake",
@@ -178,7 +166,6 @@ export const JOURNEY_STEPS: {
     {
         id: "kickoff",
         label: "Kick-off Call",
-        short: "Kick-off",
         detail: "Pick a time that suits you and we'll take it from there.",
         icon: Calendar,
         // Booking opens only once the Onboarding form is in — the call is only useful if the
@@ -193,7 +180,6 @@ export const JOURNEY_STEPS: {
     {
         id: "vision",
         label: "Fill in the Brand Vision Form",
-        short: "Vision",
         detail: "How your brand should look, sound and feel.",
         icon: FileCheck02,
         to: "onboarding",
@@ -210,7 +196,6 @@ export const JOURNEY_STEPS: {
         // buttons to press.
         id: "resources",
         label: "Add your resources",
-        short: "Assets",
         icon: Folder,
         items: [
             {
@@ -227,7 +212,6 @@ export const JOURNEY_STEPS: {
     {
         id: "call",
         label: "Onboarding Call",
-        short: "Call",
         detail: "Book your onboarding call using the link below. Please join with a good Wi-Fi connection, and keep your phone and email handy so you can grab verification codes and approve access as your account manager walks you through it.",
         icon: Users01,
         hrefFrom: "onboarding_call",
@@ -260,12 +244,11 @@ export const JOURNEY_STEPS: {
     {
         id: "masterdoc",
         label: "Review the Master Brand",
-        short: "Master",
         detail: "Hosts, personas, properties and brand voice — the foundation everything else is built on.",
         icon: FileCheck02,
         to: "foundation",
     },
-    { id: "brandkit", label: "Review the Brand Kit", short: "Brand kit", detail: "Colours, fonts and logo.", icon: Image01, to: "brand" },
+    { id: "brandkit", label: "Review the Brand Kit", detail: "Colours, fonts and logo.", icon: Image01, to: "brand" },
     {
         // No `detail` line: it listed the same five pieces the items below now name one
         // by one, so it only said everything twice.
@@ -281,15 +264,14 @@ export const JOURNEY_STEPS: {
         // these items ARE those sections.
         id: "funnel",
         label: "Review the marketing funnel",
-        short: "Funnel",
         icon: Mail01,
         itemsTickable: true,
         items: [
-            { id: "landing", label: "Landing Page", short: "Landing", to: "landing" },
-            { id: "flow", label: "Welcome Flow", short: "Welcome", to: "flow" },
-            { id: "pinnedposts", label: "Pinned Posts", short: "Posts", to: "pinnedposts" },
-            { id: "pinnedstories", label: "Pinned Stories", short: "Stories", to: "pinnedstories" },
-            { id: "reels", label: "Example Reels", short: "Reels", to: "reels" },
+            { id: "landing", label: "Landing Page", to: "landing" },
+            { id: "flow", label: "Welcome Flow", to: "flow" },
+            { id: "pinnedposts", label: "Pinned Posts", to: "pinnedposts" },
+            { id: "pinnedstories", label: "Pinned Stories", to: "pinnedstories" },
+            { id: "reels", label: "Example Reels", to: "reels" },
         ],
     },
     {
@@ -301,11 +283,10 @@ export const JOURNEY_STEPS: {
         // want to build for. The Setup Guide section stays — its Netlify card is required
         // of everyone.
         //
-        // Being last, this is the step the launch meter's rocket rides on. Its `short` is
-        // never drawn — the rocket wears no name — but the type asks every step for one.
+        // Being last, this is the step the launch meter's rocket rides on, so it is the
+        // one bar cell that wears no name at all.
         id: "launch",
         label: "Marketing Launch",
-        short: "Launch",
         detail: "It's go time! Ads running, content posting, emails sending. Now we let the data come in and optimize from there.",
         icon: Rocket02,
     },
@@ -329,6 +310,42 @@ export const JOURNEY_STAGES: { id: string; label: string; steps: JourneyStepId[]
     { id: "foundation", label: "Brand foundation", steps: ["masterdoc", "brandkit"] },
     { id: "funnel", label: "Marketing funnel", steps: ["funnel"] },
     { id: "live", label: "Live", steps: ["launch"] },
+];
+
+/**
+ * ── The launch meter's own cells ──
+ *
+ * The bar is a summary of the journey, not a mirror of it. The step list below it is the
+ * client's checklist and carries everything; the bar carries only what a client would call
+ * a milestone, because fourteen cells across one bar left every name abbreviated to the
+ * point of being a guess ("VISION", "POSTS", "MASTER").
+ *
+ * So two things differ from JOURNEY_STEPS on purpose:
+ *
+ *  - Joining the Google Chat group is not on the bar. It is a two-minute setup task, not
+ *    a milestone, and it was taking a fourteenth of the run to launch.
+ *  - The two intake forms share one cell. A client thinks of them as "the forms"; the cell
+ *    fills through both, so answering half of either still moves the bar.
+ *
+ * Names are written out in full — no abbreviations. A cell over a single tickable step
+ * expands instead into one cell per piece, named by the piece, which is what makes
+ * Marketing funnel the long stage.
+ *
+ * `stage` is a JOURNEY_STAGES id; dashboard-navigation.check.ts holds every cell to a real
+ * stage and every step named here to a real step, so a rename cannot quietly empty the bar.
+ */
+export const JOURNEY_BAR: { id: string; label: string; stage: string; steps: JourneyStepId[] }[] = [
+    { id: "forms", label: "Forms", stage: "start", steps: ["form", "vision"] },
+    { id: "kickoff", label: "Kickoff Call", stage: "start", steps: ["kickoff"] },
+    { id: "resources", label: "Assets", stage: "start", steps: ["resources"] },
+    { id: "call", label: "Onboarding Call", stage: "start", steps: ["call"] },
+    { id: "masterdoc", label: "Master Brand", stage: "foundation", steps: ["masterdoc"] },
+    { id: "brandkit", label: "Brand Kit", stage: "foundation", steps: ["brandkit"] },
+    // Expands into its five reviews, each named by the item: Landing Page, Welcome Flow,
+    // Pinned Posts, Pinned Stories, Example Reels.
+    { id: "funnel", label: "Marketing Funnel", stage: "funnel", steps: ["funnel"] },
+    // Last, so it wears the rocket and draws no name.
+    { id: "launch", label: "Launch", stage: "live", steps: ["launch"] },
 ];
 
 /**

@@ -1,6 +1,7 @@
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Image01, Mail01, Monitor01, Phone01, SearchSm, Settings01, XClose } from "@untitledui/icons";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Image01, Mail01, Monitor01, Phone01, RefreshCw01, SearchSm, Settings01, XClose } from "@untitledui/icons";
 import { AnimatePresence, motion } from "motion/react";
+import { Button } from "@/components/base/buttons/button";
 import { supabase } from "@/lib/supabase";
 import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
 import { flowFeedbackSlot } from "@/pages/client/dashboard/suggestions-model";
@@ -656,27 +657,68 @@ export const WelcomeFlowSection = ({
      *  Matched by client name (case-insensitive) because her table has no dashboard
      *  slug. Rows arrive oldest-first so a regenerated email replaces the earlier one. */
     const [dbEmails, setDbEmails] = useState<Record<number, { html: string; subject: string; preview: string }>>({});
-    useEffect(() => {
-        const name = clientName.trim();
-        if (!name || isTemplate) return;
-        supabase
-            .from("email_wf_emails")
-            .select("position, week, subject_line, preview_text, rendered_html")
-            .ilike("client_name", name)
-            .order("updated_at", { ascending: true })
-            .then(({ data, error }) => {
-                if (error || !data?.length) return;
-                const next: Record<number, { html: string; subject: string; preview: string }> = {};
-                for (const r of data) {
-                    const slot = Number(r.week ?? r.position) - 1;
-                    if (slot >= 0 && slot < FLOW_STEPS.length && r.rendered_html) {
-                        next[slot] = { html: r.rendered_html, subject: r.subject_line ?? "", preview: r.preview_text ?? "" };
-                    }
+    /** The Update button's state — the pull is also run once on mount, silently. */
+    const [pullState, setPullState] = useState<"idle" | "loading" | "done" | "error">("idle");
+    const [pullNote, setPullNote] = useState("");
+
+    /** Re-read every finished email for this client and refill all nine slots at once.
+     *  Nothing is written back: the table stays the source of truth, so a fix in Pooja's
+     *  pipeline shows up on the next pull. `manual` is the Update button — it reports
+     *  what came back; the mount run stays quiet. */
+    const pullFinishedEmails = useCallback(
+        async (manual = false) => {
+            const name = clientName.trim();
+            if (!name || isTemplate) return;
+            if (manual) {
+                setPullState("loading");
+                setPullNote("");
+            }
+            const { data, error } = await supabase
+                .from("email_wf_emails")
+                .select("position, week, subject_line, preview_text, rendered_html")
+                .ilike("client_name", name)
+                .order("updated_at", { ascending: true });
+
+            if (error) {
+                if (manual) {
+                    setPullState("error");
+                    setPullNote(error.message || "Could not reach the email table.");
                 }
-                setDbEmails(next);
-                setRev((r) => r + 1);
-            });
-    }, [clientName, isTemplate]);
+                return;
+            }
+
+            const next: Record<number, { html: string; subject: string; preview: string }> = {};
+            for (const r of data ?? []) {
+                const slot = Number(r.week ?? r.position) - 1;
+                if (slot >= 0 && slot < FLOW_STEPS.length && r.rendered_html) {
+                    next[slot] = { html: r.rendered_html, subject: r.subject_line ?? "", preview: r.preview_text ?? "" };
+                }
+            }
+            const found = Object.keys(next).length;
+            setDbEmails(next);
+            if (found || manual) setRev((r) => r + 1);
+            if (!manual) return;
+
+            // A slot holding pasted HTML keeps showing it — the pull never destroys
+            // hand-placed work, it just says which steps it couldn't take over.
+            const pasted = (flowRef.current.customHtml ?? [])
+                .map((html, i) => (html && next[i] ? i : -1))
+                .filter((i) => i >= 0)
+                .map((i) => `E${i + 1}`);
+            setPullState("done");
+            setPullNote(
+                found === 0
+                    ? `Nothing in the email table for "${name}" yet.`
+                    : `${found} of ${FLOW_STEPS.length} emails pulled in.` +
+                          (pasted.length ? ` ${pasted.join(", ")} still show your pasted HTML — remove it there to use the table's version.` : ""),
+            );
+        },
+        [clientName, isTemplate],
+    );
+
+    useEffect(() => {
+        void pullFinishedEmails();
+    }, [pullFinishedEmails]);
 
     // Debounced autosave while editing.
     useEffect(() => {
@@ -959,15 +1001,36 @@ export const WelcomeFlowSection = ({
 
     return (
         <div>
-            {/* Heading */}
-            <div>
-                <h2 className="text-display-xs font-semibold text-primary md:text-display-sm">Welcome Email Flow</h2>
-                <p className="mt-1.5 text-md text-tertiary">
-                    Nine emails, one a week from the day a lead signs up.{" "}
-                    {isTeam ? "Review each one before it goes to the client." : "Have a look at each one and tell us what you think."}
-                    {finishedCount > 0 && finishedCount < FLOW_STEPS.length && ` ${finishedCount} of ${FLOW_STEPS.length} are finished so far.`}
-                </p>
+            {/* Heading. Update sits here rather than in the tab toolbar because the pull is
+                flow-level — it refills all nine steps — and has to stay reachable on a step
+                that has nothing in it yet, which is exactly when it's wanted. */}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <h2 className="text-display-xs font-semibold text-primary md:text-display-sm">Welcome Email Flow</h2>
+                    <p className="mt-1.5 text-md text-tertiary">
+                        Nine emails, one a week from the day a lead signs up.{" "}
+                        {isTeam ? "Review each one before it goes to the client." : "Have a look at each one and tell us what you think."}
+                        {finishedCount > 0 && finishedCount < FLOW_STEPS.length && ` ${finishedCount} of ${FLOW_STEPS.length} are finished so far.`}
+                    </p>
+                </div>
+                {isTeam && !isTemplate && (
+                    <Button
+                        size="sm"
+                        color="secondary"
+                        iconLeading={RefreshCw01}
+                        onClick={() => void pullFinishedEmails(true)}
+                        isLoading={pullState === "loading"}
+                        showTextWhileLoading
+                    >
+                        Update
+                    </Button>
+                )}
             </div>
+            {isTeam && !isTemplate && pullState !== "idle" && pullState !== "loading" && (
+                <p className={cx("mt-2 text-sm", pullState === "error" ? "text-error-primary" : "text-tertiary")}>
+                    {pullState === "error" ? `Update failed — ${pullNote}` : pullNote}
+                </p>
+            )}
 
             {/* Step tabs — always all nine, always on one line: the row scrolls sideways
                 rather than wrapping when the column is too narrow for all of them. A step

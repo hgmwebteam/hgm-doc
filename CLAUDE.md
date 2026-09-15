@@ -181,7 +181,7 @@ without them, because it discards its bundle and `src/lib/supabase.ts` falls bac
 
 ## Deploy
 
-Netlify is connected to the GitHub repo (`AnhTuan-hgm/hgm-doc`) — pushing `main` auto-builds and
+Netlify is connected to the GitHub repo (`hgmwebteam/hgm-doc`) — pushing `main` auto-builds and
 deploys. Netlify runs the build itself from `netlify.toml`, so that file's `[build]` and
 `[build.environment]` are what shape the live bundle. See the `/ship` skill for the full
 build → commit → push → verify flow.

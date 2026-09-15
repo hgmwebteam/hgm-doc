@@ -964,7 +964,7 @@ export const WelcomeFlowSection = ({
                 <h2 className="text-display-xs font-semibold text-primary md:text-display-sm">Welcome Email Flow</h2>
                 <p className="mt-1.5 text-md text-tertiary">
                     Nine emails, one a week from the day a lead signs up.{" "}
-                    {isTeam ? "Review each one, then copy it into GoHighLevel." : "Have a look at each one and tell us what you think."}
+                    {isTeam ? "Review each one before it goes to the client." : "Have a look at each one and tell us what you think."}
                     {finishedCount > 0 && finishedCount < FLOW_STEPS.length && ` ${finishedCount} of ${FLOW_STEPS.length} are finished so far.`}
                 </p>
             </div>

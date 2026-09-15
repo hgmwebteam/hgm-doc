@@ -1,5 +1,5 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy01, Image01, Mail01, Monitor01, Phone01, SearchSm, Settings01, XClose } from "@untitledui/icons";
+import { Image01, Mail01, Monitor01, Phone01, SearchSm, Settings01, XClose } from "@untitledui/icons";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/base/buttons/button";
 import { supabase } from "@/lib/supabase";
@@ -613,15 +613,14 @@ export const WelcomeFlowSection = ({
     clientName: string;
     isLocked: boolean;
     isTemplate: boolean;
-    /** A signed-in team member is looking — shows the GoHighLevel toolbar and internal
-     *  wording. A client never sees "Copy HTML for GHL" or where an email came from. */
+    /** A signed-in team member is looking — shows the source toolbar and internal
+     *  wording. A client never sees where an email came from. */
     isTeam?: boolean;
     /** Client feedback wiring — omit (or mode "off") and the section shows no feedback UI. */
     feedback?: FlowFeedbackProps;
 }) => {
     const [flow, setFlow] = useState<WelcomeFlowData>(() => seedFlow(clientName));
     const [tab, setTab] = useState(0);
-    const [copied, setCopied] = useState(false);
     const [penPop, setPenPop] = useState<PenState | null>(null);
     const [brandOpen, setBrandOpen] = useState(false);
     // GHL Media Library picker — images arrive via the ghl-media Edge Function
@@ -988,15 +987,6 @@ export const WelcomeFlowSection = ({
         }, 30);
     };
 
-    const copyHtml = () => {
-        const html = custom ?? (builtIn ? emailHtml(builtIn, flow.settings) : "");
-        if (!html) return;
-        navigator.clipboard.writeText(html).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1800);
-        });
-    };
-
     /** Brand & timing changes re-render the preview, debounced so typing stays smooth. */
     const brandPatch = (mutator: (d: WelcomeFlowData) => void) => {
         patch(mutator);
@@ -1336,10 +1326,10 @@ export const WelcomeFlowSection = ({
                             </div>
                         ) : (
                             <div className="flex flex-col rounded-2xl ring-1 ring-secondary">
-                                {/* Team toolbar — where this email came from and the GoHighLevel export.
-                                    Clients get the previews alone; both are internal. */}
+                                {/* Team toolbar — where this email came from. Clients get the
+                                    previews alone; the source line is internal. */}
                                 {isTeam && (
-                                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-2xl border-b border-secondary bg-primary px-3 py-2">
+                                    <div className="flex flex-wrap items-center gap-2 rounded-t-2xl border-b border-secondary bg-primary px-3 py-2">
                                         <p className="px-1 text-xs text-tertiary">
                                             <span className="font-semibold text-secondary">{stepLabel(tab)}</span>
                                             {" · "}
@@ -1349,14 +1339,6 @@ export const WelcomeFlowSection = ({
                                                   ? "finished HTML from the email designer"
                                                   : "built-in template"}
                                         </p>
-                                        <button
-                                            type="button"
-                                            onClick={copyHtml}
-                                            className="flex items-center gap-1.5 rounded-lg bg-brand-solid px-3 py-1.5 text-xs font-semibold text-white transition duration-100 ease-linear hover:opacity-90"
-                                        >
-                                            {copied ? <Check className="size-3.5" /> : <Copy01 className="size-3.5" />}
-                                            {copied ? "Copied!" : "Copy HTML for GHL"}
-                                        </button>
                                     </div>
                                 )}
 

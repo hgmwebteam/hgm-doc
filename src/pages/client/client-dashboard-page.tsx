@@ -2207,8 +2207,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             <span
                 className={cx(
                     "ml-2 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                    tone === "done" && "bg-success-secondary text-success-primary",
-                    tone === "todo" && "bg-brand-secondary text-brand-secondary",
+                    tone === "done" && "bg-utility-green-50 text-utility-green-700",
+                    tone === "todo" && "bg-utility-brand-50 text-utility-brand-700",
                     tone === "muted" && "text-quaternary",
                 )}
             >
@@ -2714,7 +2714,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                             className={cx(
                                                 "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition duration-100 ease-linear disabled:cursor-not-allowed disabled:opacity-50",
                                                 saveState === "error" || saveState === "conflict"
-                                                    ? "border-error bg-error-primary text-error-primary hover:bg-error-secondary"
+                                                    ? "border-error bg-error-primary text-error-primary hover:bg-utility-red-100"
                                                     : isLocked
                                                       ? "border-secondary bg-primary text-secondary hover:bg-tertiary hover:text-primary"
                                                       : "border-brand bg-brand-solid text-white hover:opacity-90",
@@ -3140,7 +3140,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             step.done
                                                                                 ? "bg-brand-solid text-white"
                                                                                 : isCurrent
-                                                                                  ? "bg-brand-secondary text-brand-secondary ring-2 ring-brand"
+                                                                                  ? "bg-utility-brand-50 text-utility-brand-700 ring-2 ring-brand"
                                                                                   : "bg-secondary text-quaternary",
                                                                         )}
                                                                     >
@@ -6828,7 +6828,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                         </div>
 
                         {masterDoc.missing.length > 0 && (
-                            <div className="mx-6 mt-4 rounded-lg bg-warning-secondary px-3 py-2 text-xs font-medium text-warning-primary">
+                            <div className="mx-6 mt-4 rounded-lg bg-utility-yellow-50 px-3 py-2 text-xs font-medium text-utility-yellow-700">
                                 Still empty: {masterDoc.missing.join(", ")} — marked “Not provided yet” below. Ask the client to fill these in.
                             </div>
                         )}

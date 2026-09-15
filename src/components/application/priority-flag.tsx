@@ -11,8 +11,8 @@ export type QuestionPriority = "high" | "medium" | "low";
 const NEXT: Record<string, QuestionPriority | undefined> = { none: "high", high: "medium", medium: "low", low: undefined };
 const LABEL: Record<QuestionPriority, string> = { high: "High", medium: "Medium", low: "Low" };
 const STYLES: Record<QuestionPriority, string> = {
-    high: "bg-error-secondary text-error-primary",
-    medium: "bg-warning-secondary text-warning-primary",
+    high: "bg-utility-red-50 text-utility-red-700",
+    medium: "bg-utility-yellow-50 text-utility-yellow-700",
     low: "bg-primary text-tertiary ring-1 ring-inset ring-secondary",
 };
 

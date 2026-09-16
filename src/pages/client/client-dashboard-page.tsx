@@ -1171,6 +1171,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         ),
     };
     const [overviewBusy, setOverviewBusy] = useState(false);
+    const [overviewStep, setOverviewStep] = useState("");
     const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
     const [overviewError, setOverviewError] = useState("");
 
@@ -1179,18 +1180,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      *
      * Runs on the server so the client's form answers are read with the service-role key
      * rather than re-fetched here, and so the Anthropic key stays off the browser. It
-     * returns the fields; nothing is saved until an AM saves the dashboard, which keeps a
-     * bad draft from silently replacing an AM's own notes.
+     * returns fields; nothing is saved until an AM saves the dashboard, which keeps a bad
+     * draft from silently replacing an AM's own notes.
+     *
+     * Five requests, one per OVERVIEW_SECTIONS group, run one at a time — the single call
+     * this used to be timed out on a real client (both forms plus recording transcripts is
+     * more than a synchronous Netlify function's ~10s budget), the same shape
+     * generate-master-section.mts split for the Master Brand Document. A group that fails
+     * (or times out) is skipped rather than losing the whole draft.
      */
     const generateOverview = async () => {
-        if (!slug || isTemplate) return;
+        if (!slug || isTemplate || overviewStep) return;
         setOverviewBusy(true);
         setOverviewError("");
-        try {
+
+        const run = async (group: string): Promise<Record<string, string>> => {
             const res = await fetch("/.netlify/functions/generate-overview", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ slug }),
+                body: JSON.stringify({ slug, group }),
             });
             /* Read as text and parse by hand. res.json() throws a raw
                "Unexpected end of JSON input" when the reply isn't JSON, and that string then
@@ -1198,7 +1206,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                happens are the local dev server, which serves no functions at all, and Netlify
                returning an HTML error page — so both get named instead. */
             const body = await res.text();
-            let json: { doc?: Partial<OverviewDoc>; error?: string } | null = null;
+            let json: { fields?: Record<string, string>; error?: string } | null = null;
             try {
                 json = body ? JSON.parse(body) : null;
             } catch {
@@ -1212,17 +1220,30 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 );
             }
             if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
-            patchOverviewDoc({
-                // Drop the model's empty strings — a field it couldn't source must not
-                // blank out something an AM already typed on screen.
-                ...(Object.fromEntries(Object.entries(json.doc as Partial<OverviewDoc>).filter(([, v]) => String(v ?? "").trim())) as Partial<OverviewDoc>),
-                generated_at: new Date().toISOString(),
-                generated_by: user?.email ?? "",
-            });
-        } catch (err) {
-            console.error("[overview doc] generation failed", err);
-            setOverviewError(err instanceof Error ? err.message : "Couldn't draft the document.");
+            return json.fields ?? {};
+        };
+
+        const failed: string[] = [];
+        try {
+            for (const s of OVERVIEW_SECTIONS) {
+                setOverviewStep(s.title);
+                try {
+                    const fields = await run(s.id);
+                    patchOverviewDoc({
+                        // Drop the model's empty strings — a field it couldn't source must
+                        // not blank out something an AM already typed on screen.
+                        ...(Object.fromEntries(Object.entries(fields).filter(([, v]) => String(v ?? "").trim())) as Partial<OverviewDoc>),
+                        generated_at: new Date().toISOString(),
+                        generated_by: user?.email ?? "",
+                    });
+                } catch (err) {
+                    console.error(`[overview doc] ${s.id} failed`, err);
+                    failed.push(s.title);
+                }
+            }
+            setOverviewError(failed.length ? `Couldn't draft: ${failed.join(", ")}. Everything else landed — try again for the rest.` : "");
         } finally {
+            setOverviewStep("");
             setOverviewBusy(false);
         }
     };
@@ -3923,7 +3944,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     showTextWhileLoading
                                                                     onClick={() => void generateOverview()}
                                                                 >
-                                                                    {overviewBusy ? "Reading their answers…" : "Draft from the onboarding form"}
+                                                                    {overviewStep ? `${overviewStep}…` : overviewBusy ? "Reading their answers…" : "Draft from the onboarding form"}
                                                                 </Button>
                                                             )}
                                                             <Button

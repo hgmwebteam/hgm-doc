@@ -357,7 +357,7 @@ const FUNCTIONS: { name: string; what: string }[] = [
         what: "Drafts Master Brand Document sections from the client's forms, website and pasted reviews — fills empty fields only.",
     },
     { name: "generate-brand-kit", what: "Drafts the Brand Kit (colours, fonts) from the client's website." },
-    { name: "generate-overview", what: "Drafts the team's Client Overview Document." },
+    { name: "generate-overview", what: "Drafts the team's Client Overview Document, one group of fields per call — the dashboard runs three." },
     { name: "generate-summary", what: "Transcribes call recordings (Deepgram) and summarises them (Claude) for /log-script." },
     { name: "ai-chat", what: "Answers questions in the dashboard's AI chat using that client's own content." },
     { name: "mark-booked", what: "Lets a client's browser tick exactly one journey step (kick-off call booked) — deliberately can't write anything else." },

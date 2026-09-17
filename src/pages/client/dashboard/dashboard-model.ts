@@ -445,7 +445,12 @@ export type SectionId =
     | "contentfolder"
     // The Website Setup Guide section: the required Netlify account and the AI website
     // opt-in. Kept as "ownerguide" so older #hash links and journey steps still land.
-    | "ownerguide";
+    | "ownerguide"
+    // The client help centre. A LINK OUT of the dashboard, like "contentfolder" - it is its
+    // own route (/{slug}/help) with its own server-side gate, not a section body on this
+    // page. It is here only so it can sit in the side menu and be numbered with everything
+    // else; there is no `help` case in the section renderer and there should not be one.
+    | "help";
 
 /**
  * What a client can see before an AM reveals anything.

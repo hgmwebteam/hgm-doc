@@ -28,7 +28,7 @@ const TYPE_META = {
 const withPlaceholders = (text: string): ReactNode =>
     text.split(/(\{\{[^}]+\}\})/g).map((part, i) =>
         /^\{\{[^}]+\}\}$/.test(part) ? (
-            <span key={i} className="rounded bg-warning-secondary px-1 text-warning-primary">
+            <span key={i} className="rounded bg-utility-yellow-50 px-1 text-utility-yellow-700">
                 {part}
             </span>
         ) : (

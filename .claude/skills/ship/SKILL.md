@@ -6,7 +6,7 @@ description: Build, commit, push, and confirm the Netlify production deploy for 
 # Ship
 
 End-to-end release for hgm-doc. The Netlify site is connected to the GitHub repo
-(`AnhTuan-hgm/hgm-doc`), so pushing the production branch auto-builds and deploys. Netlify runs the
+(`hgmwebteam/hgm-doc`), so pushing the production branch auto-builds and deploys. Netlify runs the
 build itself. The site serves at `hgmportal.com` (`docs-hgm.netlify.app` 301s there).
 
 `.github/workflows/ci.yml` also fires on that push but only type-checks (`npm run build`); it does

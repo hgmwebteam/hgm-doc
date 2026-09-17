@@ -49,7 +49,7 @@ function seed(): PageData {
             "The Master Brand Document is the eleven-section, ~66-field brand document in the Brand Foundation group of every client dashboard. " +
             "It's the single source the Welcome Emails, chat widget and every future AI feature read from, so the goal is to get it complete with as little AM typing as possible. " +
             "Three team-only buttons sit on its header: \"Draft from forms & website\" (AI-drafts the document from the client's own material), \"Generate for AM review\" (compiles the answers into one readable document, with .md and PDF export), and \"Copy document\" (copies the compiled document as rich text, so pasting into a Google Doc gives real headings). " +
-            "The document lives inside the dashboard's row in dashboard_pages (Supabase); drafting runs through the Netlify function generate-master-section using Claude (Opus 5).",
+            "The document lives inside the dashboard's row in dashboard_pages (Supabase); drafting runs through the Netlify function generate-master-section using Claude (Fable 5).",
         milestones: [
             { id: uid(), label: "M1 · Eleven-section document live on every dashboard — completion model, AM review modal, PDF export", status: "done" },
             { id: uid(), label: "M2 · Auto-draft from the client's own material — the seven-call pipeline with live progress", status: "done" },
@@ -508,7 +508,7 @@ export const MasterDocumentLogScreen = () => {
                         <div className="mt-4 grid gap-3 sm:grid-cols-3">
                             {[
                                 ["Lives on", "Every client dashboard"],
-                                ["Drafted by", "Claude (Opus 5) via Netlify functions"],
+                                ["Drafted by", "Claude (Fable 5) via Netlify functions"],
                                 ["Saved to", "dashboard_pages (Supabase)"],
                             ].map(([k, v]) => (
                                 <div key={k} className="rounded-xl bg-primary px-4 py-3 ring-1 ring-secondary">

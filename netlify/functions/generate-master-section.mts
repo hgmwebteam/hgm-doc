@@ -36,7 +36,7 @@ import {
  * reviews everything before Save changes.
  */
 
-const MODEL = "claude-opus-5";
+const MODEL = "claude-fable-5";
 
 /* ── the field groups ────────────────────────────────────────────────────── */
 

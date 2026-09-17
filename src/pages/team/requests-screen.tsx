@@ -70,7 +70,7 @@ const RequestCard = ({ req, index, onDelete, onToggleDone }: {
                         {pm?.label ?? req.priority}
                     </span>
                     <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-tertiary">{requestForLabel(req.request_for)}</span>
-                    {done && <span className="rounded-md bg-success-secondary px-2 py-0.5 text-xs font-semibold text-success-primary">Done</span>}
+                    {done && <span className="rounded-md bg-utility-green-50 px-2 py-0.5 text-xs font-semibold text-utility-green-700">Done</span>}
                 </div>
                 <h3 className={cx("mt-1.5 text-sm font-semibold text-primary", done && "line-through")}>{req.title}</h3>
                 {req.details && <p className="mt-1 text-sm text-secondary">{req.details}</p>}

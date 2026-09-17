@@ -233,7 +233,7 @@ export const AliciaFeedbackScreen = () => {
                         <div className="mx-auto flex max-w-[840px] flex-col gap-8 px-6 py-10 pb-24 md:px-10">
                             <div>
                                 <div className="flex items-center gap-3">
-                                    <span className="flex size-11 items-center justify-center rounded-xl bg-brand-secondary text-brand-secondary">
+                                    <span className="flex size-11 items-center justify-center rounded-xl bg-utility-brand-50 text-utility-brand-700">
                                         <MessageSmileCircle className="size-5" aria-hidden="true" />
                                     </span>
                                     <div className="min-w-0">

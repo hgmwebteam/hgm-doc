@@ -111,7 +111,7 @@ export default async (req: Request) => {
     try {
         for (let round = 0; round < 3; round++) {
             const response = await anthropic.messages.create({
-                model: "claude-opus-4-8",
+                model: "claude-fable-5",
                 max_tokens: 1024,
                 system: SYSTEM_PROMPT,
                 tools: [SEARCH_TOOL],

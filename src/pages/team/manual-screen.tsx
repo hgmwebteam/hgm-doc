@@ -328,6 +328,10 @@ const TABLES: { group: string; rows: { name: string; what: string }[] }[] = [
             { name: "welcome_flows + flow_comments", what: "Welcome email flows per client, plus the comment threads on them." },
             { name: "email_wf_emails", what: "Finished welcome emails from the email pipeline (Pooja), matched to a flow by client name — read-only here." },
             { name: "script_logs", what: "Call-recording transcriptions from /log-script (team-only by policy) — transcripts feed Master Brand drafts." },
+            {
+                name: "dashboard_updates",
+                what: "Who changed what on which client dashboard, one row per save (team-only by policy) — the feed at /log. Section and field names only; never values.",
+            },
             { name: "docs_requests", what: "Feature requests and bug reports filed on /requests." },
             {
                 name: "overview_cards / overview_tabs / template_docs / prompt_library",
@@ -400,6 +404,7 @@ const LINK_GROUPS: { group: string; links: { to: string; what: string }[] }[] = 
             { to: "/deployment", what: "Every production deploy, what failed, what fixed it" },
             { to: "/fix", what: "Open-incident record (currently: the Google Safe Browsing flag)" },
             { to: "/master-document-log", what: "Master Brand Document change log" },
+            { to: "/log", what: "Dashboard updates — who changed what on which client dashboard, written automatically as people save" },
             { to: "/log-script", what: "Call-recording transcription — feeds the Master Brand drafts" },
             { to: "/designsystem", what: "The Untitled UI component reference for this site" },
             {

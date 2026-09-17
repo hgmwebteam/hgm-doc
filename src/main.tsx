@@ -32,6 +32,7 @@ import { DesignSystemScreen } from "@/pages/team/design-system-screen";
 import { EmailPreviewScreen } from "@/pages/team/email-preview-screen";
 import { HomeScreen } from "@/pages/team/home-screen";
 import { HomeTwoScreen } from "@/pages/team/home-two-screen";
+import { LogScreen } from "@/pages/team/log-screen";
 import { LogScriptScreen } from "@/pages/team/log-script-screen";
 import { ManualScreen } from "@/pages/team/manual-screen";
 import { MockupIgScreen } from "@/pages/team/mockup-ig/mockup-ig-screen";
@@ -77,6 +78,7 @@ const PAGES_WITHOUT_FLOATING_CHROME = [
     "/questions",
     "/deployment",
     "/log-script",
+    "/log",
     "/fix",
     "/manual",
     "/alicia-feedback",
@@ -228,6 +230,9 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/mockup" element={<MockupScreen />} />
                         <Route path="/background" element={<BackgroundScreen />} />
                         <Route path="/log-script" element={<LogScriptScreen />} />
+                        {/* Who changed what on which client dashboard. Team-only by RLS; the
+                            page gates on sign-in before it reads. */}
+                        <Route path="/log" element={<LogScreen />} />
                         <Route path="/chat-widget" element={<ChatWidgetScreen isTemplate />} />
                         <Route path="/chat-widget-overview" element={<ChatWidgetOverviewScreen />} />
                         <Route path="/client-dashboard-overview" element={<ClientDashboardOverviewScreen />} />

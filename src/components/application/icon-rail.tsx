@@ -171,8 +171,13 @@ export const HeaderBell = () => {
  * Bottom controls for the icon rail: an edit lock toggle and a light/dark theme
  * toggle. Shared so every internal team page (dashboard, web team) renders the
  * same chrome. Pass it to <IconRail bottom={...} />.
+ *
+ * The lock is optional. A read-only page (the /log feed) still needs the theme
+ * toggle and Help down here — it's in PAGES_WITHOUT_FLOATING_CHROME like every
+ * other rail page, so without them there'd be no way to switch theme at all —
+ * but a lock button there would promise an edit mode that doesn't exist.
  */
-export const RailBottom = ({ editing, onToggleEditing }: { editing: boolean; onToggleEditing: () => void }) => {
+export const RailBottom = ({ editing, onToggleEditing }: { editing?: boolean; onToggleEditing?: () => void }) => {
     const { theme, setTheme } = useTheme();
     const isDark =
         theme === "dark" ||
@@ -180,20 +185,22 @@ export const RailBottom = ({ editing, onToggleEditing }: { editing: boolean; onT
 
     return (
         <>
-            {/* Lock / unlock (edit mode) */}
-            <button
-                type="button"
-                onClick={onToggleEditing}
-                title={editing ? "Lock editing" : "Unlock editing"}
-                className={cx(
-                    "mb-2 flex size-10 items-center justify-center rounded-full border transition duration-100 ease-linear",
-                    editing
-                        ? "border-brand bg-brand-solid text-white hover:opacity-90"
-                        : "border-secondary bg-primary text-secondary hover:bg-tertiary hover:text-primary",
-                )}
-            >
-                {editing ? <LockUnlocked01 className="size-[18px]" /> : <Lock01 className="size-[18px]" />}
-            </button>
+            {/* Lock / unlock (edit mode) — omitted on pages that have nothing to edit. */}
+            {onToggleEditing && (
+                <button
+                    type="button"
+                    onClick={onToggleEditing}
+                    title={editing ? "Lock editing" : "Unlock editing"}
+                    className={cx(
+                        "mb-2 flex size-10 items-center justify-center rounded-full border transition duration-100 ease-linear",
+                        editing
+                            ? "border-brand bg-brand-solid text-white hover:opacity-90"
+                            : "border-secondary bg-primary text-secondary hover:bg-tertiary hover:text-primary",
+                    )}
+                >
+                    {editing ? <LockUnlocked01 className="size-[18px]" /> : <Lock01 className="size-[18px]" />}
+                </button>
+            )}
 
             {/* Theme toggle */}
             <button

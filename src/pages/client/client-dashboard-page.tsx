@@ -151,6 +151,7 @@ import {
     REVIEW_WORKING_PROMPT,
     compileMasterDocument,
     foundationProgress,
+    masterDocumentHtml,
 } from "@/pages/client/dashboard/master-brand-document";
 import { DocField, DocRail, DocSection, DocStat, FavoriteTable, SourceBadge, WorkflowBadge } from "@/pages/client/dashboard/master-brand-fields";
 import { OnboardingAnswers } from "@/pages/client/dashboard/onboarding-answers";
@@ -1723,12 +1724,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      */
     const copyMasterDocForDocs = async () => {
         const compiled = compileMasterDocument(clientName, clientWebsite, foundation);
-        const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const html = [
-            `<h1>Master Brand Document — ${esc(clientName.trim() || "Client")}</h1>`,
-            `<p>${esc([clientWebsite.trim() && `Website: ${clientWebsite.trim()}`, `Generated: ${compiled.generatedOn}`].filter(Boolean).join("  ·  "))}</p>`,
-            ...compiled.sections.map((s, i) => `<h2>${i + 1}. ${esc(s.label)}</h2><p>${esc(s.value.trim() || "Not provided yet.").replace(/\n/g, "<br>")}</p>`),
-        ].join("");
+        const html = masterDocumentHtml(clientName, clientWebsite, foundation, compiled.generatedOn);
         try {
             await navigator.clipboard.write([
                 new ClipboardItem({

@@ -23,6 +23,11 @@
 # never here or in .env.local.
 [functions]
   directory = "netlify/functions"
+  # @1password/sdk ships its core as a .wasm file next to the JS. Netlify's esbuild
+  # bundler inlines JS but does not carry that .wasm along, so the bundled function
+  # throws on first call. Marking the packages external ships their node_modules
+  # directories as-is, .wasm included.
+  external_node_modules = ["@1password/sdk", "@1password/sdk-core"]
 
 # `netlify dev` proxies the Vite dev server so functions work locally too.
 [dev]

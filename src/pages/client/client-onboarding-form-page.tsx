@@ -49,7 +49,8 @@ type Question = {
     email?: boolean;
     /** Shows a PDF-upload button under the field; the file's public URL is appended to the answer. */
     upload?: boolean;
-    /** Renders two inputs (username + password, stored as {field}__user / {field}__pass) plus a trust note. */
+    /** Renders two inputs: username (stored as {field}__user) and password (held in
+        component state only and posted to 1Password on submit — never stored). */
     credentials?: boolean;
     /** How this login reads inside the "Worth having on hand" sentence. The field label is a
         heading ("Domain Host"), which is not how it reads mid-sentence; set this to override
@@ -406,8 +407,26 @@ export interface ClientOnboardingData {
     lastField?: string;
 }
 
+/**
+ * Passwords are never part of the stored draft (see `secrets` in the form component and
+ * netlify/functions/onboarding-credentials.mts). Rows written before that was true still
+ * carry a plaintext `__pass`, so it is dropped here on the way in: the next autosave then
+ * writes the row back without it, and the old value is gone the first time a client opens
+ * their form. Nothing reads `__pass` any more, so this only ever removes dead weight.
+ */
+const stripStoredSecrets = (answers: Record<string, string>): Record<string, string> =>
+    Object.fromEntries(Object.entries(answers).filter(([k]) => !k.endsWith("__pass")));
+
+/**
+ * Passwords, keyed by question field. Held in React state for the life of the tab and
+ * posted to 1Password on submit — never autosaved, never in `ClientOnboardingData`, never
+ * in Supabase. A client who closes the tab half-way retypes them; that is the cost of
+ * them not sitting in a world-readable row, and it is worth it.
+ */
+type Secrets = Record<string, string>;
+
 const mergeData = (partial?: Partial<ClientOnboardingData> | null): ClientOnboardingData => ({
-    answers: { ...(partial?.answers ?? {}) },
+    answers: stripStoredSecrets({ ...(partial?.answers ?? {}) }),
     submittedAt: partial?.submittedAt,
     lastField: partial?.lastField,
 });
@@ -422,11 +441,7 @@ const hasMedia = (q: Question, data: ClientOnboardingData) => !!(data.answers[`$
 
 const isAnswered = (q: Question, data: ClientOnboardingData) =>
     q.credentials
-        ? !!(
-              (data.answers[`${q.field}__user`] ?? "").trim() ||
-              (data.answers[`${q.field}__pass`] ?? "").trim() ||
-              (q.platform && (data.answers[q.platform.field] ?? "").trim())
-          )
+        ? !!((data.answers[`${q.field}__user`] ?? "").trim() || (q.platform && (data.answers[q.platform.field] ?? "").trim()))
         : !!(data.answers[q.field] ?? "").trim() || hasMedia(q, data);
 
 const DEFAULT_DATA: ClientOnboardingData = { answers: {} };
@@ -476,11 +491,11 @@ export const clientOnboardingAnswers = (partial?: Partial<ClientOnboardingData> 
                 const platform = q.platform ? (data.answers[q.platform.field] ?? "").trim() : "";
                 const handle = (data.answers[`${q.field}__handle`] ?? "").trim();
                 const user = (data.answers[`${q.field}__user`] ?? "").trim();
-                const pass = (data.answers[`${q.field}__pass`] ?? "").trim();
+                const inVault = (data.answers[`${q.field}__op`] ?? "").trim();
                 if (platform) lines.push({ text: platform });
                 if (handle) lines.push({ text: `Handle: ${handle}` });
                 if (user) lines.push({ text: `Username: ${user}` });
-                if (pass) lines.push({ text: pass, secret: true });
+                if (inVault) lines.push({ text: "Password in 1Password", secret: true });
             } else {
                 const v = (data.answers[q.field] ?? "").trim();
                 if (v) v.split("\n").forEach((t) => lines.push({ text: t }));
@@ -537,7 +552,7 @@ export const ensureClientOnboardingForm = async (args: {
     }
 };
 
-function validateStep(step: Step, data: ClientOnboardingData): string | null {
+function validateStep(step: Step, data: ClientOnboardingData, secrets: Secrets): string | null {
     if (step.kind !== "question") return null;
     if (step.q.credentials) {
         if (!step.q.required) return null;
@@ -545,8 +560,10 @@ function validateStep(step: Step, data: ClientOnboardingData): string | null {
         // question before the merge, so it stays required here.
         if (step.q.platform && !(data.answers[step.q.platform.field] ?? "").trim()) return "Please pick one";
         const user = (data.answers[`${step.q.field}__user`] ?? "").trim();
-        const pass = (data.answers[`${step.q.field}__pass`] ?? "").trim();
-        if (!user || !pass) return "Please fill in both the username and password";
+        const pass = (secrets[step.q.field] ?? "").trim();
+        const alreadySaved = !!(data.answers[`${step.q.field}__op`] ?? "").trim();
+        if (!user) return "Please fill in both the username and password";
+        if (!pass && !alreadySaved) return "Please fill in both the username and password";
         return null;
     }
     const v = (data.answers[step.q.field] ?? "").trim();
@@ -814,6 +831,7 @@ const CredentialsQuestion = ({
     handleValue,
     platformValue,
     onChange,
+    onSecret,
 }: {
     q: Question;
     user: string;
@@ -821,6 +839,7 @@ const CredentialsQuestion = ({
     handleValue: string;
     platformValue: string;
     onChange: (field: string, value: string) => void;
+    onSecret: (field: string, value: string) => void;
 }) => {
     const cls = cx(underlineCls, "mt-2 text-xl font-medium md:text-display-xs");
     return (
@@ -852,7 +871,7 @@ const CredentialsQuestion = ({
             </label>
             <label className="block">
                 <span className="text-xs font-semibold tracking-wide text-quaternary uppercase">Password</span>
-                <input type="text" placeholder="Password" value={pass} onChange={(e) => onChange(`${q.field}__pass`, e.target.value)} className={cls} />
+                <input type="password" placeholder="Password" value={pass} onChange={(e) => onSecret(q.field, e.target.value)} className={cls} />
             </label>
             <SafeNote />
         </div>
@@ -943,7 +962,7 @@ const ReviewScreen = ({
                                     ? [
                                           q.platform && (data.answers[q.platform.field] ?? "").trim() && (data.answers[q.platform.field] ?? "").trim(),
                                           (data.answers[`${q.field}__user`] ?? "").trim() && `Username: ${(data.answers[`${q.field}__user`] ?? "").trim()}`,
-                                          (data.answers[`${q.field}__pass`] ?? "").trim() && `Password: ${(data.answers[`${q.field}__pass`] ?? "").trim()}`,
+                                          (data.answers[`${q.field}__op`] ?? "").trim() && "Password saved to 1Password",
                                       ]
                                           .filter(Boolean)
                                           .join("\n")
@@ -1066,6 +1085,13 @@ export const ClientOnboardingFormPage = ({
         setData((d) => ({ ...d, answers: { ...d.answers, [field]: value } }));
     };
 
+    /* Deliberately NOT in `data`: nothing here is ever autosaved. */
+    const [secrets, setSecrets] = useState<Secrets>({});
+    const onSecret = (field: string, value: string) => {
+        setError(null);
+        setSecrets((sc) => ({ ...sc, [field]: value }));
+    };
+
     /* Brand-kit PDF upload — file goes to the public "brandkits" bucket; only its
        URL is appended to the answer text (never base64 in the row). */
     const brandKitFileRef = useRef<HTMLInputElement>(null);
@@ -1125,7 +1151,7 @@ export const ClientOnboardingFormPage = ({
 
     /** Save & close: validate this question like OK does, flush, then hand back. */
     const saveAndClose = async () => {
-        const msg = validateStep(step, data);
+        const msg = validateStep(step, data, secrets);
         if (msg) {
             setError((er) => ({ msg, nonce: (er?.nonce ?? 0) + 1 }));
             return;
@@ -1142,7 +1168,7 @@ export const ClientOnboardingFormPage = ({
 
     const goNext = () => {
         if (step.kind === "thankyou") return;
-        const msg = validateStep(step, data);
+        const msg = validateStep(step, data, secrets);
         if (msg) {
             setError((er) => ({ msg, nonce: (er?.nonce ?? 0) + 1 }));
             return;
@@ -1179,7 +1205,7 @@ export const ClientOnboardingFormPage = ({
     const handleSubmit = async () => {
         if (submitState === "saving") return;
         for (let i = 0; i < STEPS.length; i++) {
-            const msg = validateStep(STEPS[i], data);
+            const msg = validateStep(STEPS[i], data, secrets);
             if (msg) {
                 setStep([i, -1]);
                 setError((er) => ({ msg, nonce: (er?.nonce ?? 0) + 1 }));
@@ -1187,11 +1213,36 @@ export const ClientOnboardingFormPage = ({
             }
         }
         const submittedAt = new Date().toISOString();
+        let next = data;
+        let opMarkers: Record<string, string> = {};
         if (slug) {
             setSubmitState("saving");
+
+            /* Passwords first, and to 1Password rather than to the row. Only what comes
+               back as written is marked, and a failure returns WITHOUT submitting, so the
+               passwords stay in memory and the client can press Submit again — they are
+               nowhere else, so losing them here would mean retyping the whole section. */
+            const typed = Object.fromEntries(Object.entries(secrets).filter(([, v]) => v.trim()));
+            if (Object.keys(typed).length) {
+                try {
+                    const res = await fetch("/.netlify/functions/onboarding-credentials", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ slug, secrets: typed }),
+                    });
+                    if (!res.ok) throw new Error(String(res.status));
+                    opMarkers = Object.fromEntries(Object.keys(typed).map((f) => [`${f}__op`, "saved"]));
+                    next = { ...next, answers: { ...next.answers, ...opMarkers } };
+                } catch {
+                    setSubmitState("error");
+                    setError((er) => ({ msg: "Couldn't save your logins securely — please try again.", nonce: (er?.nonce ?? 0) + 1 }));
+                    return;
+                }
+            }
+
             const { error: dbError } = await supabase
                 .from("client_onboarding_pages")
-                .update({ data: { ...data, submittedAt } })
+                .update({ data: { ...next, submittedAt } })
                 .eq("slug", slug);
             if (dbError) {
                 console.error("[client onboarding submit]", dbError);
@@ -1201,7 +1252,10 @@ export const ClientOnboardingFormPage = ({
         }
         setSubmitState("idle");
         setError(null);
-        setData((d) => ({ ...d, submittedAt }));
+        /* Out of memory now they are in the vault: the review screen shows that they were
+           saved, never the values. */
+        setSecrets({});
+        setData((d) => ({ ...d, answers: { ...d.answers, ...opMarkers }, submittedAt }));
         setStep([THANKYOU_INDEX, 1]);
         // Land on the answers review right after submitting.
         setEditingFromReview(false);
@@ -1221,7 +1275,7 @@ export const ClientOnboardingFormPage = ({
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stepIndex, data, showReview, editingFromReview, submitState]);
+    }, [stepIndex, data, secrets, showReview, editingFromReview, submitState]);
 
     const progressPct = showReview ? 100 : step.kind === "welcome" ? 0 : step.kind === "question" ? (step.num / TOTAL_QUESTIONS) * 100 : 100;
 
@@ -1389,10 +1443,11 @@ export const ClientOnboardingFormPage = ({
                                         <CredentialsQuestion
                                             q={step.q}
                                             user={data.answers[`${step.q.field}__user`] ?? ""}
-                                            pass={data.answers[`${step.q.field}__pass`] ?? ""}
+                                            pass={secrets[step.q.field] ?? ""}
                                             handleValue={data.answers[`${step.q.field}__handle`] ?? ""}
                                             platformValue={step.q.platform ? (data.answers[step.q.platform.field] ?? "") : ""}
                                             onChange={onText}
+                                            onSecret={onSecret}
                                         />
                                     ) : step.q.list ? (
                                         <ListQuestion q={step.q} value={data.answers[step.q.field] ?? ""} onChange={onText} />

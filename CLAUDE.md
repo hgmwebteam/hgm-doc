@@ -155,6 +155,20 @@ PDF to storage and sends only its path; never POST the file itself, since Netlif
 body cap is far smaller than a real brand guide. Like `generate-overview.mts`, it RETURNS
 the draft for the AM to review rather than writing it.
 
+The Onboarding Form's Account Setup logins do **not** live in Supabase. The form holds
+each password in component state only (`Secrets` in `client-onboarding-form-page.tsx`,
+never autosaved) and posts them on submit to `onboarding-credentials.mts`, which writes
+them into the client's own 1Password vault via `netlify/lib/onepassword.mts`; the row
+keeps the username, @handle and platform plus a `{field}__op` marker, and `mergeData`
+strips any legacy plaintext `__pass` on read. Netlify needs `OP_SERVICE_ACCOUNT_TOKEN`
+and `OP_TEAM_GROUP_ID` (Site settings → Environment variables, never `netlify.toml`).
+
+**Never create a client's 1Password vault by hand.** A service account can only manage
+permissions for vaults it created itself, and its own vault access is fixed at creation —
+so a hand-made vault is permanently unreachable from the portal, and the code will make a
+second one beside it. The service account must also be created _with_ permission to
+create vaults; that cannot be added afterwards.
+
 `client-dashboard-page.tsx` itself is still ~4,700 lines of one component. That
 body has not been split — doing so needs real prop-threading, so treat it as a
 deliberate separate change rather than something to start mid-task.

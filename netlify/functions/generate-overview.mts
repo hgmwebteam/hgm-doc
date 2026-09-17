@@ -117,7 +117,19 @@ A key ending in "__user" is the account NAME the client uses on that platform �
 const explain = (err: unknown): string => {
     if (err instanceof Anthropic.AuthenticationError) return "Anthropic rejected our API key — the web team needs to check ANTHROPIC_API_KEY in Netlify.";
     if (err instanceof Anthropic.RateLimitError) return "Anthropic is rate-limiting us right now — wait a minute and try again.";
-    if (err instanceof Anthropic.APIError) return `Anthropic returned ${err.status ?? "an error"}: ${String(err.message).slice(0, 300)}`;
+    if (err instanceof Anthropic.APIError) {
+        /* err.message on a 4xx is the whole response body, braces and request id included.
+           The parsed body carries the same sentence on its own, so prefer it — the first real
+           failure this reported put 200 characters of raw JSON in front of an AM. */
+        const body = err.error as { error?: { message?: string } } | undefined;
+        const detail = String(body?.error?.message ?? err.message).slice(0, 300);
+        // Worth naming, because it is the one API failure the web team fixes somewhere else
+        // entirely and no amount of retrying or redeploying touches.
+        if (/credit balance is too low/i.test(detail)) {
+            return "The Anthropic account is out of credits — top it up under Plans & Billing at console.anthropic.com, then try again.";
+        }
+        return `Anthropic returned ${err.status ?? "an error"}: ${detail}`;
+    }
     if (err instanceof Error) return err.message.slice(0, 300);
     return "Couldn't draft this part — try again in a moment.";
 };

@@ -22,8 +22,8 @@ import {
  * GROUPED, for the same reason the Master Document is (see generate-master-section.mts). The
  * original shape here was one call for all twenty fields, with a comment claiming it "fits a
  * regular function's ~10s budget". It does not: twenty fields of prose is more output than
- * any single Master Document group, Opus 5 runs adaptive thinking by default on top of that,
- * and a regular Netlify function is killed at ~10 seconds. The call ran long every time and
+ * any single Master Document group, the model thinks before it answers on top of that, and a
+ * regular Netlify function is killed at ~10 seconds. The call ran long every time and
  * the AM got a retry message that retrying could never fix.
  *
  * So the work is cut into three groups the dashboard loops. `basics` is near-pure extraction
@@ -67,9 +67,11 @@ const FIELDS: Record<string, string> = {
 /**
  * The three groups, and their budgets.
  *
- * `maxTokens` has to cover thinking as well as the answer — on Opus 5 adaptive thinking is
- * on unless you turn it off, and it spends from the same allowance. These are sized like the
- * Master Document's groups: generous enough that the tool call can't be cut off mid-field.
+ * `maxTokens` has to cover thinking as well as the answer — Fable 5 always thinks, with no
+ * way to turn it off, and it spends from the same allowance. These are sized like the Master
+ * Document's groups: generous enough that the tool call can't be cut off mid-field. Effort is
+ * the only lever left, so a group that starts reporting "ran past its token budget" wants a
+ * bigger allowance here rather than a retry.
  */
 type Effort = "low" | "medium";
 const GROUPS: Record<string, { keys: string[]; maxTokens: number; effort: Effort; instruction: string }> = {

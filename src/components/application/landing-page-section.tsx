@@ -4,6 +4,7 @@ import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { supabase } from "@/lib/supabase";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
 import { uid } from "@/pages/client/dashboard/dashboard-model";
 import { cx } from "@/utils/cx";
 
@@ -21,6 +22,12 @@ import { cx } from "@/utils/cx";
  * The client is `anon` to Supabase, so Approve / Request changes go through
  * landing-page-review.mts instead, which checks the caller's email against the
  * dashboard's allowed_emails on every call — same shape as the suggestion flow.
+ *
+ * Alongside that decision sits the shared client feedback box (client-feedback.tsx, also
+ * used by the Welcome Email Flow). The two are not the same channel: Approve / Request
+ * changes is a verdict that closes — after approving, a client had no way to say anything
+ * more — while the box is open-ended and stays available either side of it. Its notes ride
+ * dashboard_suggestions under "landingPage.all", not landing_pages.review.
  *
  * Deliberately NOT wired into JOURNEY_STEPS this pass: the review state lives here,
  * ready for a future step to read, but adding one touches the Overview page's own large
@@ -163,6 +170,7 @@ export const LandingPageSection = ({
     isTemplate,
     teamName,
     clientEmail,
+    feedback,
 }: {
     slug?: string;
     clientName: string;
@@ -174,6 +182,8 @@ export const LandingPageSection = ({
     /** The client's own identity email (see identityEmail in client-dashboard-page.tsx).
      *  Empty for team / an anonymous unlock, in which case Approve / Request changes stay hidden. */
     clientEmail: string;
+    /** Open-ended feedback wiring — omit (or mode "off") and no feedback box is shown. */
+    feedback?: ClientFeedbackProps;
 }) => {
     const [data, setData] = useState<LandingPageData>(EMPTY_DATA);
     const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
@@ -837,6 +847,10 @@ export const LandingPageSection = ({
                             <p className="text-sm text-quaternary">The client can approve this from their own dashboard, or ask for changes.</p>
                         </div>
                     </div>
+
+                    {/* Open feedback notes — separate from the verdict above, and they can
+                        arrive after an approval, so they are listed whatever the review says. */}
+                    {feedback && <ClientFeedbackReview feedback={feedback} />}
                 </div>
             )}
 
@@ -916,6 +930,15 @@ export const LandingPageSection = ({
                     {!clientEmail && data.review.status === "pending" && (
                         <p className="px-6 pb-5 text-sm text-quaternary">Sign in with your own email to approve or request changes.</p>
                     )}
+                </div>
+            )}
+
+            {/* Open-ended feedback — deliberately outside the card above, because it is not
+                part of the verdict: it is here before a client decides and still here after
+                they have approved, which is when they used to be left with nowhere to write. */}
+            {!isTeam && live && feedback && (
+                <div className="mt-4">
+                    <ClientFeedbackBox feedback={feedback} placeholder="Your feedback on the landing page…" rows={5} />
                 </div>
             )}
         </div>

@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { isFlowFeedbackKey } from "@/pages/client/dashboard/suggestions-model";
+import { isFlowFeedbackKey, isLandingFeedbackKey } from "@/pages/client/dashboard/suggestions-model";
 
 /**
  * Attention feed for the header notification bell (icon-rail.tsx HeaderBell).
@@ -90,12 +90,14 @@ export async function fetchAttentionItems(): Promise<AttentionItem[]> {
         }
     }
 
-    // 4) Client suggestions awaiting review — document edits and welcome-email feedback
-    //    share a table but are different jobs, so they get separate lines.
+    // 4) Client suggestions awaiting review — document edits, welcome-email feedback and
+    //    landing-page feedback share a table but are different jobs, and each is read and
+    //    closed in a different section, so they get separate lines.
     if (!suggestionsRes.error && suggestionsRes.data && suggestionsRes.data.length > 0) {
         const rows = suggestionsRes.data as { slug: string; field_key: string }[];
-        const edits = rows.filter((r) => !isFlowFeedbackKey(r.field_key));
+        const edits = rows.filter((r) => !isFlowFeedbackKey(r.field_key) && !isLandingFeedbackKey(r.field_key));
         const notes = rows.filter((r) => isFlowFeedbackKey(r.field_key));
+        const landingNotes = rows.filter((r) => isLandingFeedbackKey(r.field_key));
         const dashboards = (list: { slug: string }[]) => {
             const slugs = [...new Set(list.map((r) => r.slug))];
             return { slugs, label: `${slugs.length} dashboard${slugs.length === 1 ? "" : "s"}` };
@@ -118,6 +120,16 @@ export async function fetchAttentionItems(): Promise<AttentionItem[]> {
                 title: `${notes.length} client comment${notes.length === 1 ? "" : "s"} on welcome emails`,
                 description: `On ${label} — read and mark done in the Welcome Email Flow`,
                 to: slugs.length === 1 ? `/${slugs[0]}#flow` : "/dashboard?dept=clients",
+            });
+        }
+        if (landingNotes.length > 0) {
+            const { slugs, label } = dashboards(landingNotes);
+            items.push({
+                id: "landing-feedback",
+                kind: "suggestions",
+                title: `${landingNotes.length} client comment${landingNotes.length === 1 ? "" : "s"} on landing pages`,
+                description: `On ${label} — read and mark done in the Landing page section`,
+                to: slugs.length === 1 ? `/${slugs[0]}#landing` : "/dashboard?dept=clients",
             });
         }
     }

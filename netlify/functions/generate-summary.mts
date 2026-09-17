@@ -26,7 +26,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export const config = { background: true };
 
-const MODEL = "claude-opus-5";
+const MODEL = "claude-fable-5";
 
 /** Forcing a tool call is how the output shape is guaranteed. Free-text asking for
  *  "JSON please" gets prose wrapped around it often enough to matter, and this is

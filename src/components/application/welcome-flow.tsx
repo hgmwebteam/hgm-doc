@@ -1,9 +1,10 @@
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy01, Image01, Mail01, Monitor01, Phone01, SearchSm, Settings01, XClose } from "@untitledui/icons";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Image01, Mail01, Monitor01, Phone01, RefreshCw01, SearchSm, Settings01, XClose } from "@untitledui/icons";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/base/buttons/button";
 import { supabase } from "@/lib/supabase";
-import { type Suggestion, flowFeedbackSlot } from "@/pages/client/dashboard/suggestions-model";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
+import { flowFeedbackSlot } from "@/pages/client/dashboard/suggestions-model";
 import { cx } from "@/utils/cx";
 
 /**
@@ -546,30 +547,8 @@ const NEW_ITEMS: Record<string, () => unknown> = {
 
 /* ── Client feedback ─────────────────────────────────────────────── */
 
-/**
- * What the dashboard page hands this section so a client can comment on an email and
- * the team can read and close the comment. Rows are dashboard_suggestions entries
- * keyed "welcomeFlow.{slot}" (see suggestions-model.ts); the page owns the fetching
- * and every write, this section only renders and calls back.
- */
-export interface FlowFeedbackProps {
-    /** "client" = may send; "review" = team reads and resolves; "off" = nothing shown. */
-    mode: "off" | "client" | "review";
-    /** Every feedback row for this dashboard, newest first, pending and resolved alike. */
-    items: Suggestion[];
-    /** The address a new comment is stamped with; empty means the viewer can't send. */
-    author: string;
-    /** Sends (or replaces) the author's one note on the flow. */
-    send: (text: string) => Promise<void>;
-    withdraw: (s: Suggestion) => Promise<void>;
-    /** "accepted" reads as done, "declined" as dismissed — nothing is applied anywhere. */
-    resolve: (s: Suggestion, status: "accepted" | "declined") => Promise<void>;
-}
-
-const shortDate = (iso: string) => {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-};
+/** Client feedback wiring — now shared with the Landing page, see client-feedback.tsx. */
+export type FlowFeedbackProps = ClientFeedbackProps;
 
 /** The two previews, in display order — mobile first. */
 const DEVICES = [
@@ -613,15 +592,14 @@ export const WelcomeFlowSection = ({
     clientName: string;
     isLocked: boolean;
     isTemplate: boolean;
-    /** A signed-in team member is looking — shows the GoHighLevel toolbar and internal
-     *  wording. A client never sees "Copy HTML for GHL" or where an email came from. */
+    /** A signed-in team member is looking — shows the source toolbar and internal
+     *  wording. A client never sees where an email came from. */
     isTeam?: boolean;
     /** Client feedback wiring — omit (or mode "off") and the section shows no feedback UI. */
     feedback?: FlowFeedbackProps;
 }) => {
     const [flow, setFlow] = useState<WelcomeFlowData>(() => seedFlow(clientName));
     const [tab, setTab] = useState(0);
-    const [copied, setCopied] = useState(false);
     const [penPop, setPenPop] = useState<PenState | null>(null);
     const [brandOpen, setBrandOpen] = useState(false);
     // GHL Media Library picker — images arrive via the ghl-media Edge Function
@@ -679,27 +657,68 @@ export const WelcomeFlowSection = ({
      *  Matched by client name (case-insensitive) because her table has no dashboard
      *  slug. Rows arrive oldest-first so a regenerated email replaces the earlier one. */
     const [dbEmails, setDbEmails] = useState<Record<number, { html: string; subject: string; preview: string }>>({});
-    useEffect(() => {
-        const name = clientName.trim();
-        if (!name || isTemplate) return;
-        supabase
-            .from("email_wf_emails")
-            .select("position, week, subject_line, preview_text, rendered_html")
-            .ilike("client_name", name)
-            .order("updated_at", { ascending: true })
-            .then(({ data, error }) => {
-                if (error || !data?.length) return;
-                const next: Record<number, { html: string; subject: string; preview: string }> = {};
-                for (const r of data) {
-                    const slot = Number(r.week ?? r.position) - 1;
-                    if (slot >= 0 && slot < FLOW_STEPS.length && r.rendered_html) {
-                        next[slot] = { html: r.rendered_html, subject: r.subject_line ?? "", preview: r.preview_text ?? "" };
-                    }
+    /** The Update button's state — the pull is also run once on mount, silently. */
+    const [pullState, setPullState] = useState<"idle" | "loading" | "done" | "error">("idle");
+    const [pullNote, setPullNote] = useState("");
+
+    /** Re-read every finished email for this client and refill all nine slots at once.
+     *  Nothing is written back: the table stays the source of truth, so a fix in Pooja's
+     *  pipeline shows up on the next pull. `manual` is the Update button — it reports
+     *  what came back; the mount run stays quiet. */
+    const pullFinishedEmails = useCallback(
+        async (manual = false) => {
+            const name = clientName.trim();
+            if (!name || isTemplate) return;
+            if (manual) {
+                setPullState("loading");
+                setPullNote("");
+            }
+            const { data, error } = await supabase
+                .from("email_wf_emails")
+                .select("position, week, subject_line, preview_text, rendered_html")
+                .ilike("client_name", name)
+                .order("updated_at", { ascending: true });
+
+            if (error) {
+                if (manual) {
+                    setPullState("error");
+                    setPullNote(error.message || "Could not reach the email table.");
                 }
-                setDbEmails(next);
-                setRev((r) => r + 1);
-            });
-    }, [clientName, isTemplate]);
+                return;
+            }
+
+            const next: Record<number, { html: string; subject: string; preview: string }> = {};
+            for (const r of data ?? []) {
+                const slot = Number(r.week ?? r.position) - 1;
+                if (slot >= 0 && slot < FLOW_STEPS.length && r.rendered_html) {
+                    next[slot] = { html: r.rendered_html, subject: r.subject_line ?? "", preview: r.preview_text ?? "" };
+                }
+            }
+            const found = Object.keys(next).length;
+            setDbEmails(next);
+            if (found || manual) setRev((r) => r + 1);
+            if (!manual) return;
+
+            // A slot holding pasted HTML keeps showing it — the pull never destroys
+            // hand-placed work, it just says which steps it couldn't take over.
+            const pasted = (flowRef.current.customHtml ?? [])
+                .map((html, i) => (html && next[i] ? i : -1))
+                .filter((i) => i >= 0)
+                .map((i) => `E${i + 1}`);
+            setPullState("done");
+            setPullNote(
+                found === 0
+                    ? `Nothing in the email table for "${name}" yet.`
+                    : `${found} of ${FLOW_STEPS.length} emails pulled in.` +
+                          (pasted.length ? ` ${pasted.join(", ")} still show your pasted HTML — remove it there to use the table's version.` : ""),
+            );
+        },
+        [clientName, isTemplate],
+    );
+
+    useEffect(() => {
+        void pullFinishedEmails();
+    }, [pullFinishedEmails]);
 
     // Debounced autosave while editing.
     useEffect(() => {
@@ -903,39 +922,11 @@ export const WelcomeFlowSection = ({
     const previewText = source === "finished" ? dbEmail!.preview : "";
 
     /* ── Client feedback on the flow ──
-       One note per person for all nine emails, not one per tab, so none of this depends
-       on `tab` any more. Legacy per-email rows still arrive in `items` and still show in
-       the team's list below, labelled with the email they were written about. */
+       One note per person for all nine emails, not one per tab, so none of this depends on
+       `tab`. The box and the team's list are the shared ones; this only decides whether
+       they appear. Legacy per-email rows still arrive in `items` and are labelled with the
+       email they were written about. */
     const fb = feedback && feedback.mode !== "off" ? feedback : null;
-    const fbPending = (fb?.items ?? []).filter((s) => s.status === "pending");
-    /** The viewer's own open note — the box edits it in place. */
-    const fbMine = fb ? fbPending.find((s) => s.suggested_by === fb.author) : undefined;
-    /** The viewer's most recent closed note, for the "what happened" line. */
-    const fbResolved = fb ? fb.items.find((s) => s.status !== "pending" && s.suggested_by === fb.author) : undefined;
-    const [fbText, setFbText] = useState("");
-    const [fbState, setFbState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-    const [fbError, setFbError] = useState("");
-    // The box tracks the viewer's open note, which changes right after a send (the
-    // refresh brings the new row back). Keyed on the row id alone so re-typing is never
-    // interrupted, and so the send's own refresh doesn't wipe the "Sent" confirmation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => {
-        setFbText(fbMine?.suggested_value ?? "");
-    }, [fbMine?.id]);
-    const sendFeedback = async () => {
-        const text = fbText.trim();
-        if (!fb || !text) return;
-        setFbState("sending");
-        setFbError("");
-        try {
-            await fb.send(text);
-            setFbState("sent");
-            window.setTimeout(() => setFbState((s) => (s === "sent" ? "idle" : s)), 6000);
-        } catch (err) {
-            setFbError(err instanceof Error ? err.message : "Something went wrong. Nothing was sent.");
-            setFbState("error");
-        }
-    };
     // Recompute only on tab switch / structural change / lock toggle — inline text
     // edits keep the iframe document alive so typing never flickers. dbEmails isn't a
     // dep because loading it bumps rev.
@@ -988,15 +979,6 @@ export const WelcomeFlowSection = ({
         }, 30);
     };
 
-    const copyHtml = () => {
-        const html = custom ?? (builtIn ? emailHtml(builtIn, flow.settings) : "");
-        if (!html) return;
-        navigator.clipboard.writeText(html).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1800);
-        });
-    };
-
     /** Brand & timing changes re-render the preview, debounced so typing stays smooth. */
     const brandPatch = (mutator: (d: WelcomeFlowData) => void) => {
         patch(mutator);
@@ -1011,68 +993,44 @@ export const WelcomeFlowSection = ({
        replaces it, and the team reads it in the review card above. Null for the team and
        for a viewer who can't send. */
     const fbRail =
-        fb?.mode === "client" && flowHasAnything ? (
-            <aside className="w-full shrink-0 @min-[1012px]:sticky @min-[1012px]:top-4 @min-[1012px]:w-[340px]">
-                <div className="rounded-2xl bg-primary p-4 ring-1 ring-secondary md:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-primary">Your feedback</p>
-                        {fbMine && (
-                            <span className="rounded-full bg-warning-primary px-2.5 py-1 text-xs font-medium text-warning-primary">Awaiting review</span>
-                        )}
-                    </div>
-                    <textarea
-                        rows={6}
-                        value={fbText}
-                        onChange={(e) => setFbText(e.target.value)}
-                        placeholder="Your feedback on the welcome emails…"
-                        className="mt-3 w-full resize-y rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
-                    />
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <Button
-                            size="sm"
-                            color="primary"
-                            onClick={() => void sendFeedback()}
-                            isDisabled={!fbText.trim() || fbText.trim() === (fbMine?.suggested_value ?? "")}
-                            isLoading={fbState === "sending"}
-                            showTextWhileLoading
-                        >
-                            {fbMine ? "Update feedback" : "Send feedback"}
-                        </Button>
-                        {fbMine && (
-                            <button
-                                type="button"
-                                onClick={() => void fb.withdraw(fbMine).catch(() => undefined)}
-                                className="text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:text-error-primary"
-                            >
-                                Withdraw
-                            </button>
-                        )}
-                    </div>
-                    {/* Status sits under the button rather than beside it — at rail width a
-                        sentence next to the button wrapped to three lines. */}
-                    {fbState === "sent" && <p className="mt-2.5 text-sm text-success-primary">Sent — thank you. Your account manager will follow up.</p>}
-                    {fbState === "error" && <p className="mt-2.5 text-sm text-error-primary">{fbError}</p>}
-                    {fbState === "idle" && !fbMine && fbResolved && (
-                        <p className="mt-2.5 text-xs text-quaternary">
-                            Your note from {shortDate(fbResolved.created_at)} was marked {fbResolved.status === "accepted" ? "done" : "closed"}
-                            {fbResolved.resolved_at ? ` on ${shortDate(fbResolved.resolved_at)}` : ""}.
-                        </p>
-                    )}
-                </div>
+        fb && flowHasAnything ? (
+            <aside className="w-full shrink-0 empty:hidden @min-[1012px]:sticky @min-[1012px]:top-4 @min-[1012px]:w-[340px]">
+                <ClientFeedbackBox feedback={fb} placeholder="Your feedback on the welcome emails…" />
             </aside>
         ) : null;
 
     return (
         <div>
-            {/* Heading */}
-            <div>
-                <h2 className="text-display-xs font-semibold text-primary md:text-display-sm">Welcome Email Flow</h2>
-                <p className="mt-1.5 text-md text-tertiary">
-                    Nine emails, one a week from the day a lead signs up.{" "}
-                    {isTeam ? "Review each one, then copy it into GoHighLevel." : "Have a look at each one and tell us what you think."}
-                    {finishedCount > 0 && finishedCount < FLOW_STEPS.length && ` ${finishedCount} of ${FLOW_STEPS.length} are finished so far.`}
-                </p>
+            {/* Heading. Update sits here rather than in the tab toolbar because the pull is
+                flow-level — it refills all nine steps — and has to stay reachable on a step
+                that has nothing in it yet, which is exactly when it's wanted. */}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <h2 className="text-display-xs font-semibold text-primary md:text-display-sm">Welcome Email Flow</h2>
+                    <p className="mt-1.5 text-md text-tertiary">
+                        Nine emails, one a week from the day a lead signs up.{" "}
+                        {isTeam ? "Review each one before it goes to the client." : "Have a look at each one and tell us what you think."}
+                        {finishedCount > 0 && finishedCount < FLOW_STEPS.length && ` ${finishedCount} of ${FLOW_STEPS.length} are finished so far.`}
+                    </p>
+                </div>
+                {isTeam && !isTemplate && (
+                    <Button
+                        size="sm"
+                        color="secondary"
+                        iconLeading={RefreshCw01}
+                        onClick={() => void pullFinishedEmails(true)}
+                        isLoading={pullState === "loading"}
+                        showTextWhileLoading
+                    >
+                        Update
+                    </Button>
+                )}
             </div>
+            {isTeam && !isTemplate && pullState !== "idle" && pullState !== "loading" && (
+                <p className={cx("mt-2 text-sm", pullState === "error" ? "text-error-primary" : "text-tertiary")}>
+                    {pullState === "error" ? `Update failed — ${pullNote}` : pullNote}
+                </p>
+            )}
 
             {/* Step tabs — always all nine, always on one line: the row scrolls sideways
                 rather than wrapping when the column is too narrow for all of them. A step
@@ -1108,25 +1066,12 @@ export const WelcomeFlowSection = ({
 
             {/* Team review — every open client note on the flow, read and closed here. A note
                 written before the box was combined names the email it was about. */}
-            {fb?.mode === "review" && fbPending.length > 0 && (
-                <div className="mt-4 flex flex-col gap-2">
-                    {fbPending.map((s) => (
-                        <div key={s.id} className="rounded-xl bg-brand-primary p-3.5 ring-1 ring-secondary">
-                            <p className="text-xs font-medium text-secondary">
-                                Client feedback · {s.suggested_by} · {shortDate(s.created_at)}
-                                {Number.isInteger(flowFeedbackSlot(s.field_key)) && <span> · on {stepLabel(flowFeedbackSlot(s.field_key))}</span>}
-                            </p>
-                            <p className="mt-1 text-sm whitespace-pre-wrap text-primary">{s.suggested_value}</p>
-                            <div className="mt-2.5 flex items-center gap-2">
-                                <Button size="sm" color="primary" onClick={() => void fb.resolve(s, "accepted")}>
-                                    Mark as done
-                                </Button>
-                                <Button size="sm" color="secondary" onClick={() => void fb.resolve(s, "declined")}>
-                                    Dismiss
-                                </Button>
-                            </div>
-                        </div>
-                    ))}
+            {fb?.mode === "review" && (
+                <div className="mt-4">
+                    <ClientFeedbackReview
+                        feedback={fb}
+                        labelFor={(s) => (Number.isInteger(flowFeedbackSlot(s.field_key)) ? `on ${stepLabel(flowFeedbackSlot(s.field_key))}` : null)}
+                    />
                 </div>
             )}
 
@@ -1336,10 +1281,10 @@ export const WelcomeFlowSection = ({
                             </div>
                         ) : (
                             <div className="flex flex-col rounded-2xl ring-1 ring-secondary">
-                                {/* Team toolbar — where this email came from and the GoHighLevel export.
-                                    Clients get the previews alone; both are internal. */}
+                                {/* Team toolbar — where this email came from. Clients get the
+                                    previews alone; the source line is internal. */}
                                 {isTeam && (
-                                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-2xl border-b border-secondary bg-primary px-3 py-2">
+                                    <div className="flex flex-wrap items-center gap-2 rounded-t-2xl border-b border-secondary bg-primary px-3 py-2">
                                         <p className="px-1 text-xs text-tertiary">
                                             <span className="font-semibold text-secondary">{stepLabel(tab)}</span>
                                             {" · "}
@@ -1349,14 +1294,6 @@ export const WelcomeFlowSection = ({
                                                   ? "finished HTML from the email designer"
                                                   : "built-in template"}
                                         </p>
-                                        <button
-                                            type="button"
-                                            onClick={copyHtml}
-                                            className="flex items-center gap-1.5 rounded-lg bg-brand-solid px-3 py-1.5 text-xs font-semibold text-white transition duration-100 ease-linear hover:opacity-90"
-                                        >
-                                            {copied ? <Check className="size-3.5" /> : <Copy01 className="size-3.5" />}
-                                            {copied ? "Copied!" : "Copy HTML for GHL"}
-                                        </button>
                                     </div>
                                 )}
 

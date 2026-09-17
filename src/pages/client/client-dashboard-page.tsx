@@ -126,19 +126,26 @@ import {
     usersToAllowedEmails,
 } from "@/pages/client/dashboard/dashboard-model";
 import {
+    JOURNEY_BAR,
+    JOURNEY_STAGES,
     JOURNEY_STEPS,
     type JourneyLink,
     type JourneyStepId,
     KICKOFF_CALENDLY,
+    LINK_ONLY_SECTIONS,
     NAV_GROUPS,
     OVERVIEW_ITEM,
     type PhaseId,
     SECTIONS,
     type SearchHit,
     TEAM_ONLY_SECTIONS,
+    isJourneyItemDone,
     phaseOfSection,
+    toggleJourneyItemDone,
+    toggleJourneyStepDone,
 } from "@/pages/client/dashboard/dashboard-navigation";
 import { ExampleReelsSection } from "@/pages/client/dashboard/example-reels";
+import { JourneyProgress } from "@/pages/client/dashboard/journey-progress";
 import {
     FOUNDATION_SECTIONS,
     LEGACY_FOUNDATION_FIELDS,
@@ -161,13 +168,16 @@ import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pag
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
     FLOW_FEEDBACK_KEY,
+    LANDING_FEEDBACK_KEY,
     type Suggestion,
     type SuggestionItem,
     applySuggestion,
     isFlowFeedbackKey,
+    isLandingFeedbackKey,
     labelForKey,
     valueForKey,
 } from "@/pages/client/dashboard/suggestions-model";
+import { mergeLiveContent, useDashboardLive } from "@/pages/client/dashboard/use-dashboard-live";
 import { type WebsiteSetup, mergeWebsiteSetup, saveWebsiteSetup, websiteSetupProgress } from "@/pages/client/dashboard/website-setup";
 import { type WebsiteSetupSaveState, WebsiteSetupSection } from "@/pages/client/dashboard/website-setup-section";
 import { HostOnboardingFormPage, ensureHostOnboardingForm, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
@@ -249,6 +259,42 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const savedRowRef = useRef<string | null>(JSON.stringify(initialData ?? null));
     /** Set by a blocked save; the next Save press overwrites deliberately. */
     const overwriteArmedRef = useRef(false);
+
+    /**
+     * Follow this client's row, so an AM's tick reaches an open dashboard in about a second
+     * instead of on the client's next page load. The launch meter is the reason — a client
+     * is told to watch it move — but every shared field rides along: reveal a section, add a
+     * link, change the status, and the client's screen catches up.
+     *
+     * Two things it must not do, and both have cost someone an afternoon elsewhere in this
+     * file:
+     *
+     *  - Never while an AM has the page UNLOCKED. Edit mode holds the whole dashboard in
+     *    local state, so applying a remote row mid-edit would silently discard everything
+     *    typed since they unlocked. They are not left blind: the save-conflict check in
+     *    persistAndLock re-reads the row and blocks the first Save when it has moved.
+     *  - Never `website_setup` while the client is mid-answer. That is the one key on this
+     *    row the client authors, written server-side by the website-setup function on an
+     *    800ms debounce, so a row that arrives while they type carries a version older than
+     *    what is on their screen. Replacing it would delete the sentence they are writing.
+     *
+     * Everything else is safe to take wholesale: no other part of `content` is edited
+     * locally except in edit mode, which the first rule already excludes.
+     */
+    useDashboardLive({
+        slug,
+        enabled: !!slug && !isTemplate,
+        onUpdate: (row) => {
+            if (!isLocked) return;
+            const incoming = mergeContent(row.data);
+            setContent((c) => mergeLiveContent(incoming, c, setupDirtyRef.current));
+            setClientName(row.client_name ?? "");
+            setClientWebsite(row.client_website ?? "");
+            // The baseline moves with it, so this tab's next save compares against the row
+            // as it now stands rather than reporting a conflict with a change it already has.
+            savedRowRef.current = JSON.stringify(row.data ?? null);
+        },
+    });
 
     /**
      * Clicking the client's logo or name enters the client preview — but only while locked.
@@ -426,7 +472,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         const h = window.location.hash.replace("#", "");
         // "Soon" ids are in SECTIONS but have no section body yet, so honouring a hash
         // for one would render an empty page. Same exclusion the search index uses.
-        if (h && SECTIONS.some((s) => s.id === h && !("soon" in s && s.soon))) setActiveSection(h as SectionId);
+        //
+        // LINK_ONLY_SECTIONS is excluded for the same reason and a second one: those rows
+        // are links out (the content drive, the help centre), so there is nothing here to
+        // deep-link INTO, and honouring the hash by following the link would mean a URL
+        // ending "#help" silently threw the client off the dashboard on load.
+        if (h && SECTIONS.some((s) => s.id === h && !("soon" in s && s.soon)) && !LINK_ONLY_SECTIONS.has(h as SectionId)) {
+            setActiveSection(h as SectionId);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -626,7 +679,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [promptCopied, setPromptCopied] = useState(false);
     /* ── Master Document drafting (team-only) ──
        `masterDraftStep` is the label of the group being drafted, shown live: the run takes
-       around a minute across seven model calls, and a single spinner for that long reads as
+       around a minute across eight model calls, and a single spinner for that long reads as
        a hang. `masterDraftDone` collects what landed so the AM can see it was partial when
        a group fails, rather than being told only about the failure. */
     const [masterDraftStep, setMasterDraftStep] = useState("");
@@ -831,17 +884,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [refreshSuggestions]);
 
     /* The table carries three kinds of row: Master Brand Document edits, welcome-email
-       feedback under `welcomeFlow.*`, and Pinned Posts feedback under `pinnedposts.*`. Split
-       them here so no section counts, lists or orphans another's. */
+       feedback under `welcomeFlow.*`, Landing page feedback under `landingPage.*`, and
+       Pinned Posts feedback under `pinnedposts.*`. Split them here so no section counts,
+       lists or orphans another's — a feedback key resolves to no document field, so one left
+       in would show up as a pending edit and then as an orphan. */
     const pinnedFeedback = suggestions.filter((s) => isPinnedKey(s.field_key));
-    const pendingSuggestions = suggestions.filter((s) => s.status === "pending" && !isPinnedKey(s.field_key) && !isFlowFeedbackKey(s.field_key));
+    const pendingSuggestions = suggestions.filter(
+        (s) => s.status === "pending" && !isPinnedKey(s.field_key) && !isFlowFeedbackKey(s.field_key) && !isLandingFeedbackKey(s.field_key),
+    );
     const pendingByKey = new Map<string, Suggestion[]>();
     for (const s of pendingSuggestions) pendingByKey.set(s.field_key, [...(pendingByKey.get(s.field_key) ?? []), s]);
     const resolvedByKey = new Map<string, Suggestion>();
     for (const s of suggestions) if (s.status !== "pending" && !resolvedByKey.has(s.field_key)) resolvedByKey.set(s.field_key, s);
     /** Pending rows whose key no longer resolves (their row was deleted) — surfaced to
      *  the team above the document, since no field exists to hang them on. */
-    const orphanedPending = isTeam ? pendingSuggestions.filter((s) => !isFlowFeedbackKey(s.field_key) && valueForKey(foundation, s.field_key) === null) : [];
+    const orphanedPending = isTeam
+        ? pendingSuggestions.filter(
+              (s) => !isFlowFeedbackKey(s.field_key) && !isLandingFeedbackKey(s.field_key) && valueForKey(foundation, s.field_key) === null,
+          )
+        : [];
 
     const acceptSuggestion = (s: Suggestion) => {
         const patch = applySuggestion(foundation, s.field_key, s.suggested_value);
@@ -1032,19 +1093,55 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
         await refreshSuggestions();
     };
-    const withdrawFlowFeedback = async (s: Suggestion) => {
+    /** Withdraw / resolve act on a row id, so both feedback families share them. */
+    const withdrawFeedback = async (s: Suggestion) => {
         if (!slug) return;
         if (identityEmail) await withdrawSuggestion(slug, identityEmail, s.id);
         else if (signedInAsTeam) await supabase.from("dashboard_suggestions").delete().eq("id", s.id).eq("status", "pending");
         await refreshSuggestions();
     };
     /** Feedback is never "applied" anywhere — done or dismissed is the whole outcome. */
-    const resolveFlowFeedback = async (s: Suggestion, status: "accepted" | "declined") => {
+    const resolveFeedback = async (s: Suggestion, status: "accepted" | "declined") => {
         await supabase
             .from("dashboard_suggestions")
             .update({ status, resolved_by: user?.email ?? "", resolved_at: new Date().toISOString() })
             .eq("id", s.id)
             .eq("status", "pending");
+        await refreshSuggestions();
+    };
+
+    /* ── Client feedback on the landing page ──
+       The same three calls again under LANDING_FEEDBACK_KEY. Separate from the Approve /
+       Request changes verdict in landing-page-section.tsx, which lives in landing_pages:
+       that one closes, this one stays open either side of it. */
+    const landingFeedback = suggestions.filter((s) => isLandingFeedbackKey(s.field_key));
+    const landingRevealed = (content.client_visible ?? DEFAULT_CLIENT_VISIBLE).includes("landing");
+    const canLandingFeedback = !isTeam && !isTemplate && landingRevealed && !!suggestAuthor;
+    const sendLandingFeedback = async (text: string) => {
+        if (!slug || !suggestAuthor) throw new Error("Sign in with your email to send feedback.");
+        const item = { fieldKey: LANDING_FEEDBACK_KEY, fieldLabel: "Landing page · feedback", currentValue: "", suggestedValue: text };
+        if (identityEmail) {
+            await sendSuggestions(slug, identityEmail, [item]);
+        } else {
+            // Team member previewing as the client — as themselves, so the function's
+            // one-open-note-per-author rule has to be reproduced by hand here.
+            await supabase
+                .from("dashboard_suggestions")
+                .delete()
+                .eq("slug", slug)
+                .eq("suggested_by", suggestAuthor)
+                .eq("status", "pending")
+                .eq("field_key", item.fieldKey);
+            const { error } = await supabase.from("dashboard_suggestions").insert({
+                slug,
+                field_key: item.fieldKey,
+                field_label: item.fieldLabel,
+                current_value: item.currentValue,
+                suggested_value: item.suggestedValue,
+                suggested_by: suggestAuthor,
+            });
+            if (error) throw new Error(error.message);
+        }
         await refreshSuggestions();
     };
 
@@ -1075,11 +1172,17 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         ),
     };
     const [overviewBusy, setOverviewBusy] = useState(false);
+    const [overviewStep, setOverviewStep] = useState("");
     const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
     const [overviewError, setOverviewError] = useState("");
 
     /**
-     * Draft the whole document from what the client has already told us.
+     * Draft the document from what the client has already told us.
+     *
+     * Three model calls, run one at a time, for the same reason the Master Document is split
+     * into seven: twenty fields in one call runs well past the ~10s a synchronous Netlify
+     * function gets, so the single-call version this replaced failed every time it was asked
+     * to draft a real client. See generate-overview.mts.
      *
      * Runs on the server so the client's form answers are read with the service-role key
      * rather than re-fetched here, and so the Anthropic key stays off the browser. It
@@ -1087,46 +1190,82 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      * bad draft from silently replacing an AM's own notes.
      */
     const generateOverview = async () => {
-        if (!slug || isTemplate) return;
+        if (!slug || isTemplate || overviewBusy) return;
         setOverviewBusy(true);
         setOverviewError("");
+
         try {
-            const res = await fetch("/.netlify/functions/generate-overview", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ slug }),
-            });
-            /* Read as text and parse by hand. res.json() throws a raw
-               "Unexpected end of JSON input" when the reply isn't JSON, and that string then
-               lands in front of an account manager as the entire explanation. The two ways it
-               happens are the local dev server, which serves no functions at all, and Netlify
-               returning an HTML error page — so both get named instead. */
-            const body = await res.text();
-            let json: { doc?: Partial<OverviewDoc>; error?: string } | null = null;
-            try {
-                json = body ? JSON.parse(body) : null;
-            } catch {
-                json = null;
+            // Team-only on the server too, so the session token travels with the request.
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            if (!token) {
+                setOverviewError("Your sign-in has expired — reload the page and sign in again.");
+                return;
             }
-            if (!json) {
-                throw new Error(
-                    res.status === 404
-                        ? "Drafting only runs on the live site — the local dev server doesn't serve it."
-                        : `The server didn't send a usable reply (${res.status}). Try again in a moment.`,
+
+            const groups: { group: string; label: string }[] = [
+                { group: "basics", label: "Who they are" },
+                { group: "goals", label: "Goals & audience" },
+                { group: "brand", label: "Brand & preferences" },
+            ];
+
+            const failed: string[] = [];
+            let landed = false;
+
+            for (const g of groups) {
+                setOverviewStep(g.label);
+                try {
+                    const res = await fetch("/.netlify/functions/generate-overview", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ slug, group: g.group }),
+                    });
+                    /* Read as text and parse by hand. res.json() throws a raw
+                       "Unexpected end of JSON input" when the reply isn't JSON, and that string then
+                       lands in front of an account manager as the entire explanation. The two ways it
+                       happens are the local dev server, which serves no functions at all, and Netlify
+                       returning an HTML error page — so both get named instead. */
+                    const body = await res.text();
+                    let json: { doc?: Partial<OverviewDoc>; error?: string } | null = null;
+                    try {
+                        json = body ? JSON.parse(body) : null;
+                    } catch {
+                        json = null;
+                    }
+                    if (!json) {
+                        throw new Error(
+                            res.status === 404
+                                ? "Drafting only runs on the live site — the local dev server doesn't serve it."
+                                : `The server didn't send a usable reply (${res.status}).`,
+                        );
+                    }
+                    if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
+                    // Merged per group, not batched at the end: a later failure then leaves
+                    // the earlier fields on screen instead of discarding the whole run.
+                    patchOverviewDoc({
+                        // Drop the model's empty strings — a field it couldn't source must not
+                        // blank out something an AM already typed on screen.
+                        ...(Object.fromEntries(Object.entries(json.doc ?? {}).filter(([, v]) => String(v ?? "").trim())) as Partial<OverviewDoc>),
+                        generated_at: new Date().toISOString(),
+                        generated_by: user?.email ?? "",
+                    });
+                    landed = true;
+                } catch (err) {
+                    console.error(`[overview doc] ${g.group} failed`, err);
+                    // One reason is worth more than three copies of it, so the first failure's
+                    // message is the one shown — the rest are usually the same cause twice.
+                    if (!failed.length) setOverviewError(err instanceof Error ? err.message : "Couldn't draft the document.");
+                    failed.push(g.label);
+                }
+            }
+
+            if (failed.length) {
+                setOverviewError((e) =>
+                    `Couldn't draft: ${failed.join(", ")}. ${e || ""}${landed ? " Everything else landed — try again for the rest." : ""}`.trim(),
                 );
             }
-            if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
-            patchOverviewDoc({
-                // Drop the model's empty strings — a field it couldn't source must not
-                // blank out something an AM already typed on screen.
-                ...(Object.fromEntries(Object.entries(json.doc as Partial<OverviewDoc>).filter(([, v]) => String(v ?? "").trim())) as Partial<OverviewDoc>),
-                generated_at: new Date().toISOString(),
-                generated_by: user?.email ?? "",
-            });
-        } catch (err) {
-            console.error("[overview doc] generation failed", err);
-            setOverviewError(err instanceof Error ? err.message : "Couldn't draft the document.");
         } finally {
+            setOverviewStep("");
             setOverviewBusy(false);
         }
     };
@@ -1171,7 +1310,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [clientName]);
 
     /** True when a link-type nav row has nowhere to go yet — shown as "Soon". */
-    const navTargetMissing = (id: SectionId) => id === "contentfolder" && !content.brand.folder_link.trim();
+    const navTargetMissing = (id: SectionId) =>
+        (id === "contentfolder" && !content.brand.folder_link.trim()) ||
+        // The help centre is per-client and its URL is built from the slug, so the template
+        // copy of this page (which has no client behind it) has nowhere to send anyone.
+        (id === "help" && (!slug || isTemplate));
 
     /* ── Website Setup Guide answers ──
        Always merged, so the section and the badge never see a missing block. The team's
@@ -1183,15 +1326,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [setupSave, setSetupSave] = useState<WebsiteSetupSaveState>("idle");
     const [setupSaveError, setSetupSaveError] = useState("");
     const setupSaveTimer = useRef<number | null>(null);
+    /** True from the client's first keystroke in the Website Setup Guide until that answer
+     *  is written. The one key on this row the client authors, so the one a live update
+     *  must leave alone. Stays true on a failed save — the text is still only local. */
+    const setupDirtyRef = useRef(false);
     const updateWebsiteSetup = (patch: Partial<WebsiteSetup>) => {
         const next = { ...websiteSetup, ...patch };
         setContent((c) => ({ ...c, website_setup: { ...mergeWebsiteSetup(c.website_setup), ...patch } }));
         if (isTeam || !slug || isTemplate) return;
+        // Typed but not yet written — see the live-update handler, which must not replace
+        // this key while it is true.
+        setupDirtyRef.current = true;
         if (setupSaveTimer.current) window.clearTimeout(setupSaveTimer.current);
         setSetupSave("saving");
         setupSaveTimer.current = window.setTimeout(() => {
             saveWebsiteSetup(slug, identityEmail, next)
                 .then(() => {
+                    setupDirtyRef.current = false;
                     setSetupSave("saved");
                     setSetupSaveError("");
                 })
@@ -1205,7 +1356,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     // Overview is the main dashboard — always visible, never hideable, so a client can
     // never end up with nowhere to land. Same reasoning as the owner guide, where the
     // Welcome and Review steps can't be hidden either.
-    const revealedToClient = (id: SectionId) => id === "overview" || (!TEAM_ONLY_SECTIONS.has(id) && clientVisible.includes(id));
+    /**
+     * Overview and the Help Centre are the two rows that are never behind the eye toggle.
+     *
+     * Every other row is a deliverable an AM reveals when it actually ships, which is why the
+     * default is hidden. The help centre is not a deliverable: it is how a client tells us
+     * something is wrong with one. Leaving it on the toggle would mean every dashboard that
+     * already exists shows it as "Soon" and refuses to open, and the one client most in need
+     * of it - someone whose work has not landed yet - is the one least likely to have been
+     * granted it.
+     *
+     * It is safe to leave ungated here because this predicate only decides what is SHOWN.
+     * The help centre re-proves the caller server-side on every single call (verifyCaller in
+     * netlify/lib/reporting.mts) and refuses a dashboard whose access list is empty, saying
+     * so on screen. An always-visible row therefore reveals a door, never what is behind it.
+     */
+    const revealedToClient = (id: SectionId) =>
+        id === "overview" || id === "help" || (!TEAM_ONLY_SECTIONS.has(id) && clientVisible.includes(id));
     const toggleClientVisible = (id: SectionId) =>
         setContent((c) => {
             const cur = c.client_visible ?? DEFAULT_CLIENT_VISIBLE;
@@ -1339,11 +1506,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** True when the open section lives in this group — drives the group row's chip. */
     const groupHoldsActive = (phase: string) => (NAV_GROUPS.find((g) => g.phase === phase)?.items ?? []).some((s) => s.id === activeSection);
 
-    /** Nav rows are section switches, bar Folder of Content, which is a link out. */
+    /** Nav rows are section switches, bar the two link rows: Folder of Content and Help Centre. */
     const openNavItem = (id: SectionId) => {
         if (id === "contentfolder") {
             const url = content.brand.folder_link.trim();
             if (url) window.open(url, "_blank", "noopener,noreferrer");
+            return;
+        }
+        if (id === "help") {
+            // Guarded rather than trusting the caller: the menu row is already disabled when
+            // there is no client behind this page (navTargetMissing), but search reaches the
+            // same opener without that check, and an unguarded navigate would send the
+            // template copy to "//help".
+            if (!slug || isTemplate) return;
+            // Same tab and an SPA navigate, unlike Folder of Content. The help centre is part
+            // of the portal rather than somewhere else we are sending them, it reads the same
+            // `cd_unlock_${slug}` this page wrote so the client is asked for one field instead
+            // of two, and it has a Dashboard link straight back. Opening it in a new tab would
+            // break all three.
+            navigate(`/${slug}/help`);
             return;
         }
         setActiveSection(id);
@@ -1633,13 +1814,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /**
      * Draft the whole Master Brand Document from the client's own material.
      *
-     * Seven model calls plus one website read, run one at a time. Each is a separate request
+     * Eight model calls plus one website read, run one at a time. Each is a separate request
      * because the document is ~66 fields and a single call for all of them exceeds the ~10s
      * a synchronous Netlify function gets — see generate-master-section.mts for why that
      * beat making it a background function.
      *
      * Sequential rather than parallel on purpose: the groups are cheap individually, the AM
-     * watches them tick past, and a burst of seven concurrent Opus calls is the kind of thing
+     * watches them tick past, and a burst of eight concurrent Opus calls is the kind of thing
      * that trips a rate limit at exactly the wrong moment.
      *
      * Nothing is saved. Every group merges through mergeFoundationDraft, which can only fill
@@ -1703,7 +1884,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 if (siteLinks.length) patchFoundation(mergeFoundationDraft(foundation, { websiteLinks: siteLinks }));
                 setMasterDraftDone((d) => [...d, "Website links"]);
             } catch (err) {
-                // A site we can't read shouldn't stop the seven sections that don't need it.
+                // A site we can't read shouldn't stop the sections that don't need it.
                 console.warn("[master draft] website read failed", err);
                 setMasterDraftError(err instanceof Error ? `${err.message} Drafting continued without the website.` : "");
             }
@@ -1711,7 +1892,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const groups: { group: string; label: string; extra?: Record<string, unknown> }[] = [
                 { group: "hosts", label: "Hosts & location" },
                 { group: "properties", label: "The properties", extra: { siteText } },
-                { group: "brand", label: "Audience, UVP & brand" },
+                { group: "brand", label: "Audience & UVP" },
+                { group: "voice", label: "Brand voice, taglines & bio" },
                 { group: "personas", label: "Personas" },
                 { group: "focus", label: "Focus properties", extra: { siteText, allowedLinks } },
                 { group: "favorites", label: "Local favorites" },
@@ -1844,11 +2026,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [bookingOpen, slug, isTemplate]);
 
     const journeyDone = content.journey_done ?? [];
-    const toggleJourneyStep = (id: JourneyStepId) =>
-        setContent((c) => {
-            const cur = c.journey_done ?? [];
-            return { ...c, journey_done: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] };
-        });
+
+    /** Reducers and the legacy-row rules live in dashboard-navigation.ts, beside the steps
+     *  they encode and under dashboard-navigation.check.ts. These just bind them to state. */
+    const journeyItemDone = (stepId: JourneyStepId, itemId: string) => isJourneyItemDone(journeyDone, stepId, itemId);
+    const toggleJourneyStep = (id: JourneyStepId) => setContent((c) => ({ ...c, journey_done: toggleJourneyStepDone(c.journey_done ?? [], id) }));
+    const toggleJourneyItem = (stepId: JourneyStepId, itemId: string) =>
+        setContent((c) => ({ ...c, journey_done: toggleJourneyItemDone(c.journey_done ?? [], stepId, itemId) }));
 
     /* The three per-client links the journey points at. Pulled out as primitives so the
        memo below depends on the URLs themselves, not on the whole content object — which
@@ -1874,7 +2058,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const resolved = {
                 ...step,
                 href: step.href ?? (step.hrefFrom ? linkFor(step.hrefFrom) || undefined : undefined),
-                items: step.items?.map((item) => ({ ...item, url: linkFor(item.link) })),
+                items: step.items?.map((item) => ({
+                    ...item,
+                    url: linkFor(item.link),
+                    // Only a tickable step's items carry state; everywhere else this stays
+                    // false and the renderer draws no box, per JOURNEY_STEPS' items comment.
+                    done: step.itemsTickable ? journeyItemDone(step.id, item.id ?? item.label) : false,
+                })),
             };
             if (step.id === "form") {
                 return {
@@ -1900,6 +2090,19 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                           : step.detail,
                 };
             }
+            // A step built from tickable items has no state of its own: it is done when
+            // all of them are, and its progress is the count — which is what gives the
+            // launch meter a cell per piece.
+            if (step.itemsTickable && resolved.items?.length) {
+                const total = resolved.items.length;
+                const value = resolved.items.filter((item) => item.done).length;
+                return {
+                    ...resolved,
+                    done: value === total,
+                    progress: { value, total },
+                    detail: value === total ? "Every piece reviewed — thank you." : `${value} of ${total} pieces reviewed.`,
+                };
+            }
             return { ...resolved, done: journeyDone.includes(step.id), progress: null };
         });
     }, [intakeSubmitted, onboardingSubmitted, intakeInfo, onboardingInfo, journeyDone, chatLink, folderLink, onboardingCallUrl]);
@@ -1907,6 +2110,85 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const journeyDoneCount = journeySteps.filter((s) => s.done).length;
     /** First unfinished step — highlighted so a client can see what's next at a glance. */
     const journeyCurrentId = journeySteps.find((s) => !s.done)?.id ?? null;
+
+    /**
+     * The launch meter's cells and the stages bracketing them.
+     *
+     * The bar is a summary, so its composition lives in JOURNEY_BAR rather than being read
+     * off the step list — see the note there for what it leaves out and why. Here we only
+     * resolve each declared cell against live step state.
+     *
+     * One cell per thing a client can finish: a cell over a step ticked piece by piece
+     * becomes a cell per piece, which is what makes Marketing funnel the long stage and
+     * what lets a single review move the bar. Every cell is worth the same, so the bar's
+     * fill and the percentage above it are the same number.
+     *
+     * A cell fills fractionally wherever there is something real to count — a part-answered
+     * form, a funnel piece reviewed. A made-up fraction is never invented: a cell with
+     * nothing to count is 0 or 1.
+     */
+    const { journeyCells, journeyGroups } = useMemo(() => {
+        const fractionOf = (step: (typeof journeySteps)[number]) =>
+            step.done ? 1 : step.progress && step.progress.total > 0 ? step.progress.value / step.progress.total : 0;
+
+        const byId = new Map(journeySteps.map((step) => [step.id, step]));
+
+        const cellsFor = (bar: (typeof JOURNEY_BAR)[number], isLast: boolean) => {
+            const steps = bar.steps.map((id) => byId.get(id)).filter((step): step is (typeof journeySteps)[number] => !!step);
+            if (!steps.length) return [];
+
+            // A cell standing over one tickable step is really that step's pieces.
+            const [only] = steps;
+            if (steps.length === 1 && only.itemsTickable && only.items?.length) {
+                const nextUp = only.items.findIndex((item) => !item.done);
+                return only.items.map((item, i) => ({
+                    id: `${only.id}:${item.id ?? item.label}`,
+                    label: item.label,
+                    fraction: item.done ? 1 : 0,
+                    // The piece a client is on, not the whole step: the beam in the list
+                    // below marks the step, this marks the review inside it.
+                    current: only.id === journeyCurrentId && i === nextUp,
+                    rocket: false,
+                }));
+            }
+
+            return [
+                {
+                    id: bar.id,
+                    label: bar.label,
+                    // Merged cells (the two forms) average their steps, so finishing one of
+                    // two half-fills the cell instead of leaving it dark until both land.
+                    fraction: steps.reduce((sum, step) => sum + fractionOf(step), 0) / steps.length,
+                    current: steps.some((step) => step.id === journeyCurrentId),
+                    // The bar's last cell IS the destination, so it wears the rocket rather
+                    // than the bar growing an extra cell nobody can tick.
+                    rocket: isLast,
+                },
+            ];
+        };
+
+        const cells: ReturnType<typeof cellsFor> = [];
+        const counts = new Map<string, number>();
+        JOURNEY_BAR.forEach((bar, i) => {
+            const made = cellsFor(bar, i === JOURNEY_BAR.length - 1);
+            cells.push(...made);
+            counts.set(bar.stage, (counts.get(bar.stage) ?? 0) + made.length);
+        });
+
+        const groups = JOURNEY_STAGES.map((stage) => ({ id: stage.id, label: stage.label, cells: counts.get(stage.id) ?? 0 })).filter(
+            (group) => group.cells > 0,
+        );
+
+        return { journeyCells: cells, journeyGroups: groups };
+    }, [journeySteps, journeyCurrentId]);
+
+    /** "Up next", named down to the piece where a step has several. */
+    const journeyNextLabel = useMemo(() => {
+        const step = journeySteps.find((s) => s.id === journeyCurrentId);
+        if (!step) return null;
+        const piece = step.itemsTickable ? step.items?.find((item) => !item.done) : undefined;
+        return piece ? `${step.label} — ${piece.label}` : step.label;
+    }, [journeySteps, journeyCurrentId]);
     /** Whatever now follows the Kick-off Call — named in the booking confirmation so that
      *  copy can't go stale the next time the order is reshuffled. It has twice already. */
     const stepAfterKickoff = journeySteps[journeySteps.findIndex((s) => s.id === "kickoff") + 1] ?? null;
@@ -1978,8 +2260,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             <span
                 className={cx(
                     "ml-2 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                    tone === "done" && "bg-success-secondary text-success-primary",
-                    tone === "todo" && "bg-brand-secondary text-brand-secondary",
+                    tone === "done" && "bg-utility-green-50 text-utility-green-700",
+                    tone === "todo" && "bg-utility-brand-50 text-utility-brand-700",
                     tone === "muted" && "text-quaternary",
                 )}
             >
@@ -2201,7 +2483,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
 
                             {/* Dashboard search — client-scoped, directly under the identity block */}
                             <div className="px-3 pt-3">
-                                <ClientSearchBar hits={searchHits} onSelect={setActiveSection} />
+                                {/* openNavItem, not setActiveSection: two rows in the menu are links
+                                    rather than sections (Folder of Content, Help Centre) and have no
+                                    body to switch to. Selecting one here used to set activeSection to
+                                    an id nothing renders, leaving a blank content area with no way
+                                    back except the menu. Routed through the same opener the menu uses,
+                                    a searched link opens the thing it names. */}
+                                <ClientSearchBar hits={searchHits} onSelect={openNavItem} />
                             </div>
 
                             {/* Overview — pinned above the groups as the client's main dashboard. Never
@@ -2479,7 +2767,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                             className={cx(
                                                 "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition duration-100 ease-linear disabled:cursor-not-allowed disabled:opacity-50",
                                                 saveState === "error" || saveState === "conflict"
-                                                    ? "border-error bg-error-primary text-error-primary hover:bg-error-secondary"
+                                                    ? "border-error bg-error-primary text-error-primary hover:bg-utility-red-100"
                                                     : isLocked
                                                       ? "border-secondary bg-primary text-secondary hover:bg-tertiary hover:text-primary"
                                                       : "border-brand bg-brand-solid text-white hover:opacity-90",
@@ -2861,13 +3149,22 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     : "Where you are, and what happens next."}
                                                             </p>
                                                         </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <ProgressBarCircle value={Math.round((journeyDoneCount / journeySteps.length) * 100)} size="xxs" />
-                                                            <span className="text-sm font-semibold text-secondary tabular-nums">
-                                                                {journeyDoneCount} of {journeySteps.length}
-                                                            </span>
-                                                        </div>
+                                                        <span className="text-sm font-semibold text-secondary tabular-nums">
+                                                            {journeyDoneCount} of {journeySteps.length}
+                                                        </span>
                                                     </div>
+
+                                                    {/* The launch meter. It replaces the small percentage ring that used to
+                                                        sit beside the heading: two readings of the same number is one too
+                                                        many, and the ring was the quieter of the two on the page a client
+                                                        opens to find out how close they are to going live. */}
+                                                    <JourneyProgress
+                                                        cells={journeyCells}
+                                                        groups={journeyGroups}
+                                                        stepsDone={journeyDoneCount}
+                                                        stepsTotal={journeySteps.length}
+                                                        nextLabel={journeyNextLabel}
+                                                    />
 
                                                     <ol className="mt-6 grid list-none gap-0 p-0">
                                                         {journeySteps.map((step, i) => {
@@ -2896,7 +3193,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             step.done
                                                                                 ? "bg-brand-solid text-white"
                                                                                 : isCurrent
-                                                                                  ? "bg-brand-secondary text-brand-secondary ring-2 ring-brand"
+                                                                                  ? "bg-utility-brand-50 text-utility-brand-700 ring-2 ring-brand"
                                                                                   : "bg-secondary text-quaternary",
                                                                         )}
                                                                     >
@@ -2947,8 +3244,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         )}
 
                                                                         {/* Sub-items — the several separate things one step asks for.
-                                                                            No tick boxes: none of these are states we can observe, and
-                                                                            an empty box against a job already done reads as a failure.
+                                                                            Tick boxes only where the step says its items are tickable:
+                                                                            most of these aren't states we can observe, and an empty box
+                                                                            against a job already done reads as a failure. The funnel
+                                                                            reviews are the exception — the team ships each piece and
+                                                                            knows when it's signed off, so there each item carries its
+                                                                            own mark and its own jump into the section it names.
                                                                             An item whose link isn't filled in yet keeps its text and
                                                                             drops the button; only the team is told it's missing, since
                                                                             that's the team's job to fix, not the client's. */}
@@ -2965,42 +3266,102 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         step.itemsTitle ? "mt-2.5" : "mt-0",
                                                                                     )}
                                                                                 >
-                                                                                    {step.items.map((item) => (
-                                                                                        <li
-                                                                                            key={item.label}
-                                                                                            className="border-t border-secondary pt-3 first:border-t-0 first:pt-0"
-                                                                                        >
-                                                                                            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
-                                                                                                <span className="text-sm font-semibold text-secondary">
-                                                                                                    {item.label}
-                                                                                                </span>
-                                                                                                {item.url ? (
-                                                                                                    <Button
-                                                                                                        size="sm"
-                                                                                                        color="secondary"
-                                                                                                        href={item.url}
-                                                                                                        target="_blank"
-                                                                                                        rel="noopener noreferrer"
-                                                                                                        iconTrailing={LinkExternal01}
-                                                                                                    >
-                                                                                                        {item.action ?? "Open"}
-                                                                                                    </Button>
-                                                                                                ) : (
-                                                                                                    item.link &&
-                                                                                                    isTeam && (
-                                                                                                        <span className="text-xs text-warning-primary">
-                                                                                                            No link set — add it under Onboarding links.
+                                                                                    {step.items.map((item) => {
+                                                                                        // Same rule as the step-level jump: never offer a
+                                                                                        // client a way into a section they can't open.
+                                                                                        const itemTarget = item.to;
+                                                                                        const canOpenItem =
+                                                                                            !!itemTarget && (isTeam || revealedToClient(itemTarget));
+                                                                                        return (
+                                                                                            <li
+                                                                                                key={item.label}
+                                                                                                className="border-t border-secondary pt-3 first:border-t-0 first:pt-0"
+                                                                                            >
+                                                                                                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                                                                                                    <span className="flex min-w-0 items-center gap-2">
+                                                                                                        {step.itemsTickable && (
+                                                                                                            <span
+                                                                                                                aria-hidden="true"
+                                                                                                                className={cx(
+                                                                                                                    "grid size-4.5 shrink-0 place-items-center rounded-full transition duration-100 ease-linear",
+                                                                                                                    item.done
+                                                                                                                        ? "bg-success-solid text-white"
+                                                                                                                        : "ring-1 ring-secondary",
+                                                                                                                )}
+                                                                                                            >
+                                                                                                                {item.done && <Check className="size-3" />}
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                        <span
+                                                                                                            className={cx(
+                                                                                                                "text-sm font-semibold",
+                                                                                                                step.itemsTickable && !item.done
+                                                                                                                    ? "text-tertiary"
+                                                                                                                    : "text-secondary",
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            {item.label}
                                                                                                         </span>
-                                                                                                    )
+                                                                                                    </span>
+                                                                                                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                                                                                        {canOpenItem && itemTarget && (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="link-color"
+                                                                                                                iconTrailing={ArrowRight}
+                                                                                                                onClick={() => openNavItem(itemTarget)}
+                                                                                                            >
+                                                                                                                {item.action ?? "Open"}
+                                                                                                            </Button>
+                                                                                                        )}
+                                                                                                        {/* The AM's mark, edit mode only — the client
+                                                                                                            reads the tick, they don't set it. */}
+                                                                                                        {step.itemsTickable && !isLocked && isTeam && (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="secondary"
+                                                                                                                iconLeading={
+                                                                                                                    item.done ? RefreshCw01 : CheckCircle
+                                                                                                                }
+                                                                                                                onClick={() =>
+                                                                                                                    toggleJourneyItem(
+                                                                                                                        step.id,
+                                                                                                                        item.id ?? item.label,
+                                                                                                                    )
+                                                                                                                }
+                                                                                                            >
+                                                                                                                {item.done ? "Undo" : "Mark reviewed"}
+                                                                                                            </Button>
+                                                                                                        )}
+                                                                                                        {item.url ? (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="secondary"
+                                                                                                                href={item.url}
+                                                                                                                target="_blank"
+                                                                                                                rel="noopener noreferrer"
+                                                                                                                iconTrailing={LinkExternal01}
+                                                                                                            >
+                                                                                                                {item.action ?? "Open"}
+                                                                                                            </Button>
+                                                                                                        ) : (
+                                                                                                            item.link &&
+                                                                                                            isTeam && (
+                                                                                                                <span className="text-xs text-warning-primary">
+                                                                                                                    No link set — add it under Onboarding links.
+                                                                                                                </span>
+                                                                                                            )
+                                                                                                        )}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                                {item.note && (
+                                                                                                    <p className="mt-1 max-w-prose text-sm text-pretty text-tertiary">
+                                                                                                        {item.note}
+                                                                                                    </p>
                                                                                                 )}
-                                                                                            </div>
-                                                                                            {item.note && (
-                                                                                                <p className="mt-1 max-w-prose text-sm text-pretty text-tertiary">
-                                                                                                    {item.note}
-                                                                                                </p>
-                                                                                            )}
-                                                                                        </li>
-                                                                                    ))}
+                                                                                            </li>
+                                                                                        );
+                                                                                    })}
                                                                                 </ul>
                                                                             </div>
                                                                         )}
@@ -3092,7 +3453,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             {!isLocked &&
                                                                                 isTeam &&
                                                                                 (step.auto ? (
-                                                                                    <span className="text-xs text-quaternary">Tracked from the form itself</span>
+                                                                                    <span className="text-xs text-quaternary">
+                                                                                        Tracked from the form itself
+                                                                                    </span>
                                                                                 ) : (
                                                                                     <Button
                                                                                         size="sm"
@@ -3100,7 +3463,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         iconLeading={step.done ? RefreshCw01 : CheckCircle}
                                                                                         onClick={() => toggleJourneyStep(step.id)}
                                                                                     >
-                                                                                        {step.done ? "Mark not done" : "Mark done"}
+                                                                                        {/* A step ticked piece by piece keeps this as the
+                                                                                            all-at-once shortcut — "Mark done" would read as
+                                                                                            a second, competing state beside the item marks. */}
+                                                                                        {step.itemsTickable
+                                                                                            ? step.done
+                                                                                                ? "Undo all"
+                                                                                                : "Mark all reviewed"
+                                                                                            : step.done
+                                                                                              ? "Mark not done"
+                                                                                              : "Mark done"}
                                                                                     </Button>
                                                                                 ))}
                                                                         </div>
@@ -3130,6 +3502,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 isTemplate={isTemplate}
                                                                 teamName={user?.name ?? user?.email ?? ""}
                                                                 clientEmail={identityEmail}
+                                                                feedback={{
+                                                                    mode: isTeam ? "review" : canLandingFeedback ? "client" : "off",
+                                                                    items: landingFeedback,
+                                                                    author: suggestAuthor,
+                                                                    send: sendLandingFeedback,
+                                                                    withdraw: withdrawFeedback,
+                                                                    resolve: resolveFeedback,
+                                                                }}
                                                             />
                                                         </div>
                                                     </>
@@ -3187,8 +3567,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     items: flowFeedback,
                                                                     author: suggestAuthor,
                                                                     send: sendFlowFeedback,
-                                                                    withdraw: withdrawFlowFeedback,
-                                                                    resolve: resolveFlowFeedback,
+                                                                    withdraw: withdrawFeedback,
+                                                                    resolve: resolveFeedback,
                                                                 }}
                                                             />
                                                         </div>
@@ -3596,7 +3976,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     showTextWhileLoading
                                                                     onClick={() => void generateOverview()}
                                                                 >
-                                                                    {overviewBusy ? "Reading their answers…" : "Draft from the onboarding form"}
+                                                                    {overviewBusy
+                                                                        ? `${overviewStep || "Reading their answers"}…`
+                                                                        : "Draft from the onboarding form"}
                                                                 </Button>
                                                             )}
                                                             <Button
@@ -3926,8 +4308,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             </div>
                                                             <SectionHeading>Master Brand Document</SectionHeading>
                                                             <p className="mt-3 text-md text-tertiary">
-                                                                This is where it starts. It's what your Welcome Emails, chat widget, and every future AI feature
-                                                                read from, so the more complete it is, the smarter everything downstream gets.
+                                                                Everything you share here is what we build your deliverables from, so it's worth taking the time
+                                                                to get it complete and correct. It's also what your emails and AI tools read from.
                                                                 {!isTeam && " Spot something off? Suggest an edit and your account manager will review it."}
                                                             </p>
 
@@ -6501,7 +6883,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                         </div>
 
                         {masterDoc.missing.length > 0 && (
-                            <div className="mx-6 mt-4 rounded-lg bg-warning-secondary px-3 py-2 text-xs font-medium text-warning-primary">
+                            <div className="mx-6 mt-4 rounded-lg bg-utility-yellow-50 px-3 py-2 text-xs font-medium text-utility-yellow-700">
                                 Still empty: {masterDoc.missing.join(", ")} — marked “Not provided yet” below. Ask the client to fill these in.
                             </div>
                         )}

@@ -572,9 +572,9 @@ const PageRow = ({
 
     const colors = [
         "bg-brand-100 text-brand-700",
-        "bg-success-secondary text-success-primary",
-        "bg-warning-secondary text-warning-primary",
-        "bg-error-secondary text-error-primary",
+        "bg-utility-green-50 text-utility-green-700",
+        "bg-utility-yellow-50 text-utility-yellow-700",
+        "bg-utility-red-50 text-utility-red-700",
     ];
     const colorClass = colors[index % colors.length];
 
@@ -1135,7 +1135,7 @@ const HostOnboardingCard = ({
             <div className="mt-3 flex items-center gap-2 text-xs text-tertiary">
                 <span>Created {formatGuideDate(page.created_at)}</span>
                 {submitted ? (
-                    <span className="rounded-md bg-success-secondary px-1.5 py-0.5 text-[11px] font-medium text-success-primary">Submitted</span>
+                    <span className="rounded-md bg-utility-green-50 px-1.5 py-0.5 text-[11px] font-medium text-utility-green-700">Submitted</span>
                 ) : (
                     <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] text-quaternary">In progress</span>
                 )}
@@ -1300,9 +1300,9 @@ const PopupRow = ({ page, index, onDelete }: { page: LeadCapturePageData; index:
 
     const colors = [
         "bg-brand-100 text-brand-700",
-        "bg-success-secondary text-success-primary",
-        "bg-warning-secondary text-warning-primary",
-        "bg-error-secondary text-error-primary",
+        "bg-utility-green-50 text-utility-green-700",
+        "bg-utility-yellow-50 text-utility-yellow-700",
+        "bg-utility-red-50 text-utility-red-700",
     ];
     const colorClass = colors[index % colors.length];
 
@@ -1485,9 +1485,9 @@ const ChatWidgetRow = ({ page, index, onDelete }: { page: ChatWidgetPageData; in
 
     const colors = [
         "bg-brand-100 text-brand-700",
-        "bg-success-secondary text-success-primary",
-        "bg-warning-secondary text-warning-primary",
-        "bg-error-secondary text-error-primary",
+        "bg-utility-green-50 text-utility-green-700",
+        "bg-utility-yellow-50 text-utility-yellow-700",
+        "bg-utility-red-50 text-utility-red-700",
     ];
     const colorClass = colors[index % colors.length];
 

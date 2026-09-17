@@ -361,7 +361,7 @@ const FUNCTIONS: { name: string; what: string }[] = [
         what: "Drafts Master Brand Document sections from the client's forms, website and pasted reviews — fills empty fields only.",
     },
     { name: "generate-brand-kit", what: "Drafts the Brand Kit (colours, fonts) from the client's website." },
-    { name: "generate-overview", what: "Drafts the team's Client Overview Document." },
+    { name: "generate-overview", what: "Drafts the team's Client Overview Document, one group of fields per call — the dashboard runs three." },
     { name: "generate-summary", what: "Transcribes call recordings (Deepgram) and summarises them (Claude) for /log-script." },
     { name: "ai-chat", what: "Answers questions in the dashboard's AI chat using that client's own content." },
     { name: "mark-booked", what: "Lets a client's browser tick exactly one journey step (kick-off call booked) — deliberately can't write anything else." },
@@ -957,8 +957,13 @@ export const ManualScreen = () => {
                                 <p className="mb-3 text-md text-tertiary">{JOURNEY_STEPS.map((s, i) => `${i + 1}. ${s.label}`).join(" · ")}</p>
                                 <p className="mb-3 text-md text-tertiary">
                                     Completion is stored as step <em>ids</em> in <span className="font-mono text-sm">journey_done</span>, not positions, so
-                                    reordering the journey never disturbs a client's recorded progress. The side menu itself is drag-resizable from its right
-                                    hairline (240–420px, remembered per browser), numbers its rows continuously across groups, and shows a count per group.
+                                    reordering the journey never disturbs a client's recorded progress. The funnel step is ticked piece by piece and stores one{" "}
+                                    <span className="font-mono text-sm">funnel:&#123;section&#125;</span> key per review, so each of the five moves the launch
+                                    meter on its own; a row ticked before that split still carries the bare <span className="font-mono text-sm">funnel</span>{" "}
+                                    and is read as all five done. The launch meter above the list is a summary rather than a mirror of it: joining the Google
+                                    Chat group is not on the bar, and the two intake forms share one cell that fills through both — so the bar can show fewer
+                                    milestones than the "x of 10 steps" beside it. The side menu itself is drag-resizable from its right hairline (240–420px,
+                                    remembered per browser), numbers its rows continuously across groups, and shows a count per group.
                                 </p>
                                 <div className="flex flex-col gap-3">
                                     {DASHBOARD_GROUPS.map((g) => (

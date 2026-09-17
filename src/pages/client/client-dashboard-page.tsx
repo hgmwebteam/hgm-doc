@@ -862,11 +862,17 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         ),
     };
     const [overviewBusy, setOverviewBusy] = useState(false);
+    const [overviewStep, setOverviewStep] = useState("");
     const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
     const [overviewError, setOverviewError] = useState("");
 
     /**
-     * Draft the whole document from what the client has already told us.
+     * Draft the document from what the client has already told us.
+     *
+     * Three model calls, run one at a time, for the same reason the Master Document is split
+     * into seven: twenty fields in one call runs well past the ~10s a synchronous Netlify
+     * function gets, so the single-call version this replaced failed every time it was asked
+     * to draft a real client. See generate-overview.mts.
      *
      * Runs on the server so the client's form answers are read with the service-role key
      * rather than re-fetched here, and so the Anthropic key stays off the browser. It
@@ -874,46 +880,82 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      * bad draft from silently replacing an AM's own notes.
      */
     const generateOverview = async () => {
-        if (!slug || isTemplate) return;
+        if (!slug || isTemplate || overviewBusy) return;
         setOverviewBusy(true);
         setOverviewError("");
+
         try {
-            const res = await fetch("/.netlify/functions/generate-overview", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ slug }),
-            });
-            /* Read as text and parse by hand. res.json() throws a raw
-               "Unexpected end of JSON input" when the reply isn't JSON, and that string then
-               lands in front of an account manager as the entire explanation. The two ways it
-               happens are the local dev server, which serves no functions at all, and Netlify
-               returning an HTML error page — so both get named instead. */
-            const body = await res.text();
-            let json: { doc?: Partial<OverviewDoc>; error?: string } | null = null;
-            try {
-                json = body ? JSON.parse(body) : null;
-            } catch {
-                json = null;
+            // Team-only on the server too, so the session token travels with the request.
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            if (!token) {
+                setOverviewError("Your sign-in has expired — reload the page and sign in again.");
+                return;
             }
-            if (!json) {
-                throw new Error(
-                    res.status === 404
-                        ? "Drafting only runs on the live site — the local dev server doesn't serve it."
-                        : `The server didn't send a usable reply (${res.status}). Try again in a moment.`,
+
+            const groups: { group: string; label: string }[] = [
+                { group: "basics", label: "Who they are" },
+                { group: "goals", label: "Goals & audience" },
+                { group: "brand", label: "Brand & preferences" },
+            ];
+
+            const failed: string[] = [];
+            let landed = false;
+
+            for (const g of groups) {
+                setOverviewStep(g.label);
+                try {
+                    const res = await fetch("/.netlify/functions/generate-overview", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ slug, group: g.group }),
+                    });
+                    /* Read as text and parse by hand. res.json() throws a raw
+                       "Unexpected end of JSON input" when the reply isn't JSON, and that string then
+                       lands in front of an account manager as the entire explanation. The two ways it
+                       happens are the local dev server, which serves no functions at all, and Netlify
+                       returning an HTML error page — so both get named instead. */
+                    const body = await res.text();
+                    let json: { doc?: Partial<OverviewDoc>; error?: string } | null = null;
+                    try {
+                        json = body ? JSON.parse(body) : null;
+                    } catch {
+                        json = null;
+                    }
+                    if (!json) {
+                        throw new Error(
+                            res.status === 404
+                                ? "Drafting only runs on the live site — the local dev server doesn't serve it."
+                                : `The server didn't send a usable reply (${res.status}).`,
+                        );
+                    }
+                    if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
+                    // Merged per group, not batched at the end: a later failure then leaves
+                    // the earlier fields on screen instead of discarding the whole run.
+                    patchOverviewDoc({
+                        // Drop the model's empty strings — a field it couldn't source must not
+                        // blank out something an AM already typed on screen.
+                        ...(Object.fromEntries(Object.entries(json.doc ?? {}).filter(([, v]) => String(v ?? "").trim())) as Partial<OverviewDoc>),
+                        generated_at: new Date().toISOString(),
+                        generated_by: user?.email ?? "",
+                    });
+                    landed = true;
+                } catch (err) {
+                    console.error(`[overview doc] ${g.group} failed`, err);
+                    // One reason is worth more than three copies of it, so the first failure's
+                    // message is the one shown — the rest are usually the same cause twice.
+                    if (!failed.length) setOverviewError(err instanceof Error ? err.message : "Couldn't draft the document.");
+                    failed.push(g.label);
+                }
+            }
+
+            if (failed.length) {
+                setOverviewError((e) =>
+                    `Couldn't draft: ${failed.join(", ")}. ${e || ""}${landed ? " Everything else landed — try again for the rest." : ""}`.trim(),
                 );
             }
-            if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
-            patchOverviewDoc({
-                // Drop the model's empty strings — a field it couldn't source must not
-                // blank out something an AM already typed on screen.
-                ...(Object.fromEntries(Object.entries(json.doc as Partial<OverviewDoc>).filter(([, v]) => String(v ?? "").trim())) as Partial<OverviewDoc>),
-                generated_at: new Date().toISOString(),
-                generated_by: user?.email ?? "",
-            });
-        } catch (err) {
-            console.error("[overview doc] generation failed", err);
-            setOverviewError(err instanceof Error ? err.message : "Couldn't draft the document.");
         } finally {
+            setOverviewStep("");
             setOverviewBusy(false);
         }
     };
@@ -2708,7 +2750,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 )
                                                                             )}
                                                                         </div>
-                                                                        {step.detail && <p className="mt-1.5 text-sm text-pretty text-tertiary">{step.detail}</p>}
+                                                                        {step.detail && (
+                                                                            <p className="mt-1.5 text-sm text-pretty text-tertiary">{step.detail}</p>
+                                                                        )}
 
                                                                         {!step.done && step.progress && step.progress.total > 0 && (
                                                                             <div className="mt-3">
@@ -3271,7 +3315,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     showTextWhileLoading
                                                                     onClick={() => void generateOverview()}
                                                                 >
-                                                                    {overviewBusy ? "Reading their answers…" : "Draft from the onboarding form"}
+                                                                    {overviewBusy
+                                                                        ? `${overviewStep || "Reading their answers"}…`
+                                                                        : "Draft from the onboarding form"}
                                                                 </Button>
                                                             )}
                                                             <span className="text-sm text-quaternary tabular-nums">

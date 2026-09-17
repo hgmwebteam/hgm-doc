@@ -248,11 +248,16 @@ async function fetchLogos(html: string, base: URL) {
 
 /* ── the guidelines PDF ─────────────────────────────────────────────────── */
 
-const MODEL = "claude-opus-5";
+const MODEL = "claude-fable-5";
 
 /** The model only ranks and names; it never blocks the draft. Past this the extracted
  *  palette ships with positional role names, which is a slightly worse kit, not a failure.
- *  Sized to leave room inside the function's ~10s budget for the website read as well. */
+ *  Sized to leave room inside the function's ~10s budget for the website read as well.
+ *
+ *  This is what lets the endpoint stay synchronous on a model that can think for a long
+ *  time. generate-overview had to split into three calls to fit the same budget; here the
+ *  input is a few thousand tokens of already-extracted text and the pass runs at low
+ *  effort, so it should land well inside this — and costs only role names if it doesn't. */
 const MODEL_MS = 7000;
 
 /**

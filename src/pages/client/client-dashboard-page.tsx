@@ -1751,22 +1751,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** The Client Overview brief, copied the same way — rich text for Google Docs, plain text behind it. */
     const copyOverviewForDocs = async () => {
         const compiled = compileOverviewDocument(overviewDoc);
-        const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const html = [
-            `<h1>Client Overview — ${esc(overviewDoc.business_name.trim() || overviewDoc.client_name.trim() || "Client")}</h1>`,
-            `<p>${esc(`Generated: ${compiled.generatedOn}`)}</p>`,
-            ...compiled.sections.map((s, i) => `<h2>${i + 1}. ${esc(s.label)}</h2><p>${esc(s.value || "Not provided yet.").replace(/\n/g, "<br>")}</p>`),
-        ].join("");
         try {
             await navigator.clipboard.write([
                 new ClipboardItem({
-                    "text/html": new Blob([html], { type: "text/html" }),
-                    "text/plain": new Blob([compiled.doc], { type: "text/plain" }),
+                    "text/html": new Blob([compiled.html], { type: "text/html" }),
+                    "text/plain": new Blob([compiled.markdown], { type: "text/plain" }),
                 }),
             ]);
         } catch {
             try {
-                await navigator.clipboard.writeText(compiled.doc);
+                await navigator.clipboard.writeText(compiled.markdown);
             } catch {
                 return;
             }

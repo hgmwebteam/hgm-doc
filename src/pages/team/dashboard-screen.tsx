@@ -8,6 +8,7 @@ import {
     Check,
     ChevronDown,
     ClipboardCheck,
+    Clock,
     Code02,
     Edit01,
     FilePlus02,
@@ -22,6 +23,7 @@ import {
     Mail01,
     MarkerPin01,
     MessageChatCircle,
+    Microphone01,
     Plus,
     SearchSm,
     Share07,
@@ -267,6 +269,18 @@ const DEPARTMENTS: Department[] = [
         sectionLabel: "By Tiers",
         kind: "clientlist",
         tabs: [],
+        // Link rows, not sections — the Client List renders the roster either way. /log is
+        // where the department's own work shows up (who changed which dashboard today), so
+        // it belongs above the tiers rather than buried in the manual.
+        extraGroups: [
+            {
+                label: "Activity",
+                tabs: [
+                    { id: "dashboard-updates", label: "Dashboard Updates", icon: Clock, to: "/log" },
+                    { id: "recording-summaries", label: "Recording Summaries", icon: Microphone01, to: "/log-script" },
+                ],
+            },
+        ],
     },
     {
         id: "website",
@@ -3727,9 +3741,11 @@ const DashboardLayout = () => {
         setActiveSection(firstContentTab(d));
     };
 
-    /** A tab either switches the section or, when it carries `to`, opens its own page. */
+    /** A tab either switches the section or, when it carries `to`, opens its own page.
+     *  extraGroups rows are searched too — they're rendered by the same side menu and are
+     *  the only way a link row reaches a department whose own `tabs` are empty (Clients). */
     const selectTab = (id: string) => {
-        const t = tabs.find((x) => x.id === id);
+        const t = tabs.find((x) => x.id === id) ?? dept.extraGroups?.flatMap((g) => g.tabs).find((x) => x.id === id);
         if (t?.to) navigate(t.to);
         else setActiveSection(id);
     };

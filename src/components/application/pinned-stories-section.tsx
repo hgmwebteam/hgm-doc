@@ -32,6 +32,7 @@ import {
     startCanvaConnect,
     storeCanvaPages,
 } from "@/lib/canva-import";
+import { STORIES_SECTION, recordDashboardPublish } from "@/lib/dashboard-updates";
 import { supabase } from "@/lib/supabase";
 import { type PinnedPost, parseCanvaUrl, uid } from "@/pages/client/dashboard/dashboard-model";
 import { type PinnedProfileInputs, buildProfile } from "@/pages/client/dashboard/pinned-posts";
@@ -277,9 +278,22 @@ export const PinnedStoriesSection = ({
             // The tray travels with the version so "Make changes" restores the whole import.
             unassigned: draft.unassigned,
         };
-        const ok = await persist({ draft: null, versions: [version, ...data.versions] });
+        const versions = [version, ...data.versions];
+        const ok = await persist({ draft: null, versions });
         setPublishing(false);
-        if (ok) setPosition(PROFILE);
+        if (!ok) return;
+        setPosition(PROFILE);
+        // Only the publish is logged to the team's feed at /log, never persist() itself —
+        // this section saves the draft on every keystroke, and those writes would bury every
+        // other entry in the feed. Fire-and-forget: the stories are already live.
+        if (slug && !isTemplate) {
+            void recordDashboardPublish({
+                slug,
+                clientName,
+                section: STORIES_SECTION,
+                summary: `Published Pinned Stories v${versions.length}`,
+            });
+        }
     };
 
     const discardDraft = () => void persist({ ...data, draft: null }).then(() => setPosition(PROFILE));

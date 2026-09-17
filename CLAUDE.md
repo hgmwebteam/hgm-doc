@@ -149,6 +149,15 @@ Editable page content persists to **Supabase** — the single source of truth. T
 - `writeSopPage(slug, data)` — upserts the row; **throws** on failure (callers render an unsaved/error state, so never swallow it)
 - `src/lib/db-logger.ts` provides colored dev-console logging for these ops
 
+**Who changed what:** every client-dashboard Save writes one row to `dashboard_updates` through
+`src/lib/dashboard-updates.ts`, and `/log` (`src/pages/team/log-screen.tsx`) is the team-only feed
+that reads them. The diff lives in `dashboard-updates-model.ts` — pure, with a self-check beside it.
+Two rules when touching it: it records section and field **names only** (`dashboard_pages.data`
+carries `share_password` and everything a client wrote, so a value copied here is a value leaked
+twice), and every write is best-effort and never thrown — an audit line that fails must not read to
+an AM as a dashboard that wouldn't save. Landing Page and Pinned Stories keep their own tables and
+persist on every keystroke, so only their **publish** is logged, not each save.
+
 > Firebase Firestore was a dual-write fallback here until 2026-08-06. It was removed because Firestore's rules denied the anon client both reads and writes — every fallback read failed and every backup write was silently swallowed, so it could not have survived an outage. Don't reintroduce a second database without rules that actually permit the client.
 
 **Local offline dev:** Run `supabase start` (Docker) to spin up a local Supabase stack on ports 54321 (API) / 54322 (DB). Update `.env.local` to point `VITE_SUPABASE_URL` to `http://127.0.0.1:54321`.
@@ -194,7 +203,7 @@ so rather than invent a location. Machine-wide shared assets are declared in
 | fact | this project |
 | --- | --- |
 | Brand / sector / audience | HiddenGem Media — marketing agency for short-term-rental / vacation-property hosts. Two audiences on one site: the internal team (account managers, web team) and the hosts themselves. Client-facing surfaces are calm and plain-spoken; internal ones are dense and tool-like |
-| Public site routes | Registered flat in `src/main.tsx`. Client-facing: `/{client}-dashboard`, `/{client}-metapixel`, `/{client}-leadcapture`, `/{client}-chatwidget`, `/owner-guide/:slug`, and the three intake forms (`/brand-vision-form`, `/client-onboarding-form`, `/host-onboarding-form`). Team-only behind the sign-in gate: `/dashboard`, `/home`, `/roadmap`, `/manual`, `/questions`, `/requests`, `/settings`, `/designsystem`, `/deployment`, `/fix`, `/log-script`, the `*-overview` project logs, and `/webteam/*`. Page components live in `src/pages/{client,team,overviews,templates}/` |
+| Public site routes | Registered flat in `src/main.tsx`. Client-facing: `/{client}-dashboard`, `/{client}-metapixel`, `/{client}-leadcapture`, `/{client}-chatwidget`, `/owner-guide/:slug`, and the three intake forms (`/brand-vision-form`, `/client-onboarding-form`, `/host-onboarding-form`). Team-only behind the sign-in gate: `/dashboard`, `/home`, `/roadmap`, `/manual`, `/questions`, `/requests`, `/settings`, `/designsystem`, `/deployment`, `/fix`, `/log`, `/log-script`, the `*-overview` project logs, and `/webteam/*`. Page components live in `src/pages/{client,team,overviews,templates}/` |
 | Shared UI primitives | `src/components/base/**` (Button, Input, Select, Badge, Avatar…), `application/**` (Modal, Table, DatePicker, icon-rail…), `foundations/**` (FeaturedIcon), `marketing/**` |
 | Project-written components | Not kept in a separate tree — hand-written and vendored share `src/components/**`. `shared-assets/` holds the hand-written ones (`reveal.tsx`, `image-lightbox.tsx`, `section-divider.tsx`). Check `git log` on a file before assuming which it is, because a CLI sync can overwrite a vendored path |
 | Component system | Untitled UI React (React Aria Components + Tailwind v4), vendored under `src/components/{base,application,marketing,foundations}`. The licence is saved machine-wide in `~/.untitledui/config.json`, not in the repo, so `npx untitledui@latest add` **does** work on this machine — prefer it over hand-writing a component. PRO packages resolve through `UNTITLEDUI_PRO_TOKEN`, read by `.npmrc` — `~/.npmrc` locally, a **Netlify UI env var** for the production build (it is *not* in `netlify.toml`, yet Netlify's `npm ci` installs `@untitledui-pro` fine, so it must be set under Site settings → Environment variables), and a **GitHub Actions secret** for `ci.yml` (which trims whitespace off it, because a trailing newline surfaces as an indistinguishable `401 Invalid API key`). A fresh Claude Code web container needs it in the environment config too, or setup fails at `npm ci`. There is no Link component: `Button` takes `href` |

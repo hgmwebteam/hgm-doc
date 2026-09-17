@@ -51,6 +51,7 @@ import { ImageLightbox } from "@/components/shared-assets/image-lightbox";
 import { Reveal } from "@/components/shared-assets/reveal";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
+import { recordDashboardSave } from "@/lib/dashboard-updates";
 import { type DashboardContent, type HostOnboardingData, type OverviewDoc, supabase } from "@/lib/supabase";
 import {
     CREDENTIAL_LABELS,
@@ -1482,6 +1483,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     return;
                 }
             }
+            // What the row held before this write, read off the same baseline the conflict
+            // guard uses. Captured BEFORE the upsert, because the baseline is replaced below.
+            const before = savedRowRef.current === null ? null : (JSON.parse(savedRowRef.current) as Partial<DashboardContent> | null);
+
             const { error } = await supabase
                 .from("dashboard_pages")
                 .upsert({ slug, client_name: clientName.trim(), client_website: clientWebsite.trim(), data: content }, { onConflict: "slug" });
@@ -1495,6 +1500,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             // jsonb re-orders keys, so only a re-read compares equal on the next save.
             const { data: fresh } = await supabase.from("dashboard_pages").select("data").eq("slug", slug).maybeSingle();
             savedRowRef.current = fresh ? JSON.stringify(fresh.data ?? null) : null;
+            // Log who changed what, for the team's feed at /log. Deliberately not awaited and
+            // never fatal: the dashboard is already saved, and an audit line that failed to
+            // write must not read to the AM as a save that failed. Writes nothing when the
+            // diff is empty, so re-locking an untouched page leaves no trace.
+            void recordDashboardSave({ slug, clientName: clientName.trim(), before, after: content });
             // Accepted suggestions become "accepted" in the DB only now, after the values
             // they carry are really saved. On error they simply stay pending — re-accepting
             // applies the same value again, so nothing is lost either way.

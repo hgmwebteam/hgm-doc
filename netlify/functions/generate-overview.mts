@@ -20,7 +20,7 @@ import { NOT_CONFIGURED, blankIfPlaceholder, isDashboardSlug, readClientSources,
  * Service-role is used to read the two form tables and script_logs. Nothing is written.
  */
 
-const MODEL = "claude-opus-5";
+const MODEL = "claude-fable-5";
 
 /** Mirrors OverviewDoc in src/lib/supabase.ts, minus properties/screenshot/generated_*.
  *  Change both together, or the model will fill fields the form doesn't render. */

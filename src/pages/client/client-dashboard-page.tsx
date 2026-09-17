@@ -634,12 +634,55 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Guest reviews the AM pastes in. Not persisted — it's raw input to the draft, and
      *  the useful output of it lives in the two Reviews fields. */
     const [reviewsPaste, setReviewsPaste] = useState("");
-    /* ── Brand Kit from the client's own website (team-only) ── */
+    /* ── Brand Kit from the client's own website and/or guidelines PDF (team-only) ── */
     const [brandKitUrl, setBrandKitUrl] = useState("");
     const [brandKitBusy, setBrandKitBusy] = useState(false);
     const [brandKitMsg, setBrandKitMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+    /** The guidelines PDF this draft should read, once it's in storage. Held as a path
+     *  rather than bytes: the generator downloads it server-side, which keeps a 15MB file
+     *  out of the request body entirely. */
+    const [brandKitPdf, setBrandKitPdf] = useState<{ path: string; name: string } | null>(null);
+    const [brandKitPdfBusy, setBrandKitPdfBusy] = useState(false);
+
+    /** Put the client's brand guidelines PDF somewhere the generator can read it. Same
+     *  bucket and path shape the onboarding form already uses for brand-kit uploads. */
+    const onPickBrandKitPdf = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
+            setBrandKitMsg({ kind: "err", text: "That needs to be a PDF — export the guidelines as one and try again." });
+            return;
+        }
+        setBrandKitPdfBusy(true);
+        setBrandKitMsg(null);
+        try {
+            const safe = file.name
+                .toLowerCase()
+                .replace(/[^a-z0-9.]+/g, "-")
+                .slice(-80);
+            const path = `${clientBase || "template"}/${Date.now()}-${safe}`;
+            const { error } = await supabase.storage.from("brandkits").upload(path, file, { contentType: "application/pdf", cacheControl: "31536000" });
+            if (error) throw error;
+            setBrandKitPdf({ path, name: file.name });
+        } catch (err) {
+            console.error("[brand kit pdf upload]", err);
+            setBrandKitMsg({ kind: "err", text: "That PDF didn't upload — check your connection and try again." });
+        } finally {
+            setBrandKitPdfBusy(false);
+        }
+    };
+
+    /** Detach the PDF. The object is left in the bucket: it's the client's own guidelines
+     *  and costs nothing to keep, whereas deleting it here would also delete it out from
+     *  under any other draft that already read it. */
+    const clearBrandKitPdf = () => {
+        setBrandKitPdf(null);
+        setBrandKitMsg(null);
+    };
+
     /**
-     * Read the client's website and merge a draft palette in.
+     * Read the client's material and merge a draft palette in.
      *
      * Nothing here can destroy work an AM already did: logos are always appended, fonts
      * only fill a blank (or the "Inter" default), and the palette is REPLACED only while it
@@ -649,8 +692,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      */
     const generateBrandKit = async () => {
         const url = (brandKitUrl.trim() || clientWebsite.trim()).trim();
-        if (!url) {
-            setBrandKitMsg({ kind: "err", text: "Enter the client's website address first." });
+        const pdfPath = brandKitPdf?.path ?? "";
+        if (!url && !pdfPath) {
+            setBrandKitMsg({ kind: "err", text: "Add the client's website address, or upload their brand guidelines PDF." });
             return;
         }
         setBrandKitBusy(true);
@@ -666,13 +710,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const res = await fetch("/.netlify/functions/generate-brand-kit", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ url }),
+                body: JSON.stringify({ url, pdf_path: pdfPath }),
             });
             const json = (await res.json()) as {
                 error?: string;
                 colors?: BrandColor[];
                 fonts?: string;
                 logos?: { name: string; url: string }[];
+                source?: { pdf?: { pages: number; hexes_found: number; named: boolean } | null };
             };
             if (!res.ok) {
                 setBrandKitMsg({ kind: "err", text: json.error || "Couldn't read that site." });
@@ -695,9 +740,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 patch.fonts && "fonts",
                 json.logos?.length && `${json.logos.length} logo${json.logos.length > 1 ? "s" : ""}`,
             ].filter(Boolean);
+            const pdf = json.source?.pdf;
+            const where = pdf ? `the PDF (${pdf.pages} page${pdf.pages === 1 ? "" : "s"})` : "the site";
+            // When the naming pass didn't run, the roles are positional guesses off the
+            // order the document introduced them — say so rather than let "Primary" read
+            // as something the document actually claimed.
+            const caveat = pdf && !pdf.named && found.length ? " Role names are from the order they appear — rename any that are wrong." : "";
             setBrandKitMsg({
                 kind: "ok",
-                text: `Found ${bits.join(", ")}. Review it, then Save changes — nothing is saved yet.`,
+                text: `Found ${bits.join(", ")} in ${where}. Review it, then Save changes — nothing is saved yet.${caveat}`,
             });
         } catch {
             setBrandKitMsg({ kind: "err", text: "Couldn't reach the generator. Try again in a moment." });
@@ -3082,7 +3133,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             {!isLocked &&
                                                                                 isTeam &&
                                                                                 (step.auto ? (
-                                                                                    <span className="text-xs text-quaternary">Tracked from the form itself</span>
+                                                                                    <span className="text-xs text-quaternary">
+                                                                                        Tracked from the form itself
+                                                                                    </span>
                                                                                 ) : (
                                                                                     <Button
                                                                                         size="sm"
@@ -5373,7 +5426,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             </div>
                                                         )}
 
-                                                        {/* Team-only: draft the kit from the client's live site, then review. */}
+                                                        {/* Team-only: draft the kit from the client's live site and/or the brand
+                                                            guidelines PDF they sent, then review. The PDF wins where both are
+                                                            given — a guidelines doc names its own primary. */}
                                                         {isTeam && !isLocked && (
                                                             <div className="mt-4">
                                                                 <div className="flex flex-wrap items-center gap-2">
@@ -5385,15 +5440,51 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         onKeyDown={(e) => e.key === "Enter" && !brandKitBusy && void generateBrandKit()}
                                                                         className={editInput("max-w-72")}
                                                                     />
+                                                                    {brandKitPdf ? (
+                                                                        <span className="inline-flex max-w-72 items-center gap-2 rounded-lg border border-secondary px-2.5 py-1.5 text-sm text-secondary">
+                                                                            <FileCheck02 className="size-4 shrink-0 text-fg-quaternary" aria-hidden="true" />
+                                                                            <span className="truncate">{brandKitPdf.name}</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={clearBrandKitPdf}
+                                                                                aria-label={`Remove ${brandKitPdf.name}`}
+                                                                                className="shrink-0 cursor-pointer text-fg-quaternary transition duration-100 ease-linear hover:text-fg-secondary"
+                                                                            >
+                                                                                <XClose className="size-3.5" aria-hidden="true" />
+                                                                            </button>
+                                                                        </span>
+                                                                    ) : (
+                                                                        <label
+                                                                            className={cx(
+                                                                                "inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-secondary px-2.5 py-1.5 text-sm font-medium text-tertiary transition duration-100 ease-linear hover:border-brand hover:text-brand-secondary",
+                                                                                brandKitPdfBusy && "cursor-not-allowed opacity-50",
+                                                                            )}
+                                                                        >
+                                                                            <input
+                                                                                type="file"
+                                                                                accept="application/pdf,.pdf"
+                                                                                disabled={brandKitPdfBusy}
+                                                                                className="hidden"
+                                                                                onChange={(e) => void onPickBrandKitPdf(e)}
+                                                                            />
+                                                                            <UploadCloud02 className="size-4" aria-hidden="true" />
+                                                                            {brandKitPdfBusy ? "Uploading…" : "Brand guidelines PDF"}
+                                                                        </label>
+                                                                    )}
                                                                     <Button
                                                                         size="sm"
                                                                         color="secondary"
                                                                         iconLeading={Stars02}
                                                                         isLoading={brandKitBusy}
+                                                                        isDisabled={brandKitPdfBusy}
                                                                         showTextWhileLoading
                                                                         onClick={() => void generateBrandKit()}
                                                                     >
-                                                                        {brandKitBusy ? "Reading the site…" : "Generate from website"}
+                                                                        {brandKitBusy
+                                                                            ? brandKitPdf
+                                                                                ? "Reading the PDF…"
+                                                                                : "Reading the site…"
+                                                                            : "Generate brand kit"}
                                                                     </Button>
                                                                 </div>
                                                                 {brandKitMsg && (

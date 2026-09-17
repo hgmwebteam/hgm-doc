@@ -1940,11 +1940,19 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             }
 
             const groups: { group: string; label: string; extra?: Record<string, unknown> }[] = [
-                { group: "hosts", label: "Hosts & location" },
+                // Also optional website: the brief already tells it to lean on their own
+                // About Us story, which only exists on the site.
+                { group: "hosts", label: "Hosts & location", extra: { siteText } },
                 { group: "properties", label: "The properties", extra: { siteText } },
-                { group: "brand", label: "Audience & UVP" },
-                { group: "voice", label: "Brand voice, taglines & bio" },
-                { group: "personas", label: "Personas" },
+                /* The three brand groups get the website and the pasted reviews as well as
+                   the forms. The forms stay the source of truth (the system prompt ranks
+                   them), but a UVP needs the concrete facts that only live on the site, and
+                   the reviews are the only evidence of what guests actually value and the
+                   words they use for it. Both are optional — unlike `properties` and
+                   `focus` below, these groups draft fine without either. */
+                { group: "brand", label: "Audience & UVP", extra: { siteText, reviewsText: reviewsPaste } },
+                { group: "voice", label: "Brand voice, taglines & bio", extra: { siteText, reviewsText: reviewsPaste } },
+                { group: "personas", label: "Personas", extra: { siteText, reviewsText: reviewsPaste } },
                 { group: "focus", label: "Focus properties", extra: { siteText, allowedLinks } },
                 { group: "favorites", label: "Local favorites" },
                 { group: "reviews", label: "Reviews", extra: { reviewsText: reviewsPaste } },

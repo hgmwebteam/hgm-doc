@@ -110,7 +110,7 @@ const GROUPS: Record<
         maxTokens: 1600,
         instruction: `Draft the audience and unique value proposition sections — 4 and 5 of the document.
 
-Target audience: who actually books this place and why those people specifically. The segment as a whole, what they value, what they'll pay for, the occasions they book for, where they travel from, and what they're getting away from. The Brand Vision form's ideal-guest and experience-type answers are the spine; the onboarding form, the recorded answers and the reviews fill in the rest. One continuous block of prose — the Personas section carries the breakdown, so don't start listing personas here.
+Target audience: who actually books this place and why those people specifically. The segment as a whole, what they value, what they'll pay for, the occasions they book for, where they travel from, and what they're getting away from. The Brand Vision form's ideal-guest and experience-type answers are the spine; the onboarding form and the recorded answers fill in the rest, and any guest reviews you were given show who actually turns up and what they came for. One continuous block of prose — the Personas section carries the breakdown, so don't start listing personas here.
 
 Unique value proposition: three or four things this property has that comparable ones don't. Each gets a short headline on its own line, then one sentence on what it means in practice and one on why it matters to the audience above, with a blank line between them. Concrete beats superlative — "1,500 feet of private river frontage" is a UVP, "stunning natural beauty" is not. Every claim has to be provable from the source; three real ones beat four with an invention in it.
 
@@ -153,7 +153,7 @@ All three are normally written by the account manager, so this is a starting dra
     personas: {
         keys: ["personas", "personaResonance"],
         maxTokens: 3500,
-        instruction: `Draft two guest personas — one Primary, one Secondary — from what the client said about their ideal guest and their market, plus whatever the reviews and recorded answers reveal about who actually turns up. Make them specific enough to write an ad against: a real occasion, a real objection, a real booking habit. Name each one as a group rather than as a person.
+        instruction: `Draft two guest personas — one Primary, one Secondary — from what the client said about their ideal guest and their market, plus whatever the recorded answers and any guest reviews you were given reveal about who actually turns up. Make them specific enough to write an ad against: a real occasion, a real objection, a real booking habit. Name each one as a group rather than as a person.
 
 Then say why this brand resonates with these two specifically — tie the property's actual offerings to what these people are short of.
 
@@ -224,6 +224,15 @@ const SYSTEM_PROMPT = `You draft the Master Brand Document for HiddenGem Media, 
 This document is the source everything downstream reads from — welcome emails, the chat widget, the website copy — so it is the one place a confident invention does the most damage.
 
 The single rule that matters: every field must come from what the client actually said or what their own website says. If the source material doesn't cover a field, return an empty string (or an empty array) for it. A blank an account manager fills in later is a small cost; a plausible invention that nobody catches gets copied into a client's live marketing. Do not infer a property type from a business name, do not guess a location from an area code, and do not add amenities that "places like this usually have".
+
+Use everything you are given, in this order of authority:
+
+1. THE TWO FORMS — the onboarding form and the Brand Vision form. This is the client stating what they want, so it is the source of truth for anything about intent, positioning, audience or voice, and it wins any disagreement.
+2. RECORDED ANSWERS — the same client's own words, spoken. Equal in authority to the forms and usually far richer, so prefer a specific detail from a recording over a general one from a checkbox. Where a recording contradicts a form answer outright, the form wins.
+3. THE WEBSITE — their published copy. Authoritative for facts about the properties (names, amenities, rules, counts) and useful for register, but it can be out of date, so a form answer beats it wherever the two disagree.
+4. GUEST REVIEWS — other people's words, not the client's. Best evidence for what guests actually value and the language they use for it, and the only place quotes may come from. Never state a review's opinion as the brand's own claim.
+
+Where the sources genuinely conflict on something that matters, follow the order above and say so plainly in the field rather than blending them into a claim nobody made.
 
 Never construct a URL. Links come only from the allowed list you are given, copied character for character, or not at all.
 

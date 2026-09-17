@@ -625,7 +625,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [promptCopied, setPromptCopied] = useState(false);
     /* ── Master Document drafting (team-only) ──
        `masterDraftStep` is the label of the group being drafted, shown live: the run takes
-       around a minute across seven model calls, and a single spinner for that long reads as
+       around a minute across eight model calls, and a single spinner for that long reads as
        a hang. `masterDraftDone` collects what landed so the AM can see it was partial when
        a group fails, rather than being told only about the failure. */
     const [masterDraftStep, setMasterDraftStep] = useState("");
@@ -1623,13 +1623,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /**
      * Draft the whole Master Brand Document from the client's own material.
      *
-     * Seven model calls plus one website read, run one at a time. Each is a separate request
+     * Eight model calls plus one website read, run one at a time. Each is a separate request
      * because the document is ~66 fields and a single call for all of them exceeds the ~10s
      * a synchronous Netlify function gets — see generate-master-section.mts for why that
      * beat making it a background function.
      *
      * Sequential rather than parallel on purpose: the groups are cheap individually, the AM
-     * watches them tick past, and a burst of seven concurrent Opus calls is the kind of thing
+     * watches them tick past, and a burst of eight concurrent Opus calls is the kind of thing
      * that trips a rate limit at exactly the wrong moment.
      *
      * Nothing is saved. Every group merges through mergeFoundationDraft, which can only fill
@@ -1693,7 +1693,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 if (siteLinks.length) patchFoundation(mergeFoundationDraft(foundation, { websiteLinks: siteLinks }));
                 setMasterDraftDone((d) => [...d, "Website links"]);
             } catch (err) {
-                // A site we can't read shouldn't stop the seven sections that don't need it.
+                // A site we can't read shouldn't stop the sections that don't need it.
                 console.warn("[master draft] website read failed", err);
                 setMasterDraftError(err instanceof Error ? `${err.message} Drafting continued without the website.` : "");
             }
@@ -1701,7 +1701,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const groups: { group: string; label: string; extra?: Record<string, unknown> }[] = [
                 { group: "hosts", label: "Hosts & location" },
                 { group: "properties", label: "The properties", extra: { siteText } },
-                { group: "brand", label: "Audience, UVP & brand" },
+                { group: "brand", label: "Audience & UVP" },
+                { group: "voice", label: "Brand voice, taglines & bio" },
                 { group: "personas", label: "Personas" },
                 { group: "focus", label: "Focus properties", extra: { siteText, allowedLinks } },
                 { group: "favorites", label: "Local favorites" },

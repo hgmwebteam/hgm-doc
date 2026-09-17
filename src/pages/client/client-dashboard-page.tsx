@@ -1421,8 +1421,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      * netlify/lib/reporting.mts) and refuses a dashboard whose access list is empty, saying
      * so on screen. An always-visible row therefore reveals a door, never what is behind it.
      */
-    const revealedToClient = (id: SectionId) =>
-        id === "overview" || id === "help" || (!TEAM_ONLY_SECTIONS.has(id) && clientVisible.includes(id));
+    const revealedToClient = (id: SectionId) => id === "overview" || id === "help" || (!TEAM_ONLY_SECTIONS.has(id) && clientVisible.includes(id));
     const toggleClientVisible = (id: SectionId) =>
         setContent((c) => {
             const cur = c.client_visible ?? DEFAULT_CLIENT_VISIBLE;

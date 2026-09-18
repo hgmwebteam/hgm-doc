@@ -66,6 +66,7 @@ import {
     clientOnboardingAnswers,
     clientOnboardingProgress,
     ensureClientOnboardingForm,
+    withLoginCleared,
 } from "@/pages/client/client-onboarding-form-page";
 import { brandKitCss, brandKitFileName, brandKitHasContent } from "@/pages/client/dashboard/brand-kit-export";
 import { BrandPreview } from "@/pages/client/dashboard/brand-kit-preview";
@@ -614,6 +615,28 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        from an empty object. */
     const [armedReset, setArmedReset] = useState<null | "intake" | "brand">(null);
     const [resetting, setResetting] = useState(false);
+
+    /* ── Delete one stored login once it is in 1Password ──
+       The Onboarding Form's Account Setup section collects real passwords, and they sit in
+       client_onboarding_pages until someone removes them. The team's working order is to
+       copy a login into the client's 1Password vault and delete that one, then the next —
+       so the control lives on each login row in the answers panel, not up here on the
+       section, and it takes one login at a time.
+
+       Only the password goes: the username, @handle and platform stay, because they say
+       which account each login belongs to and are not the secret. Throws rather than
+       swallowing, so a failed write leaves the row's confirm in place instead of reading
+       as a password that is gone when it is still there. */
+    const deleteLogin = async (field: string) => {
+        if (!intakeSlug) return;
+        const cleared = withLoginCleared(intakeData, field);
+        const { error } = await supabase.from("client_onboarding_pages").update({ data: cleared }).eq("slug", intakeSlug);
+        if (error) {
+            console.error("[delete login]", error);
+            throw error;
+        }
+        setIntakeData(cleared);
+    };
 
     const resetForm = async (kind: "intake" | "brand") => {
         const slugToClear = kind === "intake" ? intakeSlug : onboardingSlug;
@@ -3810,6 +3833,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     sections={clientOnboardingAnswers(intakeData)}
                                                                     isTeamView={isTeam}
                                                                     clientName={clientName}
+                                                                    onDeleteLogin={isTeam && !isTemplate ? deleteLogin : undefined}
                                                                     onEdit={(field) => {
                                                                         setFormModalField(field);
                                                                         setFormModal("intake");

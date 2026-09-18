@@ -98,7 +98,7 @@ export const ACCOUNT_IDS = SETUP_ACCOUNTS.map((a) => a.id);
 
 export const DEFAULT_WEBSITE_SETUP: WebsiteSetup = {
     netlify_email: "",
-    netlify_done: false,
+    netlify_password: "",
     ai_website: "",
     accounts: {},
     domain: "",
@@ -114,6 +114,9 @@ export const mergeWebsiteSetup = (partial?: Partial<WebsiteSetup> | null): Websi
 
 export const accountState = (setup: WebsiteSetup, id: WebsiteSetupAccountId) => setup.accounts[id] ?? { value: "", done: false };
 
+/** Netlify counts as done once both the login email and password are filled in — no tick box. */
+export const netlifyDone = (setup: WebsiteSetup) => Boolean(setup.netlify_email.trim() && setup.netlify_password.trim());
+
 /**
  * What the section still needs from the client, as a count the menu badge and the journey
  * step can print.
@@ -125,7 +128,7 @@ export const accountState = (setup: WebsiteSetup, id: WebsiteSetupAccountId) => 
  * beside it.
  */
 export const websiteSetupProgress = (setup: WebsiteSetup) => {
-    const items: boolean[] = [setup.netlify_done];
+    const items: boolean[] = [netlifyDone(setup)];
     if (setup.ai_website === "yes") for (const id of ACCOUNT_IDS) items.push(accountState(setup, id).done);
     const done = items.filter(Boolean).length;
     return { done, total: items.length, complete: done === items.length };

@@ -382,16 +382,18 @@ export interface DashboardContent {
 /**
  * Website Setup Guide answers.
  *
- * NEVER a password or an API key. This row is readable with the public anon key (see
- * share_password above), so a secret stored here is a secret published. Account emails and
- * provider names only — the logins themselves are handed over in the client's own
+ * This row is readable with the public anon key (see share_password above), so anything
+ * stored here is readable by whoever has the slug. The one exception to "emails only" is
+ * netlify_password, collected on the dashboard at the team's request so the AM can take it
+ * on the onboarding call. Every other login is handed over in the client's own
  * password-gated owner guide (/owner-guide/{slug}), which is what the section links to.
  */
 export interface WebsiteSetup {
     /** The email the client registered their Netlify account under. */
     netlify_email: string;
-    /** The client has confirmed the Netlify account exists. Required for every client. */
-    netlify_done: boolean;
+    /** The password for that Netlify account. Asked for on the dashboard at the team's request
+     *  (see the section header comment) so the AM can collect it on the onboarding call. */
+    netlify_password: string;
     /** "" = not answered yet, "yes" = wants the AI website, "no" = declined for now. */
     ai_website: "" | "yes" | "no";
     /** Per-service account details for the AI website, keyed by WebsiteSetupAccountId. */

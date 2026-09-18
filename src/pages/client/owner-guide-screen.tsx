@@ -333,7 +333,8 @@ function maskHalf(val: string): string {
 
 const LENS = 72, ZOOM = 1.3;
 
-const ImageMagnifier = ({ src, editing, lensPos, onLensPosChange, onRemove }: {
+/** Exported for the client dashboard's Netlify guide pop-up, which shows the same screenshots read-only. */
+export const ImageMagnifier = ({ src, editing, lensPos, onLensPosChange, onRemove }: {
     src: string; editing: boolean; lensPos?: LensPos;
     onLensPosChange?: (p: LensPos) => void; onRemove?: () => void;
 }) => {

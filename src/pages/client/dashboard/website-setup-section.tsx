@@ -413,7 +413,7 @@ export const WebsiteSetupSection = ({
                 <ol className="mt-4 grid list-none gap-2.5 p-0">
                     {[
                         "Open Netlify and choose Sign up with email — not GitHub, GitLab or Bitbucket.",
-                        "Use your business email address and a password of your own. Netlify's free plan is all you need.",
+                        "Use your business email address and a password of your own. You'll need Netlify's Pro plan.",
                         "Come back here and enter the email and password you used.",
                     ].map((step, i) => (
                         <li key={step} className="flex gap-3 text-sm text-secondary">

@@ -477,10 +477,18 @@ export const clientOnboardingAnswers = (partial?: Partial<ClientOnboardingData> 
                 const handle = (data.answers[`${q.field}__handle`] ?? "").trim();
                 const user = (data.answers[`${q.field}__user`] ?? "").trim();
                 const pass = (data.answers[`${q.field}__pass`] ?? "").trim();
+                const cleared = (data.answers[`${q.field}__cleared`] ?? "").trim();
                 if (platform) lines.push({ text: platform });
                 if (handle) lines.push({ text: `Handle: ${handle}` });
                 if (user) lines.push({ text: `Username: ${user}` });
                 if (pass) lines.push({ text: pass, secret: true });
+                // Said rather than left blank: a deleted password and an unanswered
+                // question look identical otherwise, and someone would chase the client
+                // for a login they already gave us.
+                else if (cleared)
+                    lines.push({
+                        text: `Password moved to 1Password on ${new Date(cleared).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`,
+                    });
             } else {
                 const v = (data.answers[q.field] ?? "").trim();
                 if (v) v.split("\n").forEach((t) => lines.push({ text: t }));
@@ -494,6 +502,36 @@ export const clientOnboardingAnswers = (partial?: Partial<ClientOnboardingData> 
             };
         }),
     }));
+};
+
+/* ── Clearing a stored login once it is in 1Password ──────────────────────── */
+
+/**
+ * The row with ONE login's password removed and the removal dated.
+ *
+ * One at a time, not all at once, because that is how the work is actually done: an
+ * account manager copies a login into the client's 1Password vault and deletes that one
+ * before moving to the next. A bulk clear would force them to finish every login in a
+ * sitting or leave the lot behind.
+ *
+ * Only `__pass` goes. The username, @handle and platform stay: they say WHICH account a
+ * login belongs to, which the team still reads at a glance, and they are not the secret.
+ *
+ * The date is kept so the answers panel can say the password was deleted on purpose.
+ * Without it a cleared login is indistinguishable from one the client never filled in,
+ * and someone would go chasing the client for an answer they already gave.
+ */
+export const withLoginCleared = (
+    partial: Partial<ClientOnboardingData> | null | undefined,
+    field: string,
+    at = new Date().toISOString(),
+): ClientOnboardingData => {
+    const data = mergeData(partial);
+    if (!(data.answers[`${field}__pass`] ?? "").trim()) return data;
+    const answers = { ...data.answers };
+    delete answers[`${field}__pass`];
+    answers[`${field}__cleared`] = at;
+    return { ...data, answers };
 };
 
 /** Read the client's row, provisioning it on first visit (mirrors ensureHostOnboardingForm). */

@@ -92,7 +92,13 @@ export default async (req: Request) => {
         // approval on a pinned post ("pinnedposts.{postId}.feedback|approve") needs Pinned
         // Posts shared, everything else is a Master Brand Document edit and needs the
         // foundation shared.
-        const visible = Array.isArray(data.client_visible) ? (data.client_visible as unknown[]) : [];
+        //
+        // Shared with THIS person, not with the dashboard: access is per person, so their own
+        // section list wins where they have one and only a caller without one falls back to
+        // the dashboard default. Read from the row, never from anything the browser sends.
+        const users = Array.isArray(data.dashboard_users) ? (data.dashboard_users as Record<string, unknown>[]) : [];
+        const me = users.find((u) => norm(u.email) === email);
+        const visible = Array.isArray(me?.sections) ? (me.sections as unknown[]) : Array.isArray(data.client_visible) ? (data.client_visible as unknown[]) : [];
         const sectionFor = (key: string) => (key.startsWith("welcomeFlow.") ? "flow" : key.startsWith("pinnedposts.") ? "pinnedposts" : "foundation");
 
         const items = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];

@@ -333,7 +333,8 @@ function maskHalf(val: string): string {
 
 const LENS = 72, ZOOM = 1.3;
 
-const ImageMagnifier = ({ src, editing, lensPos, onLensPosChange, onRemove }: {
+/** Exported for the client dashboard's Netlify guide pop-up, which shows the same screenshots read-only. */
+export const ImageMagnifier = ({ src, editing, lensPos, onLensPosChange, onRemove }: {
     src: string; editing: boolean; lensPos?: LensPos;
     onLensPosChange?: (p: LensPos) => void; onRemove?: () => void;
 }) => {
@@ -628,7 +629,7 @@ const OverviewSection = ({ num, title, label, icon: Icon, rows, locked }: { num:
                 {/* step number badge — matches the numbered sidebar so it's easy to cross-check */}
                 <span className={cx(
                     "flex size-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold tabular-nums ring-1 ring-inset transition",
-                    hasAny ? "bg-success-secondary text-success-primary ring-success-primary/20" : "bg-secondary text-quaternary ring-secondary",
+                    hasAny ? "bg-utility-green-50 text-utility-green-700 ring-utility-green-200" : "bg-secondary text-quaternary ring-secondary",
                 )}>
                     {num}
                 </span>
@@ -642,7 +643,7 @@ const OverviewSection = ({ num, title, label, icon: Icon, rows, locked }: { num:
                     {showSubtitle && <p className="truncate text-[11px] text-quaternary">{title}</p>}
                 </div>
                 {hasAny
-                    ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-secondary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-success-primary">
+                    ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-utility-green-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-utility-green-700">
                         <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                         Submitted
                     </span>
@@ -1564,7 +1565,7 @@ export const OwnerGuideScreen = () => {
         return (
             <span className={cx(
                 "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-                filled ? "bg-success-secondary text-success-primary" : "bg-secondary text-quaternary",
+                filled ? "bg-utility-green-50 text-utility-green-700" : "bg-secondary text-quaternary",
             )}>
                 <span className={cx("size-1.5 rounded-full", filled ? "bg-success-solid" : "bg-quaternary")} />
                 {filled ? "Filled" : "Empty"}

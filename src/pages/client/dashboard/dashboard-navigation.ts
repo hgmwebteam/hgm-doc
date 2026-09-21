@@ -15,13 +15,14 @@ import {
     FileCheck02,
     Folder,
     Globe01,
+    HelpCircle,
     Image01,
     Image03,
     LayoutAlt01,
     Mail01,
     MessageChatCircle,
     PlayCircle,
-    Repeat01,
+    Rocket02,
     Target04,
     TrendUp01,
     Users01,
@@ -64,7 +65,7 @@ export type PhaseId = keyof typeof PHASES;
  * AM tick stored in content.journey_done — calls and reviews happen off-platform and
  * there is nothing to infer them from.
  */
-export type JourneyStepId = "chat" | "form" | "kickoff" | "call" | "vision" | "masterdoc" | "brandkit" | "funnel" | "resources" | "website";
+export type JourneyStepId = "chat" | "form" | "kickoff" | "call" | "vision" | "masterdoc" | "brandkit" | "funnel" | "resources" | "launch";
 
 /** Dustin's strategy-call booking page, linked from the Kick-off Call step. */
 export const KICKOFF_CALENDLY = "https://calendly.com/dustin-d-baker/strategy";
@@ -113,13 +114,36 @@ export const JOURNEY_STEPS: {
      */
     pendingNote?: string;
     /**
-     * Sub-items: the several separate things one step actually asks for. Deliberately
-     * NOT tickable — none of these are states the app can observe, and an empty box
-     * against a job the client already did reads as a failure.
+     * Sub-items: the several separate things one step actually asks for.
+     *
+     * Tickable only where `itemsTickable` says so. The default is deliberate: most of
+     * these are states the app cannot observe — whether a client is logged in to TikTok
+     * is not ours to know — and an empty box against a job they already did reads as a
+     * failure. A step only earns tick boxes when the team itself is the one doing the
+     * observing, which today means the funnel reviews.
      */
-    items?: { label: string; note?: string; link?: JourneyLink; action?: string }[];
+    items?: {
+        /**
+         * Stable id, required once the step is `itemsTickable`. Stored as
+         * `${stepId}:${itemId}` in content.journey_done, so an item keeps its tick
+         * through a reorder or a relabel — the same reason steps are stored by id.
+         */
+        id?: string;
+        label: string;
+        note?: string;
+        link?: JourneyLink;
+        action?: string;
+        /** Section this item opens, for items that ARE a section of the dashboard. */
+        to?: SectionId;
+    }[];
     /** Heading above `items`, when the list needs naming. */
     itemsTitle?: string;
+    /**
+     * Each item is ticked on its own by an AM, and the step is done when all of them are.
+     * The launch meter weights such a step by its item count, so every single tick moves
+     * the bar instead of five reviews landing as one jump at the end.
+     */
+    itemsTickable?: true;
 }[] = [
     {
         id: "chat",
@@ -229,30 +253,160 @@ export const JOURNEY_STEPS: {
     {
         // No `detail` line: it listed the same five pieces the items below now name one
         // by one, so it only said everything twice.
+        //
+        // The one step that is really five. Each piece is built, sent and reviewed on its
+        // own over several weeks, so a single tick at the end left a client watching the
+        // longest stretch of their journey with nothing moving. Ticked per item instead,
+        // and the step falls out of the five.
+        //
+        // No step-level `to` any more: every item now opens its own section, and a sixth
+        // Open button landing on one arbitrary one of the five only asks the client which
+        // button they were supposed to press. Item ids are the SectionIds on purpose —
+        // these items ARE those sections.
         id: "funnel",
         label: "Review the marketing funnel",
         icon: Mail01,
-        to: "flow",
+        itemsTickable: true,
         items: [
-            { label: "Landing Page" },
-            { label: "Welcome Flow" },
-            { label: "Repeat Booking Flow" },
-            { label: "Pinned Posts" },
-            { label: "Pinned Stories" },
-            { label: "Example Reels" },
+            { id: "landing", label: "Landing Page", to: "landing" },
+            { id: "flow", label: "Welcome Flow", to: "flow" },
+            { id: "pinnedposts", label: "Pinned Posts", to: "pinnedposts" },
+            { id: "pinnedstories", label: "Pinned Stories", to: "pinnedstories" },
+            { id: "reels", label: "Example Reels", to: "reels" },
         ],
     },
     {
-        // Derived from the Website Setup Guide section: done once the Netlify account is
-        // confirmed and, if the client opted in to the AI website, every account it needs.
-        id: "website",
-        label: "Set up the website",
-        detail: "Create your Netlify hosting account, and tell us if you'd like an AI-built booking website.",
-        icon: Globe01,
-        to: "ownerguide",
-        auto: true,
+        // Closes the journey on what the client actually signed up for, rather than on a
+        // task of theirs. Nothing on the dashboard can observe a launch, so an AM ticks it.
+        //
+        // Replaced "Set up the website", dropped in 2026-09: the AI website is no longer
+        // offered to every client as a matter of course, the team approaches the ones they
+        // want to build for. The Setup Guide section stays — its Netlify card is required
+        // of everyone.
+        //
+        // Being last, this is the step the launch meter's rocket rides on, so it is the
+        // one bar cell that wears no name at all.
+        id: "launch",
+        label: "Marketing Launch",
+        detail: "It's go time! Ads running, content posting, emails sending. Now we let the data come in and optimize from there.",
+        icon: Rocket02,
     },
 ];
+
+/**
+ * The four stages the launch meter groups the journey under, and the steps in each.
+ *
+ * Not the same taxonomy as NAV_GROUPS: the menu is organised by where a thing LIVES on the
+ * dashboard, this is organised by what a client is doing at the time. "Get started" is
+ * deliberately wider than its name — it holds both calls and the asset upload as well as
+ * the two forms, because those all happen in the same opening stretch and a client who has
+ * booked their kick-off should not be looking at a stage still called "forms".
+ *
+ * Stage membership is by step id, so a reorder inside a stage costs nothing. Every journey
+ * step must appear in exactly one stage — dashboard-navigation.check.ts enforces that,
+ * since a step missing from here would quietly stop counting towards launch.
+ */
+export const JOURNEY_STAGES: { id: string; label: string; steps: JourneyStepId[] }[] = [
+    { id: "start", label: "Get started", steps: ["chat", "form", "kickoff", "vision", "resources", "call"] },
+    { id: "foundation", label: "Brand foundation", steps: ["masterdoc", "brandkit"] },
+    { id: "funnel", label: "Marketing funnel", steps: ["funnel"] },
+    { id: "live", label: "Live", steps: ["launch"] },
+];
+
+/**
+ * ── The launch meter's own cells ──
+ *
+ * The bar is a summary of the journey, not a mirror of it. The step list below it is the
+ * client's checklist and carries everything; the bar carries only what a client would call
+ * a milestone, because fourteen cells across one bar left every name abbreviated to the
+ * point of being a guess ("VISION", "POSTS", "MASTER").
+ *
+ * So two things differ from JOURNEY_STEPS on purpose:
+ *
+ *  - Joining the Google Chat group is not on the bar. It is a two-minute setup task, not
+ *    a milestone, and it was taking a fourteenth of the run to launch.
+ *  - The two intake forms share one cell. A client thinks of them as "the forms"; the cell
+ *    fills through both, so answering half of either still moves the bar.
+ *
+ * Names are written out in full — no abbreviations. A cell over a single tickable step
+ * expands instead into one cell per piece, named by the piece, which is what makes
+ * Marketing funnel the long stage.
+ *
+ * `stage` is a JOURNEY_STAGES id; dashboard-navigation.check.ts holds every cell to a real
+ * stage and every step named here to a real step, so a rename cannot quietly empty the bar.
+ */
+export const JOURNEY_BAR: { id: string; label: string; stage: string; steps: JourneyStepId[] }[] = [
+    { id: "forms", label: "Forms", stage: "start", steps: ["form", "vision"] },
+    { id: "kickoff", label: "Kickoff Call", stage: "start", steps: ["kickoff"] },
+    { id: "resources", label: "Assets", stage: "start", steps: ["resources"] },
+    { id: "call", label: "Onboarding Call", stage: "start", steps: ["call"] },
+    { id: "masterdoc", label: "Master Brand", stage: "foundation", steps: ["masterdoc"] },
+    { id: "brandkit", label: "Brand Kit", stage: "foundation", steps: ["brandkit"] },
+    // Expands into its five reviews, each named by the item: Landing Page, Welcome Flow,
+    // Pinned Posts, Pinned Stories, Example Reels.
+    { id: "funnel", label: "Marketing Funnel", stage: "funnel", steps: ["funnel"] },
+    // Last, so it wears the rocket and draws no name.
+    { id: "launch", label: "Launch", stage: "live", steps: ["launch"] },
+];
+
+/**
+ * ── Journey completion, as stored ──
+ *
+ * All of it is ids in `content.journey_done`, never positions: the journey has been
+ * reordered twice, and a client's recorded progress has to survive the next one.
+ *
+ * A step ticked piece by piece stores one key per piece, `${stepId}:${itemId}`. The bare
+ * step id is still honoured wherever those keys are read, because rows ticked before the
+ * funnel was broken into five carry only "funnel" — reading it as "not started" would
+ * un-finish a step for every client who already got there.
+ *
+ * Pure and free of React on purpose: dashboard-navigation.check.ts exercises these, and
+ * the legacy-row cases below are exactly the kind that corrupt a client's progress
+ * quietly if they ever drift.
+ */
+export const journeyItemKey = (stepId: JourneyStepId, itemId: string) => `${stepId}:${itemId}`;
+
+/** A step's item ids, falling back to the label for an item that never needed one. */
+export const journeyItemIds = (stepId: JourneyStepId): string[] =>
+    (JOURNEY_STEPS.find((s) => s.id === stepId)?.items ?? []).map((item) => item.id ?? item.label);
+
+export const isJourneyItemDone = (done: readonly string[], stepId: JourneyStepId, itemId: string) =>
+    done.includes(stepId) || done.includes(journeyItemKey(stepId, itemId));
+
+/**
+ * The step-level tick.
+ *
+ * For a step made of tickable items this is only the all-at-once shortcut — the step has
+ * no state of its own, so it writes the item keys rather than the step id. Clearing has to
+ * drop the legacy bare id as well, or every item would read done again the moment it did.
+ */
+export const toggleJourneyStepDone = (done: readonly string[], stepId: JourneyStepId): string[] => {
+    const step = JOURNEY_STEPS.find((s) => s.id === stepId);
+    if (step?.itemsTickable && step.items?.length) {
+        const keys = journeyItemIds(stepId).map((itemId) => journeyItemKey(stepId, itemId));
+        const allDone = done.includes(stepId) || keys.every((k) => done.includes(k));
+        const without = done.filter((x) => x !== stepId && !keys.includes(x));
+        return allDone ? without : [...without, ...keys];
+    }
+    return done.includes(stepId) ? done.filter((x) => x !== stepId) : [...done, stepId];
+};
+
+/**
+ * One item's tick.
+ *
+ * On a legacy row the bare step id is expanded into the other items' keys first: dropping
+ * it alone would untick all five when the AM asked to untick one.
+ */
+export const toggleJourneyItemDone = (done: readonly string[], stepId: JourneyStepId, itemId: string): string[] => {
+    const key = journeyItemKey(stepId, itemId);
+    if (done.includes(stepId)) {
+        const others = journeyItemIds(stepId)
+            .map((id) => journeyItemKey(stepId, id))
+            .filter((k) => k !== key);
+        return [...done.filter((x) => x !== stepId), ...others];
+    }
+    return done.includes(key) ? done.filter((x) => x !== key) : [...done, key];
+};
 
 /** Sits above the funnel groups — not a funnel stage itself, just "home" (hero + the funnel explainer). */
 export const OVERVIEW_ITEM = { id: "overview" as const, label: "Overview", icon: LayoutAlt01 };
@@ -317,7 +471,6 @@ export const NAV_GROUPS: {
         items: [
             { id: "landing", label: "Landing Page", icon: Globe01 },
             { id: "flow", label: "Welcome Flow", icon: Mail01 },
-            { id: "repeatflow", label: "Repeat Booking Flow", icon: Repeat01, soon: true },
             { id: "pinnedposts", label: "Pinned Posts", icon: Camera01 },
             { id: "pinnedstories", label: "Pinned Stories", icon: Image03 },
             { id: "reels", label: "Example Reels", icon: PlayCircle },
@@ -334,9 +487,14 @@ export const NAV_GROUPS: {
             // A real section since 2026-09: the required Netlify account plus the AI
             // website opt-in (website-setup-section.tsx). It used to be a link straight
             // to the client's owner guide; the section now links there itself, once one
-            // exists. Shortened from "Website Setup — Owner guide": that truncated to
-            // "Website Setup — Ow…" at the 276px sidebar width.
-            { id: "ownerguide", label: "Website Setup Guide", icon: BookOpen01 },
+            // exists. Shortened twice for the 276px sidebar: "Website Setup — Owner guide"
+            // truncated to "Website Setup — Ow…", then "Website Setup Guide" to
+            // "Website Setup Gui…".
+            { id: "ownerguide", label: "Setup Guide", icon: BookOpen01 },
+            // A link, not a section: the client help centre at /{slug}/help, where a request
+            // becomes a ticket with a named owner. Last row in the menu on purpose - it is
+            // what a client reaches for when something is wrong with anything above it.
+            { id: "help", label: "Help Centre", icon: HelpCircle },
         ],
     },
 ];
@@ -359,6 +517,17 @@ export const HIDDEN_ITEMS: { id: SectionId; label: string; icon: typeof LayoutAl
     { id: "comms", label: "Communication Log", icon: MessageChatCircle },
 ];
 
+/**
+ * Menu rows that are links OUT rather than sections on this page.
+ *
+ * Both are in SECTIONS and in the search index, because a client should be able to find
+ * them by name, but neither has a body to switch to: "contentfolder" opens the client's
+ * drive and "help" navigates to /{slug}/help. Anything that turns a row into a view has to
+ * ask about this set first - setting activeSection to one of these renders an empty content
+ * area with no way back except the menu.
+ */
+export const LINK_ONLY_SECTIONS = new Set<SectionId>(["contentfolder", "help"]);
+
 /** Which group a section belongs to — drives the eyebrow above each section body. */
 export const phaseOfSection = (id: SectionId): PhaseId | null => NAV_GROUPS.find((g) => g.items.some((i) => i.id === id))?.phase ?? null;
 
@@ -371,5 +540,22 @@ export const SECTIONS = [OVERVIEW_ITEM, ...NAV_GROUPS.flatMap((g) => g.items), .
  * search box or a pasted deep link as a way in that somebody forgot to close.
  */
 export const TEAM_ONLY_SECTIONS = new Set<SectionId>(NAV_GROUPS.flatMap((g) => g.items.filter((i) => i.teamOnly).map((i) => i.id)));
+
+/**
+ * The sections an AM can grant to one person, grouped as they appear in the side menu.
+ *
+ * Derived from the nav for the same reason TEAM_ONLY_SECTIONS is: a row added to the menu
+ * shows up here automatically, and a `teamOnly` row can never be offered by mistake.
+ *
+ * HIDDEN_ITEMS is deliberately left out. Those sections aren't on anybody's menu, so an AM
+ * choosing what one person sees has no reason to meet them — and the effect of omitting
+ * them is the safe one: a person on a custom list simply never gets Revenue, Website or the
+ * rest, by search or `#hash` either. They still reach anyone left on the dashboard default,
+ * which is where `client_visible` and the eye toggles already govern them.
+ */
+export const ASSIGNABLE_SECTION_GROUPS: { label: string; items: { id: SectionId; label: string; soon?: boolean }[] }[] = NAV_GROUPS.map((g) => ({
+    label: g.label,
+    items: g.items.filter((i) => !i.teamOnly).map((i) => ({ id: i.id, label: i.label, soon: i.soon })),
+}));
 
 export type SearchHit = { id: SectionId; label: string; sub?: string };

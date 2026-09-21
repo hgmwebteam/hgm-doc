@@ -1,22 +1,66 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+    ArrowUpRight,
+    Award01,
+    BookOpen01,
+    Briefcase01,
+    Camera01,
+    Check,
+    ChevronDown,
+    ClipboardCheck,
+    Clock,
+    Code02,
+    Edit01,
+    FilePlus02,
+    FolderClosed,
+    Grid01,
+    Home02,
+    Image01,
+    LayoutAlt01,
+    List,
+    Lock01,
+    LockUnlocked01,
+    Mail01,
+    MarkerPin01,
+    MessageChatCircle,
+    Microphone01,
+    Plus,
+    SearchSm,
+    Share07,
+    Star01,
+    Trash01,
+    Trophy01,
+    Users01,
+    XClose,
+} from "@untitledui/icons";
+import { AnimatePresence, motion } from "motion/react";
 import { useNavigate, useSearchParams } from "react-router";
-import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, NavCollapseButton, useNavCollapsed } from "@/components/application/icon-rail";
 import { HelpMenu } from "@/components/application/help-menu";
+import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, NavCollapseButton, useNavCollapsed } from "@/components/application/icon-rail";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
 import { Select } from "@/components/base/select/select";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, Award01, BookOpen01, Briefcase01, Camera01, Check, ChevronDown, ClipboardCheck, Code02, Edit01, FilePlus02, FolderClosed, Grid01, Home02, Image01, LayoutAlt01, List, Lock01, LockUnlocked01, Mail01, MarkerPin01, MessageChatCircle, Plus, SearchSm, Share07, Star01, Trash01, Trophy01, Users01, XClose } from "@untitledui/icons";
-import { filterPrivateClients, supabase, type ChatWidgetPageData, type ClientPageData, type ClientRecord, type HostOnboardingPageData, type LeadCapturePageData, type OverviewCard, type OwnerGuideMeta, type OverviewTab } from "@/lib/supabase";
-// Aliased rather than reusing the slugify above: this must match the slug the dashboard's
-// own "+ New Page" wizard produces, so it uses the same function that wizard does.
-import { createDefaultContent, slugify as dashboardSlugify } from "@/pages/client/dashboard/dashboard-model";
-import { createBlankTemplateData, isReservedSlug, slugify } from "@/pages/templates/template-one-screen";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
+import {
+    type ChatWidgetPageData,
+    type ClientPageData,
+    type ClientRecord,
+    type HostOnboardingPageData,
+    type LeadCapturePageData,
+    type OverviewCard,
+    type OverviewTab,
+    type OwnerGuideMeta,
+    filterPrivateClients,
+    supabase,
+} from "@/lib/supabase";
+// Aliased rather than reusing the slugify above: this must match the slug the dashboard's
+// own "+ New Page" wizard produces, so it uses the same function that wizard does.
+import { createDefaultContent, slugify as dashboardSlugify, genSharePassword } from "@/pages/client/dashboard/dashboard-model";
+import { createBlankTemplateData, isReservedSlug, slugify } from "@/pages/templates/template-one-screen";
 import { useTheme } from "@/providers/theme-provider";
 import { compressImageFile } from "@/utils/compress-image";
-import { teamPhoto } from "@/utils/team-photos";
 import { cx } from "@/utils/cx";
+import { teamPhoto } from "@/utils/team-photos";
 
 // Shared team passwords for the sign-in gate — any one of them unlocks viewing.
 // They carry no identity, so they never grant OWNER_EMAIL edit rights below.
@@ -30,9 +74,15 @@ const OWNER_EMAIL = "anhtuan@hiddengem.media";
 const GoogleIcon = ({ className }: { className?: string }) => (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" />
-        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" />
+        <path
+            fill="#34A853"
+            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
+        />
         <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z" />
-        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38Z" />
+        <path
+            fill="#EA4335"
+            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38Z"
+        />
     </svg>
 );
 
@@ -98,7 +148,7 @@ const PasswordGate = ({ onUnlock, onGoogle, googleError, googleLoading }: Passwo
                 {/* Divider */}
                 <div className="my-5 flex items-center gap-3">
                     <span className="h-px flex-1 bg-border-secondary" />
-                    <span className="text-xs font-medium uppercase tracking-wide text-quaternary">or</span>
+                    <span className="text-xs font-medium tracking-wide text-quaternary uppercase">or</span>
                     <span className="h-px flex-1 bg-border-secondary" />
                 </div>
 
@@ -108,13 +158,14 @@ const PasswordGate = ({ onUnlock, onGoogle, googleError, googleLoading }: Passwo
                         type="password"
                         placeholder="Team password"
                         value={value}
-                        onChange={(e) => { setValue(e.target.value); setError(false); }}
+                        onChange={(e) => {
+                            setValue(e.target.value);
+                            setError(false);
+                        }}
                         onKeyDown={(e) => e.key === "Enter" && attempt()}
                         className={cx(
-                            "w-full rounded-lg border px-3 py-2.5 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear",
-                            error
-                                ? "border-error-primary ring-1 ring-error-primary"
-                                : "border-secondary focus:border-brand focus:ring-1 focus:ring-brand",
+                            "w-full rounded-lg border px-3 py-2.5 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder",
+                            error ? "border-error-primary ring-error-primary ring-1" : "border-secondary focus:border-brand focus:ring-1 focus:ring-brand",
                         )}
                     />
                     {error && (
@@ -205,15 +256,7 @@ export const ONBOARDING_PHASES = [
     assignment dropdowns so per-person counts never fragment on typos. AMs pair
     with a Marketing Assistant to handle each client. */
 // Gillian Conley is Operations Manager, not an AM — deliberately not listed.
-export const ACCOUNT_MANAGERS = [
-    "Makenna Moran",
-    "Alicia Morin",
-    "Charlotte Pickering",
-    "Ananya Arora",
-    "Nicole Araya",
-    "Chiara Henry",
-    "Kristal Puguan",
-];
+export const ACCOUNT_MANAGERS = ["Makenna Moran", "Alicia Morin", "Charlotte Pickering", "Ananya Arora", "Nicole Araya", "Chiara Henry", "Kristal Puguan"];
 export const MARKETING_ASSISTANTS = ["Vicky Si", "Lily Phanthavong", "Lucca Maggiolo"];
 export const WEB_TEAM = ["AnhTuan Bui", "Brandon Nguyen", "Leshan Patterson", "Kyle Zinger"];
 
@@ -226,6 +269,18 @@ const DEPARTMENTS: Department[] = [
         sectionLabel: "By Tiers",
         kind: "clientlist",
         tabs: [],
+        // Link rows, not sections — the Client List renders the roster either way. /log is
+        // where the department's own work shows up (who changed which dashboard today), so
+        // it belongs above the tiers rather than buried in the manual.
+        extraGroups: [
+            {
+                label: "Activity",
+                tabs: [
+                    { id: "dashboard-updates", label: "Dashboard Updates", icon: Clock, to: "/log" },
+                    { id: "recording-summaries", label: "Recording Summaries", icon: Microphone01, to: "/log-script" },
+                ],
+            },
+        ],
     },
     {
         id: "website",
@@ -235,9 +290,7 @@ const DEPARTMENTS: Department[] = [
         sectionLabel: "Workflow",
         kind: "cards",
         tabs: [{ id: "overview", label: "Overview", icon: LayoutAlt01 }],
-        extraGroups: [
-            { label: "Client Input", tabs: [{ id: "owner-guides", label: "Owner Guides", icon: BookOpen01 }] },
-        ],
+        extraGroups: [{ label: "Client Input", tabs: [{ id: "owner-guides", label: "Owner Guides", icon: BookOpen01 }] }],
     },
     {
         id: "am",
@@ -274,19 +327,22 @@ const DEPARTMENTS: Department[] = [
 ];
 
 const SunIcon = () => (
-    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
 );
 const MoonIcon = () => (
-    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+    </svg>
 );
 
 /* ── Rail bottom controls (dashboard: lock + theme toggle) ────────── */
 
 const RailBottom = ({ editing, onToggleEditing }: { editing: boolean; onToggleEditing: () => void }) => {
     const { theme, setTheme } = useTheme();
-    const isDark =
-        theme === "dark" ||
-        (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
     return (
         <>
@@ -323,8 +379,20 @@ const RailBottom = ({ editing, onToggleEditing }: { editing: boolean; onToggleEd
 
 /** One nav row shared by every sidebar group (static "extra" groups and the
     main per-department tab list). */
-const NavRow = ({ item, active, onSelect, editing, isCustom, onDelete }: {
-    item: DeptTab; active: boolean; onSelect: () => void; editing: boolean; isCustom: boolean; onDelete: () => void;
+const NavRow = ({
+    item,
+    active,
+    onSelect,
+    editing,
+    isCustom,
+    onDelete,
+}: {
+    item: DeptTab;
+    active: boolean;
+    onSelect: () => void;
+    editing: boolean;
+    isCustom: boolean;
+    onDelete: () => void;
 }) => (
     <motion.div
         variants={{ hidden: { opacity: 0, x: -10 }, show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } } }}
@@ -349,7 +417,7 @@ const NavRow = ({ item, active, onSelect, editing, isCustom, onDelete }: {
                 type="button"
                 onClick={onDelete}
                 title="Delete tab"
-                className="flex size-6 shrink-0 items-center justify-center rounded-md text-quaternary opacity-0 transition hover:bg-primary hover:text-error-primary group-hover:opacity-100"
+                className="flex size-6 shrink-0 items-center justify-center rounded-md text-quaternary opacity-0 transition group-hover:opacity-100 hover:bg-primary hover:text-error-primary"
             >
                 <Trash01 className="size-3.5" />
             </button>
@@ -390,83 +458,98 @@ const Sidebar = ({
     };
 
     return (
-    <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
-        {/* Department header */}
-        <div className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary px-5">
-            <h2 className="text-md font-semibold text-primary">{department.header}</h2>
-            {onCollapse && <NavCollapseButton onClick={onCollapse} />}
-        </div>
+        <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+            {/* Department header */}
+            <div className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary px-5">
+                <h2 className="text-md font-semibold text-primary">{department.header}</h2>
+                {onCollapse && <NavCollapseButton onClick={onCollapse} />}
+            </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4">
-            {/* Extra static groups (e.g. "Client Input") rendered above the main
+            {/* Nav */}
+            <nav className="flex-1 px-3 py-4">
+                {/* Extra static groups (e.g. "Client Input") rendered above the main
                 section, each separated by a divider. */}
-            {department.extraGroups?.map((group) => (
-                <div key={group.label} className="mb-4">
-                    <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-widest text-quaternary">
-                        {group.label}
-                    </p>
-                    <motion.div
-                        className="flex flex-col gap-1"
-                        initial="hidden"
-                        animate="show"
-                        variants={{ show: { transition: { staggerChildren: 0.05 } } }}
-                    >
-                        {group.tabs.map((item) => (
-                            <NavRow key={item.id} item={item} active={activeSection === item.id}
-                                onSelect={() => onSelect(item.id)} editing={editing} isCustom={false} onDelete={() => {}} />
-                        ))}
-                    </motion.div>
-                    <div className="mt-3 border-t border-secondary" />
-                </div>
-            ))}
-
-            <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-widest text-quaternary">
-                {department.sectionLabel}
-            </p>
-            <motion.div
-                key={department.id}
-                className="flex flex-col gap-1"
-                initial="hidden"
-                animate="show"
-                variants={{ show: { transition: { staggerChildren: 0.05 } } }}
-            >
-                {tabs.map((item) => {
-                    const isCustom = customTabIds.includes(item.id);
-                    return (
-                        <NavRow key={item.id} item={item} active={activeSection === item.id}
-                            onSelect={() => onSelect(item.id)} editing={editing} isCustom={isCustom} onDelete={() => onDeleteTab(item.id)} />
-                    );
-                })}
-
-                {/* Add tab (edit mode, card departments) */}
-                {editing && canEditTabs && (
-                    adding ? (
-                        <input
-                            type="text"
-                            value={newLabel}
-                            onChange={(e) => setNewLabel(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") submitTab(); if (e.key === "Escape") { setAdding(false); setNewLabel(""); } }}
-                            onBlur={submitTab}
-                            placeholder="Tab name…"
-                            autoFocus
-                            className="mt-1 w-full rounded-lg border border-secondary bg-primary px-2.5 py-2 text-sm text-primary placeholder:text-placeholder outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                        />
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => setAdding(true)}
-                            className="mt-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-primary px-2.5 py-2 text-sm font-medium text-tertiary transition duration-100 ease-linear hover:border-brand hover:text-brand-secondary"
+                {department.extraGroups?.map((group) => (
+                    <div key={group.label} className="mb-4">
+                        <p className="mb-1 px-2 text-xs font-semibold tracking-widest text-quaternary uppercase">{group.label}</p>
+                        <motion.div
+                            className="flex flex-col gap-1"
+                            initial="hidden"
+                            animate="show"
+                            variants={{ show: { transition: { staggerChildren: 0.05 } } }}
                         >
-                            <Plus className="size-4 shrink-0" aria-hidden="true" />
-                            Add tab
-                        </button>
-                    )
-                )}
-            </motion.div>
-        </nav>
+                            {group.tabs.map((item) => (
+                                <NavRow
+                                    key={item.id}
+                                    item={item}
+                                    active={activeSection === item.id}
+                                    onSelect={() => onSelect(item.id)}
+                                    editing={editing}
+                                    isCustom={false}
+                                    onDelete={() => {}}
+                                />
+                            ))}
+                        </motion.div>
+                        <div className="mt-3 border-t border-secondary" />
+                    </div>
+                ))}
 
-    </aside>
+                <p className="mb-1 px-2 text-xs font-semibold tracking-widest text-quaternary uppercase">{department.sectionLabel}</p>
+                <motion.div
+                    key={department.id}
+                    className="flex flex-col gap-1"
+                    initial="hidden"
+                    animate="show"
+                    variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+                >
+                    {tabs.map((item) => {
+                        const isCustom = customTabIds.includes(item.id);
+                        return (
+                            <NavRow
+                                key={item.id}
+                                item={item}
+                                active={activeSection === item.id}
+                                onSelect={() => onSelect(item.id)}
+                                editing={editing}
+                                isCustom={isCustom}
+                                onDelete={() => onDeleteTab(item.id)}
+                            />
+                        );
+                    })}
+
+                    {/* Add tab (edit mode, card departments) */}
+                    {editing &&
+                        canEditTabs &&
+                        (adding ? (
+                            <input
+                                type="text"
+                                value={newLabel}
+                                onChange={(e) => setNewLabel(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") submitTab();
+                                    if (e.key === "Escape") {
+                                        setAdding(false);
+                                        setNewLabel("");
+                                    }
+                                }}
+                                onBlur={submitTab}
+                                placeholder="Tab name…"
+                                autoFocus
+                                className="mt-1 w-full rounded-lg border border-secondary bg-primary px-2.5 py-2 text-sm text-primary outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                            />
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setAdding(true)}
+                                className="mt-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-primary px-2.5 py-2 text-sm font-medium text-tertiary transition duration-100 ease-linear hover:border-brand hover:text-brand-secondary"
+                            >
+                                <Plus className="size-4 shrink-0" aria-hidden="true" />
+                                Add tab
+                            </button>
+                        ))}
+                </motion.div>
+            </nav>
+        </aside>
     );
 };
 
@@ -489,9 +572,9 @@ const PageRow = ({
 
     const colors = [
         "bg-brand-100 text-brand-700",
-        "bg-success-secondary text-success-primary",
-        "bg-warning-secondary text-warning-primary",
-        "bg-error-secondary text-error-primary",
+        "bg-utility-green-50 text-utility-green-700",
+        "bg-utility-yellow-50 text-utility-yellow-700",
+        "bg-utility-red-50 text-utility-red-700",
     ];
     const colorClass = colors[index % colors.length];
 
@@ -506,27 +589,13 @@ const PageRow = ({
             {/* Star indicator + client info */}
             <td className="px-6 py-4">
                 <div className="flex items-center gap-3">
-                    {page.starred && (
-                        <Star01
-                            className="size-3.5 shrink-0 fill-current text-yellow-400"
-                            aria-hidden="true"
-                        />
-                    )}
-                    <span
-                        className={cx(
-                            "flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                            colorClass,
-                        )}
-                    >
+                    {page.starred && <Star01 className="size-3.5 shrink-0 fill-current text-yellow-400" aria-hidden="true" />}
+                    <span className={cx("flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold", colorClass)}>
                         {initials || "?"}
                     </span>
                     <div className="min-w-0 cursor-pointer">
-                        <p className="truncate text-sm font-medium text-primary">
-                            {page.client_name || "(no name)"}
-                        </p>
-                        <p className="truncate text-xs text-tertiary">
-                            {page.client_website || "—"}
-                        </p>
+                        <p className="truncate text-sm font-medium text-primary">{page.client_name || "(no name)"}</p>
+                        <p className="truncate text-xs text-tertiary">{page.client_website || "—"}</p>
                     </div>
                 </div>
             </td>
@@ -539,9 +608,7 @@ const PageRow = ({
             </td>
 
             {/* Date */}
-            <td className="px-6 py-4 text-sm text-tertiary">
-                {page.created_at ? formatDate(page.created_at) : "—"}
-            </td>
+            <td className="px-6 py-4 text-sm text-tertiary">{page.created_at ? formatDate(page.created_at) : "—"}</td>
 
             {/* Actions */}
             <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -575,10 +642,7 @@ const PageRow = ({
                                 page.starred ? "text-yellow-400" : "text-tertiary hover:text-yellow-400",
                             )}
                         >
-                            <Star01
-                                className={cx("size-3.5", page.starred && "fill-current")}
-                                aria-hidden="true"
-                            />
+                            <Star01 className={cx("size-3.5", page.starred && "fill-current")} aria-hidden="true" />
                         </button>
 
                         {/* Delete */}
@@ -628,9 +692,7 @@ const MetaPixelContent = () => {
     }, []);
 
     const handleStar = async (slug: string, starred: boolean) => {
-        setPages((prev) =>
-            prev.map((p) => (p.slug === slug ? { ...p, starred } : p)),
-        );
+        setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, starred } : p)));
         await supabase.from("client_pages").update({ starred }).eq("slug", slug);
     };
 
@@ -650,9 +712,7 @@ const MetaPixelContent = () => {
             <header className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary bg-primary px-6">
                 <div>
                     <h1 className="text-md font-semibold text-primary">Meta Pixel Pages</h1>
-                    <p className="text-sm text-tertiary">
-                        {loading ? "Loading…" : `${pages.length} page${pages.length !== 1 ? "s" : ""} created`}
-                    </p>
+                    <p className="text-sm text-tertiary">{loading ? "Loading…" : `${pages.length} page${pages.length !== 1 ? "s" : ""} created`}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -676,63 +736,52 @@ const MetaPixelContent = () => {
             {/* Table */}
             <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto w-full max-w-[900px] px-6">
-                {loading ? (
-                    <div className="flex h-48 items-center justify-center">
-                        <div className="size-6 animate-spin rounded-full border-2 border-brand border-t-transparent opacity-60" />
-                    </div>
-                ) : pages.length === 0 ? (
-                    <motion.div className="flex h-64 flex-col items-center justify-center gap-3 text-center"
-                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}>
-                        <div className="flex size-12 items-center justify-center rounded-full bg-brand-50">
-                            <Share07 className="size-5 text-fg-brand-primary" aria-hidden="true" />
+                    {loading ? (
+                        <div className="flex h-48 items-center justify-center">
+                            <div className="size-6 animate-spin rounded-full border-2 border-brand border-t-transparent opacity-60" />
                         </div>
-                        <div>
-                            <p className="text-sm font-medium text-primary">No pages yet</p>
-                            <p className="mt-0.5 text-sm text-tertiary">
-                                Create your first Meta Pixel page to get started.
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => navigate("/metapixel?create=1")}
-                            className="mt-1 flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90"
+                    ) : pages.length === 0 ? (
+                        <motion.div
+                            className="flex h-64 flex-col items-center justify-center gap-3 text-center"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
                         >
-                            <Plus className="size-4" aria-hidden="true" />
-                            New Page
-                        </button>
-                    </motion.div>
-                ) : (
-                    <div className="my-6 overflow-hidden rounded-xl bg-primary shadow-sm ring-1 ring-secondary">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-secondary bg-secondary">
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">
-                                        Client
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">
-                                        Page URL
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">
-                                        Created
-                                    </th>
-                                    <th className="px-6 py-3" />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sortedPages.map((page, i) => (
-                                    <PageRow
-                                        key={page.slug}
-                                        page={page}
-                                        index={i}
-                                        onStar={handleStar}
-                                        onDelete={handleDelete}
-                                    />
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                            <div className="flex size-12 items-center justify-center rounded-full bg-brand-50">
+                                <Share07 className="size-5 text-fg-brand-primary" aria-hidden="true" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-primary">No pages yet</p>
+                                <p className="mt-0.5 text-sm text-tertiary">Create your first Meta Pixel page to get started.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => navigate("/metapixel?create=1")}
+                                className="mt-1 flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90"
+                            >
+                                <Plus className="size-4" aria-hidden="true" />
+                                New Page
+                            </button>
+                        </motion.div>
+                    ) : (
+                        <div className="my-6 overflow-hidden rounded-xl bg-primary shadow-sm ring-1 ring-secondary">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-secondary bg-secondary">
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Client</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Page URL</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Created</th>
+                                        <th className="px-6 py-3" />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sortedPages.map((page, i) => (
+                                        <PageRow key={page.slug} page={page} index={i} onStar={handleStar} onDelete={handleDelete} />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -747,18 +796,34 @@ const formatGuideDate = (iso?: string) => {
 };
 
 const EyeToggle = ({ off }: { off: boolean }) =>
-    off
-        ? <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19M1 1l22 22" /></svg>
-        : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>;
+    off ? (
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19M1 1l22 22" />
+        </svg>
+    ) : (
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+        </svg>
+    );
 
-const OwnerGuideCard = ({ guide, index, onOpen, onDelete }: {
-    guide: OwnerGuideMeta; index: number; onOpen: (slug: string) => void; onDelete: (slug: string) => void;
+const OwnerGuideCard = ({
+    guide,
+    index,
+    onOpen,
+    onDelete,
+}: {
+    guide: OwnerGuideMeta;
+    index: number;
+    onOpen: (slug: string) => void;
+    onDelete: (slug: string) => void;
 }) => {
     const [showPw, setShowPw] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1], delay: index * 0.03 }}
             className="group flex flex-col rounded-xl bg-primary p-4 shadow-sm ring-1 ring-secondary transition duration-100 ease-linear hover:ring-brand"
         >
@@ -777,8 +842,12 @@ const OwnerGuideCard = ({ guide, index, onOpen, onDelete }: {
                 {guide.share_password ? (
                     <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-tertiary">
                         {showPw ? guide.share_password : "••••"}
-                        <button type="button" onClick={() => setShowPw(s => !s)} title={showPw ? "Hide" : "Show password"}
-                            className="flex size-5 items-center justify-center rounded text-quaternary hover:text-primary">
+                        <button
+                            type="button"
+                            onClick={() => setShowPw((s) => !s)}
+                            title={showPw ? "Hide" : "Show password"}
+                            className="flex size-5 items-center justify-center rounded text-quaternary hover:text-primary"
+                        >
                             <EyeToggle off={!showPw} />
                         </button>
                     </span>
@@ -788,20 +857,37 @@ const OwnerGuideCard = ({ guide, index, onOpen, onDelete }: {
             </div>
 
             <div className="mt-4 flex items-center gap-2">
-                <button type="button" onClick={() => onOpen(guide.slug)}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-solid px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90">
+                <button
+                    type="button"
+                    onClick={() => onOpen(guide.slug)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-solid px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                >
                     Open <ArrowUpRight className="size-3.5" />
                 </button>
                 {confirmDelete ? (
                     <>
-                        <button type="button" onClick={() => onDelete(guide.slug)}
-                            className="rounded-lg bg-error-solid px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-error-solid_hover">Delete</button>
-                        <button type="button" onClick={() => setConfirmDelete(false)}
-                            className="rounded-lg border border-secondary px-2.5 py-1.5 text-xs font-medium text-secondary transition hover:bg-secondary">Cancel</button>
+                        <button
+                            type="button"
+                            onClick={() => onDelete(guide.slug)}
+                            className="rounded-lg bg-error-solid px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-error-solid_hover"
+                        >
+                            Delete
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfirmDelete(false)}
+                            className="rounded-lg border border-secondary px-2.5 py-1.5 text-xs font-medium text-secondary transition hover:bg-secondary"
+                        >
+                            Cancel
+                        </button>
                     </>
                 ) : (
-                    <button type="button" onClick={() => setConfirmDelete(true)} title="Delete guide"
-                        className="flex size-8 items-center justify-center rounded-lg text-quaternary transition hover:bg-secondary hover:text-error-primary">
+                    <button
+                        type="button"
+                        onClick={() => setConfirmDelete(true)}
+                        title="Delete guide"
+                        className="flex size-8 items-center justify-center rounded-lg text-quaternary transition hover:bg-secondary hover:text-error-primary"
+                    >
                         <Trash01 className="size-4" />
                     </button>
                 )}
@@ -856,7 +942,10 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
         if (!editTemplateCard) return;
         const patch = { title: c.title, description: c.description, link: c.link, cover_url: c.cover };
         const { error } = await supabase.from("overview_cards").update(patch).eq("id", editTemplateCard.id);
-        if (error) { console.error("[template card update] Supabase error:", error); throw new Error(error.message); }
+        if (error) {
+            console.error("[template card update] Supabase error:", error);
+            throw new Error(error.message);
+        }
         setTemplateCards((prev) => prev.map((x) => (x.id === editTemplateCard.id ? { ...x, ...patch } : x)));
         setEditTemplateCard(null);
     };
@@ -873,16 +962,20 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
     }, []);
 
     const openGuide = (slug: string) => {
-        try { sessionStorage.setItem(`og_unlock_${slug}`, "1"); } catch { /* ignore */ }
+        try {
+            sessionStorage.setItem(`og_unlock_${slug}`, "1");
+        } catch {
+            /* ignore */
+        }
         navigate(`/owner-guide/${slug}`);
     };
 
     const deleteGuide = async (slug: string) => {
-        setGuides(prev => prev.filter(g => g.slug !== slug));
+        setGuides((prev) => prev.filter((g) => g.slug !== slug));
         await supabase.from("owner_guides").delete().eq("slug", slug);
     };
 
-    const filtered = guides.filter(g => {
+    const filtered = guides.filter((g) => {
         const q = query.trim().toLowerCase();
         if (!q) return true;
         return g.client_name.toLowerCase().includes(q) || g.slug.toLowerCase().includes(q);
@@ -893,12 +986,13 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
             <header className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary bg-primary px-6">
                 <div>
                     <h1 className="text-md font-semibold text-primary">Owner Guides</h1>
-                    <p className="text-sm text-tertiary">
-                        {loading ? "Loading…" : `${guides.length} guide${guides.length !== 1 ? "s" : ""} created`}
-                    </p>
+                    <p className="text-sm text-tertiary">{loading ? "Loading…" : `${guides.length} guide${guides.length !== 1 ? "s" : ""} created`}</p>
                 </div>
-                <button type="button" onClick={() => navigate("/owner-guide?create=1")}
-                    className="flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90">
+                <button
+                    type="button"
+                    onClick={() => navigate("/owner-guide?create=1")}
+                    className="flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90"
+                >
                     <Plus className="size-4" aria-hidden="true" />
                     New Guide
                 </button>
@@ -908,7 +1002,7 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
                 <div className="mx-auto w-full max-w-[900px] px-6">
                     {/* ── Section 1 — Template ── */}
                     <div className="mt-6">
-                        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-quaternary">Template</p>
+                        <p className="mb-3 text-xs font-semibold tracking-widest text-quaternary uppercase">Template</p>
                         {templateLoading ? (
                             <div className="flex h-24 items-center justify-center">
                                 <div className="size-5 animate-spin rounded-full border-2 border-brand border-t-transparent opacity-60" />
@@ -916,9 +1010,18 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
                         ) : (
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 {templateCards.map((card, i) => (
-                                    <OverviewCard key={card.id} card={card} index={i} editing={editing} isOwner={isOwner}
-                                        onStar={handleStarTemplate} onDelete={handleDeleteTemplate}
-                                        onEdit={setEditTemplateCard} onToggleLock={handleToggleLockTemplate} onRename={handleRenameTemplate} />
+                                    <OverviewCard
+                                        key={card.id}
+                                        card={card}
+                                        index={i}
+                                        editing={editing}
+                                        isOwner={isOwner}
+                                        onStar={handleStarTemplate}
+                                        onDelete={handleDeleteTemplate}
+                                        onEdit={setEditTemplateCard}
+                                        onToggleLock={handleToggleLockTemplate}
+                                        onRename={handleRenameTemplate}
+                                    />
                                 ))}
                             </div>
                         )}
@@ -927,15 +1030,15 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
                     <div className="my-6 border-t border-secondary" />
 
                     {/* ── Section 2 — every client guide already used ── */}
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-quaternary">Client Guides</p>
+                    <p className="mb-3 text-xs font-semibold tracking-widest text-quaternary uppercase">Client Guides</p>
                     <div className="relative">
-                        <SearchSm className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-quaternary" aria-hidden="true" />
+                        <SearchSm className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-quaternary" aria-hidden="true" />
                         <input
                             type="text"
                             value={query}
-                            onChange={e => setQuery(e.target.value)}
+                            onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search owner guides by client name…"
-                            className="w-full rounded-lg border border-secondary bg-primary py-2.5 pl-10 pr-3 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand"
+                            className="w-full rounded-lg border border-secondary bg-primary py-2.5 pr-3 pl-10 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
                         />
                     </div>
 
@@ -944,8 +1047,12 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
                             <div className="size-6 animate-spin rounded-full border-2 border-brand border-t-transparent opacity-60" />
                         </div>
                     ) : guides.length === 0 ? (
-                        <motion.div className="flex h-64 flex-col items-center justify-center gap-3 text-center"
-                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+                        <motion.div
+                            className="flex h-64 flex-col items-center justify-center gap-3 text-center"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
+                        >
                             <div className="flex size-12 items-center justify-center rounded-full bg-brand-50">
                                 <BookOpen01 className="size-5 text-fg-brand-primary" aria-hidden="true" />
                             </div>
@@ -953,8 +1060,11 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
                                 <p className="text-sm font-medium text-primary">No owner guides yet</p>
                                 <p className="mt-0.5 text-sm text-tertiary">Create one from the template to share with a client.</p>
                             </div>
-                            <button type="button" onClick={() => navigate("/owner-guide?create=1")}
-                                className="mt-1 flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90">
+                            <button
+                                type="button"
+                                onClick={() => navigate("/owner-guide?create=1")}
+                                className="mt-1 flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90"
+                            >
                                 <Plus className="size-4" aria-hidden="true" /> New Guide
                             </button>
                         </motion.div>
@@ -978,7 +1088,12 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
                     key={editTemplateCard.id}
                     onClose={() => setEditTemplateCard(null)}
                     onSubmit={handleUpdateTemplate}
-                    initial={{ title: editTemplateCard.title, description: editTemplateCard.description, link: editTemplateCard.link, cover: editTemplateCard.cover_url ?? "" }}
+                    initial={{
+                        title: editTemplateCard.title,
+                        description: editTemplateCard.description,
+                        link: editTemplateCard.link,
+                        cover: editTemplateCard.cover_url ?? "",
+                    }}
                 />
             )}
         </div>
@@ -987,14 +1102,23 @@ const OwnerGuidesContent = ({ editing, isOwner }: { editing: boolean; isOwner: b
 
 /* ── Host Onboarding Form content ───────────────────────────────────── */
 
-const HostOnboardingCard = ({ page, index, onOpen, onDelete }: {
-    page: HostOnboardingPageData; index: number; onOpen: (slug: string) => void; onDelete: (slug: string) => void;
+const HostOnboardingCard = ({
+    page,
+    index,
+    onOpen,
+    onDelete,
+}: {
+    page: HostOnboardingPageData;
+    index: number;
+    onOpen: (slug: string) => void;
+    onDelete: (slug: string) => void;
 }) => {
     const [confirmDelete, setConfirmDelete] = useState(false);
     const submitted = !!page.data?.submittedAt;
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1], delay: index * 0.03 }}
             className="group flex flex-col rounded-xl bg-primary p-4 shadow-sm ring-1 ring-secondary transition duration-100 ease-linear hover:ring-brand"
         >
@@ -1011,27 +1135,44 @@ const HostOnboardingCard = ({ page, index, onOpen, onDelete }: {
             <div className="mt-3 flex items-center gap-2 text-xs text-tertiary">
                 <span>Created {formatGuideDate(page.created_at)}</span>
                 {submitted ? (
-                    <span className="rounded-md bg-success-secondary px-1.5 py-0.5 text-[11px] font-medium text-success-primary">Submitted</span>
+                    <span className="rounded-md bg-utility-green-50 px-1.5 py-0.5 text-[11px] font-medium text-utility-green-700">Submitted</span>
                 ) : (
                     <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] text-quaternary">In progress</span>
                 )}
             </div>
 
             <div className="mt-4 flex items-center gap-2">
-                <button type="button" onClick={() => onOpen(page.slug)}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-solid px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90">
+                <button
+                    type="button"
+                    onClick={() => onOpen(page.slug)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-solid px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                >
                     Open <ArrowUpRight className="size-3.5" />
                 </button>
                 {confirmDelete ? (
                     <>
-                        <button type="button" onClick={() => onDelete(page.slug)}
-                            className="rounded-lg bg-error-solid px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-error-solid_hover">Delete</button>
-                        <button type="button" onClick={() => setConfirmDelete(false)}
-                            className="rounded-lg border border-secondary px-2.5 py-1.5 text-xs font-medium text-secondary transition hover:bg-secondary">Cancel</button>
+                        <button
+                            type="button"
+                            onClick={() => onDelete(page.slug)}
+                            className="rounded-lg bg-error-solid px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-error-solid_hover"
+                        >
+                            Delete
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfirmDelete(false)}
+                            className="rounded-lg border border-secondary px-2.5 py-1.5 text-xs font-medium text-secondary transition hover:bg-secondary"
+                        >
+                            Cancel
+                        </button>
                     </>
                 ) : (
-                    <button type="button" onClick={() => setConfirmDelete(true)} title="Delete form"
-                        className="flex size-8 items-center justify-center rounded-lg text-quaternary transition hover:bg-secondary hover:text-error-primary">
+                    <button
+                        type="button"
+                        onClick={() => setConfirmDelete(true)}
+                        title="Delete form"
+                        className="flex size-8 items-center justify-center rounded-lg text-quaternary transition hover:bg-secondary hover:text-error-primary"
+                    >
                         <Trash01 className="size-4" />
                     </button>
                 )}
@@ -1058,11 +1199,11 @@ const HostOnboardingContent = () => {
     }, []);
 
     const deletePage = async (slug: string) => {
-        setPages(prev => prev.filter(p => p.slug !== slug));
+        setPages((prev) => prev.filter((p) => p.slug !== slug));
         await supabase.from("host_onboarding_pages").delete().eq("slug", slug);
     };
 
-    const filtered = pages.filter(p => {
+    const filtered = pages.filter((p) => {
         const q = query.trim().toLowerCase();
         if (!q) return true;
         return (p.client_name ?? "").toLowerCase().includes(q) || p.slug.toLowerCase().includes(q);
@@ -1073,17 +1214,21 @@ const HostOnboardingContent = () => {
             <header className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary bg-primary px-6">
                 <div>
                     <h1 className="text-md font-semibold text-primary">Brand Vision Form</h1>
-                    <p className="text-sm text-tertiary">
-                        {loading ? "Loading…" : `${pages.length} form${pages.length !== 1 ? "s" : ""} sent`}
-                    </p>
+                    <p className="text-sm text-tertiary">{loading ? "Loading…" : `${pages.length} form${pages.length !== 1 ? "s" : ""} sent`}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => navigate("/brand-vision-form")}
-                        className="rounded-lg border border-secondary bg-primary px-3.5 py-2 text-sm font-semibold text-secondary transition duration-100 ease-linear hover:bg-secondary hover:text-primary">
+                    <button
+                        type="button"
+                        onClick={() => navigate("/brand-vision-form")}
+                        className="rounded-lg border border-secondary bg-primary px-3.5 py-2 text-sm font-semibold text-secondary transition duration-100 ease-linear hover:bg-secondary hover:text-primary"
+                    >
                         View Template
                     </button>
-                    <button type="button" onClick={() => navigate("/brand-vision-form?create=1")}
-                        className="flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90">
+                    <button
+                        type="button"
+                        onClick={() => navigate("/brand-vision-form?create=1")}
+                        className="flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90"
+                    >
                         <Plus className="size-4" aria-hidden="true" />
                         New Form
                     </button>
@@ -1093,13 +1238,13 @@ const HostOnboardingContent = () => {
             <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto w-full max-w-[900px] px-6">
                     <div className="relative mt-6">
-                        <SearchSm className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-quaternary" aria-hidden="true" />
+                        <SearchSm className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-quaternary" aria-hidden="true" />
                         <input
                             type="text"
                             value={query}
-                            onChange={e => setQuery(e.target.value)}
+                            onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search host onboarding forms by client name…"
-                            className="w-full rounded-lg border border-secondary bg-primary py-2.5 pl-10 pr-3 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand"
+                            className="w-full rounded-lg border border-secondary bg-primary py-2.5 pr-3 pl-10 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
                         />
                     </div>
 
@@ -1108,8 +1253,12 @@ const HostOnboardingContent = () => {
                             <div className="size-6 animate-spin rounded-full border-2 border-brand border-t-transparent opacity-60" />
                         </div>
                     ) : pages.length === 0 ? (
-                        <motion.div className="flex h-64 flex-col items-center justify-center gap-3 text-center"
-                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+                        <motion.div
+                            className="flex h-64 flex-col items-center justify-center gap-3 text-center"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
+                        >
                             <div className="flex size-12 items-center justify-center rounded-full bg-brand-50">
                                 <Home02 className="size-5 text-fg-brand-primary" aria-hidden="true" />
                             </div>
@@ -1117,8 +1266,11 @@ const HostOnboardingContent = () => {
                                 <p className="text-sm font-medium text-primary">No host onboarding forms yet</p>
                                 <p className="mt-0.5 text-sm text-tertiary">Create one from the template to send to a new host.</p>
                             </div>
-                            <button type="button" onClick={() => navigate("/brand-vision-form?create=1")}
-                                className="mt-1 flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90">
+                            <button
+                                type="button"
+                                onClick={() => navigate("/brand-vision-form?create=1")}
+                                className="mt-1 flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90"
+                            >
                                 <Plus className="size-4" aria-hidden="true" /> New Form
                             </button>
                         </motion.div>
@@ -1141,24 +1293,16 @@ const HostOnboardingContent = () => {
 
 /* ── Popups content ───────────────────────────────────────────────── */
 
-const PopupRow = ({
-    page,
-    index,
-    onDelete,
-}: {
-    page: LeadCapturePageData;
-    index: number;
-    onDelete: (slug: string) => void;
-}) => {
+const PopupRow = ({ page, index, onDelete }: { page: LeadCapturePageData; index: number; onDelete: (slug: string) => void }) => {
     const navigate = useNavigate();
     const [confirmDelete, setConfirmDelete] = useState(false);
     const initials = getInitials(page.client_name || page.slug);
 
     const colors = [
         "bg-brand-100 text-brand-700",
-        "bg-success-secondary text-success-primary",
-        "bg-warning-secondary text-warning-primary",
-        "bg-error-secondary text-error-primary",
+        "bg-utility-green-50 text-utility-green-700",
+        "bg-utility-yellow-50 text-utility-yellow-700",
+        "bg-utility-red-50 text-utility-red-700",
     ];
     const colorClass = colors[index % colors.length];
 
@@ -1186,9 +1330,7 @@ const PopupRow = ({
                     docs-hgm.netlify.app/{page.slug}
                 </span>
             </td>
-            <td className="px-6 py-4 text-sm text-tertiary">
-                {page.created_at ? formatDate(page.created_at) : "—"}
-            </td>
+            <td className="px-6 py-4 text-sm text-tertiary">{page.created_at ? formatDate(page.created_at) : "—"}</td>
             <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                 {confirmDelete ? (
                     <div className="flex items-center justify-end gap-2">
@@ -1259,9 +1401,7 @@ const PopupsContent = () => {
             <header className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary bg-primary px-6">
                 <div>
                     <h1 className="text-md font-semibold text-primary">Popup Pages</h1>
-                    <p className="text-sm text-tertiary">
-                        {loading ? "Loading…" : `${pages.length} popup${pages.length !== 1 ? "s" : ""} created`}
-                    </p>
+                    <p className="text-sm text-tertiary">{loading ? "Loading…" : `${pages.length} popup${pages.length !== 1 ? "s" : ""} created`}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -1316,9 +1456,9 @@ const PopupsContent = () => {
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b border-secondary bg-secondary">
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">Client</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">Page URL</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">Created</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Client</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Page URL</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Created</th>
                                         <th className="px-6 py-3" />
                                     </tr>
                                 </thead>
@@ -1338,24 +1478,16 @@ const PopupsContent = () => {
 
 /* ── Chat Widget content ──────────────────────────────────────────── */
 
-const ChatWidgetRow = ({
-    page,
-    index,
-    onDelete,
-}: {
-    page: ChatWidgetPageData;
-    index: number;
-    onDelete: (slug: string) => void;
-}) => {
+const ChatWidgetRow = ({ page, index, onDelete }: { page: ChatWidgetPageData; index: number; onDelete: (slug: string) => void }) => {
     const navigate = useNavigate();
     const [confirmDelete, setConfirmDelete] = useState(false);
     const initials = getInitials(page.client_name || page.slug);
 
     const colors = [
         "bg-brand-100 text-brand-700",
-        "bg-success-secondary text-success-primary",
-        "bg-warning-secondary text-warning-primary",
-        "bg-error-secondary text-error-primary",
+        "bg-utility-green-50 text-utility-green-700",
+        "bg-utility-yellow-50 text-utility-yellow-700",
+        "bg-utility-red-50 text-utility-red-700",
     ];
     const colorClass = colors[index % colors.length];
 
@@ -1454,9 +1586,7 @@ const ChatWidgetContent = () => {
             <header className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary bg-primary px-6">
                 <div>
                     <h1 className="text-md font-semibold text-primary">Chat Widget Guides</h1>
-                    <p className="text-sm text-tertiary">
-                        {loading ? "Loading…" : `${pages.length} guide${pages.length !== 1 ? "s" : ""} created`}
-                    </p>
+                    <p className="text-sm text-tertiary">{loading ? "Loading…" : `${pages.length} guide${pages.length !== 1 ? "s" : ""} created`}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
@@ -1511,9 +1641,9 @@ const ChatWidgetContent = () => {
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b border-secondary bg-secondary">
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">Client</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">Page URL</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-quaternary">Created</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Client</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Page URL</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-quaternary uppercase">Created</th>
                                         <th className="px-6 py-3" />
                                     </tr>
                                 </thead>
@@ -1629,7 +1759,7 @@ const FolderTile = ({
                 // never spans a full row alone (which would collapse). The lg:min-h is a floor for the
                 // case where the wide card IS alone in its row (e.g. the only card on a page) so it
                 // still shows a proper cover instead of collapsing to the footer. Client cards keep 16/10.
-                solidFooter ? "flex flex-col bg-primary aspect-square" : "aspect-[16/10]",
+                solidFooter ? "flex aspect-square flex-col bg-primary" : "aspect-[16/10]",
                 wide && (solidFooter ? "lg:col-span-2 lg:aspect-auto lg:min-h-[240px]" : "sm:col-span-2 sm:aspect-[33/10]"),
             )}
         >
@@ -1637,19 +1767,27 @@ const FolderTile = ({
                 In solid-footer mode the cover is the top region; otherwise it fills the whole tile. */}
             <div className={cx("overflow-hidden", solidFooter ? "relative min-h-0 flex-1" : "absolute inset-0")}>
                 {coverUrl ? (
-                    <img src={coverUrl} alt={title} className="absolute inset-0 size-full object-cover transition duration-500 ease-out group-hover:scale-[1.06]" draggable={false} />
+                    <img
+                        src={coverUrl}
+                        alt={title}
+                        className="absolute inset-0 size-full object-cover transition duration-500 ease-out group-hover:scale-[1.06]"
+                        draggable={false}
+                    />
                 ) : (
                     <>
-                        <div className="absolute inset-0 transition duration-500 ease-out group-hover:scale-[1.06]" style={{ background: gradientFor(title) }} />
-                        <Icon className="pointer-events-none absolute -bottom-4 -right-4 size-28 rotate-6 text-white/15" aria-hidden="true" />
+                        <div
+                            className="absolute inset-0 transition duration-500 ease-out group-hover:scale-[1.06]"
+                            style={{ background: gradientFor(title) }}
+                        />
+                        <Icon className="pointer-events-none absolute -right-4 -bottom-4 size-28 rotate-6 text-white/15" aria-hidden="true" />
                     </>
                 )}
                 {/* Overlay mode only: scrim so the white title stays legible over any photo or gradient */}
                 {!solidFooter && <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />}
             </div>
 
-            {topLeft && <div className="absolute left-3 top-3 z-10">{topLeft}</div>}
-            {topRight && <div className="absolute right-3 top-3 z-10 flex items-center gap-2">{topRight}</div>}
+            {topLeft && <div className="absolute top-3 left-3 z-10">{topLeft}</div>}
+            {topRight && <div className="absolute top-3 right-3 z-10 flex items-center gap-2">{topRight}</div>}
 
             {/* Title + description — inline-renameable while unlocked. Solid footer (dark text on a
                 solid panel, most readable) or white text overlaid on the cover scrim. */}
@@ -1662,8 +1800,13 @@ const FolderTile = ({
                             onChange={(e) => setDraftTitle(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => {
-                                if (e.key === "Enter") { e.preventDefault(); submitRename(); }
-                                else if (e.key === "Escape") { e.preventDefault(); setRenaming(false); }
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    submitRename();
+                                } else if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    setRenaming(false);
+                                }
                             }}
                             onBlur={submitRename}
                             ref={(el) => el?.focus({ preventScroll: true })}
@@ -1695,8 +1838,13 @@ const FolderTile = ({
                             onChange={(e) => setDraftTitle(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => {
-                                if (e.key === "Enter") { e.preventDefault(); submitRename(); }
-                                else if (e.key === "Escape") { e.preventDefault(); setRenaming(false); }
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    submitRename();
+                                } else if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    setRenaming(false);
+                                }
                             }}
                             onBlur={submitRename}
                             ref={(el) => el?.focus({ preventScroll: true })}
@@ -1783,7 +1931,10 @@ const OverviewCard = ({
                     {(card.starred || editing) && (
                         <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); onStar(card.id, !card.starred); }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onStar(card.id, !card.starred);
+                            }}
                             title={card.starred ? "Unstar" : "Star"}
                             className={cx(
                                 "flex size-8 items-center justify-center rounded-full backdrop-blur transition duration-100 ease-linear",
@@ -1797,7 +1948,10 @@ const OverviewCard = ({
                         <>
                             <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); onEdit(card); }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(card);
+                                }}
                                 title="Edit card"
                                 className="flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur transition duration-100 ease-linear hover:bg-brand-solid"
                             >
@@ -1806,7 +1960,10 @@ const OverviewCard = ({
                             {isOwner && (
                                 <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); onToggleLock(card.id, !card.locked); }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleLock(card.id, !card.locked);
+                                    }}
                                     title={card.locked ? "Protected — only you can delete. Click to unprotect." : "Protect this card (only you can delete it)"}
                                     className="flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur transition duration-100 ease-linear hover:bg-brand-solid"
                                 >
@@ -1816,7 +1973,10 @@ const OverviewCard = ({
                             {(isOwner || !card.locked) && (
                                 <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); onDelete(card.id); }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete(card.id);
+                                    }}
                                     title="Delete card"
                                     className="flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur transition duration-100 ease-linear hover:bg-error-solid"
                                 >
@@ -1831,7 +1991,11 @@ const OverviewCard = ({
     );
 };
 
-const AddCardModal = ({ onClose, onSubmit, initial }: {
+const AddCardModal = ({
+    onClose,
+    onSubmit,
+    initial,
+}: {
     onClose: () => void;
     onSubmit: (c: { title: string; description: string; link: string; cover: string }) => Promise<void>;
     initial?: { title: string; description: string; link: string; cover: string };
@@ -1863,10 +2027,19 @@ const AddCardModal = ({ onClose, onSubmit, initial }: {
 
     const handleCreatePage = async () => {
         if (!newPageName.trim() || pageBusy) return;
-        if (!user) { setPageError("Sign in with your team Google account to create pages."); return; }
+        if (!user) {
+            setPageError("Sign in with your team Google account to create pages.");
+            return;
+        }
         const slug = effectivePageSlug;
-        if (!slug) { setPageError("Enter a name with at least one letter or number."); return; }
-        if (isReservedSlug(slug)) { setPageError("That name is reserved — please pick another."); return; }
+        if (!slug) {
+            setPageError("Enter a name with at least one letter or number.");
+            return;
+        }
+        if (isReservedSlug(slug)) {
+            setPageError("That name is reserved — please pick another.");
+            return;
+        }
         setPageBusy(true);
         setPageError("");
         const { error: insertError } = await supabase
@@ -1909,11 +2082,16 @@ const AddCardModal = ({ onClose, onSubmit, initial }: {
     return (
         <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
         >
             <motion.div
                 className="max-h-full w-full max-w-md overflow-y-auto rounded-2xl bg-primary p-6 shadow-2xl ring-1 ring-secondary"
-                initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 10 }}
                 transition={{ type: "spring", stiffness: 300, damping: 26 }}
             >
                 <div className="flex items-start justify-between">
@@ -1928,11 +2106,17 @@ const AddCardModal = ({ onClose, onSubmit, initial }: {
 
                 <div className="mt-4 flex flex-col gap-4">
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-secondary">Cover image <span className="font-normal text-quaternary">(optional)</span></label>
+                        <label className="mb-1.5 block text-sm font-medium text-secondary">
+                            Cover image <span className="font-normal text-quaternary">(optional)</span>
+                        </label>
                         {cover ? (
                             <div className="relative overflow-hidden rounded-lg ring-1 ring-secondary">
                                 <img src={cover} alt="cover" className="aspect-[16/10] w-full object-cover" />
-                                <button type="button" onClick={() => setCover("")} className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-lg bg-black/60 text-white hover:bg-black/80">
+                                <button
+                                    type="button"
+                                    onClick={() => setCover("")}
+                                    className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-lg bg-black/60 text-white hover:bg-black/80"
+                                >
                                     <XClose className="size-3.5" />
                                 </button>
                             </div>
@@ -1945,24 +2129,49 @@ const AddCardModal = ({ onClose, onSubmit, initial }: {
                         )}
                     </div>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-secondary">Heading <span className="text-error-primary">*</span></label>
-                        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Website AI Setup" autoFocus
-                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand" />
+                        <label className="mb-1.5 block text-sm font-medium text-secondary">
+                            Heading <span className="text-error-primary">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="e.g. Website AI Setup"
+                            autoFocus
+                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                        />
                     </div>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-secondary">Description <span className="text-error-primary">*</span> <span className="font-normal text-quaternary">(max 20 words)</span></label>
-                        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Short description"
-                            className="w-full resize-none rounded-lg border border-secondary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand" />
+                        <label className="mb-1.5 block text-sm font-medium text-secondary">
+                            Description <span className="text-error-primary">*</span> <span className="font-normal text-quaternary">(max 20 words)</span>
+                        </label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            rows={3}
+                            placeholder="Short description"
+                            className="w-full resize-none rounded-lg border border-secondary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                        />
                     </div>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-secondary">Page link <span className="text-error-primary">*</span></label>
-                        <input type="text" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://docs-hgm.netlify.app/…"
-                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand" />
+                        <label className="mb-1.5 block text-sm font-medium text-secondary">
+                            Page link <span className="text-error-primary">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={link}
+                            onChange={(e) => setLink(e.target.value)}
+                            placeholder="https://docs-hgm.netlify.app/…"
+                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                        />
 
                         {!creatingPage ? (
                             <button
                                 type="button"
-                                onClick={() => { setCreatingPage(true); setPageError(""); }}
+                                onClick={() => {
+                                    setCreatingPage(true);
+                                    setPageError("");
+                                }}
                                 className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-brand-secondary transition duration-100 ease-linear hover:text-brand-secondary_hover"
                             >
                                 <FilePlus02 className="size-3.5" aria-hidden="true" />
@@ -1977,7 +2186,7 @@ const AddCardModal = ({ onClose, onSubmit, initial }: {
                                     onChange={(e) => onNewPageNameChange(e.target.value)}
                                     placeholder="Page name, e.g. Ideation Notes"
                                     autoFocus
-                                    className="w-full rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand"
+                                    className="w-full rounded-lg border border-secondary bg-primary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
                                 />
                                 {newPageName.trim() && (
                                     <p className="text-[11px] text-quaternary">Will live at docs-hgm.netlify.app/{effectivePageSlug || "…"}</p>
@@ -1986,7 +2195,13 @@ const AddCardModal = ({ onClose, onSubmit, initial }: {
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => { setCreatingPage(false); setNewPageName(""); setNewPageSlug(""); setPageSlugTouched(false); setPageError(""); }}
+                                        onClick={() => {
+                                            setCreatingPage(false);
+                                            setNewPageName("");
+                                            setNewPageSlug("");
+                                            setPageSlugTouched(false);
+                                            setPageError("");
+                                        }}
                                         disabled={pageBusy}
                                         className="flex-1 rounded-lg border border-secondary px-3 py-1.5 text-xs font-semibold text-secondary transition hover:bg-primary disabled:opacity-50"
                                     >
@@ -2009,11 +2224,21 @@ const AddCardModal = ({ onClose, onSubmit, initial }: {
                 {error && <p className="mt-3 text-xs text-error-primary">{error}</p>}
 
                 <div className="mt-5 flex gap-3">
-                    <button type="button" onClick={onClose} disabled={saving} className="flex-1 rounded-lg border border-secondary px-4 py-2 text-sm font-semibold text-secondary transition hover:bg-secondary disabled:opacity-50">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={saving}
+                        className="flex-1 rounded-lg border border-secondary px-4 py-2 text-sm font-semibold text-secondary transition hover:bg-secondary disabled:opacity-50"
+                    >
                         Cancel
                     </button>
-                    <button type="button" onClick={submit} disabled={!valid || saving} className="flex-1 rounded-lg bg-brand-solid px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40">
-                        {saving ? (isEdit ? "Saving…" : "Adding…") : (isEdit ? "Save changes" : "Add Card")}
+                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={!valid || saving}
+                        className="flex-1 rounded-lg bg-brand-solid px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+                    >
+                        {saving ? (isEdit ? "Saving…" : "Adding…") : isEdit ? "Save changes" : "Add Card"}
                     </button>
                 </div>
             </motion.div>
@@ -2118,7 +2343,18 @@ const OverviewContent = ({ department, tab, editing, isOwner }: { department: De
                         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                             <AnimatePresence mode="popLayout">
                                 {sorted.map((card, i) => (
-                                    <OverviewCard key={card.id} card={card} index={i} editing={editing} isOwner={isOwner} onStar={handleStar} onDelete={handleDelete} onEdit={setEditCard} onToggleLock={handleToggleLock} onRename={handleRename} />
+                                    <OverviewCard
+                                        key={card.id}
+                                        card={card}
+                                        index={i}
+                                        editing={editing}
+                                        isOwner={isOwner}
+                                        onStar={handleStar}
+                                        onDelete={handleDelete}
+                                        onEdit={setEditCard}
+                                        onToggleLock={handleToggleLock}
+                                        onRename={handleRename}
+                                    />
                                 ))}
                             </AnimatePresence>
 
@@ -2178,12 +2414,6 @@ const personItems = (roster: string[], current: string) => {
     const cur = current.trim();
     if (cur && !names.includes(cur)) names.push(cur);
     return [{ id: NONE_KEY, label: "None" }, ...names.map((n) => ({ id: n, label: n, avatarUrl: teamPhoto(n) }))];
-};
-
-/** ABC-DEF-HGMS — the format the team shares client passwords in. */
-const genSharePassword = () => {
-    const grp = () => Array.from({ length: 3 }, () => "ABCDEFGHJKMNPQRSTUVWXYZ"[Math.floor(Math.random() * 23)]).join("");
-    return `${grp()}-${grp()}-HGMS`;
 };
 
 const ClientModal = ({
@@ -2247,10 +2477,14 @@ const ClientModal = ({
             client_website: "",
             data: {
                 ...createDefaultContent(base),
-                // The sign-in gate arms itself only when BOTH are present, matching the
-                // dashboard's own access panel — an email without a password (or vice
-                // versa) is stored but leaves the page open until the pair is complete.
+                // The first person on the dashboard, with the password generated above as
+                // their own. `sections: null` puts them on the dashboard-wide default, which
+                // is what an AM narrows per person later in the dashboard's access panel.
+                // allowed_emails is the derived mirror the Netlify suggestion function reads
+                // — written here too so a brand-new row never has the two out of step.
+                dashboard_users: pageEmail.trim() ? [{ email: pageEmail.trim(), password: pagePassword.trim(), sections: null }] : [],
                 allowed_emails: pageEmail.trim() ? [pageEmail.trim()] : [],
+                // Kept as the fallback for anyone added later without a password of their own.
                 share_password: pagePassword.trim(),
             },
         });
@@ -2316,11 +2550,16 @@ const ClientModal = ({
     return (
         <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
         >
             <motion.div
                 className="max-h-full w-full max-w-md overflow-y-auto rounded-2xl bg-primary p-6 shadow-2xl ring-1 ring-secondary"
-                initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 10 }}
                 transition={{ type: "spring", stiffness: 300, damping: 26 }}
             >
                 <div className="flex items-start justify-between">
@@ -2328,18 +2567,30 @@ const ClientModal = ({
                         <h3 className="text-md font-semibold text-primary">{initial ? "Edit Client" : "New Client"}</h3>
                         <p className="mt-1 text-sm text-tertiary">{initial ? "Update this client's details." : "Add a client to the list."}</p>
                     </div>
-                    <button type="button" aria-label="Close" onClick={onClose} className="flex size-8 items-center justify-center rounded-lg text-tertiary hover:bg-secondary">
+                    <button
+                        type="button"
+                        aria-label="Close"
+                        onClick={onClose}
+                        className="flex size-8 items-center justify-center rounded-lg text-tertiary hover:bg-secondary"
+                    >
                         <XClose className="size-4" aria-hidden="true" />
                     </button>
                 </div>
 
                 <div className="mt-4 flex flex-col gap-4">
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-secondary">Cover image <span className="font-normal text-quaternary">(optional)</span></label>
+                        <label className="mb-1.5 block text-sm font-medium text-secondary">
+                            Cover image <span className="font-normal text-quaternary">(optional)</span>
+                        </label>
                         {cover ? (
                             <div className="relative overflow-hidden rounded-lg ring-1 ring-secondary">
                                 <img src={cover} alt="cover" className="aspect-[16/10] w-full object-cover" />
-                                <button type="button" aria-label="Remove cover" onClick={() => setCover("")} className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-lg bg-black/60 text-white hover:bg-black/80">
+                                <button
+                                    type="button"
+                                    aria-label="Remove cover"
+                                    onClick={() => setCover("")}
+                                    className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-lg bg-black/60 text-white hover:bg-black/80"
+                                >
                                     <XClose className="size-3.5" aria-hidden="true" />
                                 </button>
                             </div>
@@ -2352,7 +2603,9 @@ const ClientModal = ({
                         )}
                     </div>
                     <div>
-                        <label className="mb-1.5 block text-sm font-medium text-secondary">Client logo <span className="font-normal text-quaternary">(optional — floats on the card)</span></label>
+                        <label className="mb-1.5 block text-sm font-medium text-secondary">
+                            Client logo <span className="font-normal text-quaternary">(optional — floats on the card)</span>
+                        </label>
                         <div className="flex items-center gap-3">
                             <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary ring-1 ring-secondary">
                                 {logo ? (
@@ -2366,21 +2619,42 @@ const ClientModal = ({
                                 {logo ? "Replace logo" : "Upload logo"}
                             </label>
                             {logo && (
-                                <button type="button" onClick={() => setLogo("")} className="text-sm font-semibold text-fg-quaternary transition duration-100 ease-linear hover:text-fg-error-secondary">
+                                <button
+                                    type="button"
+                                    onClick={() => setLogo("")}
+                                    className="text-sm font-semibold text-fg-quaternary transition duration-100 ease-linear hover:text-fg-error-secondary"
+                                >
                                     Remove
                                 </button>
                             )}
                         </div>
                     </div>
                     <div>
-                        <label htmlFor="client-name" className="mb-1.5 block text-sm font-medium text-secondary">Client name <span className="text-error-primary">*</span></label>
-                        <input id="client-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme Corp" autoFocus
-                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand" />
+                        <label htmlFor="client-name" className="mb-1.5 block text-sm font-medium text-secondary">
+                            Client name <span className="text-error-primary">*</span>
+                        </label>
+                        <input
+                            id="client-name"
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="e.g. Acme Corp"
+                            autoFocus
+                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                        />
                     </div>
                     <div>
-                        <label htmlFor="client-handle" className="mb-1.5 block text-sm font-medium text-secondary">Handle <span className="font-normal text-quaternary">(shown as @handle on the card)</span></label>
-                        <input id="client-handle" type="text" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="e.g. acmecorp"
-                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand" />
+                        <label htmlFor="client-handle" className="mb-1.5 block text-sm font-medium text-secondary">
+                            Handle <span className="font-normal text-quaternary">(shown as @handle on the card)</span>
+                        </label>
+                        <input
+                            id="client-handle"
+                            type="text"
+                            value={handle}
+                            onChange={(e) => setHandle(e.target.value)}
+                            placeholder="e.g. acmecorp"
+                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                        />
                     </div>
                     <div>
                         <label className="mb-1.5 block text-sm font-medium text-secondary">Tier</label>
@@ -2450,7 +2724,11 @@ const ClientModal = ({
                             selectedKey={am.trim() || NONE_KEY}
                             onSelectionChange={(k) => setAm(k === NONE_KEY ? "" : String(k ?? ""))}
                         >
-                            {(item) => <Select.Item id={item.id} avatarUrl={item.avatarUrl}>{item.label}</Select.Item>}
+                            {(item) => (
+                                <Select.Item id={item.id} avatarUrl={item.avatarUrl}>
+                                    {item.label}
+                                </Select.Item>
+                            )}
                         </Select>
                         <Select
                             label="Marketing assistant"
@@ -2459,14 +2737,26 @@ const ClientModal = ({
                             selectedKey={ma.trim() || NONE_KEY}
                             onSelectionChange={(k) => setMa(k === NONE_KEY ? "" : String(k ?? ""))}
                         >
-                            {(item) => <Select.Item id={item.id} avatarUrl={item.avatarUrl}>{item.label}</Select.Item>}
+                            {(item) => (
+                                <Select.Item id={item.id} avatarUrl={item.avatarUrl}>
+                                    {item.label}
+                                </Select.Item>
+                            )}
                         </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label htmlFor="client-webproject" className="mb-1.5 block text-sm font-medium text-secondary">Web project <span className="font-normal text-quaternary">(optional)</span></label>
-                            <input id="client-webproject" type="text" value={webProject} onChange={(e) => setWebProject(e.target.value)} placeholder="e.g. Ai Website"
-                                className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand" />
+                            <label htmlFor="client-webproject" className="mb-1.5 block text-sm font-medium text-secondary">
+                                Web project <span className="font-normal text-quaternary">(optional)</span>
+                            </label>
+                            <input
+                                id="client-webproject"
+                                type="text"
+                                value={webProject}
+                                onChange={(e) => setWebProject(e.target.value)}
+                                placeholder="e.g. Ai Website"
+                                className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                            />
                         </div>
                         <Select
                             label="Web manager"
@@ -2475,23 +2765,46 @@ const ClientModal = ({
                             selectedKey={webManager.trim() || NONE_KEY}
                             onSelectionChange={(k) => setWebManager(k === NONE_KEY ? "" : String(k ?? ""))}
                         >
-                            {(item) => <Select.Item id={item.id} avatarUrl={item.avatarUrl}>{item.label}</Select.Item>}
+                            {(item) => (
+                                <Select.Item id={item.id} avatarUrl={item.avatarUrl}>
+                                    {item.label}
+                                </Select.Item>
+                            )}
                         </Select>
                     </div>
                     <div>
-                        <label htmlFor="client-location" className="mb-1.5 block text-sm font-medium text-secondary">Location</label>
-                        <input id="client-location" type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Austin, TX"
-                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand" />
+                        <label htmlFor="client-location" className="mb-1.5 block text-sm font-medium text-secondary">
+                            Location
+                        </label>
+                        <input
+                            id="client-location"
+                            type="text"
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                            placeholder="e.g. Austin, TX"
+                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                        />
                     </div>
                     <div>
-                        <label htmlFor="client-link" className="mb-1.5 block text-sm font-medium text-secondary">Dashboard / page link <span className="font-normal text-quaternary">(optional)</span></label>
-                        <input id="client-link" type="text" value={link} onChange={(e) => setLink(e.target.value)} placeholder="/acme-dashboard or https://…"
-                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand" />
+                        <label htmlFor="client-link" className="mb-1.5 block text-sm font-medium text-secondary">
+                            Dashboard / page link <span className="font-normal text-quaternary">(optional)</span>
+                        </label>
+                        <input
+                            id="client-link"
+                            type="text"
+                            value={link}
+                            onChange={(e) => setLink(e.target.value)}
+                            placeholder="/acme-dashboard or https://…"
+                            className="w-full rounded-lg border border-secondary px-3 py-2 text-sm text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+                        />
 
                         {!creatingPage ? (
                             <button
                                 type="button"
-                                onClick={() => { setCreatingPage(true); setPageError(""); }}
+                                onClick={() => {
+                                    setCreatingPage(true);
+                                    setPageError("");
+                                }}
                                 className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-brand-secondary transition duration-100 ease-linear hover:text-brand-secondary_hover"
                             >
                                 <FilePlus02 className="size-3.5" aria-hidden="true" />
@@ -2509,7 +2822,7 @@ const ClientModal = ({
                                     onChange={(e) => setPageEmail(e.target.value)}
                                     placeholder="Client sign-in email — e.g. info@client.com"
                                     aria-label="Client sign-in email"
-                                    className="w-full rounded-lg border border-secondary bg-primary px-3 py-1.5 text-xs text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand"
+                                    className="w-full rounded-lg border border-secondary bg-primary px-3 py-1.5 text-xs text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
                                 />
                                 <div className="flex items-center gap-2">
                                     <input
@@ -2518,7 +2831,7 @@ const ClientModal = ({
                                         onChange={(e) => setPagePassword(e.target.value)}
                                         placeholder="Shared password"
                                         aria-label="Shared password"
-                                        className="min-w-0 flex-1 rounded-lg border border-secondary bg-primary px-3 py-1.5 font-mono text-xs text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand"
+                                        className="min-w-0 flex-1 rounded-lg border border-secondary bg-primary px-3 py-1.5 font-mono text-xs text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
                                     />
                                     <button
                                         type="button"
@@ -2529,10 +2842,14 @@ const ClientModal = ({
                                     </button>
                                 </div>
                                 <p className="text-[11px] text-quaternary">
-                                    The page locks to this email + password from day one. Leave the email empty to keep it open — access can
-                                    be set later on the dashboard itself.
+                                    The page locks to this email + password from day one. Leave the email empty to keep it open — access can be set later on the
+                                    dashboard itself.
                                 </p>
-                                {pageError && <p className="text-[11px] text-error-primary" role="alert">{pageError}</p>}
+                                {pageError && (
+                                    <p className="text-[11px] text-error-primary" role="alert">
+                                        {pageError}
+                                    </p>
+                                )}
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
@@ -2544,7 +2861,10 @@ const ClientModal = ({
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => { setCreatingPage(false); setPageError(""); }}
+                                        onClick={() => {
+                                            setCreatingPage(false);
+                                            setPageError("");
+                                        }}
                                         disabled={pageBusy}
                                         className="rounded-lg border border-secondary bg-primary px-3 py-1.5 text-xs font-semibold text-secondary transition hover:bg-secondary disabled:opacity-50"
                                     >
@@ -2559,10 +2879,20 @@ const ClientModal = ({
                 {error && <p className="mt-3 text-xs text-error-primary">{error}</p>}
 
                 <div className="mt-5 flex gap-3">
-                    <button type="button" onClick={onClose} disabled={saving} className="flex-1 rounded-lg border border-secondary px-4 py-2 text-sm font-semibold text-secondary transition hover:bg-secondary disabled:opacity-50">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={saving}
+                        className="flex-1 rounded-lg border border-secondary px-4 py-2 text-sm font-semibold text-secondary transition hover:bg-secondary disabled:opacity-50"
+                    >
                         Cancel
                     </button>
-                    <button type="button" onClick={submit} disabled={!valid || saving} className="flex-1 rounded-lg bg-brand-solid px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40">
+                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={!valid || saving}
+                        className="flex-1 rounded-lg bg-brand-solid px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+                    >
                         {saving ? "Saving…" : initial ? "Save" : "Add Client"}
                     </button>
                 </div>
@@ -2580,7 +2910,7 @@ const RoleChip = ({ role, name }: { role: "am" | "ma"; name: string }) => {
     return (
         <span
             title={`${role === "am" ? "Account Manager" : "Marketing Assistant"} — ${name}`}
-            className="inline-flex items-center gap-1 rounded-full bg-secondary py-0.5 pl-0.5 pr-2 text-xs font-medium text-secondary ring-1 ring-secondary"
+            className="inline-flex items-center gap-1 rounded-full bg-secondary py-0.5 pr-2 pl-0.5 text-xs font-medium text-secondary ring-1 ring-secondary"
         >
             {photo ? (
                 <img src={photo} alt={name} className="size-5 shrink-0 rounded-full object-cover ring-1 ring-secondary" draggable={false} />
@@ -2690,11 +3020,14 @@ const ClientCard = ({
                 {(client.starred || editing) && (
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onStar(client.id, !client.starred); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onStar(client.id, !client.starred);
+                        }}
                         title={client.starred ? "Unstar" : "Star"}
                         className={cx(
                             "flex size-8 shrink-0 items-center justify-center rounded-lg transition duration-100 ease-linear",
-                            client.starred ? "text-warning-primary" : "text-fg-quaternary opacity-0 hover:text-fg-secondary group-hover:opacity-100",
+                            client.starred ? "text-warning-primary" : "text-fg-quaternary opacity-0 group-hover:opacity-100 hover:text-fg-secondary",
                         )}
                     >
                         <Star01 className={cx("size-4", client.starred && "fill-current")} />
@@ -2704,9 +3037,12 @@ const ClientCard = ({
                 {editing && (
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onEdit(client); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(client);
+                        }}
                         title="Edit client"
-                        className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-quaternary opacity-0 transition duration-100 ease-linear hover:bg-secondary hover:text-fg-secondary group-hover:opacity-100"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-quaternary opacity-0 transition duration-100 ease-linear group-hover:opacity-100 hover:bg-secondary hover:text-fg-secondary"
                     >
                         <Edit01 className="size-4" />
                     </button>
@@ -2715,9 +3051,12 @@ const ClientCard = ({
                 {editing && (
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onDelete(client.id); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(client.id);
+                        }}
                         title="Delete client"
-                        className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-quaternary opacity-0 transition duration-100 ease-linear hover:bg-error-primary hover:text-fg-error-primary group-hover:opacity-100"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-quaternary opacity-0 transition duration-100 ease-linear group-hover:opacity-100 hover:bg-error-primary hover:text-fg-error-primary"
                     >
                         <Trash01 className="size-4" />
                     </button>
@@ -2762,11 +3101,14 @@ const ClientCard = ({
             {(client.starred || editing) && (
                 <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); onStar(client.id, !client.starred); }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onStar(client.id, !client.starred);
+                    }}
                     title={client.starred ? "Unstar" : "Star"}
                     className={cx(
-                        "absolute left-3 top-3 flex size-8 items-center justify-center rounded-lg transition duration-100 ease-linear",
-                        client.starred ? "text-warning-primary" : "text-fg-quaternary opacity-0 hover:text-fg-secondary group-hover:opacity-100",
+                        "absolute top-3 left-3 flex size-8 items-center justify-center rounded-lg transition duration-100 ease-linear",
+                        client.starred ? "text-warning-primary" : "text-fg-quaternary opacity-0 group-hover:opacity-100 hover:text-fg-secondary",
                     )}
                 >
                     <Star01 className={cx("size-4", client.starred && "fill-current")} />
@@ -2775,10 +3117,13 @@ const ClientCard = ({
 
             {/* Edit-mode controls — top-right */}
             {editing && (
-                <div className="absolute right-3 top-3 flex items-center gap-1">
+                <div className="absolute top-3 right-3 flex items-center gap-1">
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onEdit(client); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(client);
+                        }}
                         title="Edit client"
                         className="flex size-8 items-center justify-center rounded-lg text-fg-quaternary transition duration-100 ease-linear hover:bg-secondary hover:text-fg-secondary"
                     >
@@ -2786,7 +3131,10 @@ const ClientCard = ({
                     </button>
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onDelete(client.id); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(client.id);
+                        }}
                         title="Delete client"
                         className="flex size-8 items-center justify-center rounded-lg text-fg-quaternary transition duration-100 ease-linear hover:bg-error-primary hover:text-fg-error-primary"
                     >
@@ -2812,7 +3160,7 @@ const ClientCard = ({
                     <label
                         onClick={(e) => e.stopPropagation()}
                         title="Upload logo"
-                        className="absolute -bottom-1 -right-1 flex size-7 cursor-pointer items-center justify-center rounded-full bg-brand-solid text-white shadow-md transition duration-100 ease-linear hover:bg-brand-solid_hover"
+                        className="absolute -right-1 -bottom-1 flex size-7 cursor-pointer items-center justify-center rounded-full bg-brand-solid text-white shadow-md transition duration-100 ease-linear hover:bg-brand-solid_hover"
                     >
                         <input type="file" accept="image/*" className="hidden" onChange={onLogoFile} />
                         <Camera01 className="size-3.5" aria-hidden="true" />
@@ -2829,9 +3177,14 @@ const ClientCard = ({
                         defaultValue={client.name}
                         placeholder="Client name…"
                         onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                        onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== client.name) onRename(client.id, v); }}
-                        className="mt-4 w-full max-w-[240px] rounded-lg border border-secondary bg-primary px-3 py-1.5 text-center text-lg font-semibold text-primary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand"
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") e.currentTarget.blur();
+                        }}
+                        onBlur={(e) => {
+                            const v = e.target.value.trim();
+                            if (v && v !== client.name) onRename(client.id, v);
+                        }}
+                        className="mt-4 w-full max-w-[240px] rounded-lg border border-secondary bg-primary px-3 py-1.5 text-center text-lg font-semibold text-primary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
                     />
                     <input
                         key={`handle-${client.id}`}
@@ -2839,12 +3192,14 @@ const ClientCard = ({
                         defaultValue={client.handle ? `@${client.handle}` : ""}
                         placeholder={`@${igHandle}`}
                         onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") e.currentTarget.blur();
+                        }}
                         onBlur={(e) => {
                             const v = e.target.value.trim().replace(/^@+/, "");
                             if (v !== (client.handle ?? "")) onPatch(client.id, { handle: v });
                         }}
-                        className="mt-1.5 w-full max-w-[200px] rounded-lg border border-secondary bg-primary px-3 py-1 text-center text-sm text-tertiary placeholder:text-placeholder outline-none transition duration-100 ease-linear focus:border-brand focus:ring-1 focus:ring-brand"
+                        className="mt-1.5 w-full max-w-[200px] rounded-lg border border-secondary bg-primary px-3 py-1 text-center text-sm text-tertiary transition duration-100 ease-linear outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
                     />
                 </>
             ) : (
@@ -2878,7 +3233,7 @@ const ClientCard = ({
    replaying its stagger animation) each time a filter is clicked. */
 const SidebarGroup = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="flex flex-col gap-1">
-        <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-widest text-quaternary">{label}</p>
+        <p className="mb-1 px-2 text-xs font-semibold tracking-widest text-quaternary uppercase">{label}</p>
         {children}
     </div>
 );
@@ -2918,15 +3273,7 @@ const NavItem = ({
     </motion.button>
 );
 
-const ClientListContent = ({
-    editing,
-    navCollapsed = false,
-    onCollapse,
-}: {
-    editing: boolean;
-    navCollapsed?: boolean;
-    onCollapse?: () => void;
-}) => {
+const ClientListContent = ({ editing, navCollapsed = false, onCollapse }: { editing: boolean; navCollapsed?: boolean; onCollapse?: () => void }) => {
     const [allClients, setClients] = useState<ClientRecord[]>([]);
     const { user: viewer } = useAuthUser();
     // Private/test clients (private_to set) are only visible to their owner.
@@ -2966,14 +3313,29 @@ const ClientListContent = ({
     // (legacy free-typed values like "Anna" stay reachable until normalized).
     const extraNames = (roster: string[], names: (string | undefined)[]) =>
         [...new Set(names.map((n) => (n ?? "").trim()).filter(Boolean))].filter((n) => !roster.includes(n)).sort((a, b) => a.localeCompare(b));
-    const ams = [...ACCOUNT_MANAGERS, ...extraNames(ACCOUNT_MANAGERS, clients.map((c) => c.am))];
-    const mas = [...MARKETING_ASSISTANTS, ...extraNames(MARKETING_ASSISTANTS, clients.map((c) => c.marketing_assistant))];
+    const ams = [
+        ...ACCOUNT_MANAGERS,
+        ...extraNames(
+            ACCOUNT_MANAGERS,
+            clients.map((c) => c.am),
+        ),
+    ];
+    const mas = [
+        ...MARKETING_ASSISTANTS,
+        ...extraNames(
+            MARKETING_ASSISTANTS,
+            clients.map((c) => c.marketing_assistant),
+        ),
+    ];
 
     const filtered = clients.filter((c) =>
-        filter.type === "all" ? true
-        : filter.type === "tier" ? c.tier === filter.value
-        : filter.type === "am" ? c.am.trim() === filter.value
-        : (c.marketing_assistant ?? "").trim() === filter.value,
+        filter.type === "all"
+            ? true
+            : filter.type === "tier"
+              ? c.tier === filter.value
+              : filter.type === "am"
+                ? c.am.trim() === filter.value
+                : (c.marketing_assistant ?? "").trim() === filter.value,
     );
     // Starred clients always pin to the top; the dropdown decides the order within.
     const tierRank = (id: string) => {
@@ -3045,53 +3407,48 @@ const ClientListContent = ({
         <>
             {/* Client List sidebar (tier + AM grouping) */}
             {!navCollapsed && (
-            <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
-                <div className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary px-5">
-                    <h2 className="text-md font-semibold text-primary">Client List</h2>
-                    {onCollapse && <NavCollapseButton onClick={onCollapse} />}
-                </div>
-                <nav className="flex-1 overflow-y-auto px-3 py-4">
-                    <motion.div
-                        className="flex flex-col"
-                        initial="hidden"
-                        animate="show"
-                        variants={{ show: { transition: { staggerChildren: 0.05 } } }}
-                    >
-                        {/* Tiers moved to the tab row at the top of the body — the
+                <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+                    <div className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary px-5">
+                        <h2 className="text-md font-semibold text-primary">Client List</h2>
+                        {onCollapse && <NavCollapseButton onClick={onCollapse} />}
+                    </div>
+                    <nav className="flex-1 overflow-y-auto px-3 py-4">
+                        <motion.div className="flex flex-col" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.05 } } }}>
+                            {/* Tiers moved to the tab row at the top of the body — the
                             sidebar now only groups by people. */}
-                        <SidebarGroup label="By Account Manager">
-                            {ams.map((am) => (
-                                <NavItem
-                                    key={am}
-                                    active={filter.type === "am" && filter.value === am}
-                                    icon={Users01}
-                                    photo={teamPhoto(am)}
-                                    label={am}
-                                    count={clients.filter((c) => c.am.trim() === am && !c.private_to).length}
-                                    onClick={() => setFilter({ type: "am", value: am })}
-                                />
-                            ))}
-                        </SidebarGroup>
+                            <SidebarGroup label="By Account Manager">
+                                {ams.map((am) => (
+                                    <NavItem
+                                        key={am}
+                                        active={filter.type === "am" && filter.value === am}
+                                        icon={Users01}
+                                        photo={teamPhoto(am)}
+                                        label={am}
+                                        count={clients.filter((c) => c.am.trim() === am && !c.private_to).length}
+                                        onClick={() => setFilter({ type: "am", value: am })}
+                                    />
+                                ))}
+                            </SidebarGroup>
 
-                        <div className="mx-1 my-4 h-px bg-border-secondary" />
+                            <div className="mx-1 my-4 h-px bg-border-secondary" />
 
-                        {/* MAs pair with AMs on each client — same grouping, own section. */}
-                        <SidebarGroup label="By Marketing Assistant">
-                            {mas.map((ma) => (
-                                <NavItem
-                                    key={ma}
-                                    active={filter.type === "ma" && filter.value === ma}
-                                    icon={Edit01}
-                                    photo={teamPhoto(ma)}
-                                    label={ma}
-                                    count={clients.filter((c) => (c.marketing_assistant ?? "").trim() === ma && !c.private_to).length}
-                                    onClick={() => setFilter({ type: "ma", value: ma })}
-                                />
-                            ))}
-                        </SidebarGroup>
-                    </motion.div>
-                </nav>
-            </aside>
+                            {/* MAs pair with AMs on each client — same grouping, own section. */}
+                            <SidebarGroup label="By Marketing Assistant">
+                                {mas.map((ma) => (
+                                    <NavItem
+                                        key={ma}
+                                        active={filter.type === "ma" && filter.value === ma}
+                                        icon={Edit01}
+                                        photo={teamPhoto(ma)}
+                                        label={ma}
+                                        count={clients.filter((c) => (c.marketing_assistant ?? "").trim() === ma && !c.private_to).length}
+                                        onClick={() => setFilter({ type: "ma", value: ma })}
+                                    />
+                                ))}
+                            </SidebarGroup>
+                        </motion.div>
+                    </nav>
+                </aside>
             )}
 
             {/* Main */}
@@ -3131,7 +3488,10 @@ const ClientListContent = ({
                                             <button
                                                 key={o.id}
                                                 type="button"
-                                                onClick={() => { setSortBy(o.id); setSortOpen(false); }}
+                                                onClick={() => {
+                                                    setSortBy(o.id);
+                                                    setSortOpen(false);
+                                                }}
                                                 className="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-secondary transition duration-100 ease-linear hover:bg-primary_hover hover:text-primary"
                                             >
                                                 {o.label}
@@ -3145,10 +3505,12 @@ const ClientListContent = ({
 
                         {/* Grid / list view toggle */}
                         <div className="flex items-center rounded-lg border border-secondary bg-primary p-0.5">
-                            {([
-                                { id: "grid", icon: Grid01, title: "Grid view" },
-                                { id: "list", icon: List, title: "List view" },
-                            ] as const).map((v) => (
+                            {(
+                                [
+                                    { id: "grid", icon: Grid01, title: "Grid view" },
+                                    { id: "list", icon: List, title: "List view" },
+                                ] as const
+                            ).map((v) => (
                                 <button
                                     key={v.id}
                                     type="button"
@@ -3241,46 +3603,45 @@ const ClientListContent = ({
                                     // cards — narrower than at 1440px). auto-fill with a 310px floor
                                     // keeps every card square and roomy, and re-flows on its own
                                     // when the sidebar collapses.
-                                    view === "grid"
-                                        ? "grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-5"
-                                        : "flex flex-col gap-2.5",
+                                    view === "grid" ? "grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-5" : "flex flex-col gap-2.5",
                                 )}
                             >
                                 {sorted.map((client) => (
-                                        <ClientCard
-                                            key={client.id}
-                                            client={client}
-                                            editing={editing}
-                                            layout={view}
-                                            filterType={filter.type}
-                                            onStar={handleStar}
-                                            onDelete={handleDelete}
-                                            onEdit={(c) => setModal({ mode: "edit", client: c })}
-                                            onRename={handleRename}
-                                            onPatch={handlePatch}
-                                        />
+                                    <ClientCard
+                                        key={client.id}
+                                        client={client}
+                                        editing={editing}
+                                        layout={view}
+                                        filterType={filter.type}
+                                        onStar={handleStar}
+                                        onDelete={handleDelete}
+                                        onEdit={(c) => setModal({ mode: "edit", client: c })}
+                                        onRename={handleRename}
+                                        onPatch={handlePatch}
+                                    />
                                 ))}
 
-                                {editing && (view === "grid" ? (
-                                    <motion.button
-                                        type="button"
-                                        onClick={() => setModal({ mode: "new" })}
-                                        whileHover={{ y: -4 }}
-                                        className="flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary text-tertiary transition duration-100 ease-linear hover:border-brand hover:bg-brand-50 hover:text-brand-secondary dark:hover:bg-brand-950/30"
-                                    >
-                                        <Plus className="size-7" />
-                                        <span className="text-sm font-semibold">New Client</span>
-                                    </motion.button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => setModal({ mode: "new" })}
-                                        className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary px-4 py-3 text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:border-brand hover:bg-brand-50 hover:text-brand-secondary dark:hover:bg-brand-950/30"
-                                    >
-                                        <Plus className="size-5" />
-                                        New Client
-                                    </button>
-                                ))}
+                                {editing &&
+                                    (view === "grid" ? (
+                                        <motion.button
+                                            type="button"
+                                            onClick={() => setModal({ mode: "new" })}
+                                            whileHover={{ y: -4 }}
+                                            className="flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary text-tertiary transition duration-100 ease-linear hover:border-brand hover:bg-brand-50 hover:text-brand-secondary dark:hover:bg-brand-950/30"
+                                        >
+                                            <Plus className="size-7" />
+                                            <span className="text-sm font-semibold">New Client</span>
+                                        </motion.button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => setModal({ mode: "new" })}
+                                            className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary px-4 py-3 text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:border-brand hover:bg-brand-50 hover:text-brand-secondary dark:hover:bg-brand-950/30"
+                                        >
+                                            <Plus className="size-5" />
+                                            New Client
+                                        </button>
+                                    ))}
                             </div>
                         )}
 
@@ -3294,9 +3655,7 @@ const ClientListContent = ({
                 </div>
 
                 <AnimatePresence>
-                    {modal?.mode === "new" && (
-                        <ClientModal onClose={() => setModal(null)} onSave={handleCreate} />
-                    )}
+                    {modal?.mode === "new" && <ClientModal onClose={() => setModal(null)} onSave={handleCreate} />}
                     {modal?.mode === "edit" && (
                         <ClientModal initial={modal.client} onClose={() => setModal(null)} onSave={(data) => handleUpdate(modal.client, data)} />
                     )}
@@ -3370,10 +3729,7 @@ const DashboardLayout = () => {
             });
     }, [dept.id, dept.kind]);
 
-    const tabs: DeptTab[] =
-        dept.kind === "cards"
-            ? [...dept.tabs, ...customTabs.map((t) => ({ id: t.id, label: t.label, icon: LayoutAlt01 }))]
-            : dept.tabs;
+    const tabs: DeptTab[] = dept.kind === "cards" ? [...dept.tabs, ...customTabs.map((t) => ({ id: t.id, label: t.label, icon: LayoutAlt01 }))] : dept.tabs;
 
     /** The first tab that actually renders something here — link rows (Manual) have no
      *  content of their own, so landing on one would show an empty department. */
@@ -3385,9 +3741,11 @@ const DashboardLayout = () => {
         setActiveSection(firstContentTab(d));
     };
 
-    /** A tab either switches the section or, when it carries `to`, opens its own page. */
+    /** A tab either switches the section or, when it carries `to`, opens its own page.
+     *  extraGroups rows are searched too — they're rendered by the same side menu and are
+     *  the only way a link row reaches a department whose own `tabs` are empty (Clients). */
     const selectTab = (id: string) => {
-        const t = tabs.find((x) => x.id === id);
+        const t = tabs.find((x) => x.id === id) ?? dept.extraGroups?.flatMap((g) => g.tabs).find((x) => x.id === id);
         if (t?.to) navigate(t.to);
         else setActiveSection(id);
     };
@@ -3431,37 +3789,41 @@ const DashboardLayout = () => {
             {navCollapsed && <CollapsedTopBar title={dept.header} onExpand={toggleNav} />}
 
             <div className="flex min-h-0 flex-1 gap-2 bg-secondary p-2">
-            {dept.kind === "clientlist" ? (
-                <ClientListContent editing={editing} navCollapsed={navCollapsed} onCollapse={toggleNav} />
-            ) : (
-                <>
-                    {!navCollapsed && (
-                        <Sidebar
-                            department={dept}
-                            tabs={tabs}
-                            activeSection={activeSection}
-                            onSelect={selectTab}
-                            editing={editing}
-                            canEditTabs={dept.kind === "cards"}
-                            customTabIds={customTabs.map((t) => t.id)}
-                            onAddTab={addTab}
-                            onDeleteTab={deleteTab}
-                            onCollapse={toggleNav}
-                        />
-                    )}
-                    {activeSection === "owner-guides"
-                        ? <OwnerGuidesContent editing={editing} isOwner={isOwner} />
-                        : dept.kind === "docs"
-                            ? activeSection === "popups"
-                                ? <PopupsContent />
-                                : activeSection === "chat-widget"
-                                    ? <ChatWidgetContent />
-                                    : activeSection === "host-onboarding"
-                                        ? <HostOnboardingContent />
-                                        : <MetaPixelContent />
-                            : <OverviewContent key={dept.id + ":" + activeSection} department={dept} tab={activeSection} editing={editing} isOwner={isOwner} />}
-                </>
-            )}
+                {dept.kind === "clientlist" ? (
+                    <ClientListContent editing={editing} navCollapsed={navCollapsed} onCollapse={toggleNav} />
+                ) : (
+                    <>
+                        {!navCollapsed && (
+                            <Sidebar
+                                department={dept}
+                                tabs={tabs}
+                                activeSection={activeSection}
+                                onSelect={selectTab}
+                                editing={editing}
+                                canEditTabs={dept.kind === "cards"}
+                                customTabIds={customTabs.map((t) => t.id)}
+                                onAddTab={addTab}
+                                onDeleteTab={deleteTab}
+                                onCollapse={toggleNav}
+                            />
+                        )}
+                        {activeSection === "owner-guides" ? (
+                            <OwnerGuidesContent editing={editing} isOwner={isOwner} />
+                        ) : dept.kind === "docs" ? (
+                            activeSection === "popups" ? (
+                                <PopupsContent />
+                            ) : activeSection === "chat-widget" ? (
+                                <ChatWidgetContent />
+                            ) : activeSection === "host-onboarding" ? (
+                                <HostOnboardingContent />
+                            ) : (
+                                <MetaPixelContent />
+                            )
+                        ) : (
+                            <OverviewContent key={dept.id + ":" + activeSection} department={dept} tab={activeSection} editing={editing} isOwner={isOwner} />
+                        )}
+                    </>
+                )}
             </div>
         </AppShell>
     );
@@ -3475,9 +3837,7 @@ const DashboardLayout = () => {
  * Google OAuth redirect returns to whichever page started the sign-in.
  */
 export const TeamGate = ({ children }: { children: ReactNode }) => {
-    const [unlocked, setUnlocked] = useState(
-        () => sessionStorage.getItem("hgm_dashboard_unlocked") === "1",
-    );
+    const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("hgm_dashboard_unlocked") === "1");
     const [googleError, setGoogleError] = useState("");
     const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -3533,12 +3893,7 @@ export const TeamGate = ({ children }: { children: ReactNode }) => {
     return unlocked ? (
         <>{children}</>
     ) : (
-        <PasswordGate
-            onUnlock={handleUnlock}
-            onGoogle={handleGoogle}
-            googleError={googleError}
-            googleLoading={googleLoading}
-        />
+        <PasswordGate onUnlock={handleUnlock} onGoogle={handleGoogle} googleError={googleError} googleLoading={googleLoading} />
     );
 };
 

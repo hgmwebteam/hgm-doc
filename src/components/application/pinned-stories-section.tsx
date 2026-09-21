@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useState } from "react";
 import {
     AlertCircle,
     Check,
     CheckCircle,
     ChevronLeft,
     ChevronRight,
+    Download01,
     Image03,
     Link01,
     LinkExternal01,
@@ -31,6 +32,7 @@ import {
     startCanvaConnect,
     storeCanvaPages,
 } from "@/lib/canva-import";
+import { STORIES_SECTION, recordDashboardPublish } from "@/lib/dashboard-updates";
 import { supabase } from "@/lib/supabase";
 import { type PinnedPost, parseCanvaUrl, uid } from "@/pages/client/dashboard/dashboard-model";
 import { type PinnedProfileInputs, buildProfile } from "@/pages/client/dashboard/pinned-posts";
@@ -44,13 +46,18 @@ import {
     type StoryReview,
     type StorySlide,
     type StoryVersion,
+    buildHighlightsFromCovers,
     canvaEditUrl,
     coverOf,
     draftFromPages,
     draftPublishable,
     emptyHighlight,
+    firstSlideIsCover,
     mergePinnedStories,
+    moveSlideTo,
     sampleDraft,
+    setCoverFromSlide,
+    storyFrames,
     totalSlides,
 } from "@/pages/client/dashboard/pinned-stories-model";
 import { compressImageFile } from "@/utils/compress-image";
@@ -130,8 +137,6 @@ export const PinnedStoriesSection = ({
 }) => {
     const [data, setData] = useState<PinnedStoriesData>(EMPTY_PINNED_STORIES);
     const [position, setPosition] = useState<StoryPosition>(PROFILE);
-    /** Which set the phone plays for the team. Clients only ever see "live". */
-    const [view, setView] = useState<"live" | "draft">("live");
 
     const [canvaLink, setCanvaLink] = useState("");
     const [importing, setImporting] = useState<string | null>(null);
@@ -215,13 +220,20 @@ export const PinnedStoriesSection = ({
                 if (error) return;
                 const merged = mergePinnedStories(row?.data as Partial<PinnedStoriesData> | null);
                 setData(merged);
-                if (merged.draft && !merged.versions.length) setView("draft");
             });
     }, [slug, isTemplate]);
 
     const live = data.versions[0];
     const draft = data.draft;
-    const shownHighlights = isTeam && view === "draft" && draft ? draft.highlights : (live?.highlights ?? []);
+    // The design link lives with the import (draft.source / the live version's source), so
+    // coming back to edit finds it in the field again — same as Pinned Posts' canva_url.
+    const storedCanvaUrl = draft?.source.canvaUrl || live?.source.canvaUrl || "";
+    useEffect(() => {
+        if (storedCanvaUrl) setCanvaLink((cur) => cur || storedCanvaUrl);
+    }, [storedCanvaUrl]);
+    /** What the phone plays: the team sees their draft while one exists, everyone else the live set. */
+    const view: "live" | "draft" = isTeam && draft ? "draft" : "live";
+    const shownHighlights = view === "draft" && draft ? draft.highlights : (live?.highlights ?? []);
     const review = live?.review ?? EMPTY_REVIEW;
     /* The same account Pinned Posts renders (its carousels in the grid), with the tray swapped
        for whichever story set the phone is playing — the player does that swap itself. */
@@ -263,16 +275,28 @@ export const PinnedStoriesSection = ({
             publishedAt: new Date().toISOString(),
             publishedBy: teamName,
             review: EMPTY_REVIEW,
+            // The tray travels with the version so "Make changes" restores the whole import.
+            unassigned: draft.unassigned,
         };
-        const ok = await persist({ draft: null, versions: [version, ...data.versions] });
+        const versions = [version, ...data.versions];
+        const ok = await persist({ draft: null, versions });
         setPublishing(false);
-        if (ok) {
-            setView("live");
-            setPosition(PROFILE);
+        if (!ok) return;
+        setPosition(PROFILE);
+        // Only the publish is logged to the team's feed at /log, never persist() itself —
+        // this section saves the draft on every keystroke, and those writes would bury every
+        // other entry in the feed. Fire-and-forget: the stories are already live.
+        if (slug && !isTemplate) {
+            void recordDashboardPublish({
+                slug,
+                clientName,
+                section: STORIES_SECTION,
+                summary: `Published Pinned Stories v${versions.length}`,
+            });
         }
     };
 
-    const discardDraft = () => void persist({ ...data, draft: null }).then(() => setView("live"));
+    const discardDraft = () => void persist({ ...data, draft: null }).then(() => setPosition(PROFILE));
 
     /**
      * Back to stage 0: no draft, no versions, so the section shows the import panel again
@@ -289,34 +313,50 @@ export const PinnedStoriesSection = ({
         setResetting(false);
         setResetArmed(false);
         if (ok) {
-            setView("live");
             setPosition(PROFILE);
             setShowImport(false);
             setCanvaLink("");
         }
     };
 
-    /** Start a draft from the live set, so titles and order can change without a re-import. */
+    /**
+     * Start a draft from the live set, so titles and order can change without a re-import.
+     * The tray comes back too: the pages left unplaced at publish time, plus any page an
+     * older version used that this one dropped, so nothing imported is ever out of reach.
+     */
     const editLive = () => {
         if (!live) return;
+        const inLive = new Set(live.highlights.flatMap((h) => [h.cover, ...h.slides.map((s) => s.url)]));
+        const tray: StorySlide[] = [...(live.unassigned ?? [])];
+        for (const v of data.versions.slice(1)) {
+            for (const s of [...v.highlights.flatMap((h) => h.slides), ...(v.unassigned ?? [])]) {
+                if (!inLive.has(s.url) && !tray.some((t) => t.url === s.url)) tray.push({ ...s });
+            }
+        }
         void persist({
             ...data,
             draft: {
                 highlights: live.highlights.map((h) => ({ ...h, id: uid(), slides: h.slides.map((s) => ({ ...s })) })),
-                unassigned: [],
+                unassigned: tray.sort((a, b) => a.page - b.page),
                 source: live.source,
             },
         });
-        setView("draft");
         setPosition(PROFILE);
     };
 
     const startDraftWith = (pages: StorySlide[], source: StoryDraft["source"]) => {
-        // A second import while a draft is open adds to it (that's how a video page joins an
-        // image set) rather than throwing the AM's arrangement away.
-        const next: StoryDraft = draft ? { ...draft, unassigned: [...draft.unassigned, ...pages], source: draft.source } : draftFromPages(pages, source);
+        // A second import while a draft is open never throws the AM's arrangement away. From
+        // Canva it REPLACES the tray (the design's current pages, once), so pressing the button
+        // twice never stacks forty pages; an upload adds to it, since that is how a video page
+        // joins an image set.
+        const next: StoryDraft = draft
+            ? {
+                  ...draft,
+                  unassigned: source.via === "canva" ? pages : [...draft.unassigned, ...pages],
+                  source: source.designId || !draft.source.designId ? source : draft.source,
+              }
+            : draftFromPages(pages, source);
         void persist({ ...data, draft: next });
-        setView("draft");
         setPosition(PROFILE);
         setShowImport(false);
     };
@@ -351,7 +391,8 @@ export const PinnedStoriesSection = ({
                 importedAt: new Date().toISOString(),
                 importedBy: teamName,
             });
-            setCanvaLink("");
+            // The link stays in the field: the arrange panel shows it so the AM can open the
+            // design or pull the pages in again after editing it in Canva.
         } catch (e) {
             // The stored token stopped working mid-way — re-read the status so the panel
             // swaps the import button for Connect Canva.
@@ -413,72 +454,78 @@ export const PinnedStoriesSection = ({
 
     const loadSample = () => {
         void persist({ ...data, draft: sampleDraft(teamName) });
-        setView("draft");
         setPosition(PROFILE);
         setShowImport(false);
     };
 
-    /* ── Arranging the draft ── */
+    /* ── Arranging the draft ──
+       Every edit is a pure model function applied through setDraft, so the phone (which
+       renders draft.highlights) follows each move instantly. Drag-and-drop is the main
+       gesture; the arrow / star / × buttons on each slide do the same moves for keyboards. */
     const updateHighlight = (id: string, patch: Partial<StoryHighlight>) =>
         setDraft((d) => ({ ...d, highlights: d.highlights.map((h) => (h.id === id ? { ...h, ...patch } : h)) }));
     const addHighlight = () => setDraft((d) => ({ ...d, highlights: [...d.highlights, emptyHighlight(d.highlights.length + 1)] }));
+    /** Its slides go back to the tray; its cover image is dropped (it was a page once — re-import brings it back). */
     const removeHighlight = (id: string) =>
         setDraft((d) => {
             const h = d.highlights.find((x) => x.id === id);
             return { ...d, highlights: d.highlights.filter((x) => x.id !== id), unassigned: [...d.unassigned, ...(h?.slides ?? [])] };
         });
-    const moveSlide = (hId: string, index: number, dir: -1 | 1) =>
-        updateHighlight(hId, {
-            slides: (() => {
-                const h = draft?.highlights.find((x) => x.id === hId);
-                if (!h) return [];
-                const s = [...h.slides];
-                const j = index + dir;
-                if (j < 0 || j >= s.length) return s;
-                [s[index], s[j]] = [s[j], s[index]];
-                return s;
-            })(),
-        });
-    const unassignSlide = (hId: string, slideId: string) =>
+    const nudgeSlide = (hId: string, index: number, dir: -1 | 1) =>
         setDraft((d) => {
             const h = d.highlights.find((x) => x.id === hId);
-            const s = h?.slides.find((x) => x.id === slideId);
+            const s = h?.slides[index];
             if (!h || !s) return d;
-            return {
-                ...d,
-                highlights: d.highlights.map((x) => (x.id === hId ? { ...x, slides: x.slides.filter((y) => y.id !== slideId) } : x)),
-                unassigned: [...d.unassigned, s],
-            };
+            const j = index + dir;
+            return j < 0 || j >= h.slides.length ? d : moveSlideTo(d, s.id, hId, j);
         });
-    /** Use this slide's image as the circle, and take it out of the run — a cover isn't a story. */
-    const makeCover = (hId: string, slideId: string) =>
-        setDraft((d) => {
-            const h = d.highlights.find((x) => x.id === hId);
-            const s = h?.slides.find((x) => x.id === slideId);
-            if (!h || !s || s.kind !== "image") return d;
-            return { ...d, highlights: d.highlights.map((x) => (x.id === hId ? { ...x, cover: s.url, slides: x.slides.filter((y) => y.id !== slideId) } : x)) };
-        });
-    const assignSlide = (slideId: string, hId: string) =>
-        setDraft((d) => {
-            const s = d.unassigned.find((x) => x.id === slideId);
-            if (!s) return d;
-            return {
-                ...d,
-                unassigned: d.unassigned.filter((x) => x.id !== slideId),
-                highlights: d.highlights.map((h) => (h.id === hId ? { ...h, slides: [...h.slides, s] } : h)),
-            };
-        });
-    const newHighlightFromCover = (slideId: string) =>
-        setDraft((d) => {
-            const s = d.unassigned.find((x) => x.id === slideId);
-            if (!s) return d;
-            return {
-                ...d,
-                unassigned: d.unassigned.filter((x) => x.id !== slideId),
-                highlights: [...d.highlights, { ...emptyHighlight(d.highlights.length + 1), cover: s.kind === "image" ? s.url : "" }],
-            };
-        });
+    const toTray = (slideId: string) => setDraft((d) => moveSlideTo(d, slideId, null));
+    const makeCover = (hId: string, slideId: string) => setDraft((d) => setCoverFromSlide(d, slideId, hId));
     const deleteUnassigned = (slideId: string) => setDraft((d) => ({ ...d, unassigned: d.unassigned.filter((x) => x.id !== slideId) }));
+
+    /* Tray → highlights in one move: star the covers, press Build. */
+    const [coverPicks, setCoverPicks] = useState<Set<string>>(new Set());
+    const togglePick = (id: string) =>
+        setCoverPicks((p) => {
+            const n = new Set(p);
+            if (n.has(id)) n.delete(id);
+            else n.add(id);
+            return n;
+        });
+    const buildFromCovers = () => {
+        setDraft((d) => buildHighlightsFromCovers(d, [...coverPicks]));
+        setCoverPicks(new Set());
+    };
+
+    /* Native drag-and-drop. `dragId` is the slide in flight; `over` names the target under
+       the pointer so it can light up. Targets: a slide (insert before it), a run's tail
+       (append), a cover circle (become the cover), the tray (unplace). */
+    const [dragId, setDragId] = useState<string | null>(null);
+    const [over, setOver] = useState<string | null>(null);
+    const onDragStart = (e: DragEvent, slideId: string) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", slideId);
+        setDragId(slideId);
+    };
+    const onDragEnd = () => {
+        setDragId(null);
+        setOver(null);
+    };
+    const dropZone = (key: string, onDrop: (slideId: string) => void) => ({
+        onDragOver: (e: DragEvent) => {
+            if (!dragId) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (over !== key) setOver(key);
+        },
+        onDragLeave: () => over === key && setOver(null),
+        onDrop: (e: DragEvent) => {
+            e.preventDefault();
+            const id = e.dataTransfer.getData("text/plain") || dragId;
+            if (id) onDrop(id);
+            onDragEnd();
+        },
+    });
 
     /* ── Review ── */
     const respond = async (body: Record<string, unknown>) => {
@@ -517,17 +564,18 @@ export const PinnedStoriesSection = ({
     /** "Slide 3 of 6 · FAQ" for a note, from the live set. */
     const describe = (c: { highlightId: string; slideId: string }) => {
         const h = live?.highlights.find((x) => x.id === c.highlightId);
-        const i = h?.slides.findIndex((s) => s.id === c.slideId) ?? -1;
+        const frames = h ? storyFrames(h) : [];
+        const i = frames.findIndex((s) => s.id === c.slideId);
         if (!h || i < 0) return { label: "Whole set", slide: null as StorySlide | null };
-        return { label: `Slide ${i + 1} of ${h.slides.length} · ${h.title || "Untitled"}`, slide: h.slides[i] };
+        return { label: `Slide ${i + 1} of ${frames.length} · ${h.title || "Untitled"}`, slide: frames[i] };
     };
 
     const jumpTo = (c: { highlightId: string; slideId: string }) => {
-        const h = live?.highlights.find((x) => x.id === c.highlightId);
-        const i = h?.slides.findIndex((s) => s.id === c.slideId) ?? -1;
-        if (h && i >= 0) {
-            setView("live");
-            setPosition({ highlightId: h.id, slide: i });
+        // Slides keep their ids when the live set becomes a draft, so the note can be found
+        // in whichever set the phone is showing.
+        for (const h of shownHighlights) {
+            const i = storyFrames(h).findIndex((s) => s.id === c.slideId);
+            if (i >= 0) return setPosition({ highlightId: h.id, slide: i });
         }
     };
 
@@ -698,43 +746,238 @@ export const PinnedStoriesSection = ({
                 </div>
             )}
 
+            {/* ── Team settings, above the phone like Pinned Posts: the Canva source and how the section works ── */}
+            {canEdit && draft && (
+                <div className="mt-6 rounded-2xl bg-secondary p-4 ring-1 ring-secondary">
+                    <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-secondary">Canva design link</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <input
+                                type="url"
+                                value={canvaLink}
+                                onChange={(e) => setCanvaLink(e.target.value)}
+                                disabled={!!importing}
+                                placeholder="https://www.canva.com/design/…/edit"
+                                className={cx(inputCls, "min-w-60 flex-1 font-mono text-xs")}
+                                spellCheck={false}
+                            />
+                            {parseCanvaUrl(canvaLink) && (
+                                <Button
+                                    href={canvaEditUrl(parseCanvaUrl(canvaLink)!.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    color="secondary"
+                                    size="sm"
+                                    iconTrailing={LinkExternal01}
+                                >
+                                    Open
+                                </Button>
+                            )}
+                            {canva && !canva.connected && canva.configured ? (
+                                <Button size="sm" iconLeading={Link01} isLoading={canvaBusy} showTextWhileLoading onClick={() => void connectCanva()}>
+                                    Connect Canva
+                                </Button>
+                            ) : (
+                                <Button
+                                    size="sm"
+                                    iconLeading={Download01}
+                                    isDisabled={!parseCanvaUrl(canvaLink) || (!!canva && !canva.connected)}
+                                    isLoading={!!importing}
+                                    showTextWhileLoading
+                                    onClick={() => void importFromCanva()}
+                                >
+                                    {importing ?? "Import from Canva"}
+                                </Button>
+                            )}
+                        </div>
+                        {canvaLink.trim() && !parseCanvaUrl(canvaLink) && (
+                            <span className="text-xs text-warning-primary">That doesn't look like a Canva design link.</span>
+                        )}
+                        {!showImport && importErr && <span className="text-xs text-error-primary">{importErr}</span>}
+                        {canvaNote && (
+                            <span className={cx("text-xs", canvaNote.kind === "ok" ? "text-success-primary" : "text-error-primary")}>{canvaNote.text}</span>
+                        )}
+                        {canva && !canva.configured && (
+                            <span className="text-xs text-quaternary">Canva isn't set up on the portal yet — use Add pages to upload the export.</span>
+                        )}
+                        {importing === null && !importErr && (
+                            <span className="text-xs text-quaternary">
+                                The pages land below. Importing again refreshes them from the design; the highlights you've arranged stay as they are.
+                            </span>
+                        )}
+                    </label>
+                    <div className="mt-3 grid gap-2 text-xs text-tertiary sm:grid-cols-3">
+                        <p className="rounded-xl bg-primary px-3 py-2.5 ring-1 ring-secondary">
+                            <span className="font-semibold text-secondary">1 · Design in Canva.</span> One design, one page per slide, 9:16. Each highlight is a
+                            icon page followed by its slides. Paste its link above.
+                        </p>
+                        <p className="rounded-xl bg-primary px-3 py-2.5 ring-1 ring-secondary">
+                            <span className="font-semibold text-secondary">2 · Import and arrange.</span> Press Import from Canva, star the icon pages in the
+                            tray and press Build — or drag pages into highlights yourself. The phone follows.
+                        </p>
+                        <p className="rounded-xl bg-primary px-3 py-2.5 ring-1 ring-secondary">
+                            <span className="font-semibold text-secondary">3 · Publish and review.</span> Name each highlight, then publish. The client plays
+                            the set in this phone and leaves notes slide by slide, or approves it.
+                        </p>
+                    </div>
+
+                    {/* ── Imported pages, right under the link they came from. Not yet in a highlight; also a drop target, to unplace. ── */}
+                    {(draft.unassigned.length > 0 || dragId) && (
+                        <div
+                            className={cx(
+                                "mt-4 flex flex-col gap-3 rounded-xl p-3 ring-1 ring-secondary transition duration-100 ease-linear",
+                                over === "tray" ? "bg-brand-primary" : "bg-primary",
+                            )}
+                            {...(canEdit ? dropZone("tray", (id) => toTray(id)) : {})}
+                        >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-primary">
+                                    Pages to place <span className="font-normal text-quaternary">· {draft.unassigned.length}</span>
+                                </p>
+                                {canEdit && draft.unassigned.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-xs text-tertiary">
+                                            {coverPicks.size
+                                                ? `${coverPicks.size} icon${coverPicks.size === 1 ? "" : "s"} starred`
+                                                : "Star the icon pages, then"}
+                                        </span>
+                                        <Button
+                                            size="sm"
+                                            color={coverPicks.size ? "primary" : "secondary"}
+                                            iconLeading={Star01}
+                                            isDisabled={!coverPicks.size}
+                                            onClick={buildFromCovers}
+                                        >
+                                            Build {coverPicks.size || ""} highlight{coverPicks.size === 1 ? "" : "s"}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="-m-1 flex gap-3 overflow-x-auto p-1 pb-2">
+                                {draft.unassigned.map((s) => {
+                                    const picked = coverPicks.has(s.id);
+                                    return (
+                                        <div
+                                            key={s.id}
+                                            className={cx(
+                                                "group relative flex w-[100px] shrink-0 flex-col gap-1.5 transition duration-100 ease-linear",
+                                                dragId === s.id && "opacity-40",
+                                            )}
+                                            draggable={canEdit}
+                                            onDragStart={(e) => onDragStart(e, s.id)}
+                                            onDragEnd={onDragEnd}
+                                        >
+                                            <div
+                                                className={cx(
+                                                    "relative aspect-9/16 overflow-hidden rounded-lg bg-secondary ring-1 transition duration-100 ease-linear",
+                                                    canEdit && "cursor-grab active:cursor-grabbing",
+                                                    picked ? "ring-2 ring-brand" : "ring-secondary",
+                                                )}
+                                            >
+                                                <SlideThumb slide={s} className="pointer-events-none" />
+                                                <span className="pointer-events-none absolute top-1 left-1 rounded bg-primary-solid/70 px-1 text-[10px] font-semibold text-white tabular-nums">
+                                                    p{s.page}
+                                                </span>
+                                                {canEdit && s.kind === "image" && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => togglePick(s.id)}
+                                                        aria-pressed={picked}
+                                                        aria-label={picked ? "Not an icon" : "Mark as the icon"}
+                                                        className={cx(
+                                                            "absolute top-1 right-1 flex size-6 items-center justify-center rounded-full transition duration-100 ease-linear",
+                                                            picked
+                                                                ? "bg-brand-solid text-white"
+                                                                : "bg-primary-solid/60 text-white opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+                                                        )}
+                                                    >
+                                                        <Star01 className="size-3.5" />
+                                                    </button>
+                                                )}
+                                                {picked && (
+                                                    <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-brand-solid py-0.5 text-center text-[10px] font-semibold text-white">
+                                                        Icon
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {canEdit && (
+                                                <div className="flex items-center justify-between gap-1">
+                                                    <select
+                                                        aria-label={`Add page ${s.page} to a highlight`}
+                                                        value=""
+                                                        onChange={(e) => e.target.value && setDraft((d) => moveSlideTo(d, s.id, e.target.value))}
+                                                        className={cx(inputCls, "min-w-0 flex-1 px-1 py-0.5 text-[11px]")}
+                                                    >
+                                                        <option value="">Add to…</option>
+                                                        {draft.highlights.map((h) => (
+                                                            <option key={h.id} value={h.id}>
+                                                                {h.title || "Untitled"}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => deleteUnassigned(s.id)}
+                                                        className="rounded p-1 text-fg-quaternary transition duration-100 ease-linear hover:text-error-primary"
+                                                        aria-label="Discard page"
+                                                    >
+                                                        <Trash01 className="size-3.5" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {draft.unassigned.length === 0 && (
+                                    <p className="py-3 text-xs text-quaternary">Drop a slide here to take it out of its highlight.</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* ── The phone + its side panel ── */}
             {(live || (isTeam && draft)) && (
-                <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(260px,320px)_1fr]">
-                    {/* Phone */}
-                    <div className="flex flex-col items-center gap-4">
-                        {isTeam && live && draft && (
-                            <div className="flex items-center gap-1 rounded-lg bg-secondary p-1">
-                                {(["live", "draft"] as const).map((v) => (
-                                    <button
-                                        key={v}
-                                        type="button"
-                                        onClick={() => {
-                                            setView(v);
-                                            setPosition(PROFILE);
-                                        }}
-                                        className={cx(
-                                            "rounded-md px-3 py-1.5 text-xs font-semibold transition duration-100 ease-linear",
-                                            view === v ? "bg-primary text-primary shadow-xs ring-1 ring-secondary" : "text-tertiary hover:text-primary",
-                                        )}
+                <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(260px,320px)_1fr] xl:grid-cols-[440px_1fr]">
+                    {/* Phone — on wide screens it sits to the right of its column, leaving room for the pointer beside it. */}
+                    <div className="flex flex-col items-center gap-4 xl:items-end">
+                        <div className="relative">
+                            {/* A hand-drawn pointer at the highlight circles, the cue the section is about. Decorative;
+                                the caption under the phone says the same thing on smaller screens. */}
+                            {!position.highlightId && hasSomething && (
+                                <div
+                                    aria-hidden="true"
+                                    className="pointer-events-none absolute top-[40%] right-full mr-2 hidden w-[140px] flex-col items-start gap-1 xl:flex"
+                                >
+                                    <svg
+                                        viewBox="0 0 120 80"
+                                        className="ml-6 h-[64px] w-[96px] text-fg-quaternary"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
                                     >
-                                        {v === "live" ? `Live · ${tagOf(0)}` : "Draft"}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        <PhoneFrame label="Pinned stories" className="w-[248px] sm:w-[280px]">
-                            <StoryPlayer
-                                highlights={shownHighlights}
-                                position={position}
-                                onPosition={setPosition}
-                                profile={igProfile}
-                                onReply={!isTeam && live && review.status !== "approved" && clientEmail ? openNote : undefined}
-                                replyLabel="Leave a note on this slide"
-                                commentCountFor={commentCountFor}
-                            />
-                        </PhoneFrame>
-                        <p className="max-w-[300px] text-center text-xs text-pretty text-quaternary">
+                                        <path d="M8 74 C 22 46, 52 22, 106 14" />
+                                        <path d="M90 6 L 106 14 L 96 28" />
+                                    </svg>
+                                    <p className="max-w-[120px] text-xs leading-snug text-tertiary italic">Tap a highlight circle to play it</p>
+                                </div>
+                            )}
+                            <PhoneFrame label="Pinned stories" className="w-[248px] sm:w-[280px]">
+                                <StoryPlayer
+                                    highlights={shownHighlights}
+                                    position={position}
+                                    onPosition={setPosition}
+                                    profile={igProfile}
+                                    onReply={!isTeam && live && review.status !== "approved" && clientEmail ? openNote : undefined}
+                                    replyLabel="Leave a note on this slide"
+                                    commentCountFor={commentCountFor}
+                                />
+                            </PhoneFrame>
+                        </div>
+                        <p className={cx("max-w-[300px] text-center text-xs text-pretty text-quaternary", !position.highlightId && "xl:hidden")}>
                             {position.highlightId
                                 ? "Tap the right side to go forward, the left to go back. Hold to pause."
                                 : "Tap a highlight circle to play it."}
@@ -835,7 +1078,8 @@ export const PinnedStoriesSection = ({
                                     <div>
                                         <p className="text-md font-semibold text-primary">Arrange the highlights</p>
                                         <p className="text-sm text-pretty text-tertiary">
-                                            Name each circle, pick its cover, and order the slides. Canva story files usually run cover, slides, cover, slides.
+                                            Drag pages from the tray above into highlights and onto icon circles; the phone follows. Faster: star the icon pages
+                                            and press Build — every page after an icon joins that highlight.
                                         </p>
                                     </div>
                                     {canEdit && (
@@ -846,166 +1090,173 @@ export const PinnedStoriesSection = ({
                                 </div>
 
                                 <div className="flex flex-col divide-y divide-border-secondary">
-                                    {draft.highlights.map((h, hi) => (
-                                        <div key={h.id} className="flex flex-col gap-3 px-5 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => h.slides.length && setPosition({ highlightId: h.id, slide: 0 })}
-                                                    className="flex size-12 shrink-0 items-center justify-center rounded-full ring-1 ring-primary ring-offset-2 ring-offset-bg-primary"
-                                                    aria-label={`Play ${h.title}`}
-                                                >
-                                                    <span className="size-11 overflow-hidden rounded-full bg-secondary">
-                                                        {coverOf(h) && <img src={coverOf(h)} alt="" className="size-full object-cover" />}
-                                                    </span>
-                                                </button>
-                                                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                                                    {canEdit ? (
-                                                        <input
-                                                            value={h.title}
-                                                            onChange={(e) => updateHighlight(h.id, { title: e.target.value })}
-                                                            placeholder={`Highlight ${hi + 1}`}
-                                                            aria-label="Highlight name"
-                                                            maxLength={24}
-                                                            className={cx(inputCls, "max-w-60 py-1.5 font-semibold")}
-                                                        />
-                                                    ) : (
-                                                        <p className="text-sm font-semibold text-primary">{h.title}</p>
-                                                    )}
-                                                    <p className="text-xs text-quaternary">
-                                                        {h.slides.length} slide{h.slides.length === 1 ? "" : "s"}
-                                                        {!h.cover &&
-                                                            h.slides.length > 0 &&
-                                                            " · cover: first slide (hover a slide and press the star to choose one)"}
-                                                        {h.slides.length === 0 && " · empty highlights aren't published"}
-                                                    </p>
-                                                </div>
-                                                {canEdit && (
-                                                    <Button
-                                                        color="tertiary"
-                                                        size="sm"
-                                                        iconLeading={Trash01}
-                                                        onClick={() => removeHighlight(h.id)}
-                                                        aria-label="Remove highlight"
-                                                    />
-                                                )}
-                                            </div>
-                                            <div className="flex gap-2 overflow-x-auto pb-1">
-                                                {h.slides.map((s, si) => {
-                                                    const active = position.highlightId === h.id && position.slide === si;
-                                                    return (
-                                                        <div key={s.id} className="group relative w-[62px] shrink-0">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setPosition({ highlightId: h.id, slide: si })}
-                                                                className={cx(
-                                                                    "block aspect-9/16 w-full overflow-hidden rounded-lg bg-secondary ring-1 transition duration-100 ease-linear",
-                                                                    active ? "ring-2 ring-brand" : "ring-secondary hover:ring-primary",
-                                                                )}
-                                                                aria-label={`Slide ${si + 1}`}
-                                                            >
-                                                                <SlideThumb slide={s} />
-                                                            </button>
-                                                            <span className="pointer-events-none absolute top-1 left-1 rounded bg-primary-solid/70 px-1 text-[10px] font-semibold text-white tabular-nums">
-                                                                {si + 1}
-                                                            </span>
-                                                            {canEdit && (
-                                                                <div className="absolute inset-x-0 bottom-0 flex justify-center gap-0.5 rounded-b-lg bg-primary-solid/70 py-0.5 opacity-0 transition duration-100 ease-linear group-focus-within:opacity-100 group-hover:opacity-100">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => moveSlide(h.id, si, -1)}
-                                                                        className="rounded p-0.5 text-white hover:bg-white/20"
-                                                                        aria-label="Move earlier"
-                                                                    >
-                                                                        <ChevronLeft className="size-3.5" />
-                                                                    </button>
-                                                                    {s.kind === "image" && (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => makeCover(h.id, s.id)}
-                                                                            className="rounded p-0.5 text-white hover:bg-white/20"
-                                                                            aria-label="Use as cover"
-                                                                        >
-                                                                            <Star01 className="size-3.5" />
-                                                                        </button>
-                                                                    )}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => unassignSlide(h.id, s.id)}
-                                                                        className="rounded p-0.5 text-white hover:bg-white/20"
-                                                                        aria-label="Remove from highlight"
-                                                                    >
-                                                                        <XClose className="size-3.5" />
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => moveSlide(h.id, si, 1)}
-                                                                        className="rounded p-0.5 text-white hover:bg-white/20"
-                                                                        aria-label="Move later"
-                                                                    >
-                                                                        <ChevronRight className="size-3.5" />
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                                {h.slides.length === 0 && (
-                                                    <p className="py-3 text-xs text-quaternary">Add slides from the unplaced pages below.</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Pages not yet in a highlight */}
-                                {draft.unassigned.length > 0 && (
-                                    <div className="flex flex-col gap-3 border-t border-secondary bg-secondary px-5 py-4">
-                                        <p className="text-sm font-semibold text-primary">
-                                            Unplaced pages <span className="font-normal text-quaternary">· {draft.unassigned.length}</span>
+                                    {draft.highlights.length === 0 && (
+                                        <p className="px-5 py-6 text-sm text-quaternary">
+                                            No highlights yet. Star the icons below and press Build, or add a highlight and drag pages into it.
                                         </p>
-                                        <div className="flex gap-3 overflow-x-auto pb-1">
-                                            {draft.unassigned.map((s) => (
-                                                <div key={s.id} className="flex w-[92px] shrink-0 flex-col gap-1.5">
-                                                    <div className="relative aspect-9/16 overflow-hidden rounded-lg bg-primary ring-1 ring-secondary">
-                                                        <SlideThumb slide={s} />
-                                                        <span className="absolute top-1 left-1 rounded bg-primary-solid/70 px-1 text-[10px] font-semibold text-white tabular-nums">
-                                                            p{s.page}
+                                    )}
+                                    {draft.highlights.map((h, hi) => {
+                                        const coverKey = `cover:${h.id}`;
+                                        const tailKey = `tail:${h.id}`;
+                                        return (
+                                            <div key={h.id} className="flex flex-col gap-3 px-5 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    {/* Cover circle — tap to play, drop a page to make it the cover. */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => storyFrames(h).length && setPosition({ highlightId: h.id, slide: 0 })}
+                                                        className={cx(
+                                                            "flex size-12 shrink-0 items-center justify-center rounded-full ring-1 ring-offset-2 ring-offset-bg-primary transition duration-100 ease-linear",
+                                                            over === coverKey ? "scale-110 ring-2 ring-brand" : "ring-primary",
+                                                        )}
+                                                        aria-label={`Play ${h.title}`}
+                                                        {...(canEdit ? dropZone(coverKey, (id) => makeCover(h.id, id)) : {})}
+                                                    >
+                                                        <span className="size-11 overflow-hidden rounded-full bg-secondary">
+                                                            {coverOf(h) && (
+                                                                <img src={coverOf(h)} alt="" className="pointer-events-none size-full object-cover" />
+                                                            )}
                                                         </span>
+                                                    </button>
+                                                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                                        {canEdit ? (
+                                                            <input
+                                                                value={h.title}
+                                                                onChange={(e) => updateHighlight(h.id, { title: e.target.value })}
+                                                                placeholder={`Highlight ${hi + 1}`}
+                                                                aria-label="Highlight name"
+                                                                maxLength={24}
+                                                                className={cx(inputCls, "max-w-60 py-1.5 font-semibold")}
+                                                            />
+                                                        ) : (
+                                                            <p className="text-sm font-semibold text-primary">{h.title}</p>
+                                                        )}
+                                                        <p className="text-xs text-quaternary">
+                                                            {storyFrames(h).length} slide{storyFrames(h).length === 1 ? "" : "s"}
+                                                            {firstSlideIsCover(h) && " · the first page is the icon and doesn't play"}
+                                                            {!h.cover && h.slides.length === 1 && " · drop a page on the circle, or star one, to set the icon"}
+                                                            {h.cover && h.slides.length === 0 && " · icon set — drag the story pages in"}
+                                                            {!h.cover && h.slides.length === 0 && " · empty highlights aren't published"}
+                                                        </p>
                                                     </div>
                                                     {canEdit && (
-                                                        <>
-                                                            <select
-                                                                aria-label="Add to highlight"
-                                                                value=""
-                                                                onChange={(e) => {
-                                                                    if (e.target.value === "__new") newHighlightFromCover(s.id);
-                                                                    else if (e.target.value) assignSlide(s.id, e.target.value);
-                                                                }}
-                                                                className={cx(inputCls, "px-1.5 py-1 text-xs")}
-                                                            >
-                                                                <option value="">Add to…</option>
-                                                                {draft.highlights.map((h) => (
-                                                                    <option key={h.id} value={h.id}>
-                                                                        {h.title || "Untitled"}
-                                                                    </option>
-                                                                ))}
-                                                                {s.kind === "image" && <option value="__new">New highlight (as cover)</option>}
-                                                            </select>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => deleteUnassigned(s.id)}
-                                                                className="text-xs text-quaternary transition duration-100 ease-linear hover:text-error-primary"
-                                                            >
-                                                                Discard
-                                                            </button>
-                                                        </>
+                                                        <Button
+                                                            color="tertiary"
+                                                            size="sm"
+                                                            iconLeading={Trash01}
+                                                            onClick={() => removeHighlight(h.id)}
+                                                            aria-label="Remove highlight"
+                                                        />
                                                     )}
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                                <div className="-m-1 flex gap-2 overflow-x-auto p-1 pb-2">
+                                                    {h.slides.map((s, si) => {
+                                                        // With no explicit cover the first page is the icon only; the rest play as 1, 2, 3…
+                                                        const isIconOnly = firstSlideIsCover(h) && si === 0;
+                                                        const frameIndex = firstSlideIsCover(h) ? si - 1 : si;
+                                                        const active = position.highlightId === h.id && !isIconOnly && position.slide === frameIndex;
+                                                        const key = `slide:${s.id}`;
+                                                        return (
+                                                            <div
+                                                                key={s.id}
+                                                                className={cx(
+                                                                    "group relative w-[62px] shrink-0 transition duration-100 ease-linear",
+                                                                    dragId === s.id && "opacity-40",
+                                                                    over === key && "translate-x-1",
+                                                                )}
+                                                                draggable={canEdit}
+                                                                onDragStart={(e) => onDragStart(e, s.id)}
+                                                                onDragEnd={onDragEnd}
+                                                                {...(canEdit ? dropZone(key, (id) => setDraft((d) => moveSlideTo(d, id, h.id, si))) : {})}
+                                                            >
+                                                                {over === key && (
+                                                                    <span
+                                                                        className="absolute top-0 bottom-0 -left-1.5 w-0.5 rounded bg-brand-solid"
+                                                                        aria-hidden="true"
+                                                                    />
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setPosition({ highlightId: h.id, slide: Math.max(0, frameIndex) })}
+                                                                    className={cx(
+                                                                        "block aspect-9/16 w-full overflow-hidden rounded-lg bg-secondary ring-1 transition duration-100 ease-linear",
+                                                                        canEdit && "cursor-grab active:cursor-grabbing",
+                                                                        active ? "ring-2 ring-brand" : "ring-secondary hover:ring-primary",
+                                                                        isIconOnly && "opacity-70",
+                                                                    )}
+                                                                    aria-label={isIconOnly ? "Icon" : `Slide ${frameIndex + 1}`}
+                                                                >
+                                                                    <SlideThumb slide={s} className="pointer-events-none" />
+                                                                </button>
+                                                                <span
+                                                                    className={cx(
+                                                                        "pointer-events-none absolute top-1 left-1 rounded px-1 text-[10px] font-semibold text-white tabular-nums",
+                                                                        isIconOnly ? "bg-brand-solid" : "bg-primary-solid/70",
+                                                                    )}
+                                                                >
+                                                                    {isIconOnly ? "Icon" : frameIndex + 1}
+                                                                </span>
+                                                                {canEdit && (
+                                                                    <div className="absolute inset-x-0 bottom-0 flex justify-center gap-0.5 rounded-b-lg bg-primary-solid/70 py-0.5 opacity-0 transition duration-100 ease-linear group-focus-within:opacity-100 group-hover:opacity-100">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => nudgeSlide(h.id, si, -1)}
+                                                                            className="rounded p-0.5 text-white hover:bg-white/20"
+                                                                            aria-label="Move earlier"
+                                                                        >
+                                                                            <ChevronLeft className="size-3.5" />
+                                                                        </button>
+                                                                        {s.kind === "image" && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => makeCover(h.id, s.id)}
+                                                                                className="rounded p-0.5 text-white hover:bg-white/20"
+                                                                                aria-label="Use as icon"
+                                                                            >
+                                                                                <Star01 className="size-3.5" />
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toTray(s.id)}
+                                                                            className="rounded p-0.5 text-white hover:bg-white/20"
+                                                                            aria-label="Back to the tray"
+                                                                        >
+                                                                            <XClose className="size-3.5" />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => nudgeSlide(h.id, si, 1)}
+                                                                            className="rounded p-0.5 text-white hover:bg-white/20"
+                                                                            aria-label="Move later"
+                                                                        >
+                                                                            <ChevronRight className="size-3.5" />
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {/* Tail — drop here to append. Wide enough to hit; reads as an invitation when empty. */}
+                                                    {canEdit && (
+                                                        <div
+                                                            className={cx(
+                                                                "flex aspect-9/16 w-[62px] shrink-0 items-center justify-center rounded-lg border border-dashed text-center text-[10px] leading-tight transition duration-100 ease-linear",
+                                                                over === tailKey
+                                                                    ? "border-brand bg-brand-primary text-brand-secondary"
+                                                                    : "border-secondary text-quaternary",
+                                                                h.slides.length === 0 && "aspect-auto w-full max-w-[200px] py-6",
+                                                            )}
+                                                            {...dropZone(tailKey, (id) => setDraft((d) => moveSlideTo(d, id, h.id)))}
+                                                        >
+                                                            {h.slides.length === 0 ? "Drag pages here" : "+"}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
 
                                 {canEdit && (
                                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-secondary px-5 py-4">
@@ -1040,7 +1291,7 @@ export const PinnedStoriesSection = ({
                         )}
 
                         {/* Team: the live set's highlights, read-only, and the client's notes */}
-                        {isTeam && live && view === "live" && (
+                        {isTeam && live && (
                             <div className="flex flex-col rounded-2xl bg-primary ring-1 ring-secondary">
                                 <div className="flex items-center justify-between gap-3 border-b border-secondary px-5 py-4">
                                     <p className="text-md font-semibold text-primary">Client notes</p>
@@ -1155,7 +1406,8 @@ export const PinnedStoriesSection = ({
                                                     setNoteFor({
                                                         highlightId: position.highlightId ?? "",
                                                         slideId: position.highlightId
-                                                            ? (shownHighlights.find((h) => h.id === position.highlightId)?.slides[position.slide]?.id ?? "")
+                                                            ? (shownHighlights.filter((h) => h.id === position.highlightId).flatMap(storyFrames)[position.slide]
+                                                                  ?.id ?? "")
                                                             : "",
                                                     })
                                                 }
@@ -1268,6 +1520,80 @@ export const PinnedStoriesSection = ({
                                         <p className="px-6 py-4 text-sm text-quaternary">We'll publish an updated set here once your notes are in.</p>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* The live set, highlight by highlight — the same list the AM arranges, read-only. Every
+                            thumbnail plays that slide in the phone, so the client can find a slide without tapping
+                            through, and the note button then targets it. */}
+                        {live && view === "live" && (
+                            <div className="flex flex-col rounded-2xl bg-primary ring-1 ring-secondary">
+                                <div className="border-b border-secondary px-5 py-4">
+                                    <p className="text-md font-semibold text-primary">{isTeam ? "What the client sees" : "Your highlights"}</p>
+                                    <p className="text-sm text-pretty text-tertiary">
+                                        {live.highlights.length} highlight{live.highlights.length === 1 ? "" : "s"}, {totalSlides(live.highlights)} slides. Tap
+                                        a slide to see it on the phone.
+                                    </p>
+                                </div>
+                                <div className="flex flex-col divide-y divide-border-secondary">
+                                    {live.highlights.map((h) => {
+                                        const frames = storyFrames(h);
+                                        return (
+                                            <div key={h.id} className="flex flex-col gap-3 px-5 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => frames.length && setPosition({ highlightId: h.id, slide: 0 })}
+                                                        className="flex size-12 shrink-0 items-center justify-center rounded-full ring-1 ring-primary ring-offset-2 ring-offset-bg-primary transition duration-100 ease-linear hover:ring-brand"
+                                                        aria-label={`Play ${h.title}`}
+                                                    >
+                                                        <span className="size-11 overflow-hidden rounded-full bg-secondary">
+                                                            {coverOf(h) && <img src={coverOf(h)} alt="" className="size-full object-cover" />}
+                                                        </span>
+                                                    </button>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-semibold text-primary">{h.title || "Untitled"}</p>
+                                                        <p className="text-xs text-quaternary">
+                                                            {frames.length} slide{frames.length === 1 ? "" : "s"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="-m-1 flex gap-2 overflow-x-auto p-1 pb-2">
+                                                    {frames.map((s, si) => {
+                                                        const active = position.highlightId === h.id && position.slide === si;
+                                                        const notes = commentCountFor(s.id);
+                                                        return (
+                                                            <div key={s.id} className="relative w-[62px] shrink-0">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setPosition({ highlightId: h.id, slide: si })}
+                                                                    className={cx(
+                                                                        "block aspect-9/16 w-full overflow-hidden rounded-lg bg-secondary ring-1 transition duration-100 ease-linear",
+                                                                        active ? "ring-2 ring-brand" : "ring-secondary hover:ring-primary",
+                                                                    )}
+                                                                    aria-label={`Slide ${si + 1} of ${h.title}`}
+                                                                >
+                                                                    <SlideThumb slide={s} className="pointer-events-none" />
+                                                                </button>
+                                                                <span className="pointer-events-none absolute top-1 left-1 rounded bg-primary-solid/70 px-1 text-[10px] font-semibold text-white tabular-nums">
+                                                                    {si + 1}
+                                                                </span>
+                                                                {notes > 0 && (
+                                                                    <span
+                                                                        className="pointer-events-none absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-solid px-1 text-[10px] font-semibold text-white tabular-nums"
+                                                                        aria-label={`${notes} note${notes === 1 ? "" : "s"}`}
+                                                                    >
+                                                                        {notes}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
 

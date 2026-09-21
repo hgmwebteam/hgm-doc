@@ -6,12 +6,13 @@
  * take plain props and hold none of the dashboard's state.
  */
 import { type FC, type ReactNode, useEffect, useRef, useState } from "react";
-import { SearchLg } from "@untitledui-pro/icons/line";
+import { ChevronDown, Copy01, Plus, SearchLg, Trash01 } from "@untitledui-pro/icons/line";
 import { AnimatePresence, motion } from "motion/react";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
 import { Button } from "@/components/base/buttons/button";
-import { type SectionId, normEmail } from "@/pages/client/dashboard/dashboard-model";
-import { PHASES, type SearchHit, phaseOfSection } from "@/pages/client/dashboard/dashboard-navigation";
+import { Checkbox } from "@/components/base/checkbox/checkbox";
+import { type DashboardUser, type SectionId, findDashboardUser, genSharePassword, normEmail, passwordFor } from "@/pages/client/dashboard/dashboard-model";
+import { ASSIGNABLE_SECTION_GROUPS, PHASES, type SearchHit, phaseOfSection } from "@/pages/client/dashboard/dashboard-navigation";
 import { cx } from "@/utils/cx";
 
 /**
@@ -26,15 +27,19 @@ import { cx } from "@/utils/cx";
  * whose dashboard it is.
  */
 export const DashboardAccessGate = ({
-    allowedEmails,
+    users,
     sharePassword,
     onUnlock,
     backgroundUrl,
 }: {
-    allowedEmails: string[];
+    /** Everyone this dashboard is shared with. The typed email picks the row; that row's
+     *  own password is what must match, so the address is no longer interchangeable. */
+    users: DashboardUser[];
+    /** Fallback password, used by anyone without one of their own. */
     sharePassword: string;
     /** Receives the (normalized) email that cleared the gate — the client's identity
-     *  for the suggestion feature, since to Supabase they are just `anon`. */
+     *  for the suggestion feature and for which sections they see, since to Supabase
+     *  they are just `anon`. */
     onUnlock: (email: string) => void;
     /** Per-client override (image or video). Falls back to the shared leaf loop. */
     backgroundUrl?: string;
@@ -46,11 +51,13 @@ export const DashboardAccessGate = ({
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        const emailOk = allowedEmails.some((a) => normEmail(a) === normEmail(email));
-        const pwOk = password === sharePassword;
+        const match = findDashboardUser(users, email);
+        const expected = match ? passwordFor(match, sharePassword) : "";
         // One message for either failure. Saying "that email isn't on the list" would let
-        // someone probe which addresses a dashboard is shared with.
-        if (!emailOk || !pwOk) {
+        // someone probe which addresses a dashboard is shared with. `expected` is checked
+        // for emptiness too: a person with no password of their own on a dashboard with no
+        // shared one must not be let in by typing nothing.
+        if (!match || !expected || password !== expected) {
             setError("That email and password don't match this dashboard.");
             return;
         }
@@ -107,6 +114,259 @@ export const DashboardAccessGate = ({
                 <p className="mt-4 text-center text-xs text-quaternary">Lost your details? Reply to your HiddenGem email and we'll resend them.</p>
             </form>
         </SignInBackdrop>
+    );
+};
+
+/* ── The team's access panel ─────────────────────────────────────────────────
+   Lives beside the gate it configures rather than in the page, so the rules the
+   gate enforces and the controls that set them read together. */
+
+const panelInput = (extra?: string) =>
+    cx("min-w-0 flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand", extra);
+
+/** Matches the status pills at the top of Overview, so the two read as one language. */
+const choiceChip = (active: boolean) =>
+    cx(
+        "rounded-full px-3 py-1 text-xs font-medium transition duration-100 ease-linear",
+        active ? "bg-brand-solid text-white" : "bg-secondary text-tertiary ring-1 ring-secondary hover:text-secondary",
+    );
+
+/** What one person is allowed to see, in a few words, for the collapsed row. */
+const summariseAccess = (u: DashboardUser) => {
+    if (!u.sections) return "The dashboard default";
+    if (u.sections.length === 0) return "Overview only";
+    return `${u.sections.length} section${u.sections.length === 1 ? "" : "s"}`;
+};
+
+/**
+ * "Who can open this dashboard" — the team's access panel, top of Overview in edit mode.
+ *
+ * One card per person: the address they sign in with, the password that goes with it, and
+ * which sections they land on. Per person rather than per dashboard because a bookkeeper
+ * and an owner can be sent the same link without being shown the same thing.
+ *
+ * Without this, arming the sign-in gate would lock every client out, so it sits where an
+ * AM can't miss it.
+ */
+export const DashboardAccessPanel = ({
+    users,
+    sharePassword,
+    defaultSections,
+    onChangeUsers,
+    onChangeSharePassword,
+}: {
+    users: DashboardUser[];
+    sharePassword: string;
+    /** The dashboard-wide list (the eye toggles), used to seed a fresh custom list so an
+     *  AM starts from what this person would have seen and takes things away. */
+    defaultSections: string[];
+    onChangeUsers: (next: DashboardUser[]) => void;
+    onChangeSharePassword: (next: string) => void;
+}) => {
+    /** Which person's section list is open. One at a time — the checklist is long enough
+     *  that two expanded turns the panel into a wall. */
+    const [openRow, setOpenRow] = useState<number | null>(null);
+
+    const patch = (i: number, next: Partial<DashboardUser>) => onChangeUsers(users.map((u, j) => (j === i ? { ...u, ...next } : u)));
+    const remove = (i: number) => {
+        onChangeUsers(users.filter((_, j) => j !== i));
+        setOpenRow(null);
+    };
+    const add = () => {
+        // A new person starts with a password of their own already generated. Making that
+        // the default is what keeps per-person passwords from being something an AM has to
+        // remember — a shared one everybody reuses puts every view back within reach of
+        // anyone who can type someone else's address.
+        onChangeUsers([...users, { email: "", password: genSharePassword(), sections: null }]);
+        setOpenRow(users.length);
+    };
+    const toggleSection = (i: number, id: SectionId) => {
+        const cur = users[i].sections ?? [];
+        patch(i, { sections: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
+    };
+
+    const named = users.filter((u) => u.email.trim());
+    const armed = named.some((u) => passwordFor(u, sharePassword));
+    const stranded = named.filter((u) => !passwordFor(u, sharePassword)).length;
+
+    return (
+        <div className="mt-8 rounded-xl bg-secondary p-5 ring-1 ring-secondary">
+            {/* Sized to match "Your journey" further down Overview — at text-sm it was the
+                same size as its own description and read as another line of body copy. */}
+            <h2 className="text-lg font-semibold text-primary">Who can open this dashboard</h2>
+            <p className="mt-1 text-sm text-pretty text-tertiary">
+                Anyone at @hiddengem.media always has access. Add each person who should see this dashboard — they sign in with their own email and password,
+                and you choose which sections each one lands on.
+            </p>
+
+            <div className="mt-4 flex flex-col gap-3">
+                {users.map((u, i) => {
+                    const usable = passwordFor(u, sharePassword);
+                    const custom = !!u.sections;
+                    const expanded = openRow === i;
+                    return (
+                        // Keyed by index, not by the address: the email is edited in place, so a
+                        // key derived from it would remount the input on every keystroke and drop
+                        // focus. Removal resets openRow rather than trying to follow the shift.
+                        <div key={i} className="rounded-lg bg-primary p-3 ring-1 ring-secondary">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="email"
+                                    value={u.email}
+                                    placeholder="client@example.com"
+                                    aria-label="Email address"
+                                    onChange={(e) => patch(i, { email: e.target.value })}
+                                    className={panelInput()}
+                                />
+                                <button
+                                    type="button"
+                                    aria-label={`Remove ${u.email || "this person"}`}
+                                    onClick={() => remove(i)}
+                                    className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-quaternary transition duration-100 ease-linear hover:bg-error-primary hover:text-fg-error-primary"
+                                >
+                                    <Trash01 className="size-4" aria-hidden="true" />
+                                </button>
+                            </div>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={u.password ?? ""}
+                                    placeholder={sharePassword ? "Empty — uses the shared password" : "Set a password"}
+                                    aria-label={`Password for ${u.email || "this person"}`}
+                                    onChange={(e) => patch(i, { password: e.target.value })}
+                                    className={panelInput("font-mono")}
+                                />
+                                <Button size="sm" color="secondary" onClick={() => patch(i, { password: genSharePassword() })}>
+                                    New
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    color="secondary"
+                                    iconLeading={Copy01}
+                                    isDisabled={!usable}
+                                    onClick={() => void navigator.clipboard.writeText(usable)}
+                                >
+                                    Copy
+                                </Button>
+                            </div>
+                            {/* NOT AN ERROR. This used to read "No password - this person can't get
+                                in", in red, and it was wrong about half of what the list now does.
+                                A listed address with no password opens the HELP CENTRE, by Google
+                                sign-in, without arming the dashboard's own password gate - which
+                                is exactly the state that lets a client raise requests while their
+                                dashboard stays open by URL for everyone else. 48 of 54 dashboards
+                                have nobody listed, and this sentence was talking account managers
+                                out of the one zero-cost way to change that. Said plainly instead. */}
+                            {!usable && (
+                                <p className="mt-1.5 text-xs text-tertiary">
+                                    No password: they can raise and follow requests in the help centre by signing in with Google, but
+                                    cannot open a password-protected dashboard. Give them one only if the dashboard itself should be
+                                    locked.
+                                </p>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => setOpenRow(expanded ? null : i)}
+                                aria-expanded={expanded}
+                                className="mt-2 flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left transition duration-100 ease-linear hover:bg-secondary"
+                            >
+                                <span className="shrink-0 text-xs font-medium text-secondary">Can see</span>
+                                <span className="min-w-0 flex-1 truncate text-xs text-tertiary">{summariseAccess(u)}</span>
+                                <ChevronDown
+                                    aria-hidden="true"
+                                    className={cx("size-4 shrink-0 text-fg-quaternary transition-transform duration-150", !expanded && "-rotate-90")}
+                                />
+                            </button>
+
+                            {expanded && (
+                                <div className="mt-1 border-t border-secondary pt-3">
+                                    <div className="flex flex-wrap gap-2">
+                                        <button type="button" onClick={() => patch(i, { sections: null })} className={choiceChip(!custom)}>
+                                            Same as everyone
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => patch(i, { sections: u.sections ?? [...defaultSections] })}
+                                            className={choiceChip(custom)}
+                                        >
+                                            Choose sections
+                                        </button>
+                                    </div>
+                                    <p className="mt-2 text-xs text-pretty text-tertiary">
+                                        {custom
+                                            ? "Only the ticked sections, whatever the eye toggles in the side menu say. Overview is always shown."
+                                            : "Follows the eye toggles in the side menu, like everyone else on this dashboard."}
+                                    </p>
+                                    {custom && (
+                                        <div className="mt-3 flex flex-col gap-3">
+                                            {ASSIGNABLE_SECTION_GROUPS.map((g) => (
+                                                <div key={g.label}>
+                                                    <p className="text-[11px] font-bold tracking-wide text-quaternary uppercase">{g.label}</p>
+                                                    <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+                                                        {g.items.map((s) => (
+                                                            <Checkbox
+                                                                key={s.id}
+                                                                size="sm"
+                                                                label={s.soon ? `${s.label} — not built yet` : s.label}
+                                                                isSelected={(u.sections ?? []).includes(s.id)}
+                                                                onChange={() => toggleSection(i, s.id)}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            <div className="mt-3">
+                <Button size="sm" color="secondary" iconLeading={Plus} onClick={add}>
+                    Add a person
+                </Button>
+            </div>
+
+            <div className="mt-4 border-t border-secondary pt-4">
+                <p className="text-sm font-medium text-secondary">Shared password</p>
+                <p className="mt-1 text-xs text-pretty text-tertiary">
+                    The fallback for anyone above who has no password of their own. Dashboards created before per-person passwords rely on it, so clearing it is
+                    only safe once everyone listed has their own.
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                    <input
+                        type="text"
+                        value={sharePassword}
+                        placeholder="Set a password"
+                        aria-label="Shared password"
+                        onChange={(e) => onChangeSharePassword(e.target.value)}
+                        className={panelInput("font-mono")}
+                    />
+                    <Button size="sm" color="secondary" iconLeading={Copy01} onClick={() => void navigator.clipboard.writeText(sharePassword)}>
+                        Copy
+                    </Button>
+                </div>
+                {/* Say which half is missing rather than leaving an AM wondering why nothing is locked. */}
+                {!armed && (
+                    <p className="mt-2 text-xs text-warning-primary">
+                        {named.length === 0 ? "Not locked yet — add a person." : "Not locked yet — give at least one person a password."}
+                    </p>
+                )}
+                {armed && (
+                    <p className="mt-2 text-xs text-success-primary">Locked. Only the people above can open this dashboard, each with their own password.</p>
+                )}
+                {armed && stranded > 0 && (
+                    <p className="mt-1 text-xs text-warning-primary">
+                        {stranded === 1 ? "One person has" : `${stranded} people have`} no password and can&apos;t get in.
+                    </p>
+                )}
+            </div>
+        </div>
     );
 };
 

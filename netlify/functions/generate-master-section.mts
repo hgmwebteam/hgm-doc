@@ -25,7 +25,7 @@ import {
  * So the work is cut into groups that each fit the synchronous budget, and the dashboard
  * loops them. That buys three things beyond just fitting: output too short to truncate,
  * better per-field quality because the model handles a handful of related fields instead of
- * sixty-six, and a failed group that leaves the other six landed.
+ * sixty-six, and a failed group that leaves the others landed.
  *
  * The `site` group is the odd one out — no model call at all. It reads the client's website
  * once and hands the text back, so the groups that need it don't each re-fetch inside their
@@ -36,7 +36,7 @@ import {
  * reviews everything before Save changes.
  */
 
-const MODEL = "claude-opus-5";
+const MODEL = "claude-fable-5";
 
 /* ── the field groups ────────────────────────────────────────────────────── */
 
@@ -44,17 +44,21 @@ type Str = { type: "string"; description: string };
 const str = (description: string): Str => ({ type: "string", description });
 
 const PERSONA_PROPS = {
-    name: str("A short human label for this persona, e.g. 'Weekend Recharger' or 'Multi-Gen Family Organiser'."),
+    name: str("A short label for the GROUP, not one individual, e.g. 'The Reconnectors' or 'Multi-Gen Family Organisers'."),
     rank: str("Either 'Primary' or 'Secondary'."),
     summary: str("Two or three sentences on who this person is and why they book this kind of stay."),
     age: str("An age range, e.g. '32-45'. Empty if the source gives no hint."),
     relationship: str("Relationship or group status, e.g. 'Couple, no kids' or 'Family with young children'."),
     location: str("Where they travel from — a city, region, or 'within a 3-hour drive'."),
     interests: str("What they're into, in a few comma-separated phrases."),
-    painPoints: str("What frustrates them about booking or travelling — only what the source supports."),
-    seeking: str("What they are actually looking for in a stay."),
-    howTheyBook: str("How and when they book — platform, lead time, decision style."),
-    keywords: { type: "array", items: { type: "string" }, description: "5-8 short search or ad keywords this persona would use. Empty array if the source gives nothing to work from." },
+    painPoints: str("What frustrates them about booking or travelling — the problem this stay solves for them. Only what the source supports."),
+    seeking: str("What they are actually looking for in a stay, in one or two sentences."),
+    howTheyBook: str("How and when they book — where they first hear about a place, how long they research, lead time, and what decides it for them."),
+    keywords: {
+        type: "array",
+        items: { type: "string" },
+        description: "5-7 short search terms this persona would actually type. Empty array if the source gives nothing to work from.",
+    },
 };
 
 const FOCUS_PROPS = {
@@ -102,30 +106,67 @@ const GROUPS: Record<
         },
     },
     brand: {
-        keys: ["targetAudience", "uvp", "brandVoice", "taglines", "brandBio"],
-        maxTokens: 2200,
-        instruction:
-            "Draft the brand strategy sections: target audience, unique value proposition, brand voice, taglines and brand bio. The Brand Vision form asks these questions almost directly — what makes the property different, how it should make guests feel, how it would talk if it were a person, what they want to be known for. Use their own words wherever they gave you any. These four sections are normally written by the account manager, so this is a starting draft they will rewrite, not a finished answer — be specific enough to react to.",
+        keys: ["targetAudience", "uvp"],
+        maxTokens: 1600,
+        instruction: `Draft the audience and unique value proposition sections — 4 and 5 of the document.
+
+Target audience: who actually books this place and why those people specifically. The segment as a whole, what they value, what they'll pay for, the occasions they book for, where they travel from, and what they're getting away from. The Brand Vision form's ideal-guest and experience-type answers are the spine; the onboarding form, the recorded answers and the reviews fill in the rest. One continuous block of prose — the Personas section carries the breakdown, so don't start listing personas here.
+
+Unique value proposition: three or four things this property has that comparable ones don't. Each gets a short headline on its own line, then one sentence on what it means in practice and one on why it matters to the audience above, with a blank line between them. Concrete beats superlative — "1,500 feet of private river frontage" is a UVP, "stunning natural beauty" is not. Every claim has to be provable from the source; three real ones beat four with an invention in it.
+
+Both sections are normally written by the account manager, so this is a starting draft they will rewrite — be specific enough to react to.`,
         properties: {
-            targetAudience: str("Who books with them and why those people specifically. 4-6 sentences."),
-            uvp: str("The unique value proposition — what they have that comparable properties don't. 3-5 sentences."),
-            brandVoice: str("How the brand talks: tone, register, what it never says. 3-5 sentences."),
-            taglines: { type: "array", items: { type: "string" }, description: "5-8 candidate taglines, 2-6 words each, drawn from the feeling the client described." },
-            brandBio: str("A short brand bio the client could put in a profile — 2-4 sentences."),
+            targetAudience: str(
+                "Who books with them and why those people specifically — the segment, what they value, what they come here for. 5-8 sentences of continuous prose.",
+            ),
+            uvp: str(
+                "Three or four unique value propositions. Each: a short headline on its own line, then one sentence on what it means in practice and one on why it matters to this audience. Blank line between them.",
+            ),
+        },
+    },
+    voice: {
+        keys: ["brandVoice", "taglines", "brandBio"],
+        maxTokens: 1800,
+        instruction: `Draft 'About the brand' — section 6. The Brand Vision form asks these almost directly: how the property would talk if it were a person, the tone they picked, their three words, what they want to be known for, and how they finished "we want to help guests ___". Use their own words wherever they gave you any.
+
+Brand voice: four to six traits, one per line, each a word or a short phrase, none of them contradicting another. Then a blank line and two or three sentences on how that voice shows up in practice — a booking confirmation, a welcome note, a thank-you — and what it never sounds like.
+
+Taglines: consider a wide set, then return only the three strongest, best first. The first one is used on its own on the site and in the Instagram bio, so it has to carry the brand by itself. Three to five words each, built from the feeling the client described. Nothing in the "Home Away From Home" / "Escape to Paradise" family.
+
+Brand bio: the About-page paragraph. Third person, 150-200 words, a story rather than a list of features — why they created the place, how their approach differs, what a guest leaves with. End on an invitation, not a sales line.
+
+All three are normally written by the account manager, so this is a starting draft they will rewrite — be specific enough to react to.`,
+        properties: {
+            brandVoice: str(
+                "Four to six voice traits, one per line. Then a blank line and 2-3 sentences on how the voice comes through and what it never sounds like.",
+            ),
+            taglines: {
+                type: "array",
+                items: { type: "string" },
+                description: "Exactly three taglines, strongest first — the first is used on its own as the headline tagline. 3-5 words each.",
+            },
+            brandBio: str(
+                "The brand bio: third person, 150-200 words, a story that ends on an invitation. Empty if the source gives nothing to build one from.",
+            ),
         },
     },
     personas: {
         keys: ["personas", "personaResonance"],
         maxTokens: 3500,
-        instruction:
-            "Draft two guest personas — one Primary, one Secondary — from what the client said about their ideal guest and their market. Make them specific enough to write ads against. Do not invent a demographic the source contradicts; leave a field empty rather than guessing.",
+        instruction: `Draft two guest personas — one Primary, one Secondary — from what the client said about their ideal guest and their market, plus whatever the reviews and recorded answers reveal about who actually turns up. Make them specific enough to write an ad against: a real occasion, a real objection, a real booking habit. Name each one as a group rather than as a person.
+
+Then say why this brand resonates with these two specifically — tie the property's actual offerings to what these people are short of.
+
+Do not invent a demographic the source contradicts; leave a field empty rather than guessing.`,
         properties: {
             personas: {
                 type: "array",
                 items: { type: "object", properties: PERSONA_PROPS, required: Object.keys(PERSONA_PROPS) },
                 description: "Exactly two personas: the first ranked 'Primary', the second 'Secondary'.",
             },
-            personaResonance: str("Why this brand resonates with these people specifically. 3-4 sentences."),
+            personaResonance: str(
+                "Why this brand resonates with these people specifically — the property's actual offerings against what these personas are short of. 3-4 sentences.",
+            ),
         },
     },
     focus: {

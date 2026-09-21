@@ -51,6 +51,7 @@ import { ImageLightbox } from "@/components/shared-assets/image-lightbox";
 import { Reveal } from "@/components/shared-assets/reveal";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
+import { recordDashboardSave } from "@/lib/dashboard-updates";
 import { type DashboardContent, type HostOnboardingData, type OverviewDoc, supabase } from "@/lib/supabase";
 import {
     CREDENTIAL_LABELS,
@@ -74,6 +75,7 @@ import { readableTextOn, rgbString, wcagLabel } from "@/pages/client/dashboard/c
 import {
     ClientSearchBar,
     DashboardAccessGate,
+    DashboardAccessPanel,
     EyeGlyph,
     EyeOffGlyph,
     SectionEyebrow,
@@ -86,6 +88,7 @@ import {
     type BrandColor,
     DEFAULT_CLIENT_VISIBLE,
     DEFAULT_FOUNDATION,
+    type DashboardUser,
     EMPTY_PINNED_POSTS,
     type ExampleReel,
     type FocusProperty,
@@ -107,36 +110,49 @@ import {
     emptyPersona,
     emptyWebsiteLink,
     filled,
+    findDashboardUser,
     handleFromProfileUrl,
     isTemplatePalette,
     isUntouchedBrandKit,
     mergeContent,
     mergeFoundationDraft,
     normEmail,
+    passwordFor,
+    readDashboardUsers,
+    sectionsForViewer,
     slugify,
     statusColor,
     uid,
+    usersToAllowedEmails,
 } from "@/pages/client/dashboard/dashboard-model";
 import {
+    JOURNEY_BAR,
+    JOURNEY_STAGES,
     JOURNEY_STEPS,
     type JourneyLink,
     type JourneyStepId,
     KICKOFF_CALENDLY,
+    LINK_ONLY_SECTIONS,
     NAV_GROUPS,
     OVERVIEW_ITEM,
     type PhaseId,
     SECTIONS,
     type SearchHit,
     TEAM_ONLY_SECTIONS,
+    isJourneyItemDone,
     phaseOfSection,
+    toggleJourneyItemDone,
+    toggleJourneyStepDone,
 } from "@/pages/client/dashboard/dashboard-navigation";
 import { ExampleReelsSection } from "@/pages/client/dashboard/example-reels";
+import { JourneyProgress } from "@/pages/client/dashboard/journey-progress";
 import {
     FOUNDATION_SECTIONS,
     LEGACY_FOUNDATION_FIELDS,
     REVIEW_WORKING_PROMPT,
     compileMasterDocument,
     foundationProgress,
+    masterDocumentHtml,
 } from "@/pages/client/dashboard/master-brand-document";
 import { DocField, DocRail, DocSection, DocStat, FavoriteTable, SourceBadge, WorkflowBadge } from "@/pages/client/dashboard/master-brand-fields";
 import { OnboardingAnswers } from "@/pages/client/dashboard/onboarding-answers";
@@ -162,6 +178,7 @@ import {
     labelForKey,
     valueForKey,
 } from "@/pages/client/dashboard/suggestions-model";
+import { mergeLiveContent, useDashboardLive } from "@/pages/client/dashboard/use-dashboard-live";
 import { type WebsiteSetup, mergeWebsiteSetup, saveWebsiteSetup, websiteSetupProgress } from "@/pages/client/dashboard/website-setup";
 import { type WebsiteSetupSaveState, WebsiteSetupSection } from "@/pages/client/dashboard/website-setup-section";
 import { HostOnboardingFormPage, ensureHostOnboardingForm, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
@@ -245,6 +262,42 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const overwriteArmedRef = useRef(false);
 
     /**
+     * Follow this client's row, so an AM's tick reaches an open dashboard in about a second
+     * instead of on the client's next page load. The launch meter is the reason — a client
+     * is told to watch it move — but every shared field rides along: reveal a section, add a
+     * link, change the status, and the client's screen catches up.
+     *
+     * Two things it must not do, and both have cost someone an afternoon elsewhere in this
+     * file:
+     *
+     *  - Never while an AM has the page UNLOCKED. Edit mode holds the whole dashboard in
+     *    local state, so applying a remote row mid-edit would silently discard everything
+     *    typed since they unlocked. They are not left blind: the save-conflict check in
+     *    persistAndLock re-reads the row and blocks the first Save when it has moved.
+     *  - Never `website_setup` while the client is mid-answer. That is the one key on this
+     *    row the client authors, written server-side by the website-setup function on an
+     *    800ms debounce, so a row that arrives while they type carries a version older than
+     *    what is on their screen. Replacing it would delete the sentence they are writing.
+     *
+     * Everything else is safe to take wholesale: no other part of `content` is edited
+     * locally except in edit mode, which the first rule already excludes.
+     */
+    useDashboardLive({
+        slug,
+        enabled: !!slug && !isTemplate,
+        onUpdate: (row) => {
+            if (!isLocked) return;
+            const incoming = mergeContent(row.data);
+            setContent((c) => mergeLiveContent(incoming, c, setupDirtyRef.current));
+            setClientName(row.client_name ?? "");
+            setClientWebsite(row.client_website ?? "");
+            // The baseline moves with it, so this tab's next save compares against the row
+            // as it now stands rather than reporting a conflict with a change it already has.
+            savedRowRef.current = JSON.stringify(row.data ?? null);
+        },
+    });
+
+    /**
      * Clicking the client's logo or name enters the client preview — but only while locked.
      * In edit mode the logo is the upload target, so hijacking that click would steal one
      * the AM meant for something else. `isTeam` is already false inside a preview, so this
@@ -258,7 +311,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        Preview should change what you SEE, never whether you're allowed in.
 
        The template page has no client and no allowlist, so it's team-only. */
-    const allowedEmails = content.allowed_emails ?? [];
+    const dashboardUsers = useMemo(() => readDashboardUsers(content), [content.dashboard_users, content.allowed_emails]);
+    const allowedEmails = useMemo(() => usersToAllowedEmails(dashboardUsers), [dashboardUsers]);
     const viewerEmail = user?.email ? normEmail(user.email) : "";
     const isAllowedClient = !!viewerEmail && allowedEmails.some((e) => normEmail(e) === viewerEmail);
 
@@ -275,10 +329,17 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      */
     const sharePassword = (content.share_password ?? "").trim();
     /**
-     * Armed only when BOTH an allowlist and a password exist. Requiring one without the
-     * other would lock the client out of their own dashboard with no way in.
+     * Armed as soon as ONE listed person has a password they can get in with — their own,
+     * or the shared one as a fallback.
+     *
+     * Deliberately not "every person has one". A second address added without a password
+     * would then silently re-open the whole dashboard to the internet, which is far worse
+     * than that one person having to ask for their password. The access panel flags anyone
+     * stranded in red instead. For a row written before per-person passwords existed the
+     * two rules agree exactly: everyone falls back to the shared one, so it arms on the
+     * same condition it always did.
      */
-    const gateArmed = allowedEmails.some((e) => e.trim()) && !!sharePassword;
+    const gateArmed = dashboardUsers.some((u) => u.email.trim() && passwordFor(u, sharePassword));
 
     // Unlock survives navigation within the tab, not a new one — same lifetime as the
     // owner-guide share gate (sessionStorage, keyed per slug). Stored as JSON carrying
@@ -313,7 +374,27 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
 
     const hasAccess = signedInAsTeam || isTemplate || !gateArmed || clientUnlocked || isAllowedClient;
 
-    const updateAllowedEmails = (next: string[]) => setContent((c) => ({ ...c, allowed_emails: next }));
+    /** Which listed person is looking, when we know. Null for the team, the template, an
+     *  ungated dashboard, and a legacy `"1"` unlock that carries no address. */
+    const viewerUser = identityEmail ? findDashboardUser(dashboardUsers, identityEmail) : null;
+
+    /* ── Per-client section visibility ──
+       Two separate ideas, deliberately not conflated:
+         • notBuilt      — no section body exists yet. Nobody can open it, team included.
+         • hiddenFromClient — the section works, but this viewer hasn't been shown it.
+       The team always sees and can open everything that exists; the client sees "Soon"
+       until it's revealed to them.
+
+       Which list applies depends on WHO is looking. A person given their own list uses it;
+       everyone else follows the dashboard-wide one an AM sets with the eye toggles. An
+       empty own-list is a real answer ("Overview only") and must not fall through to the
+       default — see sectionsForViewer, where that rule lives and is self-checked. */
+    const clientVisible = sectionsForViewer(viewerUser, content.client_visible);
+
+    /** Single writer for the access list. `allowed_emails` is written alongside as a derived
+     *  mirror: the Netlify suggestion function and the read-gating RLS policy to come both
+     *  read that flatter key, so the two must never be allowed to drift. */
+    const updateDashboardUsers = (next: DashboardUser[]) => setContent((c) => ({ ...c, dashboard_users: next, allowed_emails: usersToAllowedEmails(next) }));
     const updateSharePassword = (next: string) => setContent((c) => ({ ...c, share_password: next }));
 
     // Side-menu logo + background uploads — click-to-upload in edit mode, compressed to WebP.
@@ -392,7 +473,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         const h = window.location.hash.replace("#", "");
         // "Soon" ids are in SECTIONS but have no section body yet, so honouring a hash
         // for one would render an empty page. Same exclusion the search index uses.
-        if (h && SECTIONS.some((s) => s.id === h && !("soon" in s && s.soon))) setActiveSection(h as SectionId);
+        //
+        // LINK_ONLY_SECTIONS is excluded for the same reason and a second one: those rows
+        // are links out (the content drive, the help centre), so there is nothing here to
+        // deep-link INTO, and honouring the hash by following the link would mean a URL
+        // ending "#help" silently threw the client off the dashboard on load.
+        if (h && SECTIONS.some((s) => s.id === h && !("soon" in s && s.soon)) && !LINK_ONLY_SECTIONS.has(h as SectionId)) {
+            setActiveSection(h as SectionId);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -592,7 +680,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [promptCopied, setPromptCopied] = useState(false);
     /* ── Master Document drafting (team-only) ──
        `masterDraftStep` is the label of the group being drafted, shown live: the run takes
-       around a minute across seven model calls, and a single spinner for that long reads as
+       around a minute across eight model calls, and a single spinner for that long reads as
        a hang. `masterDraftDone` collects what landed so the AM can see it was partial when
        a group fails, rather than being told only about the failure. */
     const [masterDraftStep, setMasterDraftStep] = useState("");
@@ -601,12 +689,55 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Guest reviews the AM pastes in. Not persisted — it's raw input to the draft, and
      *  the useful output of it lives in the two Reviews fields. */
     const [reviewsPaste, setReviewsPaste] = useState("");
-    /* ── Brand Kit from the client's own website (team-only) ── */
+    /* ── Brand Kit from the client's own website and/or guidelines PDF (team-only) ── */
     const [brandKitUrl, setBrandKitUrl] = useState("");
     const [brandKitBusy, setBrandKitBusy] = useState(false);
     const [brandKitMsg, setBrandKitMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+    /** The guidelines PDF this draft should read, once it's in storage. Held as a path
+     *  rather than bytes: the generator downloads it server-side, which keeps a 15MB file
+     *  out of the request body entirely. */
+    const [brandKitPdf, setBrandKitPdf] = useState<{ path: string; name: string } | null>(null);
+    const [brandKitPdfBusy, setBrandKitPdfBusy] = useState(false);
+
+    /** Put the client's brand guidelines PDF somewhere the generator can read it. Same
+     *  bucket and path shape the onboarding form already uses for brand-kit uploads. */
+    const onPickBrandKitPdf = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
+            setBrandKitMsg({ kind: "err", text: "That needs to be a PDF — export the guidelines as one and try again." });
+            return;
+        }
+        setBrandKitPdfBusy(true);
+        setBrandKitMsg(null);
+        try {
+            const safe = file.name
+                .toLowerCase()
+                .replace(/[^a-z0-9.]+/g, "-")
+                .slice(-80);
+            const path = `${clientBase || "template"}/${Date.now()}-${safe}`;
+            const { error } = await supabase.storage.from("brandkits").upload(path, file, { contentType: "application/pdf", cacheControl: "31536000" });
+            if (error) throw error;
+            setBrandKitPdf({ path, name: file.name });
+        } catch (err) {
+            console.error("[brand kit pdf upload]", err);
+            setBrandKitMsg({ kind: "err", text: "That PDF didn't upload — check your connection and try again." });
+        } finally {
+            setBrandKitPdfBusy(false);
+        }
+    };
+
+    /** Detach the PDF. The object is left in the bucket: it's the client's own guidelines
+     *  and costs nothing to keep, whereas deleting it here would also delete it out from
+     *  under any other draft that already read it. */
+    const clearBrandKitPdf = () => {
+        setBrandKitPdf(null);
+        setBrandKitMsg(null);
+    };
+
     /**
-     * Read the client's website and merge a draft palette in.
+     * Read the client's material and merge a draft palette in.
      *
      * Nothing here can destroy work an AM already did: logos are always appended, fonts
      * only fill a blank (or the "Inter" default), and the palette is REPLACED only while it
@@ -616,8 +747,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      */
     const generateBrandKit = async () => {
         const url = (brandKitUrl.trim() || clientWebsite.trim()).trim();
-        if (!url) {
-            setBrandKitMsg({ kind: "err", text: "Enter the client's website address first." });
+        const pdfPath = brandKitPdf?.path ?? "";
+        if (!url && !pdfPath) {
+            setBrandKitMsg({ kind: "err", text: "Add the client's website address, or upload their brand guidelines PDF." });
             return;
         }
         setBrandKitBusy(true);
@@ -633,13 +765,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const res = await fetch("/.netlify/functions/generate-brand-kit", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ url }),
+                body: JSON.stringify({ url, pdf_path: pdfPath }),
             });
             const json = (await res.json()) as {
                 error?: string;
                 colors?: BrandColor[];
                 fonts?: string;
                 logos?: { name: string; url: string }[];
+                source?: { pdf?: { pages: number; hexes_found: number; named: boolean } | null };
             };
             if (!res.ok) {
                 setBrandKitMsg({ kind: "err", text: json.error || "Couldn't read that site." });
@@ -662,9 +795,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 patch.fonts && "fonts",
                 json.logos?.length && `${json.logos.length} logo${json.logos.length > 1 ? "s" : ""}`,
             ].filter(Boolean);
+            const pdf = json.source?.pdf;
+            const where = pdf ? `the PDF (${pdf.pages} page${pdf.pages === 1 ? "" : "s"})` : "the site";
+            // When the naming pass didn't run, the roles are positional guesses off the
+            // order the document introduced them — say so rather than let "Primary" read
+            // as something the document actually claimed.
+            const caveat = pdf && !pdf.named && found.length ? " Role names are from the order they appear — rename any that are wrong." : "";
             setBrandKitMsg({
                 kind: "ok",
-                text: `Found ${bits.join(", ")}. Review it, then Save changes — nothing is saved yet.`,
+                text: `Found ${bits.join(", ")} in ${where}. Review it, then Save changes — nothing is saved yet.${caveat}`,
             });
         } catch {
             setBrandKitMsg({ kind: "err", text: "Couldn't reach the generator. Try again in a moment." });
@@ -768,10 +907,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
     /** What actually went wrong, so a failed send says why instead of "try again". */
     const [sendError, setSendError] = useState("");
-    const foundationRevealed = (content.client_visible ?? DEFAULT_CLIENT_VISIBLE).includes("foundation");
+    // Each one reads the list that applies to THIS viewer, not the dashboard-wide one — a
+    // person narrowed to their own sections must not be offered feedback on a section they
+    // can't open. The Netlify function re-checks the same way.
+    const foundationRevealed = clientVisible.includes("foundation");
     /** The Welcome Email Flow shares the table: a client comments on emails the same way. */
-    const flowRevealed = (content.client_visible ?? DEFAULT_CLIENT_VISIBLE).includes("flow");
-    const pinnedRevealed = (content.client_visible ?? DEFAULT_CLIENT_VISIBLE).includes("pinnedposts");
+    const flowRevealed = clientVisible.includes("flow");
+    const pinnedRevealed = clientVisible.includes("pinnedposts");
 
     const refreshSuggestions = useCallback(async () => {
         if (!slug || isTemplate) return;
@@ -1082,11 +1224,17 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         ),
     };
     const [overviewBusy, setOverviewBusy] = useState(false);
+    const [overviewStep, setOverviewStep] = useState("");
     const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
     const [overviewError, setOverviewError] = useState("");
 
     /**
-     * Draft the whole document from what the client has already told us.
+     * Draft the document from what the client has already told us.
+     *
+     * Three model calls, run one at a time, for the same reason the Master Document is split
+     * into seven: twenty fields in one call runs well past the ~10s a synchronous Netlify
+     * function gets, so the single-call version this replaced failed every time it was asked
+     * to draft a real client. See generate-overview.mts.
      *
      * Runs on the server so the client's form answers are read with the service-role key
      * rather than re-fetched here, and so the Anthropic key stays off the browser. It
@@ -1094,46 +1242,82 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      * bad draft from silently replacing an AM's own notes.
      */
     const generateOverview = async () => {
-        if (!slug || isTemplate) return;
+        if (!slug || isTemplate || overviewBusy) return;
         setOverviewBusy(true);
         setOverviewError("");
+
         try {
-            const res = await fetch("/.netlify/functions/generate-overview", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ slug }),
-            });
-            /* Read as text and parse by hand. res.json() throws a raw
-               "Unexpected end of JSON input" when the reply isn't JSON, and that string then
-               lands in front of an account manager as the entire explanation. The two ways it
-               happens are the local dev server, which serves no functions at all, and Netlify
-               returning an HTML error page — so both get named instead. */
-            const body = await res.text();
-            let json: { doc?: Partial<OverviewDoc>; error?: string } | null = null;
-            try {
-                json = body ? JSON.parse(body) : null;
-            } catch {
-                json = null;
+            // Team-only on the server too, so the session token travels with the request.
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            if (!token) {
+                setOverviewError("Your sign-in has expired — reload the page and sign in again.");
+                return;
             }
-            if (!json) {
-                throw new Error(
-                    res.status === 404
-                        ? "Drafting only runs on the live site — the local dev server doesn't serve it."
-                        : `The server didn't send a usable reply (${res.status}). Try again in a moment.`,
+
+            const groups: { group: string; label: string }[] = [
+                { group: "basics", label: "Who they are" },
+                { group: "goals", label: "Goals & audience" },
+                { group: "brand", label: "Brand & preferences" },
+            ];
+
+            const failed: string[] = [];
+            let landed = false;
+
+            for (const g of groups) {
+                setOverviewStep(g.label);
+                try {
+                    const res = await fetch("/.netlify/functions/generate-overview", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ slug, group: g.group }),
+                    });
+                    /* Read as text and parse by hand. res.json() throws a raw
+                       "Unexpected end of JSON input" when the reply isn't JSON, and that string then
+                       lands in front of an account manager as the entire explanation. The two ways it
+                       happens are the local dev server, which serves no functions at all, and Netlify
+                       returning an HTML error page — so both get named instead. */
+                    const body = await res.text();
+                    let json: { doc?: Partial<OverviewDoc>; error?: string } | null = null;
+                    try {
+                        json = body ? JSON.parse(body) : null;
+                    } catch {
+                        json = null;
+                    }
+                    if (!json) {
+                        throw new Error(
+                            res.status === 404
+                                ? "Drafting only runs on the live site — the local dev server doesn't serve it."
+                                : `The server didn't send a usable reply (${res.status}).`,
+                        );
+                    }
+                    if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
+                    // Merged per group, not batched at the end: a later failure then leaves
+                    // the earlier fields on screen instead of discarding the whole run.
+                    patchOverviewDoc({
+                        // Drop the model's empty strings — a field it couldn't source must not
+                        // blank out something an AM already typed on screen.
+                        ...(Object.fromEntries(Object.entries(json.doc ?? {}).filter(([, v]) => String(v ?? "").trim())) as Partial<OverviewDoc>),
+                        generated_at: new Date().toISOString(),
+                        generated_by: user?.email ?? "",
+                    });
+                    landed = true;
+                } catch (err) {
+                    console.error(`[overview doc] ${g.group} failed`, err);
+                    // One reason is worth more than three copies of it, so the first failure's
+                    // message is the one shown — the rest are usually the same cause twice.
+                    if (!failed.length) setOverviewError(err instanceof Error ? err.message : "Couldn't draft the document.");
+                    failed.push(g.label);
+                }
+            }
+
+            if (failed.length) {
+                setOverviewError((e) =>
+                    `Couldn't draft: ${failed.join(", ")}. ${e || ""}${landed ? " Everything else landed — try again for the rest." : ""}`.trim(),
                 );
             }
-            if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
-            patchOverviewDoc({
-                // Drop the model's empty strings — a field it couldn't source must not
-                // blank out something an AM already typed on screen.
-                ...(Object.fromEntries(Object.entries(json.doc as Partial<OverviewDoc>).filter(([, v]) => String(v ?? "").trim())) as Partial<OverviewDoc>),
-                generated_at: new Date().toISOString(),
-                generated_by: user?.email ?? "",
-            });
-        } catch (err) {
-            console.error("[overview doc] generation failed", err);
-            setOverviewError(err instanceof Error ? err.message : "Couldn't draft the document.");
         } finally {
+            setOverviewStep("");
             setOverviewBusy(false);
         }
     };
@@ -1178,7 +1362,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [clientName]);
 
     /** True when a link-type nav row has nowhere to go yet — shown as "Soon". */
-    const navTargetMissing = (id: SectionId) => id === "contentfolder" && !content.brand.folder_link.trim();
+    const navTargetMissing = (id: SectionId) =>
+        (id === "contentfolder" && !content.brand.folder_link.trim()) ||
+        // The help centre is per-client and its URL is built from the slug, so the template
+        // copy of this page (which has no client behind it) has nowhere to send anyone.
+        (id === "help" && (!slug || isTemplate));
 
     /* ── Website Setup Guide answers ──
        Always merged, so the section and the badge never see a missing block. The team's
@@ -1190,15 +1378,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [setupSave, setSetupSave] = useState<WebsiteSetupSaveState>("idle");
     const [setupSaveError, setSetupSaveError] = useState("");
     const setupSaveTimer = useRef<number | null>(null);
+    /** True from the client's first keystroke in the Website Setup Guide until that answer
+     *  is written. The one key on this row the client authors, so the one a live update
+     *  must leave alone. Stays true on a failed save — the text is still only local. */
+    const setupDirtyRef = useRef(false);
     const updateWebsiteSetup = (patch: Partial<WebsiteSetup>) => {
         const next = { ...websiteSetup, ...patch };
         setContent((c) => ({ ...c, website_setup: { ...mergeWebsiteSetup(c.website_setup), ...patch } }));
         if (isTeam || !slug || isTemplate) return;
+        // Typed but not yet written — see the live-update handler, which must not replace
+        // this key while it is true.
+        setupDirtyRef.current = true;
         if (setupSaveTimer.current) window.clearTimeout(setupSaveTimer.current);
         setSetupSave("saving");
         setupSaveTimer.current = window.setTimeout(() => {
             saveWebsiteSetup(slug, identityEmail, next)
                 .then(() => {
+                    setupDirtyRef.current = false;
                     setSetupSave("saved");
                     setSetupSaveError("");
                 })
@@ -1209,17 +1405,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }, 800);
     };
 
-    /* ── Per-client section visibility ──
-       Two separate ideas, deliberately not conflated:
-         • notBuilt      — no section body exists yet. Nobody can open it, team included.
-         • hiddenFromClient — the section works, but this client hasn't been shown it.
-       The team always sees and can open everything that exists; the client sees "Soon"
-       until an AM reveals the row with the eye toggle in edit mode. */
-    const clientVisible = content.client_visible ?? DEFAULT_CLIENT_VISIBLE;
     // Overview is the main dashboard — always visible, never hideable, so a client can
     // never end up with nowhere to land. Same reasoning as the owner guide, where the
     // Welcome and Review steps can't be hidden either.
-    const revealedToClient = (id: SectionId) => id === "overview" || (!TEAM_ONLY_SECTIONS.has(id) && clientVisible.includes(id));
+    /**
+     * Overview and the Help Centre are the two rows that are never behind the eye toggle.
+     *
+     * Every other row is a deliverable an AM reveals when it actually ships, which is why the
+     * default is hidden. The help centre is not a deliverable: it is how a client tells us
+     * something is wrong with one. Leaving it on the toggle would mean every dashboard that
+     * already exists shows it as "Soon" and refuses to open, and the one client most in need
+     * of it - someone whose work has not landed yet - is the one least likely to have been
+     * granted it.
+     *
+     * It is safe to leave ungated here because this predicate only decides what is SHOWN.
+     * The help centre re-proves the caller server-side on every single call (verifyCaller in
+     * netlify/lib/reporting.mts) and refuses a dashboard whose access list is empty, saying
+     * so on screen. An always-visible row therefore reveals a door, never what is behind it.
+     */
+    const revealedToClient = (id: SectionId) => id === "overview" || id === "help" || (!TEAM_ONLY_SECTIONS.has(id) && clientVisible.includes(id));
     const toggleClientVisible = (id: SectionId) =>
         setContent((c) => {
             const cur = c.client_visible ?? DEFAULT_CLIENT_VISIBLE;
@@ -1282,9 +1486,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        the thing you grab is the thing you see. Width lives in one place and the content
        is simply flex-1, so the two cannot drift apart.
 
-       Clamp measured on this page rather than picked: below RAIL_MIN "Pinned Posts /
-       Story" and "Website Setup Guide" start to truncate; past RAIL_MAX the reading
-       column on a 1280px laptop is narrower than the menu beside it. */
+       Clamp measured on this page rather than picked: below RAIL_MIN the longest rows
+       (then "Pinned Posts / Story" and "Website Setup Guide", since shortened) start to
+       truncate; past RAIL_MAX the reading column on a 1280px laptop is narrower than the
+       menu beside it. Kept as the floor after those renames — it is now slack, not tight. */
     const RAIL_DEFAULT = 276;
     const RAIL_MIN = 240;
     const RAIL_MAX = 420;
@@ -1352,11 +1557,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** True when the open section lives in this group — drives the group row's chip. */
     const groupHoldsActive = (phase: string) => (NAV_GROUPS.find((g) => g.phase === phase)?.items ?? []).some((s) => s.id === activeSection);
 
-    /** Nav rows are section switches, bar Folder of Content, which is a link out. */
+    /** Nav rows are section switches, bar the two link rows: Folder of Content and Help Centre. */
     const openNavItem = (id: SectionId) => {
         if (id === "contentfolder") {
             const url = content.brand.folder_link.trim();
             if (url) window.open(url, "_blank", "noopener,noreferrer");
+            return;
+        }
+        if (id === "help") {
+            // Guarded rather than trusting the caller: the menu row is already disabled when
+            // there is no client behind this page (navTargetMissing), but search reaches the
+            // same opener without that check, and an unguarded navigate would send the
+            // template copy to "//help".
+            if (!slug || isTemplate) return;
+            // Same tab and an SPA navigate, unlike Folder of Content. The help centre is part
+            // of the portal rather than somewhere else we are sending them, it reads the same
+            // `cd_unlock_${slug}` this page wrote so the client is asked for one field instead
+            // of two, and it has a Dashboard link straight back. Opening it in a new tab would
+            // break all three.
+            navigate(`/${slug}/help`);
             return;
         }
         setActiveSection(id);
@@ -1496,6 +1715,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     return;
                 }
             }
+            // What the row held before this write, read off the same baseline the conflict
+            // guard uses. Captured BEFORE the upsert, because the baseline is replaced below.
+            const before = savedRowRef.current === null ? null : (JSON.parse(savedRowRef.current) as Partial<DashboardContent> | null);
+
             const { error } = await supabase
                 .from("dashboard_pages")
                 .upsert({ slug, client_name: clientName.trim(), client_website: clientWebsite.trim(), data: content }, { onConflict: "slug" });
@@ -1509,6 +1732,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             // jsonb re-orders keys, so only a re-read compares equal on the next save.
             const { data: fresh } = await supabase.from("dashboard_pages").select("data").eq("slug", slug).maybeSingle();
             savedRowRef.current = fresh ? JSON.stringify(fresh.data ?? null) : null;
+            // Log who changed what, for the team's feed at /log. Deliberately not awaited and
+            // never fatal: the dashboard is already saved, and an audit line that failed to
+            // write must not read to the AM as a save that failed. Writes nothing when the
+            // diff is empty, so re-locking an untouched page leaves no trace.
+            void recordDashboardSave({ slug, clientName: clientName.trim(), before, after: content });
             // Accepted suggestions become "accepted" in the DB only now, after the values
             // they carry are really saved. On error they simply stay pending — re-accepting
             // applies the same value again, so nothing is lost either way.
@@ -1556,12 +1784,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      */
     const copyMasterDocForDocs = async () => {
         const compiled = compileMasterDocument(clientName, clientWebsite, foundation);
-        const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const html = [
-            `<h1>Master Brand Document — ${esc(clientName.trim() || "Client")}</h1>`,
-            `<p>${esc([clientWebsite.trim() && `Website: ${clientWebsite.trim()}`, `Generated: ${compiled.generatedOn}`].filter(Boolean).join("  ·  "))}</p>`,
-            ...compiled.sections.map((s, i) => `<h2>${i + 1}. ${esc(s.label)}</h2><p>${esc(s.value.trim() || "Not provided yet.").replace(/\n/g, "<br>")}</p>`),
-        ].join("");
+        const html = masterDocumentHtml(clientName, clientWebsite, foundation, compiled.generatedOn);
         try {
             await navigator.clipboard.write([
                 new ClipboardItem({
@@ -1584,22 +1807,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** The Client Overview brief, copied the same way — rich text for Google Docs, plain text behind it. */
     const copyOverviewForDocs = async () => {
         const compiled = compileOverviewDocument(overviewDoc);
-        const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const html = [
-            `<h1>Client Overview — ${esc(overviewDoc.business_name.trim() || overviewDoc.client_name.trim() || "Client")}</h1>`,
-            `<p>${esc(`Generated: ${compiled.generatedOn}`)}</p>`,
-            ...compiled.sections.map((s, i) => `<h2>${i + 1}. ${esc(s.label)}</h2><p>${esc(s.value || "Not provided yet.").replace(/\n/g, "<br>")}</p>`),
-        ].join("");
         try {
             await navigator.clipboard.write([
                 new ClipboardItem({
-                    "text/html": new Blob([html], { type: "text/html" }),
-                    "text/plain": new Blob([compiled.doc], { type: "text/plain" }),
+                    "text/html": new Blob([compiled.html], { type: "text/html" }),
+                    "text/plain": new Blob([compiled.markdown], { type: "text/plain" }),
                 }),
             ]);
         } catch {
             try {
-                await navigator.clipboard.writeText(compiled.doc);
+                await navigator.clipboard.writeText(compiled.markdown);
             } catch {
                 return;
             }
@@ -1637,13 +1854,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /**
      * Draft the whole Master Brand Document from the client's own material.
      *
-     * Seven model calls plus one website read, run one at a time. Each is a separate request
+     * Eight model calls plus one website read, run one at a time. Each is a separate request
      * because the document is ~66 fields and a single call for all of them exceeds the ~10s
      * a synchronous Netlify function gets — see generate-master-section.mts for why that
      * beat making it a background function.
      *
      * Sequential rather than parallel on purpose: the groups are cheap individually, the AM
-     * watches them tick past, and a burst of seven concurrent Opus calls is the kind of thing
+     * watches them tick past, and a burst of eight concurrent Opus calls is the kind of thing
      * that trips a rate limit at exactly the wrong moment.
      *
      * Nothing is saved. Every group merges through mergeFoundationDraft, which can only fill
@@ -1707,7 +1924,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 if (siteLinks.length) patchFoundation(mergeFoundationDraft(foundation, { websiteLinks: siteLinks }));
                 setMasterDraftDone((d) => [...d, "Website links"]);
             } catch (err) {
-                // A site we can't read shouldn't stop the seven sections that don't need it.
+                // A site we can't read shouldn't stop the sections that don't need it.
                 console.warn("[master draft] website read failed", err);
                 setMasterDraftError(err instanceof Error ? `${err.message} Drafting continued without the website.` : "");
             }
@@ -1715,7 +1932,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const groups: { group: string; label: string; extra?: Record<string, unknown> }[] = [
                 { group: "hosts", label: "Hosts & location" },
                 { group: "properties", label: "The properties", extra: { siteText } },
-                { group: "brand", label: "Audience, UVP & brand" },
+                { group: "brand", label: "Audience & UVP" },
+                { group: "voice", label: "Brand voice, taglines & bio" },
                 { group: "personas", label: "Personas" },
                 { group: "focus", label: "Focus properties", extra: { siteText, allowedLinks } },
                 { group: "favorites", label: "Local favorites" },
@@ -1848,11 +2066,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, [bookingOpen, slug, isTemplate]);
 
     const journeyDone = content.journey_done ?? [];
-    const toggleJourneyStep = (id: JourneyStepId) =>
-        setContent((c) => {
-            const cur = c.journey_done ?? [];
-            return { ...c, journey_done: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] };
-        });
+
+    /** Reducers and the legacy-row rules live in dashboard-navigation.ts, beside the steps
+     *  they encode and under dashboard-navigation.check.ts. These just bind them to state. */
+    const journeyItemDone = (stepId: JourneyStepId, itemId: string) => isJourneyItemDone(journeyDone, stepId, itemId);
+    const toggleJourneyStep = (id: JourneyStepId) => setContent((c) => ({ ...c, journey_done: toggleJourneyStepDone(c.journey_done ?? [], id) }));
+    const toggleJourneyItem = (stepId: JourneyStepId, itemId: string) =>
+        setContent((c) => ({ ...c, journey_done: toggleJourneyItemDone(c.journey_done ?? [], stepId, itemId) }));
 
     /* The three per-client links the journey points at. Pulled out as primitives so the
        memo below depends on the URLs themselves, not on the whole content object — which
@@ -1878,7 +2098,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const resolved = {
                 ...step,
                 href: step.href ?? (step.hrefFrom ? linkFor(step.hrefFrom) || undefined : undefined),
-                items: step.items?.map((item) => ({ ...item, url: linkFor(item.link) })),
+                items: step.items?.map((item) => ({
+                    ...item,
+                    url: linkFor(item.link),
+                    // Only a tickable step's items carry state; everywhere else this stays
+                    // false and the renderer draws no box, per JOURNEY_STEPS' items comment.
+                    done: step.itemsTickable ? journeyItemDone(step.id, item.id ?? item.label) : false,
+                })),
             };
             if (step.id === "form") {
                 return {
@@ -1904,28 +2130,105 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                           : step.detail,
                 };
             }
-            if (step.id === "website") {
-                const p = websiteSetupProgress(websiteSetup);
+            // A step built from tickable items has no state of its own: it is done when
+            // all of them are, and its progress is the count — which is what gives the
+            // launch meter a cell per piece.
+            if (step.itemsTickable && resolved.items?.length) {
+                const total = resolved.items.length;
+                const value = resolved.items.filter((item) => item.done).length;
                 return {
                     ...resolved,
-                    done: p.complete,
-                    progress: { value: p.done, total: p.total },
-                    detail: p.complete
-                        ? websiteSetup.ai_website === "yes"
-                            ? "Netlify and every website account confirmed — over to our web team."
-                            : "Netlify account confirmed — thank you."
-                        : websiteSetup.ai_website === "yes"
-                          ? `${p.done} of ${p.total} accounts confirmed.`
-                          : step.detail,
+                    done: value === total,
+                    progress: { value, total },
+                    detail: value === total ? "Every piece reviewed — thank you." : `${value} of ${total} pieces reviewed.`,
                 };
             }
             return { ...resolved, done: journeyDone.includes(step.id), progress: null };
         });
-    }, [intakeSubmitted, onboardingSubmitted, intakeInfo, onboardingInfo, journeyDone, chatLink, folderLink, onboardingCallUrl, websiteSetup]);
+    }, [intakeSubmitted, onboardingSubmitted, intakeInfo, onboardingInfo, journeyDone, chatLink, folderLink, onboardingCallUrl]);
 
     const journeyDoneCount = journeySteps.filter((s) => s.done).length;
     /** First unfinished step — highlighted so a client can see what's next at a glance. */
     const journeyCurrentId = journeySteps.find((s) => !s.done)?.id ?? null;
+
+    /**
+     * The launch meter's cells and the stages bracketing them.
+     *
+     * The bar is a summary, so its composition lives in JOURNEY_BAR rather than being read
+     * off the step list — see the note there for what it leaves out and why. Here we only
+     * resolve each declared cell against live step state.
+     *
+     * One cell per thing a client can finish: a cell over a step ticked piece by piece
+     * becomes a cell per piece, which is what makes Marketing funnel the long stage and
+     * what lets a single review move the bar. Every cell is worth the same, so the bar's
+     * fill and the percentage above it are the same number.
+     *
+     * A cell fills fractionally wherever there is something real to count — a part-answered
+     * form, a funnel piece reviewed. A made-up fraction is never invented: a cell with
+     * nothing to count is 0 or 1.
+     */
+    const { journeyCells, journeyGroups } = useMemo(() => {
+        const fractionOf = (step: (typeof journeySteps)[number]) =>
+            step.done ? 1 : step.progress && step.progress.total > 0 ? step.progress.value / step.progress.total : 0;
+
+        const byId = new Map(journeySteps.map((step) => [step.id, step]));
+
+        const cellsFor = (bar: (typeof JOURNEY_BAR)[number], isLast: boolean) => {
+            const steps = bar.steps.map((id) => byId.get(id)).filter((step): step is (typeof journeySteps)[number] => !!step);
+            if (!steps.length) return [];
+
+            // A cell standing over one tickable step is really that step's pieces.
+            const [only] = steps;
+            if (steps.length === 1 && only.itemsTickable && only.items?.length) {
+                const nextUp = only.items.findIndex((item) => !item.done);
+                return only.items.map((item, i) => ({
+                    id: `${only.id}:${item.id ?? item.label}`,
+                    label: item.label,
+                    fraction: item.done ? 1 : 0,
+                    // The piece a client is on, not the whole step: the beam in the list
+                    // below marks the step, this marks the review inside it.
+                    current: only.id === journeyCurrentId && i === nextUp,
+                    rocket: false,
+                }));
+            }
+
+            return [
+                {
+                    id: bar.id,
+                    label: bar.label,
+                    // Merged cells (the two forms) average their steps, so finishing one of
+                    // two half-fills the cell instead of leaving it dark until both land.
+                    fraction: steps.reduce((sum, step) => sum + fractionOf(step), 0) / steps.length,
+                    current: steps.some((step) => step.id === journeyCurrentId),
+                    // The bar's last cell IS the destination, so it wears the rocket rather
+                    // than the bar growing an extra cell nobody can tick.
+                    rocket: isLast,
+                },
+            ];
+        };
+
+        const cells: ReturnType<typeof cellsFor> = [];
+        const counts = new Map<string, number>();
+        JOURNEY_BAR.forEach((bar, i) => {
+            const made = cellsFor(bar, i === JOURNEY_BAR.length - 1);
+            cells.push(...made);
+            counts.set(bar.stage, (counts.get(bar.stage) ?? 0) + made.length);
+        });
+
+        const groups = JOURNEY_STAGES.map((stage) => ({ id: stage.id, label: stage.label, cells: counts.get(stage.id) ?? 0 })).filter(
+            (group) => group.cells > 0,
+        );
+
+        return { journeyCells: cells, journeyGroups: groups };
+    }, [journeySteps, journeyCurrentId]);
+
+    /** "Up next", named down to the piece where a step has several. */
+    const journeyNextLabel = useMemo(() => {
+        const step = journeySteps.find((s) => s.id === journeyCurrentId);
+        if (!step) return null;
+        const piece = step.itemsTickable ? step.items?.find((item) => !item.done) : undefined;
+        return piece ? `${step.label} — ${piece.label}` : step.label;
+    }, [journeySteps, journeyCurrentId]);
     /** Whatever now follows the Kick-off Call — named in the booking confirmation so that
      *  copy can't go stale the next time the order is reshuffled. It has twice already. */
     const stepAfterKickoff = journeySteps[journeySteps.findIndex((s) => s.id === "kickoff") + 1] ?? null;
@@ -1997,8 +2300,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             <span
                 className={cx(
                     "ml-2 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                    tone === "done" && "bg-success-secondary text-success-primary",
-                    tone === "todo" && "bg-brand-secondary text-brand-secondary",
+                    tone === "done" && "bg-utility-green-50 text-utility-green-700",
+                    tone === "todo" && "bg-utility-brand-50 text-utility-brand-700",
                     tone === "muted" && "text-quaternary",
                 )}
             >
@@ -2064,9 +2367,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         );
     }
     if (!hasAccess)
-        return (
-            <DashboardAccessGate allowedEmails={allowedEmails} sharePassword={sharePassword} onUnlock={unlockDashboard} backgroundUrl={content.login_bg_url} />
-        );
+        return <DashboardAccessGate users={dashboardUsers} sharePassword={sharePassword} onUnlock={unlockDashboard} backgroundUrl={content.login_bg_url} />;
 
     return (
         <>
@@ -2222,7 +2523,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
 
                             {/* Dashboard search — client-scoped, directly under the identity block */}
                             <div className="px-3 pt-3">
-                                <ClientSearchBar hits={searchHits} onSelect={setActiveSection} />
+                                {/* openNavItem, not setActiveSection: two rows in the menu are links
+                                    rather than sections (Folder of Content, Help Centre) and have no
+                                    body to switch to. Selecting one here used to set activeSection to
+                                    an id nothing renders, leaving a blank content area with no way
+                                    back except the menu. Routed through the same opener the menu uses,
+                                    a searched link opens the thing it names. */}
+                                <ClientSearchBar hits={searchHits} onSelect={openNavItem} />
                             </div>
 
                             {/* Overview — pinned above the groups as the client's main dashboard. Never
@@ -2500,7 +2807,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                             className={cx(
                                                 "flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition duration-100 ease-linear disabled:cursor-not-allowed disabled:opacity-50",
                                                 saveState === "error" || saveState === "conflict"
-                                                    ? "border-error bg-error-primary text-error-primary hover:bg-error-secondary"
+                                                    ? "border-error bg-error-primary text-error-primary hover:bg-utility-red-100"
                                                     : isLocked
                                                       ? "border-secondary bg-primary text-secondary hover:bg-tertiary hover:text-primary"
                                                       : "border-brand bg-brand-solid text-white hover:opacity-90",
@@ -2772,162 +3079,94 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                 )}
 
                                                 {/* ── Who can open this dashboard (team, edit mode) ──
-                                                    The access allowlist. Without a way to fill this in, turning on the
-                                                    sign-in gate would lock every client out, so it lives right at the top
-                                                    of Overview where an AM can't miss it. */}
+                                                    Access is per person: each address carries its own password and its own
+                                                    set of sections. Without a way to fill this in, turning on the sign-in
+                                                    gate would lock every client out, so it lives right at the top of
+                                                    Overview where an AM can't miss it. */}
                                                 {isTeam && !isLocked && !isTemplate && (
-                                                    <div className="mt-8 rounded-xl bg-secondary p-5 ring-1 ring-secondary">
-                                                        <p className="text-sm font-semibold text-primary">Who can open this dashboard</p>
-                                                        <p className="mt-1 text-sm text-pretty text-tertiary">
-                                                            Anyone at @hiddengem.media always has access. Add the client's email addresses here — they'll sign
-                                                            in with Google using one of them. An address that isn't listed can sign in but sees nothing.
-                                                        </p>
-                                                        <div className="mt-4 flex flex-col gap-2">
-                                                            {allowedEmails.map((addr, i) => (
-                                                                <div key={`${addr}-${i}`} className="flex items-center gap-2">
-                                                                    <input
-                                                                        type="email"
-                                                                        value={addr}
-                                                                        placeholder="client@example.com"
-                                                                        onChange={(e) =>
-                                                                            updateAllowedEmails(allowedEmails.map((x, j) => (j === i ? e.target.value : x)))
-                                                                        }
-                                                                        className="min-w-0 flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
-                                                                    />
-                                                                    <button
-                                                                        type="button"
-                                                                        aria-label={`Remove ${addr || "this address"}`}
-                                                                        onClick={() => updateAllowedEmails(allowedEmails.filter((_, j) => j !== i))}
-                                                                        className={removeButton}
-                                                                    >
-                                                                        <Trash01 className="size-4" aria-hidden="true" />
-                                                                    </button>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                        <div className="mt-3">
-                                                            <Button
-                                                                size="sm"
-                                                                color="secondary"
-                                                                iconLeading={Plus}
-                                                                onClick={() => updateAllowedEmails([...allowedEmails, ""])}
-                                                            >
-                                                                Add an email
-                                                            </Button>
-                                                        </div>
+                                                    <>
+                                                        <DashboardAccessPanel
+                                                            users={dashboardUsers}
+                                                            sharePassword={sharePassword}
+                                                            defaultSections={content.client_visible ?? DEFAULT_CLIENT_VISIBLE}
+                                                            onChangeUsers={updateDashboardUsers}
+                                                            onChangeSharePassword={updateSharePassword}
+                                                        />
 
-                                                        <div className="mt-4 border-t border-secondary pt-4">
-                                                            <p className="text-sm font-medium text-secondary">Shared password</p>
-                                                            <p className="mt-1 text-xs text-pretty text-tertiary">
-                                                                The client types this alongside their email. Send it to them separately from the link.
-                                                            </p>
-                                                            <div className="mt-2 flex items-center gap-2">
+                                                        <div className="mt-4 rounded-xl bg-secondary p-5 ring-1 ring-secondary">
+                                                            <div>
+                                                                <p className="text-sm font-medium text-secondary">Sign-in background</p>
+                                                                <p className="mt-1 text-xs text-pretty text-tertiary">
+                                                                    Image or video URL shown behind this client's sign-in card, so each client can look
+                                                                    different. Leave empty for the default leaf-shadow loop.
+                                                                </p>
                                                                 <input
                                                                     type="text"
-                                                                    value={content.share_password ?? ""}
-                                                                    placeholder="Set a password"
-                                                                    onChange={(e) => updateSharePassword(e.target.value)}
-                                                                    className="min-w-0 flex-1 rounded-lg bg-primary px-3 py-2 font-mono text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
+                                                                    value={content.login_bg_url ?? ""}
+                                                                    placeholder="https://… .jpg or .webm — empty for the default"
+                                                                    onChange={(e) => setContent((c) => ({ ...c, login_bg_url: e.target.value }))}
+                                                                    className="mt-2 w-full rounded-lg bg-primary px-3 py-2 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
                                                                 />
-                                                                <Button
-                                                                    size="sm"
-                                                                    color="secondary"
-                                                                    iconLeading={Copy01}
-                                                                    onClick={() => void navigator.clipboard.writeText(content.share_password ?? "")}
-                                                                >
-                                                                    Copy
-                                                                </Button>
                                                             </div>
-                                                            {/* The gate needs BOTH halves — say which one is missing rather than
-                                                                leaving an AM wondering why nothing is locked. */}
-                                                            {!gateArmed && (
-                                                                <p className="mt-2 text-xs text-warning-primary">
-                                                                    {!allowedEmails.some((e) => e.trim()) && !sharePassword
-                                                                        ? "Not locked yet — add an email and a password."
-                                                                        : !sharePassword
-                                                                          ? "Not locked yet — set a password."
-                                                                          : "Not locked yet — add at least one email."}
-                                                                </p>
-                                                            )}
-                                                            {gateArmed && (
-                                                                <p className="mt-2 text-xs text-success-primary">
-                                                                    Locked. Only the emails above can open this dashboard, with this password.
-                                                                </p>
-                                                            )}
-                                                        </div>
 
-                                                        <div className="mt-4 border-t border-secondary pt-4">
-                                                            <p className="text-sm font-medium text-secondary">Sign-in background</p>
-                                                            <p className="mt-1 text-xs text-pretty text-tertiary">
-                                                                Image or video URL shown behind this client's sign-in card, so each client can look different.
-                                                                Leave empty for the default leaf-shadow loop.
-                                                            </p>
-                                                            <input
-                                                                type="text"
-                                                                value={content.login_bg_url ?? ""}
-                                                                placeholder="https://… .jpg or .webm — empty for the default"
-                                                                onChange={(e) => setContent((c) => ({ ...c, login_bg_url: e.target.value }))}
-                                                                className="mt-2 w-full rounded-lg bg-primary px-3 py-2 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
-                                                            />
-                                                        </div>
-
-                                                        {/* ── Onboarding links ──
+                                                            {/* ── Onboarding links ──
                                                             The three per-client URLs the journey hands the client, together and
                                                             next to the journey that consumes them. The content folder is also
                                                             editable inside Brand Kit — same field, and that section is a long
                                                             way from the step that asks for it, which is why nobody fills it in.
                                                             Empty is safe everywhere: the step drops the button, it never shows
                                                             a dead one. */}
-                                                        <div className="mt-4 border-t border-secondary pt-4">
-                                                            <p className="text-sm font-medium text-secondary">Onboarding links</p>
-                                                            <p className="mt-1 text-xs text-pretty text-tertiary">
-                                                                What the client is sent to after the Kick-off Call. Each one appears on its journey step as soon
-                                                                as it's filled in.
-                                                            </p>
-                                                            <div className="mt-2 grid gap-2">
-                                                                {(
-                                                                    [
-                                                                        {
-                                                                            key: "chat" as const,
-                                                                            label: "Google Chat room",
-                                                                            placeholder: "https://chat.google.com/room/…",
-                                                                            value: content.chat_link ?? "",
-                                                                            set: (v: string) => setContent((c) => ({ ...c, chat_link: v })),
-                                                                        },
-                                                                        {
-                                                                            key: "folder" as const,
-                                                                            label: "Content folder (photos & video)",
-                                                                            placeholder: "https://drive.google.com/…",
-                                                                            value: content.brand.folder_link,
-                                                                            set: (v: string) => patchBrand({ folder_link: v }),
-                                                                        },
-                                                                        {
-                                                                            key: "call" as const,
-                                                                            label: "Onboarding Call booking page",
-                                                                            placeholder: "https://calendly.com/your-name/onboarding",
-                                                                            value: content.onboarding_call_url ?? "",
-                                                                            set: (v: string) => setContent((c) => ({ ...c, onboarding_call_url: v })),
-                                                                        },
-                                                                    ] as const
-                                                                ).map((row) => (
-                                                                    <label key={row.key} className="grid gap-1">
-                                                                        <span className="text-xs text-tertiary">{row.label}</span>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={row.value}
-                                                                            placeholder={row.placeholder}
-                                                                            onChange={(e) => row.set(e.target.value)}
-                                                                            className="w-full rounded-lg bg-primary px-3 py-2 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
-                                                                        />
-                                                                    </label>
-                                                                ))}
+                                                            <div className="mt-4 border-t border-secondary pt-4">
+                                                                <p className="text-sm font-medium text-secondary">Onboarding links</p>
+                                                                <p className="mt-1 text-xs text-pretty text-tertiary">
+                                                                    What the client is sent to after the Kick-off Call. Each one appears on its journey step as
+                                                                    soon as it's filled in.
+                                                                </p>
+                                                                <div className="mt-2 grid gap-2">
+                                                                    {(
+                                                                        [
+                                                                            {
+                                                                                key: "chat" as const,
+                                                                                label: "Google Chat room",
+                                                                                placeholder: "https://chat.google.com/room/…",
+                                                                                value: content.chat_link ?? "",
+                                                                                set: (v: string) => setContent((c) => ({ ...c, chat_link: v })),
+                                                                            },
+                                                                            {
+                                                                                key: "folder" as const,
+                                                                                label: "Content folder (photos & video)",
+                                                                                placeholder: "https://drive.google.com/…",
+                                                                                value: content.brand.folder_link,
+                                                                                set: (v: string) => patchBrand({ folder_link: v }),
+                                                                            },
+                                                                            {
+                                                                                key: "call" as const,
+                                                                                label: "Onboarding Call booking page",
+                                                                                placeholder: "https://calendly.com/your-name/onboarding",
+                                                                                value: content.onboarding_call_url ?? "",
+                                                                                set: (v: string) => setContent((c) => ({ ...c, onboarding_call_url: v })),
+                                                                            },
+                                                                        ] as const
+                                                                    ).map((row) => (
+                                                                        <label key={row.key} className="grid gap-1">
+                                                                            <span className="text-xs text-tertiary">{row.label}</span>
+                                                                            <input
+                                                                                type="text"
+                                                                                value={row.value}
+                                                                                placeholder={row.placeholder}
+                                                                                onChange={(e) => row.set(e.target.value)}
+                                                                                className="w-full rounded-lg bg-primary px-3 py-2 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
+                                                                            />
+                                                                        </label>
+                                                                    ))}
+                                                                </div>
+                                                                <p className="mt-2 text-xs text-pretty text-quaternary">
+                                                                    The booking page is this client's own Account Manager's — there's no shared default, since
+                                                                    one would send every client to the same person.
+                                                                </p>
                                                             </div>
-                                                            <p className="mt-2 text-xs text-pretty text-quaternary">
-                                                                The booking page is this client's own Account Manager's — there's no shared default, since one
-                                                                would send every client to the same person.
-                                                            </p>
                                                         </div>
-                                                    </div>
+                                                    </>
                                                 )}
 
                                                 {/* ── Your journey ──
@@ -2950,13 +3189,22 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     : "Where you are, and what happens next."}
                                                             </p>
                                                         </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <ProgressBarCircle value={Math.round((journeyDoneCount / journeySteps.length) * 100)} size="xxs" />
-                                                            <span className="text-sm font-semibold text-secondary tabular-nums">
-                                                                {journeyDoneCount} of {journeySteps.length}
-                                                            </span>
-                                                        </div>
+                                                        <span className="text-sm font-semibold text-secondary tabular-nums">
+                                                            {journeyDoneCount} of {journeySteps.length}
+                                                        </span>
                                                     </div>
+
+                                                    {/* The launch meter. It replaces the small percentage ring that used to
+                                                        sit beside the heading: two readings of the same number is one too
+                                                        many, and the ring was the quieter of the two on the page a client
+                                                        opens to find out how close they are to going live. */}
+                                                    <JourneyProgress
+                                                        cells={journeyCells}
+                                                        groups={journeyGroups}
+                                                        stepsDone={journeyDoneCount}
+                                                        stepsTotal={journeySteps.length}
+                                                        nextLabel={journeyNextLabel}
+                                                    />
 
                                                     <ol className="mt-6 grid list-none gap-0 p-0">
                                                         {journeySteps.map((step, i) => {
@@ -2985,7 +3233,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             step.done
                                                                                 ? "bg-brand-solid text-white"
                                                                                 : isCurrent
-                                                                                  ? "bg-brand-secondary text-brand-secondary ring-2 ring-brand"
+                                                                                  ? "bg-utility-brand-50 text-utility-brand-700 ring-2 ring-brand"
                                                                                   : "bg-secondary text-quaternary",
                                                                         )}
                                                                     >
@@ -3036,8 +3284,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         )}
 
                                                                         {/* Sub-items — the several separate things one step asks for.
-                                                                            No tick boxes: none of these are states we can observe, and
-                                                                            an empty box against a job already done reads as a failure.
+                                                                            Tick boxes only where the step says its items are tickable:
+                                                                            most of these aren't states we can observe, and an empty box
+                                                                            against a job already done reads as a failure. The funnel
+                                                                            reviews are the exception — the team ships each piece and
+                                                                            knows when it's signed off, so there each item carries its
+                                                                            own mark and its own jump into the section it names.
                                                                             An item whose link isn't filled in yet keeps its text and
                                                                             drops the button; only the team is told it's missing, since
                                                                             that's the team's job to fix, not the client's. */}
@@ -3054,42 +3306,102 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         step.itemsTitle ? "mt-2.5" : "mt-0",
                                                                                     )}
                                                                                 >
-                                                                                    {step.items.map((item) => (
-                                                                                        <li
-                                                                                            key={item.label}
-                                                                                            className="border-t border-secondary pt-3 first:border-t-0 first:pt-0"
-                                                                                        >
-                                                                                            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
-                                                                                                <span className="text-sm font-semibold text-secondary">
-                                                                                                    {item.label}
-                                                                                                </span>
-                                                                                                {item.url ? (
-                                                                                                    <Button
-                                                                                                        size="sm"
-                                                                                                        color="secondary"
-                                                                                                        href={item.url}
-                                                                                                        target="_blank"
-                                                                                                        rel="noopener noreferrer"
-                                                                                                        iconTrailing={LinkExternal01}
-                                                                                                    >
-                                                                                                        {item.action ?? "Open"}
-                                                                                                    </Button>
-                                                                                                ) : (
-                                                                                                    item.link &&
-                                                                                                    isTeam && (
-                                                                                                        <span className="text-xs text-warning-primary">
-                                                                                                            No link set — add it under Onboarding links.
+                                                                                    {step.items.map((item) => {
+                                                                                        // Same rule as the step-level jump: never offer a
+                                                                                        // client a way into a section they can't open.
+                                                                                        const itemTarget = item.to;
+                                                                                        const canOpenItem =
+                                                                                            !!itemTarget && (isTeam || revealedToClient(itemTarget));
+                                                                                        return (
+                                                                                            <li
+                                                                                                key={item.label}
+                                                                                                className="border-t border-secondary pt-3 first:border-t-0 first:pt-0"
+                                                                                            >
+                                                                                                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                                                                                                    <span className="flex min-w-0 items-center gap-2">
+                                                                                                        {step.itemsTickable && (
+                                                                                                            <span
+                                                                                                                aria-hidden="true"
+                                                                                                                className={cx(
+                                                                                                                    "grid size-4.5 shrink-0 place-items-center rounded-full transition duration-100 ease-linear",
+                                                                                                                    item.done
+                                                                                                                        ? "bg-success-solid text-white"
+                                                                                                                        : "ring-1 ring-secondary",
+                                                                                                                )}
+                                                                                                            >
+                                                                                                                {item.done && <Check className="size-3" />}
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                        <span
+                                                                                                            className={cx(
+                                                                                                                "text-sm font-semibold",
+                                                                                                                step.itemsTickable && !item.done
+                                                                                                                    ? "text-tertiary"
+                                                                                                                    : "text-secondary",
+                                                                                                            )}
+                                                                                                        >
+                                                                                                            {item.label}
                                                                                                         </span>
-                                                                                                    )
+                                                                                                    </span>
+                                                                                                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                                                                                        {canOpenItem && itemTarget && (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="link-color"
+                                                                                                                iconTrailing={ArrowRight}
+                                                                                                                onClick={() => openNavItem(itemTarget)}
+                                                                                                            >
+                                                                                                                {item.action ?? "Open"}
+                                                                                                            </Button>
+                                                                                                        )}
+                                                                                                        {/* The AM's mark, edit mode only — the client
+                                                                                                            reads the tick, they don't set it. */}
+                                                                                                        {step.itemsTickable && !isLocked && isTeam && (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="secondary"
+                                                                                                                iconLeading={
+                                                                                                                    item.done ? RefreshCw01 : CheckCircle
+                                                                                                                }
+                                                                                                                onClick={() =>
+                                                                                                                    toggleJourneyItem(
+                                                                                                                        step.id,
+                                                                                                                        item.id ?? item.label,
+                                                                                                                    )
+                                                                                                                }
+                                                                                                            >
+                                                                                                                {item.done ? "Undo" : "Mark reviewed"}
+                                                                                                            </Button>
+                                                                                                        )}
+                                                                                                        {item.url ? (
+                                                                                                            <Button
+                                                                                                                size="sm"
+                                                                                                                color="secondary"
+                                                                                                                href={item.url}
+                                                                                                                target="_blank"
+                                                                                                                rel="noopener noreferrer"
+                                                                                                                iconTrailing={LinkExternal01}
+                                                                                                            >
+                                                                                                                {item.action ?? "Open"}
+                                                                                                            </Button>
+                                                                                                        ) : (
+                                                                                                            item.link &&
+                                                                                                            isTeam && (
+                                                                                                                <span className="text-xs text-warning-primary">
+                                                                                                                    No link set — add it under Onboarding links.
+                                                                                                                </span>
+                                                                                                            )
+                                                                                                        )}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                                {item.note && (
+                                                                                                    <p className="mt-1 max-w-prose text-sm text-pretty text-tertiary">
+                                                                                                        {item.note}
+                                                                                                    </p>
                                                                                                 )}
-                                                                                            </div>
-                                                                                            {item.note && (
-                                                                                                <p className="mt-1 max-w-prose text-sm text-pretty text-tertiary">
-                                                                                                    {item.note}
-                                                                                                </p>
-                                                                                            )}
-                                                                                        </li>
-                                                                                    ))}
+                                                                                            </li>
+                                                                                        );
+                                                                                    })}
                                                                                 </ul>
                                                                             </div>
                                                                         )}
@@ -3182,9 +3494,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 isTeam &&
                                                                                 (step.auto ? (
                                                                                     <span className="text-xs text-quaternary">
-                                                                                        {step.id === "website"
-                                                                                            ? "Tracked from the Website Setup Guide"
-                                                                                            : "Tracked from the form itself"}
+                                                                                        Tracked from the form itself
                                                                                     </span>
                                                                                 ) : (
                                                                                     <Button
@@ -3193,7 +3503,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         iconLeading={step.done ? RefreshCw01 : CheckCircle}
                                                                                         onClick={() => toggleJourneyStep(step.id)}
                                                                                     >
-                                                                                        {step.done ? "Mark not done" : "Mark done"}
+                                                                                        {/* A step ticked piece by piece keeps this as the
+                                                                                            all-at-once shortcut — "Mark done" would read as
+                                                                                            a second, competing state beside the item marks. */}
+                                                                                        {step.itemsTickable
+                                                                                            ? step.done
+                                                                                                ? "Undo all"
+                                                                                                : "Mark all reviewed"
+                                                                                            : step.done
+                                                                                              ? "Mark not done"
+                                                                                              : "Mark done"}
                                                                                     </Button>
                                                                                 ))}
                                                                         </div>
@@ -3697,7 +4016,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     showTextWhileLoading
                                                                     onClick={() => void generateOverview()}
                                                                 >
-                                                                    {overviewBusy ? "Reading their answers…" : "Draft from the onboarding form"}
+                                                                    {overviewBusy
+                                                                        ? `${overviewStep || "Reading their answers"}…`
+                                                                        : "Draft from the onboarding form"}
                                                                 </Button>
                                                             )}
                                                             <Button
@@ -4027,8 +4348,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             </div>
                                                             <SectionHeading>Master Brand Document</SectionHeading>
                                                             <p className="mt-3 text-md text-tertiary">
-                                                                This is where it starts. It's what your Welcome Emails, chat widget, and every future AI feature
-                                                                read from, so the more complete it is, the smarter everything downstream gets.
+                                                                Everything you share here is what we build your deliverables from, so it's worth taking the time
+                                                                to get it complete and correct. It's also what your emails and AI tools read from.
                                                                 {!isTeam && " Spot something off? Suggest an edit and your account manager will review it."}
                                                             </p>
 
@@ -5484,7 +5805,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             </div>
                                                         )}
 
-                                                        {/* Team-only: draft the kit from the client's live site, then review. */}
+                                                        {/* Team-only: draft the kit from the client's live site and/or the brand
+                                                            guidelines PDF they sent, then review. The PDF wins where both are
+                                                            given — a guidelines doc names its own primary. */}
                                                         {isTeam && !isLocked && (
                                                             <div className="mt-4">
                                                                 <div className="flex flex-wrap items-center gap-2">
@@ -5496,15 +5819,51 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         onKeyDown={(e) => e.key === "Enter" && !brandKitBusy && void generateBrandKit()}
                                                                         className={editInput("max-w-72")}
                                                                     />
+                                                                    {brandKitPdf ? (
+                                                                        <span className="inline-flex max-w-72 items-center gap-2 rounded-lg border border-secondary px-2.5 py-1.5 text-sm text-secondary">
+                                                                            <FileCheck02 className="size-4 shrink-0 text-fg-quaternary" aria-hidden="true" />
+                                                                            <span className="truncate">{brandKitPdf.name}</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={clearBrandKitPdf}
+                                                                                aria-label={`Remove ${brandKitPdf.name}`}
+                                                                                className="shrink-0 cursor-pointer text-fg-quaternary transition duration-100 ease-linear hover:text-fg-secondary"
+                                                                            >
+                                                                                <XClose className="size-3.5" aria-hidden="true" />
+                                                                            </button>
+                                                                        </span>
+                                                                    ) : (
+                                                                        <label
+                                                                            className={cx(
+                                                                                "inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-secondary px-2.5 py-1.5 text-sm font-medium text-tertiary transition duration-100 ease-linear hover:border-brand hover:text-brand-secondary",
+                                                                                brandKitPdfBusy && "cursor-not-allowed opacity-50",
+                                                                            )}
+                                                                        >
+                                                                            <input
+                                                                                type="file"
+                                                                                accept="application/pdf,.pdf"
+                                                                                disabled={brandKitPdfBusy}
+                                                                                className="hidden"
+                                                                                onChange={(e) => void onPickBrandKitPdf(e)}
+                                                                            />
+                                                                            <UploadCloud02 className="size-4" aria-hidden="true" />
+                                                                            {brandKitPdfBusy ? "Uploading…" : "Brand guidelines PDF"}
+                                                                        </label>
+                                                                    )}
                                                                     <Button
                                                                         size="sm"
                                                                         color="secondary"
                                                                         iconLeading={Stars02}
                                                                         isLoading={brandKitBusy}
+                                                                        isDisabled={brandKitPdfBusy}
                                                                         showTextWhileLoading
                                                                         onClick={() => void generateBrandKit()}
                                                                     >
-                                                                        {brandKitBusy ? "Reading the site…" : "Generate from website"}
+                                                                        {brandKitBusy
+                                                                            ? brandKitPdf
+                                                                                ? "Reading the PDF…"
+                                                                                : "Reading the site…"
+                                                                            : "Generate brand kit"}
                                                                     </Button>
                                                                 </div>
                                                                 {brandKitMsg && (
@@ -6260,7 +6619,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                 {activeSection === "ownerguide" && (
                                                     <Reveal>
                                                         <SectionEyebrow section={activeSection} />
-                                                        <SectionHeading>Website Setup Guide</SectionHeading>
+                                                        <SectionHeading>Setup Guide</SectionHeading>
                                                         <WebsiteSetupSection
                                                             setup={websiteSetup}
                                                             onChange={updateWebsiteSetup}
@@ -6602,7 +6961,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                         </div>
 
                         {masterDoc.missing.length > 0 && (
-                            <div className="mx-6 mt-4 rounded-lg bg-warning-secondary px-3 py-2 text-xs font-medium text-warning-primary">
+                            <div className="mx-6 mt-4 rounded-lg bg-utility-yellow-50 px-3 py-2 text-xs font-medium text-utility-yellow-700">
                                 Still empty: {masterDoc.missing.join(", ")} — marked “Not provided yet” below. Ask the client to fill these in.
                             </div>
                         )}

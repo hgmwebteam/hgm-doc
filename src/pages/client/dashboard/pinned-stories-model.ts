@@ -66,6 +66,12 @@ export interface StoryVersion {
     publishedBy: string;
     /** Each version carries its own review, so feedback on v1 survives publishing v2. */
     review: StoryReview;
+    /**
+     * Imported pages that were left in the tray when this was published. Never shown to
+     * the client; kept so "Make changes" gives the AM the whole import back rather than only
+     * the pages they placed. Older versions don't have it.
+     */
+    unassigned?: StorySlide[];
 }
 
 /** The team's working copy — imported but not yet shown to the client. */
@@ -104,22 +110,115 @@ export const canvaEditUrl = (designId: string) => `https://www.canva.com/design/
 
 /* ── Arranging pages ─────────────────────────────────────────────────────── */
 
-/** A draft straight after import: one highlight holding every page, first page as cover. */
+/**
+ * A draft straight after import: every page in the tray, no highlights yet. One Canva
+ * story file usually holds several highlights back to back, so pre-filling one highlight
+ * with all twenty pages only gave the AM something to take apart. From the tray they star
+ * the cover pages and build the highlights in one move (see buildHighlightsFromCovers), or
+ * drag pages where they belong.
+ */
 export const draftFromPages = (pages: StorySlide[], source: StorySource): StoryDraft => ({
-    highlights: pages.length ? [{ id: uid(), title: source.designTitle || "Highlight 1", cover: "", slides: pages }] : [],
-    unassigned: [],
+    highlights: [],
+    unassigned: pages,
     source,
 });
 
 export const emptyHighlight = (n: number): StoryHighlight => ({ id: uid(), title: `Highlight ${n}`, cover: "", slides: [] });
 
+/** Where a slide currently lives in a draft: the tray, or one highlight's run. */
+export type SlideHome = { kind: "tray" } | { kind: "highlight"; highlightId: string };
+
+export const findSlide = (d: StoryDraft, slideId: string): { slide: StorySlide; home: SlideHome } | null => {
+    const inTray = d.unassigned.find((s) => s.id === slideId);
+    if (inTray) return { slide: inTray, home: { kind: "tray" } };
+    for (const h of d.highlights) {
+        const s = h.slides.find((x) => x.id === slideId);
+        if (s) return { slide: s, home: { kind: "highlight", highlightId: h.id } };
+    }
+    return null;
+};
+
+/** The draft without `slideId` anywhere — the first half of every move. */
+const withoutSlide = (d: StoryDraft, slideId: string): StoryDraft => ({
+    ...d,
+    unassigned: d.unassigned.filter((s) => s.id !== slideId),
+    highlights: d.highlights.map((h) => ({ ...h, slides: h.slides.filter((s) => s.id !== slideId) })),
+});
+
+/**
+ * Move one slide to the tray (`highlightId` null) or into a highlight's run, at `index`
+ * (append when omitted or out of range). Same-run moves reorder. Never mutates.
+ */
+export const moveSlideTo = (d: StoryDraft, slideId: string, highlightId: string | null, index?: number): StoryDraft => {
+    const found = findSlide(d, slideId);
+    if (!found) return d;
+    const base = withoutSlide(d, slideId);
+    const insert = (list: StorySlide[]) => {
+        const at = index === undefined || index < 0 || index > list.length ? list.length : index;
+        return [...list.slice(0, at), found.slide, ...list.slice(at)];
+    };
+    if (highlightId === null) return { ...base, unassigned: insert(base.unassigned) };
+    const target = base.highlights.find((h) => h.id === highlightId);
+    if (!target) return d;
+    // The first image dropped into an empty, coverless highlight IS its cover: a Canva story
+    // file runs [cover, slides…] and the icon page is never a story frame.
+    if (!target.cover && target.slides.length === 0 && found.slide.kind === "image") {
+        return { ...base, highlights: base.highlights.map((h) => (h.id === highlightId ? { ...h, cover: found.slide.url } : h)) };
+    }
+    return { ...base, highlights: base.highlights.map((h) => (h.id === highlightId ? { ...h, slides: insert(h.slides) } : h)) };
+};
+
+/**
+ * Use `slideId`'s image as `highlightId`'s cover and take the page out of every run — a
+ * cover is a circle on the profile, never a story frame. Video pages can't be covers.
+ */
+export const setCoverFromSlide = (d: StoryDraft, slideId: string, highlightId: string): StoryDraft => {
+    const found = findSlide(d, slideId);
+    if (!found || found.slide.kind !== "image") return d;
+    const base = withoutSlide(d, slideId);
+    return { ...base, highlights: base.highlights.map((h) => (h.id === highlightId ? { ...h, cover: found.slide.url } : h)) };
+};
+
+/**
+ * The one-move arrange for the Canva convention [cover, slides…, cover, slides…]: the AM
+ * stars the cover pages in the tray and this builds one highlight per cover, in page
+ * order, each holding the tray pages that follow it up to the next cover. Tray pages
+ * before the first cover stay in the tray. Existing highlights are kept and the new ones
+ * appended, so it can be run again after another import.
+ */
+export const buildHighlightsFromCovers = (d: StoryDraft, coverIds: string[]): StoryDraft => {
+    const tray = [...d.unassigned].sort((a, b) => a.page - b.page);
+    const covers = new Set(coverIds.filter((id) => tray.some((s) => s.id === id && s.kind === "image")));
+    if (!covers.size) return d;
+    const built: StoryHighlight[] = [];
+    const leftover: StorySlide[] = [];
+    let current: StoryHighlight | null = null;
+    for (const s of tray) {
+        if (covers.has(s.id)) {
+            current = { ...emptyHighlight(d.highlights.length + built.length + 1), cover: s.url };
+            built.push(current);
+        } else if (current) current.slides.push(s);
+        else leftover.push(s);
+    }
+    return { ...d, highlights: [...d.highlights, ...built], unassigned: leftover };
+};
+
 /** The image a highlight's circle shows — its cover, else its first slide. */
 export const coverOf = (h: StoryHighlight): string => h.cover || h.slides.find((s) => s.kind === "image")?.url || h.slides[0]?.url || "";
 
-/** Publishable = at least one highlight with at least one slide. */
-export const draftPublishable = (d: StoryDraft | null): boolean => !!d && d.highlights.some((h) => h.slides.length > 0);
+/**
+ * True when the highlight has no explicit cover and is standing in with its first slide —
+ * that slide is then the icon only, and storyFrames() leaves it out of playback.
+ */
+export const firstSlideIsCover = (h: StoryHighlight): boolean => !h.cover && h.slides.length > 1 && h.slides[0].kind === "image";
 
-export const totalSlides = (highlights: StoryHighlight[]) => highlights.reduce((n, h) => n + h.slides.length, 0);
+/** The frames that actually play — every slide, minus the one doubling as the cover icon. */
+export const storyFrames = (h: StoryHighlight): StorySlide[] => (firstSlideIsCover(h) ? h.slides.slice(1) : h.slides);
+
+/** Publishable = at least one highlight with at least one slide. */
+export const draftPublishable = (d: StoryDraft | null): boolean => !!d && d.highlights.some((h) => storyFrames(h).length > 0);
+
+export const totalSlides = (highlights: StoryHighlight[]) => highlights.reduce((n, h) => n + storyFrames(h).length, 0);
 
 /* ── The sample ──────────────────────────────────────────────────────────── */
 

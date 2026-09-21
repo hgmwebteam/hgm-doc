@@ -21,9 +21,14 @@ export const useAuthUser = () => {
             const u = session?.user;
             if (!u?.email) return null;
             const meta = u.user_metadata ?? {};
+            // A Google identity carries the name in user_metadata; an account minted by
+            // an admin (a seeded proof user, an invited teammate) may carry it in
+            // app_metadata instead. Either is the person's name; the mailbox is the
+            // last resort.
+            const app = (u.app_metadata ?? {}) as Record<string, unknown>;
             return {
                 email: u.email,
-                name: (meta.full_name as string) || (meta.name as string) || u.email.split("@")[0],
+                name: (meta.full_name as string) || (meta.name as string) || (app.full_name as string) || (app.name as string) || u.email.split("@")[0],
                 avatarUrl: (meta.avatar_url as string) || (meta.picture as string) || null,
             };
         };

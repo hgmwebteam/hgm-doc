@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertCircle, BookOpen01, CheckCircle, GraduationHat01, HelpCircle, Image01, Keyboard01, Send01, XClose } from "@untitledui/icons";
+import { AlertCircle, BookOpen01, CheckCircle, GraduationHat01, HelpCircle, Image01, Inbox01, Keyboard01, Send01, XClose } from "@untitledui/icons";
 import { DocsRequestModal } from "@/components/application/docs-request-modal";
 import { Button } from "@/components/base/buttons/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
@@ -256,6 +256,8 @@ export const HelpMenu = ({ variant = "floating" }: { variant?: "floating" | "rai
     if (!isTeam) return null;
 
     const items = [
+        // Every client's requests, and the form that raises one for a client.
+        { label: "Client requests", icon: Inbox01, onClick: () => navigate("/team/tickets") },
         { label: "About this project", icon: BookOpen01, onClick: () => navigate("/roadmap") },
         { label: "Learning Center", icon: GraduationHat01, soon: true, onClick: () => {} },
         { label: "Send docs request", icon: Send01, onClick: () => setRequestOpen(true) },

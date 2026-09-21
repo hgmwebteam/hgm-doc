@@ -12,10 +12,11 @@
  *      and is stored as WebP in the dashboard row, the same place every other dashboard
  *      image lives.
  *   3. The AM reveals the section with the eye toggle. The client sees their profile
- *      as a guest opens it, taps through each carousel, and either approves it or
- *      requests changes with a note. Both land in dashboard_suggestions through the
- *      same Netlify function the Master Brand Document uses, so a client never writes
- *      the row — see the `pinnedposts.{postId}.*` keys below.
+ *      as a guest opens it, taps through each carousel, and leaves a note on any of them
+ *      in the same feedback box the Welcome Email Flow uses. Nobody is asked to approve
+ *      anything. The note lands in dashboard_suggestions through the same Netlify
+ *      function the Master Brand Document uses, so a client never writes the row — see
+ *      the `pinnedposts.{postId}.*` keys below.
  *
  * The phone is the existing Instagram profile surface from /mockup-ig, fed this client's
  * handle, logo, highlights and covers. It is a picture (role="img"); the cards beside it
@@ -30,7 +31,6 @@ import {
     Download01,
     Link01,
     LinkExternal01,
-    MessageTextSquare02,
     ThumbsUp,
     Trash01,
     UploadCloud02,
@@ -50,6 +50,7 @@ import {
     readCanvaOutcome,
     startCanvaConnect,
 } from "@/lib/canva-import";
+import { ClientFeedbackBox } from "@/pages/client/dashboard/client-feedback";
 import { SectionEyebrow, SectionHeading, editInput } from "@/pages/client/dashboard/dashboard-chrome";
 import {
     MAX_PINNED_POSTS,
@@ -68,6 +69,7 @@ import { IgProfileScreen } from "@/pages/team/mockup-ig/ig-profile";
 import type { IgGridItem, IgProfile } from "@/pages/team/mockup-ig/instagram-data";
 import { compressImageFile } from "@/utils/compress-image";
 import { cx } from "@/utils/cx";
+import { downloadSlideJpeg, downloadSlidesZip, fileStem } from "@/utils/download-slides";
 
 /* ── Feedback keys ─────────────────────────────────────────────────────────
    Client input on a post rides the dashboard_suggestions table under a namespaced key,
@@ -77,8 +79,8 @@ import { cx } from "@/utils/cx";
 const KEY_PREFIX = "pinnedposts.";
 export const isPinnedKey = (fieldKey: string) => fieldKey.startsWith(KEY_PREFIX);
 const feedbackKey = (postId: string) => `${KEY_PREFIX}${postId}.feedback`;
+/** Legacy: approvals were sent before the feedback box replaced the Approve button. Read only. */
 const approveKey = (postId: string) => `${KEY_PREFIX}${postId}.approve`;
-const APPROVED_VALUE = "Approved";
 
 /** Instagram serves slides at 1080 wide; storing more is weight the row carries for nothing. */
 const SLIDE_MAX_DIM = 1080;
@@ -92,7 +94,9 @@ const shortDate = (iso: string | null) => {
 /* ── Per-post review state ───────────────────────────────────────────────── */
 
 type PostReview = {
-    /** Latest pending "request changes" note from anyone. */
+    /** Every note on this post, newest first, open and closed alike — what the client's box reads. */
+    notes: Suggestion[];
+    /** Latest pending note from anyone. */
     openNote: Suggestion | null;
     /** Every pending note, newest first — several clients on one dashboard can each leave one. */
     openNotes: Suggestion[];
@@ -109,12 +113,12 @@ const reviewFor = (postId: string, feedback: Suggestion[]): PostReview => {
     const lastAddressed = notes.find((s) => s.status === "accepted") ?? null;
     // An approval only counts while nothing newer asks for a change.
     const approval = approvals.find((a) => !openNotes.some((n) => n.created_at > a.created_at)) ?? null;
-    return { openNote: openNotes[0] ?? null, openNotes, approval, lastAddressed };
+    return { notes, openNote: openNotes[0] ?? null, openNotes, approval, lastAddressed };
 };
 
 const StatusBadge = ({ review, forTeam }: { review: PostReview; forTeam: boolean }) => {
-    if (review.openNote) return <Badge color="warning">Changes requested</Badge>;
-    if (review.approval) return <Badge color="success">Approved</Badge>;
+    if (review.openNote) return <Badge color="warning">{forTeam ? "Feedback to action" : "Feedback sent"}</Badge>;
+    if (forTeam && review.approval) return <Badge color="success">Approved</Badge>;
     if (review.lastAddressed) return <Badge color="brand">{forTeam ? "Updated — awaiting client" : "Updated for you"}</Badge>;
     return <Badge color="gray">{forTeam ? "Awaiting client review" : "Ready for your review"}</Badge>;
 };
@@ -173,6 +177,37 @@ const PinnedPhone = ({ profile }: { profile: IgProfile }) => (
     </PhoneFrame>
 );
 
+/* ── Callout ─────────────────────────────────────────────────────────────── */
+
+/**
+ * A hand-drawn arrow from the caption up into the first row of the grid — "these three
+ * tiles". Drawn in the phone's own width units (a 248-wide frame is 511 tall; the caption
+ * sits below), so it scales with the frame at every breakpoint and the stroke stays even.
+ * It bows out to the right of the bezel by ~40px, which is inside the gap to the post
+ * cards on large screens. The first row starts between 57% and 62% of the screen and is
+ * 20% tall, so aiming at 66% lands inside it whatever the bio length. Decorative only.
+ */
+const PinnedCallout = () => (
+    <svg
+        viewBox="0 0 248 600"
+        aria-hidden="true"
+        className="pointer-events-none absolute top-0 left-1/2 aspect-[248/600] w-[248px] -translate-x-1/2 overflow-visible text-fg-secondary sm:w-[280px]"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+    >
+        {/* A page-coloured halo under the stroke keeps the head legible where it crosses a photo. */}
+        <g className="stroke-(--color-bg-primary)" strokeWidth="6">
+            <path d="M232 524 C296 512, 296 400, 226 344" />
+            <path d="M226 344 L235.9 345.5 M226 344 L229.6 353.3" />
+        </g>
+        <path d="M232 524 C296 512, 296 400, 226 344" />
+        <path d="M226 344 L235.9 345.5 M226 344 L229.6 353.3" />
+    </svg>
+);
+
 /* ── Slide viewer ────────────────────────────────────────────────────────── */
 
 /**
@@ -180,7 +215,18 @@ const PinnedPhone = ({ profile }: { profile: IgProfile }) => (
  * time, arrows and dots, arrow keys and Escape. The caption sits under the slide as it does
  * on Instagram.
  */
-const SlideViewer = ({ post, index: initial, onClose }: { post: PinnedPost | null; index: number; onClose: () => void }) => {
+const SlideViewer = ({
+    post,
+    index: initial,
+    onClose,
+    downloadStem,
+}: {
+    post: PinnedPost | null;
+    index: number;
+    onClose: () => void;
+    /** When set (team only), each slide offers a JPEG download under this file stem. */
+    downloadStem?: string;
+}) => {
     const [index, setIndex] = useState(initial);
     const count = post?.slides.length ?? 0;
 
@@ -269,9 +315,21 @@ const SlideViewer = ({ post, index: initial, onClose }: { post: PinnedPost | nul
                                 ))}
                             </div>
                         )}
-                        <div className="text-white">
-                            <p className="text-sm font-semibold">{post.title || "Pinned post"}</p>
-                            {post.caption.trim() && <p className="mt-1 text-sm whitespace-pre-wrap text-white/75">{post.caption}</p>}
+                        <div className="flex items-start justify-between gap-3 text-white">
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold">{post.title || "Pinned post"}</p>
+                                {post.caption.trim() && <p className="mt-1 text-sm whitespace-pre-wrap text-white/75">{post.caption}</p>}
+                            </div>
+                            {downloadStem && (
+                                <button
+                                    type="button"
+                                    onClick={() => void downloadSlideJpeg(slide.url, downloadStem, index + 1)}
+                                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition duration-100 ease-linear hover:bg-white/20"
+                                >
+                                    <Download01 className="size-3.5" aria-hidden="true" />
+                                    Save slide {index + 1} as JPG
+                                </button>
+                            )}
                         </div>
                     </motion.div>
                     <button
@@ -295,7 +353,7 @@ interface FeedbackProps {
     ordinal: number;
     review: PostReview;
     isTeam: boolean;
-    /** The client (or a team member previewing as one) may approve / request changes. */
+    /** The client (or a team member previewing as one) may leave feedback. */
     canReview: boolean;
     reviewerEmail: string;
     onSend: (items: SuggestionItem[]) => Promise<void>;
@@ -304,137 +362,60 @@ interface FeedbackProps {
 }
 
 const FeedbackPanel = ({ post, ordinal, review, isTeam, canReview, reviewerEmail, onSend, onWithdraw, onResolve }: FeedbackProps) => {
-    const [writing, setWriting] = useState(false);
-    const [note, setNote] = useState("");
-    const [state, setState] = useState<"idle" | "sending" | "error">("idle");
-    const [error, setError] = useState("");
     const label = `Pinned post ${ordinal}${post.title.trim() ? ` · ${post.title.trim()}` : ""}`;
     const mine = (s: Suggestion | null) => !!s && !!reviewerEmail && s.suggested_by === reviewerEmail;
-    const myNote = review.openNotes.find((n) => mine(n)) ?? null;
-
-    const send = async (items: SuggestionItem[], after?: () => void) => {
-        setState("sending");
-        setError("");
-        try {
-            await onSend(items);
-            after?.();
-            setState("idle");
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Something went wrong. Nothing was sent.");
-            setState("error");
-        }
-    };
-
-    const approve = () =>
-        send([{ fieldKey: approveKey(post.id), fieldLabel: `${label} · approved`, currentValue: "", suggestedValue: APPROVED_VALUE }], () => {
-            // Approving supersedes the reviewer's own open note — the two are one opinion.
-            if (myNote) onWithdraw(myNote);
-        });
-
-    const requestChanges = () => {
-        const text = note.trim();
-        if (!text) return;
-        void send([{ fieldKey: feedbackKey(post.id), fieldLabel: label, currentValue: "", suggestedValue: text }], () => {
-            if (mine(review.approval) && review.approval?.status === "pending") onWithdraw(review.approval);
-            setNote("");
-            setWriting(false);
-        });
-    };
 
     return (
         <div className="mt-4 flex flex-col gap-3 border-t border-secondary pt-4">
-            {/* Open notes — the team sees who asked and marks them addressed; a client sees their own with Withdraw. */}
-            {review.openNotes.map((n) => (
-                <div key={n.id} className="rounded-xl bg-warning-primary p-3 ring-1 ring-secondary">
-                    <p className="text-xs font-medium text-secondary">
-                        {mine(n) ? "You asked" : isTeam ? `${n.suggested_by} asked` : "Requested"} · {shortDate(n.created_at)}
-                    </p>
-                    <p className="mt-1 text-sm whitespace-pre-wrap text-primary">{n.suggested_value}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {isTeam && (
+            {/* The team's side: every open note on this post, marked addressed here. A client
+                never reads this list — their own note comes back to them inside the box. */}
+            {isTeam &&
+                review.openNotes.map((n) => (
+                    <div key={n.id} className="rounded-xl bg-warning-primary p-3 ring-1 ring-secondary">
+                        <p className="text-xs font-medium text-secondary">
+                            {mine(n) ? "You asked" : `${n.suggested_by} asked`} · {shortDate(n.created_at)}
+                        </p>
+                        <p className="mt-1 text-sm whitespace-pre-wrap text-primary">{n.suggested_value}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                             <Button size="sm" color="primary" iconLeading={Check} onClick={() => onResolve(n)}>
                                 Mark as addressed
                             </Button>
-                        )}
-                        {!isTeam && mine(n) && (
-                            <button
-                                type="button"
-                                onClick={() => onWithdraw(n)}
-                                className="text-xs font-semibold text-tertiary transition duration-100 ease-linear hover:text-error-primary"
-                            >
-                                Withdraw
-                            </button>
-                        )}
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
 
-            {review.approval && (
+            {/* Legacy approvals: nobody can send one any more, but a post approved before the
+                box replaced the buttons still says so to the team. */}
+            {isTeam && review.approval && (
                 <p className="flex items-center gap-1.5 text-xs text-success-primary">
                     <ThumbsUp className="size-3.5" aria-hidden="true" />
-                    Approved{isTeam || !mine(review.approval) ? ` by ${review.approval.suggested_by}` : ""} · {shortDate(review.approval.created_at)}
-                    {!isTeam && mine(review.approval) && review.approval.status === "pending" && (
-                        <button
-                            type="button"
-                            onClick={() => onWithdraw(review.approval!)}
-                            className="ml-1 font-semibold text-tertiary transition duration-100 ease-linear hover:text-error-primary"
-                        >
-                            Undo
-                        </button>
-                    )}
+                    Approved by {review.approval.suggested_by} · {shortDate(review.approval.created_at)}
                 </p>
             )}
 
-            {!review.openNote && !review.approval && review.lastAddressed && (
+            {isTeam && !review.openNote && review.lastAddressed && (
                 <p className="text-xs text-quaternary">
-                    Your note from {shortDate(review.lastAddressed.created_at)} was addressed
-                    {review.lastAddressed.resolved_at ? ` on ${shortDate(review.lastAddressed.resolved_at)}` : ""}. Have another look and approve when it's
-                    right.
+                    The note from {shortDate(review.lastAddressed.created_at)} was addressed
+                    {review.lastAddressed.resolved_at ? ` on ${shortDate(review.lastAddressed.resolved_at)}` : ""}.
                 </p>
             )}
 
+            {/* The client's side: one box, no verdict asked for. Same component as the Welcome
+                Email Flow and the Landing Page, keyed to this post. */}
             {canReview && (
-                <div className="flex flex-col gap-2">
-                    {!writing ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                            {!review.approval && (
-                                <Button size="sm" color="primary" iconLeading={ThumbsUp} onClick={approve} isLoading={state === "sending"} showTextWhileLoading>
-                                    Approve this post
-                                </Button>
-                            )}
-                            <Button size="sm" color="secondary" iconLeading={MessageTextSquare02} onClick={() => setWriting(true)}>
-                                {myNote ? "Update my note" : "Request changes"}
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-2">
-                            <textarea
-                                autoFocus
-                                rows={3}
-                                value={note}
-                                onChange={(e) => setNote(e.target.value)}
-                                placeholder="What should change? Name the slide if it helps — “slide 3, the dates are wrong”."
-                                className={editInput("resize-y")}
-                            />
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                    size="sm"
-                                    color="primary"
-                                    onClick={requestChanges}
-                                    isDisabled={!note.trim()}
-                                    isLoading={state === "sending"}
-                                    showTextWhileLoading
-                                >
-                                    Send to your Account Manager
-                                </Button>
-                                <Button size="sm" color="tertiary" onClick={() => setWriting(false)}>
-                                    Cancel
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                    {state === "error" && <p className="text-xs text-error-primary">{error}</p>}
-                </div>
+                <ClientFeedbackBox
+                    feedback={{
+                        mode: "client",
+                        items: review.notes,
+                        author: reviewerEmail,
+                        send: (text) => onSend([{ fieldKey: feedbackKey(post.id), fieldLabel: label, currentValue: "", suggestedValue: text }]),
+                        withdraw: async (s) => onWithdraw(s),
+                        // The box never resolves — only the team closes a note, from the list above.
+                        resolve: async () => undefined,
+                    }}
+                    placeholder="Anything you'd change? Name the slide if it helps — “slide 3, the dates are wrong”."
+                    rows={4}
+                />
             )}
         </div>
     );
@@ -741,6 +722,24 @@ export const PinnedPostsSection = ({
     const filled = filledPinnedPosts(posts);
     const slotOf = (post: PinnedPost) => posts.indexOf(post) + 1;
     const [viewer, setViewer] = useState<{ post: PinnedPost; index: number } | null>(null);
+    /* ── Download for posting ──
+       The AM posts these to Instagram by hand, from a phone or a desktop. One zip of JPEGs
+       per post (slides are stored as WebP, which Instagram's uploader won't take), named
+       after the post so three downloads don't collide. */
+    const [downloading, setDownloading] = useState<string | null>(null);
+    const [downloadError, setDownloadError] = useState<string | null>(null);
+    const stemFor = (post: PinnedPost) => fileStem(post.title, `pinned-post-${slotOf(post)}`);
+    const downloadPost = async (post: PinnedPost) => {
+        setDownloading(post.id);
+        setDownloadError(null);
+        try {
+            await downloadSlidesZip(post.slides, stemFor(post));
+        } catch (e) {
+            setDownloadError(e instanceof Error ? e.message : "Couldn't prepare the download.");
+        } finally {
+            setDownloading(null);
+        }
+    };
     const canva = parseCanvaUrl(pinned.canva_url);
     const editing = isTeam && !isLocked;
 
@@ -900,7 +899,7 @@ export const PinnedPostsSection = ({
                         {openCount} change request{openCount === 1 ? "" : "s"}
                     </Badge>
                 )}
-                {filled.length > 0 && approvedCount === filled.length && (
+                {isTeam && filled.length > 0 && approvedCount === filled.length && (
                     <Badge color="success" size="md" type="pill-color">
                         All approved
                     </Badge>
@@ -917,7 +916,7 @@ export const PinnedPostsSection = ({
             <p className="mt-3 max-w-2xl text-md text-tertiary">
                 Three posts pinned to the top of your Instagram grid, so every guest who lands on your profile meets them first: follow to win a stay, sign up
                 for the discount, book direct. Tap through each one below.
-                {canReview && " Approve it when it's right, or tell us what to change."}
+                {canReview && " Anything you'd change? Leave a note under the post — your account manager reads it."}
             </p>
 
             {/* ── Team settings: the Canva source and the handle on the phone ── */}
@@ -1095,12 +1094,15 @@ export const PinnedPostsSection = ({
 
             <div className="mt-8 grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-12">
                 {/* ── The phone: how the profile opens for a guest ── */}
-                <div className="flex flex-col items-center lg:sticky lg:top-8 lg:self-start">
+                {/* Not sticky: the editor below runs long (tray plus three slots), and a phone that
+                    follows the scroll covers what the AM is dragging past. It scrolls with the page. */}
+                <div className="relative flex flex-col items-center lg:self-start">
                     <PinnedPhone profile={igProfile} />
                     <p className="mt-4 max-w-[260px] text-center text-xs text-quaternary">
                         How <span className="font-medium text-tertiary">@{igProfile.handle}</span> opens for a guest — the pinned posts are the first three
                         tiles.
                     </p>
+                    {filled.length > 0 && <PinnedCallout />}
                 </div>
 
                 {/* ── The posts ── */}
@@ -1159,7 +1161,24 @@ export const PinnedPostsSection = ({
                                               <Button size="sm" color="secondary" iconTrailing={ChevronRight} onClick={() => setViewer({ post, index: 0 })}>
                                                   {post.slides.length > 1 ? `View all ${post.slides.length} slides` : "View post"}
                                               </Button>
+                                              {isTeam && (
+                                                  <Button
+                                                      size="sm"
+                                                      color="secondary"
+                                                      iconLeading={Download01}
+                                                      isLoading={downloading === post.id}
+                                                      showTextWhileLoading
+                                                      onClick={() => void downloadPost(post)}
+                                                  >
+                                                      {downloading === post.id
+                                                          ? "Preparing…"
+                                                          : `Download ${post.slides.length} slide${post.slides.length === 1 ? "" : "s"} (JPG)`}
+                                                  </Button>
+                                              )}
                                           </div>
+                                          {isTeam && downloadError && downloading === null && (
+                                              <p className="mt-1.5 text-xs text-error-primary">{downloadError}</p>
+                                          )}
                                       </div>
                                   </div>
                                   {/* Slide strip — every page at a glance, each opening the viewer at itself. */}
@@ -1178,7 +1197,7 @@ export const PinnedPostsSection = ({
                                           ))}
                                       </div>
                                   )}
-                                  {(canReview || isTeam || feedback.some((s) => s.field_key.startsWith(`${KEY_PREFIX}${post.id}.`))) && (
+                                  {(canReview || isTeam) && (
                                       <FeedbackPanel
                                           post={post}
                                           ordinal={slotOf(post)}
@@ -1204,7 +1223,12 @@ export const PinnedPostsSection = ({
                 </div>
             </div>
 
-            <SlideViewer post={viewer?.post ?? null} index={viewer?.index ?? 0} onClose={() => setViewer(null)} />
+            <SlideViewer
+                post={viewer?.post ?? null}
+                index={viewer?.index ?? 0}
+                onClose={() => setViewer(null)}
+                downloadStem={isTeam && viewer ? stemFor(viewer.post) : undefined}
+            />
         </Reveal>
     );
 };

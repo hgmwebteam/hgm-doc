@@ -153,7 +153,7 @@ export const QuestionsScreen = () => {
                                 className={cx(
                                     "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition duration-100 ease-linear",
                                     activeSection === s.slug
-                                        ? "bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300"
+                                        ? "bg-utility-brand-50 text-utility-brand-700"
                                         : "text-secondary hover:bg-secondary_hover hover:text-primary",
                                 )}
                             >
@@ -211,7 +211,7 @@ export const QuestionsScreen = () => {
                                         <h2 className="text-xl font-semibold text-primary">{src.label}</h2>
                                         <span className={cx(
                                             "rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
-                                            open.length > 0 ? "bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300" : "bg-success-secondary text-success-primary",
+                                            open.length > 0 ? "bg-utility-brand-50 text-utility-brand-700" : "bg-utility-green-50 text-utility-green-700",
                                         )}>
                                             {open.length > 0 ? `${open.length} open` : "all answered"}
                                         </span>

@@ -1,7 +1,7 @@
 import { type PointerEvent, useEffect, useRef, useState } from "react";
 import { ChevronLeft, MessageChatCircle } from "@untitledui/icons";
 import { useReducedMotion } from "motion/react";
-import { IMAGE_SLIDE_SECONDS, type StoryHighlight, coverOf } from "@/pages/client/dashboard/pinned-stories-model";
+import { IMAGE_SLIDE_SECONDS, type StoryHighlight, type StorySlide, coverOf, storyFrames } from "@/pages/client/dashboard/pinned-stories-model";
 import { IgScreen, IgStatusBar } from "@/pages/team/mockup-ig/ig-chrome";
 import { IgProfileScreen } from "@/pages/team/mockup-ig/ig-profile";
 import type { IgProfile } from "@/pages/team/mockup-ig/instagram-data";
@@ -76,7 +76,9 @@ export const StoryPlayer = ({
 
     const hIndex = highlights.findIndex((h) => h.id === position.highlightId);
     const highlight = hIndex >= 0 ? highlights[hIndex] : null;
-    const slide = highlight?.slides[position.slide] ?? null;
+    // Frames, not slides: a coverless highlight's first image is its icon and never plays.
+    const frames = highlight ? storyFrames(highlight) : [];
+    const slide = frames[position.slide] ?? null;
 
     // Bounce back to the profile if the highlight on screen was deleted or emptied
     // underneath us (the arrange panel can do both).
@@ -88,18 +90,19 @@ export const StoryPlayer = ({
 
     const next = () => {
         if (!highlight) return;
-        if (position.slide + 1 < highlight.slides.length) return onPosition({ highlightId: highlight.id, slide: position.slide + 1 });
+        if (position.slide + 1 < frames.length) return onPosition({ highlightId: highlight.id, slide: position.slide + 1 });
         // End of this highlight: roll into the next circle, like the real app; the last one
         // returns to the profile so the loop is obviously finished.
         const after = highlights[hIndex + 1];
-        onPosition(after && after.slides.length ? { highlightId: after.id, slide: 0 } : PROFILE);
+        onPosition(after && storyFrames(after).length ? { highlightId: after.id, slide: 0 } : PROFILE);
     };
 
     const prev = () => {
         if (!highlight) return;
         if (position.slide > 0) return onPosition({ highlightId: highlight.id, slide: position.slide - 1 });
         const before = highlights[hIndex - 1];
-        onPosition(before && before.slides.length ? { highlightId: before.id, slide: before.slides.length - 1 } : PROFILE);
+        const beforeFrames = before ? storyFrames(before) : [];
+        onPosition(beforeFrames.length ? { highlightId: before.id, slide: beforeFrames.length - 1 } : PROFILE);
     };
 
     const onDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -114,7 +117,7 @@ export const StoryPlayer = ({
     };
 
     const label = highlight
-        ? `Instagram story: ${highlight.title || "Untitled"}, slide ${position.slide + 1} of ${highlight.slides.length}`
+        ? `Instagram story: ${highlight.title || "Untitled"}, slide ${position.slide + 1} of ${frames.length}`
         : `Instagram profile for @${profile.handle} with the pinned highlights`;
 
     return (
@@ -130,12 +133,13 @@ export const StoryPlayer = ({
                     tab="grid"
                     onHighlight={(i) => {
                         const h = highlights[i];
-                        if (h && h.slides.length) onPosition({ highlightId: h.id, slide: 0 });
+                        if (h && storyFrames(h).length) onPosition({ highlightId: h.id, slide: 0 });
                     }}
                 />
             ) : (
                 <StoryView
                     highlight={highlight}
+                    frames={frames}
                     slide={slide}
                     index={position.slide}
                     holding={holding}
@@ -160,6 +164,7 @@ export const StoryPlayer = ({
 
 const StoryView = ({
     highlight,
+    frames,
     slide,
     index,
     holding,
@@ -176,7 +181,8 @@ const StoryView = ({
     count,
 }: {
     highlight: StoryHighlight;
-    slide: StoryHighlight["slides"][number];
+    frames: StorySlide[];
+    slide: StorySlide;
     index: number;
     holding: boolean;
     reduced: boolean;
@@ -230,7 +236,7 @@ const StoryView = ({
 
             {/* Progress — same track geometry as IgStoryProgress, but the active segment animates. */}
             <div className="absolute inset-x-2 flex items-center gap-1" style={{ top: CHROME_TOP }}>
-                {highlight.slides.map((s, i) => {
+                {frames.map((s, i) => {
                     const state = i < index ? "done" : i === index ? "active" : "todo";
                     return (
                         <span key={s.id} className="h-[2.5px] flex-1 overflow-hidden rounded-full bg-(--ig-text)/30">
@@ -268,7 +274,7 @@ const StoryView = ({
                 </span>
                 <span className="text-[14px] font-semibold drop-shadow">{highlight.title || "Untitled"}</span>
                 <span className="text-[13px] text-(--ig-text-secondary)">
-                    {index + 1}/{highlight.slides.length}
+                    {index + 1}/{frames.length}
                 </span>
                 {count > 0 && (
                     <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-(--ig-text)/20 px-2 py-0.5 text-[12px] font-semibold backdrop-blur-sm">

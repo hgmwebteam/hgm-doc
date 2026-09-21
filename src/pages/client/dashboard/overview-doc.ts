@@ -106,47 +106,111 @@ export const OVERVIEW_COUNTED_FIELDS: (keyof OverviewDoc)[] = [
 ];
 
 /**
- * The Overview brief as one pasteable document, in the rail's reading order.
+ * Title Case for the pasted document's headings and field labels.
  *
- * Mirrors compileMasterDocument: `sections` is returned beside the markdown so a caller
- * can build rich HTML from the same content rather than re-parsing it. Empty fields are
- * dropped rather than printed blank — an AM pastes this into a Google Doc to work from,
- * and rows of "Not filled in" are noise there.
+ * The screen writes labels in sentence case ("Business location(s)"); the team's Google
+ * Doc template writes them in Title Case ("Business Location(s)"). Derived rather than
+ * listed twice, so a relabelled field cannot drift between the form and the paste.
+ *
+ * Only the first letter of a word is touched, so "TikTok" and "Airbnb" survive intact.
+ * Hyphens split words ("Short-term" → "Short-Term") but apostrophes do not, or "Client's"
+ * would come out "Client'S".
  */
-export const compileOverviewDocument = (doc: OverviewDoc): { doc: string; sections: { label: string; value: string }[]; generatedOn: string } => {
+const SMALL_WORDS = new Set(["a", "an", "and", "as", "at", "but", "by", "for", "if", "in", "of", "on", "or", "the", "to", "vs"]);
+const titleCase = (s: string) =>
+    s
+        .split(" ")
+        .map((word, wordIndex) =>
+            word
+                .split("-")
+                .map((part, partIndex) =>
+                    wordIndex > 0 && partIndex === 0 && SMALL_WORDS.has(part.toLowerCase())
+                        ? part.toLowerCase()
+                        : part.charAt(0).toUpperCase() + part.slice(1),
+                )
+                .join("-"),
+        )
+        .join(" ");
+
+const escapeHtml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+export type OverviewDocSection = {
+    title: string;
+    /** Label/value pairs, in screen order. A blank value still gets its bullet. */
+    rows: { label: string; value: string }[];
+    /** Properties are a name with a link beneath, not a label and a value. */
+    properties?: { name: string; link: string }[];
+};
+
+/**
+ * The Overview brief as one pasteable document, shaped like the team's Google Doc template:
+ * a "{Business} - Overview" title, a heading per section, and one bulleted row per field
+ * with the label in bold.
+ *
+ * `html` is what makes a paste into Google Docs arrive as real headings and real bullets —
+ * pasting the markdown instead lands one grey paragraph per section, which is what this
+ * replaced. `markdown` rides along for editors that take only text.
+ *
+ * Empty fields keep their bullet rather than being dropped: the template is a worksheet an
+ * AM fills in beside the client, so a missing row reads as a question nobody asked.
+ */
+export const compileOverviewDocument = (doc: OverviewDoc): { title: string; sections: OverviewDocSection[]; markdown: string; html: string } => {
     const val = (key: keyof OverviewDoc) => String(doc[key] ?? "").trim();
-    const rows = (pairs: [string, string][]) =>
-        pairs
-            .filter(([, v]) => v)
-            .map(([label, v]) => `${label}: ${v}`)
-            .join("\n");
+    const fieldRows = (fields: { key: keyof OverviewDoc; label: string }[]) => fields.map((f) => ({ label: titleCase(f.label), value: val(f.key) }));
 
-    const properties = doc.properties
-        .filter((p) => p.name.trim() || p.link.trim())
-        .map((p) => [p.name.trim() || "Unnamed property", p.link.trim()].filter(Boolean).join(" — "))
-        .join("\n");
-
-    const sections = [
-        ...OVERVIEW_SECTIONS.slice(0, 2).map((s) => ({ label: s.title, value: rows(s.fields.map((f) => [f.label, val(f.key)])) })),
-        { label: "Properties", value: properties },
-        ...OVERVIEW_SECTIONS.slice(2).map((s) => ({ label: s.title, value: rows(s.fields.map((f) => [f.label, val(f.key)])) })),
+    const sections: OverviewDocSection[] = [
+        ...OVERVIEW_SECTIONS.slice(0, 2).map((s) => ({ title: titleCase(s.title), rows: fieldRows(s.fields) })),
         {
-            label: "Baseline (snapshot)",
-            value: rows([
-                ...OVERVIEW_BASELINE.map((f): [string, string] => [f.label, val(f.key)]),
-                ["Direct booking split", val("direct_booking_split")],
+            title: "Properties",
+            rows: [],
+            properties: doc.properties.filter((p) => p.name.trim() || p.link.trim()).map((p) => ({ name: p.name.trim() || "Unnamed property", link: p.link.trim() })),
+        },
+        ...OVERVIEW_SECTIONS.slice(2).map((s) => ({ title: titleCase(s.title), rows: fieldRows(s.fields) })),
+        {
+            title: "Baseline (Snapshot)",
+            rows: [
+                ...OVERVIEW_BASELINE.map((f) => ({ label: titleCase(f.label), value: val(f.key) })),
+                { label: "Current Direct Booking Split", value: val("direct_booking_split") },
                 // The screenshot is a base64 data URL. Naming it beats pasting megabytes of it.
-                ["Instagram screenshot", doc.instagram_screenshot ? "Attached on the dashboard" : ""],
-            ]),
+                { label: "Instagram Screenshot", value: doc.instagram_screenshot ? "Attached on the dashboard" : "" },
+            ],
         },
     ];
 
-    const generatedOn = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    const title = doc.business_name.trim() || doc.client_name.trim() || "Client";
-    const lines: string[] = [`# Client Overview — ${title}`, "", `Generated: ${generatedOn}`, ""];
-    sections.forEach((s, i) => lines.push(`## ${i + 1}. ${s.label}`, "", s.value || "_Not provided yet._", ""));
+    const title = `${doc.business_name.trim() || doc.client_name.trim() || "Client"} - Overview`;
 
-    return { doc: lines.join("\n"), sections, generatedOn };
+    // Heading levels match the template, where the title is Heading 2 and sections Heading 3.
+    const md: string[] = [`## ${title}`, ""];
+    const html: string[] = [`<h2>${escapeHtml(title)}</h2>`];
+
+    for (const section of sections) {
+        md.push(`### ${section.title}`, "");
+        html.push(`<h3>${escapeHtml(section.title)}</h3>`);
+
+        if (section.properties) {
+            md.push(...section.properties.map((p) => `- **${p.name}**${p.link ? `\n    - [Link](${p.link})` : ""}`), "");
+            html.push(
+                `<ul>${section.properties
+                    .map(
+                        (p) =>
+                            `<li><strong>${escapeHtml(p.name)}</strong>${
+                                p.link ? `<ul><li><a href="${escapeHtml(p.link)}">Link</a></li></ul>` : ""
+                            }</li>`,
+                    )
+                    .join("")}</ul>`,
+            );
+            continue;
+        }
+
+        md.push(...section.rows.map((r) => `- **${r.label}**: ${r.value}`), "");
+        html.push(
+            `<ul>${section.rows
+                .map((r) => `<li><strong>${escapeHtml(r.label)}</strong>: ${escapeHtml(r.value).replace(/\n/g, "<br>")}</li>`)
+                .join("")}</ul>`,
+        );
+    }
+
+    return { title, sections, markdown: md.join("\n"), html: html.join("") };
 };
 
 export const DEFAULT_OVERVIEW_DOC: OverviewDoc = {

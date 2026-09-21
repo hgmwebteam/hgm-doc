@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle, Code02, Globe01, Link01, LinkExternal01, Mess
 import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
+import { LANDING_SECTION, recordDashboardPublish } from "@/lib/dashboard-updates";
 import { supabase } from "@/lib/supabase";
 import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
 import { uid } from "@/pages/client/dashboard/dashboard-model";
@@ -385,7 +386,21 @@ export const LandingPageSection = ({
         const { error } = await supabase
             .from("landing_pages")
             .upsert({ slug, client_name: clientName, data: next, updated_at: new Date().toISOString() }, { onConflict: "slug" });
-        return !error;
+        if (error) return false;
+        // Every write that reaches here adds a version — a link, an upload or a restore — so
+        // a growing list is exactly a publish. One line in the team's feed at /log, because
+        // this section keeps its own table and so never shows up in a dashboard save.
+        // Fire-and-forget: the version is already live, and the feed must not be able to
+        // fail a publish.
+        if (!isTemplate && next.versions.length > versions.length) {
+            void recordDashboardPublish({
+                slug,
+                clientName,
+                section: LANDING_SECTION,
+                summary: `Published Landing Page v${next.versions.length}`,
+            });
+        }
+        return true;
     };
 
     /** A link version is a row write only — nothing goes to Storage. */

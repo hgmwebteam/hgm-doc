@@ -656,8 +656,7 @@ const SafeNote = () => (
         <Lock01 className="mt-0.5 size-4 shrink-0 text-fg-quaternary" aria-hidden="true" />
         <p className="text-sm text-tertiary">
             <span className="font-semibold text-secondary">Your details are safe.</span> Everything you enter is sent over an encrypted connection, stored
-            privately, and used only by your dedicated HiddenGem team to set up your accounts — never shared with anyone else. You're welcome to update or
-            rotate any password once setup is complete.
+            privately, and used only by your dedicated HiddenGem team to set up your accounts — never shared with anyone else.
         </p>
     </div>
 );

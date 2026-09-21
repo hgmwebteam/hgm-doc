@@ -338,7 +338,22 @@ export interface DashboardContent {
      */
     allowed_emails?: string[];
     /**
+     * The access list proper: one row per person, each with their own password and their
+     * own set of sections. `allowed_emails` above is the derived mirror of the addresses
+     * here, kept in step on every write because the Netlify suggestion function and the
+     * read-gating RLS policy to come both read that flatter key.
+     *
+     * Absent on rows written before per-person access existed — those upgrade on read from
+     * `allowed_emails`, so an old row keeps behaving exactly as it did. Typed structurally
+     * rather than as DashboardUser to keep this module free of page imports.
+     */
+    dashboard_users?: { email: string; password?: string; sections?: string[] | null }[];
+    /**
      * Shared password the client types alongside their email to open this dashboard.
+     *
+     * Now the FALLBACK: a person with their own password uses theirs, and this covers
+     * everyone who hasn't been given one. Clearing it is safe only once every listed
+     * person has a password of their own.
      *
      * Same mechanism as owner_guides.share_password, which is already in production: the
      * value is compared in the browser, so it gates the UI rather than the data. Anyone who
@@ -367,16 +382,18 @@ export interface DashboardContent {
 /**
  * Website Setup Guide answers.
  *
- * NEVER a password or an API key. This row is readable with the public anon key (see
- * share_password above), so a secret stored here is a secret published. Account emails and
- * provider names only — the logins themselves are handed over in the client's own
+ * This row is readable with the public anon key (see share_password above), so anything
+ * stored here is readable by whoever has the slug. The one exception to "emails only" is
+ * netlify_password, collected on the dashboard at the team's request so the AM can take it
+ * on the onboarding call. Every other login is handed over in the client's own
  * password-gated owner guide (/owner-guide/{slug}), which is what the section links to.
  */
 export interface WebsiteSetup {
     /** The email the client registered their Netlify account under. */
     netlify_email: string;
-    /** The client has confirmed the Netlify account exists. Required for every client. */
-    netlify_done: boolean;
+    /** The password for that Netlify account. Asked for on the dashboard at the team's request
+     *  (see the section header comment) so the AM can collect it on the onboarding call. */
+    netlify_password: string;
     /** "" = not answered yet, "yes" = wants the AI website, "no" = declined for now. */
     ai_website: "" | "yes" | "no";
     /** Per-service account details for the AI website, keyed by WebsiteSetupAccountId. */

@@ -269,10 +269,6 @@ const DASHBOARD_GROUPS: { group: string; items: { label: string; note: string }[
                 label: "Pinned Stories",
                 note: "The Canva story highlights for the top of the client's profile. Paste the Canva link (or upload the exported pages), arrange pages into highlights, publish; the client plays them in the phone and leaves notes slide by slide.",
             },
-            {
-                label: "Repeat Booking Flow",
-                note: 'Placeholder marked "Soon" until it is built.',
-            },
         ],
     },
     {
@@ -280,7 +276,7 @@ const DASHBOARD_GROUPS: { group: string; items: { label: string; note: string }[
         items: [
             { label: "Folder of Content", note: "Opens the client's content drive — the link lives in Brand Kit's folder field." },
             {
-                label: "Website Setup Guide",
+                label: "Setup Guide",
                 note: "Asks every client for a Netlify account in their own name (required), then offers the AI-built booking website. A yes reveals the accounts it needs — Supabase, Resend, Stripe, PMS, registrar, Cloudflare — as account emails only; logins are handed over in that client's own owner guide, which the section links to once it exists. Shown to clients by default.",
             },
             {
@@ -332,6 +328,10 @@ const TABLES: { group: string; rows: { name: string; what: string }[] }[] = [
             { name: "welcome_flows + flow_comments", what: "Welcome email flows per client, plus the comment threads on them." },
             { name: "email_wf_emails", what: "Finished welcome emails from the email pipeline (Pooja), matched to a flow by client name — read-only here." },
             { name: "script_logs", what: "Call-recording transcriptions from /log-script (team-only by policy) — transcripts feed Master Brand drafts." },
+            {
+                name: "dashboard_updates",
+                what: "Who changed what on which client dashboard, one row per save (team-only by policy) — the feed at /log. Section and field names only; never values.",
+            },
             { name: "docs_requests", what: "Feature requests and bug reports filed on /requests." },
             {
                 name: "overview_cards / overview_tabs / template_docs / prompt_library",
@@ -361,7 +361,7 @@ const FUNCTIONS: { name: string; what: string }[] = [
         what: "Drafts Master Brand Document sections from the client's forms, website and pasted reviews — fills empty fields only.",
     },
     { name: "generate-brand-kit", what: "Drafts the Brand Kit (colours, fonts) from the client's website." },
-    { name: "generate-overview", what: "Drafts the team's Client Overview Document." },
+    { name: "generate-overview", what: "Drafts the team's Client Overview Document, one group of fields per call — the dashboard runs three." },
     { name: "generate-summary", what: "Transcribes call recordings (Deepgram) and summarises them (Claude) for /log-script." },
     { name: "ai-chat", what: "Answers questions in the dashboard's AI chat using that client's own content." },
     { name: "mark-booked", what: "Lets a client's browser tick exactly one journey step (kick-off call booked) — deliberately can't write anything else." },
@@ -404,6 +404,7 @@ const LINK_GROUPS: { group: string; links: { to: string; what: string }[] }[] = 
             { to: "/deployment", what: "Every production deploy, what failed, what fixed it" },
             { to: "/fix", what: "Open-incident record (currently: the Google Safe Browsing flag)" },
             { to: "/master-document-log", what: "Master Brand Document change log" },
+            { to: "/log", what: "Dashboard updates — who changed what on which client dashboard, written automatically as people save" },
             { to: "/log-script", what: "Call-recording transcription — feeds the Master Brand drafts" },
             { to: "/designsystem", what: "The Untitled UI component reference for this site" },
             {
@@ -956,8 +957,13 @@ export const ManualScreen = () => {
                                 <p className="mb-3 text-md text-tertiary">{JOURNEY_STEPS.map((s, i) => `${i + 1}. ${s.label}`).join(" · ")}</p>
                                 <p className="mb-3 text-md text-tertiary">
                                     Completion is stored as step <em>ids</em> in <span className="font-mono text-sm">journey_done</span>, not positions, so
-                                    reordering the journey never disturbs a client's recorded progress. The side menu itself is drag-resizable from its right
-                                    hairline (240–420px, remembered per browser), numbers its rows continuously across groups, and shows a count per group.
+                                    reordering the journey never disturbs a client's recorded progress. The funnel step is ticked piece by piece and stores one{" "}
+                                    <span className="font-mono text-sm">funnel:&#123;section&#125;</span> key per review, so each of the five moves the launch
+                                    meter on its own; a row ticked before that split still carries the bare <span className="font-mono text-sm">funnel</span>{" "}
+                                    and is read as all five done. The launch meter above the list is a summary rather than a mirror of it: joining the Google
+                                    Chat group is not on the bar, and the two intake forms share one cell that fills through both — so the bar can show fewer
+                                    milestones than the "x of 10 steps" beside it. The side menu itself is drag-resizable from its right hairline (240–420px,
+                                    remembered per browser), numbers its rows continuously across groups, and shows a count per group.
                                 </p>
                                 <div className="flex flex-col gap-3">
                                     {DASHBOARD_GROUPS.map((g) => (

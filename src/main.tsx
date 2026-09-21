@@ -8,6 +8,7 @@ import { useAuthUser } from "@/hooks/use-auth-user";
 import { ChatWidgetScreen } from "@/pages/client/chat-widget-screen";
 import { ClientOnboardingFormPage } from "@/pages/client/client-onboarding-form-page";
 import { ClientScreen } from "@/pages/client/client-screen";
+import { HelpCenterScreen } from "@/pages/client/help/help-center-screen";
 import { HostOnboardingFormPage } from "@/pages/client/host-onboarding-form-page";
 import { OwnerGuideScreen } from "@/pages/client/owner-guide-screen";
 import { PopupPage } from "@/pages/client/popup-page";
@@ -31,6 +32,7 @@ import { DesignSystemScreen } from "@/pages/team/design-system-screen";
 import { EmailPreviewScreen } from "@/pages/team/email-preview-screen";
 import { HomeScreen } from "@/pages/team/home-screen";
 import { HomeTwoScreen } from "@/pages/team/home-two-screen";
+import { LogScreen } from "@/pages/team/log-screen";
 import { LogScriptScreen } from "@/pages/team/log-script-screen";
 import { ManualScreen } from "@/pages/team/manual-screen";
 import { MockupIgScreen } from "@/pages/team/mockup-ig/mockup-ig-screen";
@@ -39,6 +41,7 @@ import { PromptLibraryScreen } from "@/pages/team/prompt-library-screen";
 import { QuestionsScreen } from "@/pages/team/questions-screen";
 import { ReadingYourClientsScreen } from "@/pages/team/reading-your-clients-screen";
 import { RequestsScreen } from "@/pages/team/requests-screen";
+import { TeamReportScreen, TeamTicketsScreen } from "@/pages/team/tickets-screen";
 import { RoadmapScreen } from "@/pages/team/roadmap-screen";
 import { SafeBrowsingScreen } from "@/pages/team/safe-browsing-screen";
 import { SettingsScreen } from "@/pages/team/settings-screen";
@@ -54,6 +57,8 @@ import "@/styles/globals.css";
 // shown globally — it's a team-only settings shortcut that lives in the dashboard
 // rail, and it must never appear on client-facing pages (owner guides, popups, etc.).
 const PAGES_WITHOUT_FLOATING_CHROME = [
+    "/team/tickets",
+    "/team/tickets/new",
     "/designsystem",
     "/home",
     "/home2",
@@ -73,6 +78,7 @@ const PAGES_WITHOUT_FLOATING_CHROME = [
     "/questions",
     "/deployment",
     "/log-script",
+    "/log",
     "/fix",
     "/manual",
     "/alicia-feedback",
@@ -205,6 +211,9 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/host-onboarding-form" element={<HostOnboardingFormPage />} />
                         <Route path="/client-onboarding-form" element={<ClientOnboardingFormPage />} />
                         <Route path="/requests" element={<RequestsScreen />} />
+                        {/* Client requests, for the team: every client's, and the form that raises one. */}
+                        <Route path="/team/tickets" element={<TeamTicketsScreen />} />
+                        <Route path="/team/tickets/new" element={<TeamReportScreen />} />
                         <Route path="/designsystem" element={<DesignSystemScreen />} />
                         <Route path="/home2" element={<HomeTwoScreen />} />
                         <Route path="/settings" element={<SettingsScreen />} />
@@ -221,6 +230,9 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/mockup" element={<MockupScreen />} />
                         <Route path="/background" element={<BackgroundScreen />} />
                         <Route path="/log-script" element={<LogScriptScreen />} />
+                        {/* Who changed what on which client dashboard. Team-only by RLS; the
+                            page gates on sign-in before it reads. */}
+                        <Route path="/log" element={<LogScreen />} />
                         <Route path="/chat-widget" element={<ChatWidgetScreen isTemplate />} />
                         <Route path="/chat-widget-overview" element={<ChatWidgetOverviewScreen />} />
                         <Route path="/client-dashboard-overview" element={<ClientDashboardOverviewScreen />} />
@@ -233,6 +245,20 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/sample" element={<SampleScreen />} />
                         {/* Team-only: every welcome-flow email, rendered from the DB. Behind TeamGate. */}
                         <Route path="/email-preview" element={<EmailPreviewScreen />} />
+                        {/* The client help centre. Three routes rather than one with a splat, so the
+                            view is named here instead of being re-derived from the path inside the
+                            screen, and so `/help/requests` can never be read as a reference.
+
+                            Safe above the `/:clientSlug` catch-all below: that pattern matches a
+                            SINGLE segment, so it was never going to swallow a two-segment path in
+                            the first place — the risk is the `*` at the bottom, and React Router
+                            ranks a static segment above a splat, so `/x-dashboard/help` lands here
+                            and not on NotFound. Kept adjacent to the catch-all anyway, because the
+                            next person to add a client route will read these two lines together. */}
+                        <Route path="/:clientSlug/help" element={<HelpCenterScreen view="home" />} />
+                        <Route path="/:clientSlug/help/requests" element={<HelpCenterScreen view="list" />} />
+                        <Route path="/:clientSlug/help/requests/:reference" element={<HelpCenterScreen view="detail" />} />
+                        <Route path="/:clientSlug/help/guides/:guide" element={<HelpCenterScreen view="guide" />} />
                         <Route path="/:clientSlug" element={<ClientScreen />} />
                         <Route path="*" element={<NotFound />} />
                     </Routes>

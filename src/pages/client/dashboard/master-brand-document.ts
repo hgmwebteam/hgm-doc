@@ -79,6 +79,170 @@ export const LEGACY_FOUNDATION_FIELDS = [
     { key: "bookingLinks", label: "Booking & upsell links" },
 ] as const;
 
+/* ── Pasting into Google Docs ─────────────────────────────────────────────────
+   compileMasterDocument flattens everything to label/value text, which the PDF
+   exporter and the .md download both want. A paste wants the opposite: real
+   headings, real bullets and real nesting, so Docs renders a document rather
+   than one grey paragraph per section.
+
+   masterDocumentHtml therefore builds its own markup straight from the
+   Foundation rather than re-parsing that text — sub-headings and nested lists
+   are structure the flattened strings cannot express. It follows the team's
+   Google Doc template: every section is a Heading 1 in Title Case, Brand
+   Voice / Taglines / Brand Bio are Heading 3, and Restaurants / Activities are
+   Heading 2 with a nested description under each name. */
+
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Title Case for the pasted document, capitalising every word — the template writes
+ *  "About The Hosts", not "About the hosts". Only the first letter changes, so an
+ *  intentional capital ("Airbnb", "TikTok") survives. */
+const tc = (s: string) =>
+    s
+        .split(" ")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+
+const para = (text: string) => (filled(text) ? `<p>${esc(text.trim()).replace(/\n/g, "<br>")}</p>` : "<p><em>Not provided yet.</em></p>");
+
+/** A bulleted list of label/value pairs, empty ones dropped. "" when nothing is filled. */
+const bullets = (parts: [string, string | undefined][]) => {
+    const rows = parts.filter(([, v]) => filled(v));
+    if (!rows.length) return "";
+    return `<ul>${rows.map(([label, v]) => `<li><strong>${esc(tc(label))}</strong>: ${esc(v!.trim()).replace(/\n/g, "<br>")}</li>`).join("")}</ul>`;
+};
+
+/** A named entity — a persona, a focus property — as a bold bullet with its fields nested beneath. */
+const entity = (name: string, parts: [string, string | undefined][], lead?: string) =>
+    `<li><strong>${esc(name)}</strong>${lead && filled(lead) ? `<p>${esc(lead.trim())}</p>` : ""}${bullets(parts)}</li>`;
+
+export const masterDocumentHtml = (clientName: string, clientWebsite: string, f: Foundation, generatedOn: string): string => {
+    const heading = (label: string) => `<h1>${esc(tc(label))}</h1>`;
+    const out: string[] = [
+        `<h1>${esc(`Master Brand Document - ${clientName.trim() || "Client"}`)}</h1>`,
+        `<p>${esc([clientWebsite.trim() && `Website: ${clientWebsite.trim()}`, `Generated: ${generatedOn}`].filter(Boolean).join("  ·  "))}</p>`,
+    ];
+
+    out.push(heading("About the hosts"), para(f.hosts));
+
+    out.push(
+        heading("About the properties"),
+        bullets([
+            ["Property type", f.propertyType],
+            ["Structure", f.structure],
+            ["General amenities", f.generalAmenities],
+            ["Shared resort amenities", f.sharedAmenities],
+        ]) || para(""),
+    );
+
+    out.push(
+        heading("Location"),
+        bullets([
+            ["Exact location", f.exactLocation],
+            ["Proximity to popular cities", f.proximityCities],
+            ["Proximity to airports", f.proximityAirports],
+        ]) || para(""),
+    );
+
+    out.push(heading("Target audience profile"), para(f.targetAudience));
+    out.push(heading("Unique value proposition"), para(f.uvp));
+
+    const taglines = f.taglines.filter((t) => t.trim());
+    out.push(
+        heading("About the brand"),
+        "<h3>Brand Voice</h3>",
+        para(f.brandVoice),
+        "<h3>Taglines</h3>",
+        taglines.length ? `<ul>${taglines.map((t) => `<li>${esc(t.trim())}</li>`).join("")}</ul>` : para(""),
+        "<h3>Brand Bio</h3>",
+        para(f.brandBio),
+    );
+
+    const personas = f.personas.filter((p) => filled(p.name) || filled(p.summary));
+    out.push(heading("Personas"));
+    out.push(
+        personas.length
+            ? `<ul>${personas
+                  .map((p) =>
+                      entity(
+                          `${p.name.trim() || "Unnamed persona"}${filled(p.rank) ? ` (${p.rank.trim()})` : ""}`,
+                          [
+                              ["Age", p.age],
+                              ["Relationship status", p.relationship],
+                              ["Location", p.location],
+                              ["Interests", p.interests],
+                              ["Pain points", p.painPoints],
+                              ["What they're seeking", p.seeking],
+                              ["How they book", p.howTheyBook],
+                              ["Keywords", p.keywords.filter((k) => k.trim()).join(", ")],
+                          ],
+                          p.summary,
+                      ),
+                  )
+                  .join("")}</ul>`
+            : para(""),
+    );
+    if (filled(f.personaResonance)) out.push(`<p><strong>Why The Brand Resonates</strong>: ${esc(f.personaResonance.trim())}</p>`);
+
+    const focus = f.focusProperties.filter((p) => filled(p.name) || filled(p.link));
+    out.push(heading("Focus properties"));
+    out.push(
+        focus.length
+            ? `<ul>${focus
+                  .map((p) =>
+                      entity(p.name.trim() || "Unnamed property", [
+                          ["Listing", p.link],
+                          ["Location", p.location],
+                          [
+                              "Sleeps",
+                              [p.guests && `${p.guests} guests`, p.bedrooms && `${p.bedrooms} bed`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`]
+                                  .filter(Boolean)
+                                  .join(" · "),
+                          ],
+                          ["Listing description", p.description],
+                          ["Features & amenities", p.features],
+                          ["Terms & rules", p.terms],
+                          ["Top reviews", p.reviews.filter((r) => r.trim()).map((r) => `“${r.trim()}”`).join("\n")],
+                      ]),
+                  )
+                  .join("")}</ul>`
+            : para(""),
+    );
+
+    /** Restaurants and activities share a shape: a name with its description nested under it. */
+    const favourites = (rows: LocalFavorite[]) => {
+        const kept = rows.filter((r) => filled(r.name));
+        if (!kept.length) return para("");
+        return `<ul>${kept
+            .map((r) => `<li><strong>${esc(r.name.trim())}</strong>${filled(r.description) ? `<ul><li>${esc(r.description.trim())}</li></ul>` : ""}</li>`)
+            .join("")}</ul>`;
+    };
+    out.push(heading("Local favorites"), "<h2>Restaurants</h2>", favourites(f.restaurants), "<h2>Activities/Attractions</h2>", favourites(f.activities));
+
+    out.push(
+        heading("Reviews"),
+        bullets([
+            ["Core brand pillars & key selling points", f.corePillars],
+            ["Emotional & experiential themes", f.emotionalThemes],
+        ]) || para(""),
+    );
+
+    const links = f.websiteLinks.filter((l) => filled(l.page) || filled(l.url));
+    out.push(heading("Website links"));
+    out.push(
+        links.length
+            ? `<ul>${links
+                  .map((l) => {
+                      const page = esc(l.page.trim() || "Untitled page");
+                      return `<li>${filled(l.url) ? `<a href="${esc(l.url.trim())}">${page}</a>` : page}</li>`;
+                  })
+                  .join("")}</ul>`
+            : para(""),
+    );
+
+    return out.join("");
+};
+
 /** Join a set of sub-fields into one block, keeping the labels of the ones that have an
  * answer and dropping the rest — an export shouldn't be mostly "Not provided yet". */
 export const subBlock = (parts: [string, string | undefined][]): string =>

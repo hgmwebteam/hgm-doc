@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Check, CheckCircle, Edit03 } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import type { Suggestion } from "@/pages/client/dashboard/suggestions-model";
+import { cx } from "@/utils/cx";
 
 /**
  * The plain client feedback box, and the team's list of what came back.
@@ -37,9 +39,22 @@ export const shortDate = (iso: string) => {
     return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+/** "Sep 14 at 2:31 PM" — a sent note says exactly when it went, not just the day. */
+const sentStamp = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${shortDate(iso)} at ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+};
+
 /**
  * The client's box. Renders nothing unless `mode` is "client", so a caller can hand it the
  * same props it gives the review list and let this decide.
+ *
+ * Two faces, because an open textarea is the wrong answer to "I already told you": the
+ * compose form until a note is sent, then a receipt — what was sent, when, and what happens
+ * next — with Edit reopening the form. The receipt is the resting state, so a client who
+ * comes back tomorrow still sees their note landed; the old confirmation line timed out
+ * after six seconds and left the page looking like nothing had happened.
  */
 export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedback: ClientFeedbackProps; placeholder: string; rows?: number }) => {
     const pending = feedback.items.filter((s) => s.status === "pending");
@@ -51,6 +66,10 @@ export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedbac
     const [text, setText] = useState("");
     const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
     const [error, setError] = useState("");
+    /** Reopens the form over a sent note. Cleared whenever the open note changes. */
+    const [editing, setEditing] = useState(false);
+    /** Withdraw confirms in place rather than in a dialog — it's one quiet link, not a verdict. */
+    const [confirmWithdraw, setConfirmWithdraw] = useState(false);
 
     // Tracks the viewer's open note, which changes right after a send (the refresh brings
     // the new row back). Keyed on the row id alone so typing is never interrupted, and so
@@ -58,6 +77,8 @@ export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedbac
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         setText(mine?.suggested_value ?? "");
+        setEditing(false);
+        setConfirmWithdraw(false);
     }, [mine?.id]);
 
     if (feedback.mode !== "client") return null;
@@ -70,6 +91,7 @@ export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedbac
         try {
             await feedback.send(body);
             setState("sent");
+            setEditing(false);
             window.setTimeout(() => setState((s) => (s === "sent" ? "idle" : s)), 6000);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Something went wrong. Nothing was sent.");
@@ -77,12 +99,96 @@ export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedbac
         }
     };
 
+    const card = "rounded-2xl bg-primary p-4 ring-1 ring-secondary md:p-5";
+
+    /* ── Sent: the receipt ──
+       What they wrote, when it went, and who has it now. No textarea, because there is
+       nothing to write until they decide to change something — Edit brings it back. */
+    if (mine && !editing) {
+        return (
+            <div className={card}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-primary">Your feedback</p>
+                    <span className="rounded-full bg-warning-primary px-2.5 py-1 text-xs font-medium text-warning-primary">Awaiting review</span>
+                </div>
+
+                <div
+                    className={cx(
+                        "mt-3 flex gap-2.5 rounded-xl bg-success-primary p-3",
+                        state === "sent" && "duration-200 animate-in fade-in slide-in-from-bottom-1 motion-reduce:animate-none",
+                    )}
+                >
+                    <Check className="mt-0.5 size-4 shrink-0 text-success-primary" />
+                    <div>
+                        <p className="text-sm font-medium text-primary">Thanks — we have your feedback.</p>
+                        <p className="mt-0.5 text-sm text-tertiary">Your account manager reads this and will come back to you.</p>
+                    </div>
+                </div>
+
+                {/* Their own words, quoted back. Seeing it is the reassurance, and it makes
+                    Edit honest — they can tell what they are about to change. */}
+                <blockquote className="mt-3 border-l-2 border-brand pl-3 text-sm whitespace-pre-wrap text-secondary">{mine.suggested_value}</blockquote>
+                <p className="mt-2 text-xs text-quaternary">Sent {sentStamp(mine.created_at)}</p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Button size="sm" color="secondary" iconLeading={Edit03} onClick={() => setEditing(true)}>
+                        Edit feedback
+                    </Button>
+                    {confirmWithdraw ? (
+                        <span className="flex items-center gap-2 text-sm text-tertiary">
+                            Delete this?
+                            <button
+                                type="button"
+                                onClick={() => void feedback.withdraw(mine).catch(() => undefined)}
+                                className="font-semibold text-error-primary transition duration-100 ease-linear hover:underline"
+                            >
+                                Yes, delete
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setConfirmWithdraw(false)}
+                                className="font-semibold text-tertiary transition duration-100 ease-linear hover:text-primary"
+                            >
+                                Keep it
+                            </button>
+                        </span>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setConfirmWithdraw(true)}
+                            className="text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:text-error-primary"
+                        >
+                            Withdraw
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    /* ── Compose: nothing open, or editing what is ── */
     return (
-        <div className="rounded-2xl bg-primary p-4 ring-1 ring-secondary md:p-5">
+        <div className={card}>
             <div className="flex flex-wrap items-start justify-between gap-2">
                 <p className="text-sm font-semibold text-primary">Your feedback</p>
-                {mine && <span className="rounded-full bg-warning-primary px-2.5 py-1 text-xs font-medium text-warning-primary">Awaiting review</span>}
+                {editing && <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary">Editing</span>}
             </div>
+
+            {/* A closed note is answered here rather than in a footnote — the client asked for
+                something, someone dealt with it, and that deserves a line of its own. */}
+            {!editing && resolved && (
+                <div className="mt-3 flex gap-2.5 rounded-xl bg-secondary p-3">
+                    <CheckCircle className="mt-0.5 size-4 shrink-0 text-success-primary" />
+                    <div>
+                        <p className="text-sm font-medium text-primary">
+                            {resolved.status === "accepted" ? "Your last note is done" : "Your last note was closed"}
+                            {resolved.resolved_at ? ` — ${shortDate(resolved.resolved_at)}` : ""}
+                        </p>
+                        <p className="mt-0.5 text-sm text-tertiary">Anything else you'd change? Write it below.</p>
+                    </div>
+                </div>
+            )}
+
             <textarea
                 rows={rows}
                 value={text}
@@ -101,26 +207,23 @@ export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedbac
                 >
                     {mine ? "Update feedback" : "Send feedback"}
                 </Button>
-                {mine && (
+                {editing && (
                     <button
                         type="button"
-                        onClick={() => void feedback.withdraw(mine).catch(() => undefined)}
-                        className="text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:text-error-primary"
+                        onClick={() => {
+                            setText(mine?.suggested_value ?? "");
+                            setEditing(false);
+                        }}
+                        className="text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:text-primary"
                     >
-                        Withdraw
+                        Cancel
                     </button>
                 )}
             </div>
             {/* Status sits under the button rather than beside it — at rail width a sentence
                 next to the button wrapped to three lines. */}
-            {state === "sent" && <p className="mt-2.5 text-sm text-success-primary">Sent — thank you. Your account manager will follow up.</p>}
             {state === "error" && <p className="mt-2.5 text-sm text-error-primary">{error}</p>}
-            {state === "idle" && !mine && resolved && (
-                <p className="mt-2.5 text-xs text-quaternary">
-                    Your note from {shortDate(resolved.created_at)} was marked {resolved.status === "accepted" ? "done" : "closed"}
-                    {resolved.resolved_at ? ` on ${shortDate(resolved.resolved_at)}` : ""}.
-                </p>
-            )}
+            {!editing && !resolved && <p className="mt-2.5 text-xs text-quaternary">Only your account manager sees this.</p>}
         </div>
     );
 };

@@ -1,6 +1,7 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image01, Mail01, Monitor01, Phone01, RefreshCw01, SearchSm, Settings01, XClose } from "@untitledui/icons";
 import { AnimatePresence, motion } from "motion/react";
+import { Button } from "@/components/base/buttons/button";
 import { supabase } from "@/lib/supabase";
 import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
 import { flowFeedbackSlot } from "@/pages/client/dashboard/suggestions-model";

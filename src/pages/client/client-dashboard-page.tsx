@@ -5326,10 +5326,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         label="Reviews"
                                                                         badge={isTeam ? <SourceBadge>From guest reviews</SourceBadge> : undefined}
                                                                     >
+                                                                        {/* The team's line is an instruction — it tells an AM what to go and do,
+                                                                            and the Paste guest reviews box below acts on it. A client reading that
+                                                                            is being handed someone else's to-do list, so they get the finding
+                                                                            instead: the work is done, and this is what it turned up. */}
                                                                         <p className="text-md text-tertiary">
-                                                                            Pull guest reviews and analyze them to identify recurring themes in what guests love
-                                                                            about their stays. The goal is to gain deeper insights into the brand's strengths
-                                                                            and use these findings to inform and enhance future marketing efforts.
+                                                                            {isTeam
+                                                                                ? "Pull guest reviews and analyze them to identify recurring themes in what guests love about their stays. The goal is to gain deeper insights into the brand's strengths and use these findings to inform and enhance future marketing efforts."
+                                                                                : "We read through your guest reviews to understand what people love most about staying with you. These are the strengths that came up again and again — the details guests single out, and the way a stay makes them feel — and they shape how we market you."}
                                                                         </p>
 
                                                                         <DocField

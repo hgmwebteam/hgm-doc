@@ -3,6 +3,7 @@ import { RefreshCw01, UploadCloud02, XClose } from "@untitledui-pro/icons/line";
 import { MAX_VIDEO_BYTES, uploadVideo } from "@/components/application/video-block";
 import { PhoneFrame } from "@/components/shared-assets/phone-frame";
 import { ReelVideo } from "@/components/shared-assets/reel-video";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
 import { editInput } from "@/pages/client/dashboard/dashboard-chrome";
 import type { ExampleReel } from "@/pages/client/dashboard/dashboard-model";
 import { cx } from "@/utils/cx";
@@ -18,6 +19,10 @@ import { cx } from "@/utils/cx";
  * THE CAPTION IS THE TEXT ALTERNATIVE. These loops are silent and autoplay, so the title
  * and description under each phone are what a reduced-motion visitor (or a screen reader)
  * gets instead of the footage — which is why both are editable rather than fixed labels.
+ *
+ * THE CLIENT ANSWERS IN THE SHARED FEEDBACK BOX (client-feedback.tsx), the same one the
+ * welcome emails and the landing page carry — one note on the set of three, editable and
+ * withdrawable, read and closed by the team in the review list above the phones.
  *
  * UPLOADS GO TO THE `videos` BUCKET, never into the row: a reel is tens of MB. The bucket
  * caps a file at 50 MB and only accepts mp4 / webm / mov; an iPhone's HEVC .mov will
@@ -133,24 +138,53 @@ export const ExampleReelsSection = ({
     reels,
     isLocked,
     onChange,
+    feedback,
 }: {
     reels: ExampleReel[];
     isLocked: boolean;
     onChange: (id: string, patch: Partial<ExampleReel>) => void;
+    /** The shared client feedback box — the same one the welcome emails and landing page use. */
+    feedback?: ClientFeedbackProps;
 }) => {
     const shown = isLocked ? reels.filter((r) => r.url) : reels;
 
     if (!shown.length) {
         return (
+            // Nothing to watch yet, so nothing to say about it — the feedback box waits until
+            // there is a reel on screen rather than asking for notes on an empty section.
             <p className="mt-6 rounded-xl border border-dashed border-secondary px-4 py-5 text-sm text-quaternary italic">Your example reels are on the way.</p>
         );
     }
 
     return (
-        <div className="-mx-4 mt-8 scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:justify-items-center sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0">
-            {shown.map((reel) => (
-                <ReelSlot key={reel.id} reel={reel} isLocked={isLocked} onChange={(patch) => onChange(reel.id, patch)} />
-            ))}
-        </div>
+        <>
+            {/* The team's side above the phones: an open note is the reason they opened this
+                section, so it shouldn't sit below three full-height reels. */}
+            {feedback && (
+                // `empty:hidden` because the review list renders nothing at all for a client,
+                // or for a team with no open notes — an empty div would leave its margin behind.
+                <div className="mt-8 empty:hidden">
+                    <ClientFeedbackReview feedback={feedback} />
+                </div>
+            )}
+
+            <div className="-mx-4 mt-8 scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:justify-items-center sm:gap-6 sm:overflow-visible sm:px-0 sm:pb-0">
+                {shown.map((reel) => (
+                    <ReelSlot key={reel.id} reel={reel} isLocked={isLocked} onChange={(patch) => onChange(reel.id, patch)} />
+                ))}
+            </div>
+
+            {/* The client's: one note on the set, under the reels they just watched. Capped at
+                the width of a paragraph — a textarea spanning three phones reads as a form. */}
+            {feedback && (
+                <div className="mt-8 max-w-2xl empty:hidden">
+                    <ClientFeedbackBox
+                        feedback={feedback}
+                        placeholder="Anything you'd change? Name the reel if it helps — “the second one, the music is too loud”."
+                        rows={4}
+                    />
+                </div>
+            )}
+        </>
     );
 };

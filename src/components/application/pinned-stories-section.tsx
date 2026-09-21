@@ -34,6 +34,7 @@ import {
 } from "@/lib/canva-import";
 import { STORIES_SECTION, recordDashboardPublish } from "@/lib/dashboard-updates";
 import { supabase } from "@/lib/supabase";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
 import { type PinnedPost, parseCanvaUrl, uid } from "@/pages/client/dashboard/dashboard-model";
 import { type PinnedProfileInputs, buildProfile } from "@/pages/client/dashboard/pinned-posts";
 import {
@@ -75,6 +76,11 @@ import { cx } from "@/utils/cx";
  *      the same phone, and they leave notes on individual slides or approve the lot.
  *   4. Notes come back here as a list the AM works through; a new import + publish sends
  *      v2 back for review while v1's notes stay on v1.
+ *
+ * Beside all of that sits the shared client feedback box (client-feedback.tsx, also on the
+ * welcome emails and the landing page): one open-ended note on the section, which survives
+ * the approval that closes step 3. It rides dashboard_suggestions, not pinned_stories, so
+ * it is not versioned and not tied to a slide — the AM reads it in the list above Versions.
  *
  * Persistence: pinned_stories (see the 20260910180000 migration). Team writes go straight
  * to Supabase under the team-only policy; the client's notes/approval go through
@@ -120,6 +126,7 @@ export const PinnedStoriesSection = ({
     isTemplate,
     teamName,
     clientEmail,
+    feedback,
 }: {
     slug?: string;
     clientName: string;
@@ -134,6 +141,13 @@ export const PinnedStoriesSection = ({
     teamName: string;
     /** The client's own identity email; empty for team / an anonymous unlock, which hides the review controls. */
     clientEmail: string;
+    /**
+     * The shared client feedback box (client-feedback.tsx), riding dashboard_suggestions —
+     * NOT the per-slide notes and Approve all above it, which live in pinned_stories and
+     * close on one published version. This is the channel that stays open after an
+     * approval, so "actually, could we swap the cover?" has somewhere to go.
+     */
+    feedback?: ClientFeedbackProps;
 }) => {
     const [data, setData] = useState<PinnedStoriesData>(EMPTY_PINNED_STORIES);
     const [position, setPosition] = useState<StoryPosition>(PROFILE);
@@ -1352,6 +1366,11 @@ export const PinnedStoriesSection = ({
                             </div>
                         )}
 
+                        {/* Team: the open feedback notes, which are about the section rather than
+                            one slide, so they sit beside the version list and not inside a
+                            version's own note list. Renders nothing when there are none. */}
+                        {feedback && <ClientFeedbackReview feedback={feedback} />}
+
                         {/* Team: versions */}
                         {isTeam && data.versions.length > 1 && (
                             <div className="flex flex-col rounded-2xl bg-primary ring-1 ring-secondary">
@@ -1521,6 +1540,18 @@ export const PinnedStoriesSection = ({
                                     </div>
                                 )}
                             </div>
+                        )}
+
+                        {/* Client: anything the per-slide notes and Approve all don't cover. It stays
+                            after an approval on purpose — that gate closes, this doesn't — and it is
+                            one note on the set, edited in place, rather than another comment thread.
+                            Nothing published yet means nothing to say, so it waits for `live`. */}
+                        {live && feedback && (
+                            <ClientFeedbackBox
+                                feedback={feedback}
+                                placeholder="Anything else about the highlights? For a change to one slide, the note button above tells us which slide you mean."
+                                rows={4}
+                            />
                         )}
 
                         {/* The live set, highlight by highlight — the same list the AM arranges, read-only. Every

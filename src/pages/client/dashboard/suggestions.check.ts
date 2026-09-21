@@ -5,18 +5,35 @@
  *
  * Same no-framework pattern as dashboard-model.check.ts. Run it:
  *   npx tsc src/pages/client/dashboard/suggestions.check.ts \
- *     src/pages/client/dashboard/suggestions-model.ts \
- *     src/pages/client/dashboard/dashboard-model.ts \
  *     --outDir /tmp/hgm-check --module commonjs --moduleResolution node \
- *     --target es2022 --skipLibCheck --esModuleInterop --types node \
- *   ; node /tmp/hgm-check/suggestions.check.js
+ *     --target es2022 --skipLibCheck --esModuleInterop \
+ *     --baseUrl . --paths '{"@/*":["src/*"]}'
+ *   ; node -r /tmp/hgm-check/alias.js /tmp/hgm-check/pages/client/dashboard/suggestions.check.js
  *
- * The compile prints one TS2307 for the aliased `@/lib/supabase` type import in
- * dashboard-model.ts — type-only and erased, the emitted JS runs. Ignore that line.
+ * `--paths` only teaches the COMPILER the `@/` alias; node still needs it at require time,
+ * because dashboard-model.ts pulls in `@/pages/client/dashboard/website-setup` for real
+ * (not as a type). An `alias.js` that rewrites `@/x` to `<outDir>/x` in
+ * `Module._resolveFilename` is enough — or run it through tsx/vite-node, which resolve
+ * tsconfig paths themselves.
  */
 import assert from "node:assert/strict";
 import { DEFAULT_FOUNDATION, type Foundation, emptyFavorite, emptyFocusProperty, emptyPersona, emptyWebsiteLink } from "./dashboard-model";
-import { LIST_COLUMNS, SCALAR_KEYS, applySuggestion, labelForKey, valueForKey } from "./suggestions-model";
+import {
+    FLOW_FEEDBACK_KEY,
+    LANDING_FEEDBACK_KEY,
+    LIST_COLUMNS,
+    REELS_FEEDBACK_KEY,
+    SCALAR_KEYS,
+    STORIES_FEEDBACK_KEY,
+    applySuggestion,
+    isFlowFeedbackKey,
+    isLandingFeedbackKey,
+    isReelsFeedbackKey,
+    isSectionFeedbackKey,
+    isStoriesFeedbackKey,
+    labelForKey,
+    valueForKey,
+} from "./suggestions-model";
 
 const base = (over: Partial<Foundation> = {}): Foundation => ({ ...DEFAULT_FOUNDATION, ...over });
 
@@ -97,6 +114,34 @@ for (const list of Object.keys(LIST_COLUMNS) as (keyof typeof LIST_COLUMNS)[]) {
     assert.equal(labelForKey(f, "taglines.2"), "Tagline 3");
     assert.ok(labelForKey(f, "restaurants.r1.name").includes("Joe's Diner"));
     assert.equal(labelForKey(f, "personas.gone.howTheyBook").includes("How they book"), true);
+}
+
+/* 9. Section feedback keys: one family each, never each other's, never a document edit.
+      The prefixes are what the Netlify function gates visibility on and what the team's
+      lists filter by, so an overlap would show one section's notes under another — and
+      "pinnedStories." vs Pinned Posts' "pinnedposts." is exactly the pair that could. */
+{
+    const families = [
+        { key: FLOW_FEEDBACK_KEY, mine: isFlowFeedbackKey },
+        { key: LANDING_FEEDBACK_KEY, mine: isLandingFeedbackKey },
+        { key: REELS_FEEDBACK_KEY, mine: isReelsFeedbackKey },
+        { key: STORIES_FEEDBACK_KEY, mine: isStoriesFeedbackKey },
+    ];
+    const tests = families.map((f) => f.mine);
+
+    for (const { key, mine } of families) {
+        assert.ok(mine(key), `${key} must belong to its own family`);
+        assert.ok(isSectionFeedbackKey(key), `${key} must count as section feedback`);
+        assert.equal(tests.filter((t) => t(key)).length, 1, `${key} matches more than one family`);
+        // A note is never applied to the document — done or dismissed is the whole outcome.
+        assert.equal(applySuggestion(base(), key, "a note"), null, `${key} must not apply to the foundation`);
+        assert.equal(valueForKey(base(), key), null, `${key} must not resolve to a field`);
+    }
+
+    // Pinned POSTS keys are a separate family, read beside their own section.
+    assert.equal(isSectionFeedbackKey("pinnedposts.abc123.feedback"), false, "pinned post keys must not read as section feedback");
+    assert.equal(isStoriesFeedbackKey("pinnedposts.abc123.feedback"), false, "pinned post keys must not read as pinned stories");
+    assert.equal(isSectionFeedbackKey("hosts"), false, "a document key must not read as feedback");
 }
 
 console.log("suggestions.check: all assertions passed");

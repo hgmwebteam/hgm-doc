@@ -70,6 +70,43 @@ export const LANDING_FEEDBACK_PREFIX = "landingPage.";
 export const LANDING_FEEDBACK_KEY = `${LANDING_FEEDBACK_PREFIX}all`;
 export const isLandingFeedbackKey = (key: string) => key.startsWith(LANDING_FEEDBACK_PREFIX);
 
+/* ── Example Reels feedback ──
+   Marketing → Example Reels had no way for a client to answer at all: three reels played
+   and that was the end of it. Same box, same table, same review loop as the welcome flow,
+   under its own prefix. One note per person for the set: "exampleReels.all" — a client
+   watching three reels writes one message, exactly as they do for nine emails. */
+
+export const REELS_FEEDBACK_PREFIX = "exampleReels.";
+/** The one key an Example Reels note is stored under. */
+export const REELS_FEEDBACK_KEY = `${REELS_FEEDBACK_PREFIX}all`;
+export const isReelsFeedbackKey = (key: string) => key.startsWith(REELS_FEEDBACK_PREFIX);
+
+/* ── Pinned Stories feedback ──
+   The open-ended channel beside the per-slide notes and the Approve all gate, which live
+   in pinned_stories and not here. Those are a verdict on one published version: once a
+   client approves, they have nothing left to say. This stays open either side of it, the
+   same relationship the landing-page keys have to that section's Approve / Request
+   changes. Its own prefix, distinct from Pinned POSTS' "pinnedposts." — two sections,
+   two families, never mixed. */
+
+export const STORIES_FEEDBACK_PREFIX = "pinnedStories.";
+/** The one key a Pinned Stories note is stored under. */
+export const STORIES_FEEDBACK_KEY = `${STORIES_FEEDBACK_PREFIX}all`;
+export const isStoriesFeedbackKey = (key: string) => key.startsWith(STORIES_FEEDBACK_PREFIX);
+
+/**
+ * True for every "a client wrote us a note about this section" key — the four families
+ * above. NOT Pinned Posts, whose keys are per post and live beside that section
+ * (`isPinnedKey` in pinned-posts.tsx).
+ *
+ * Callers that split the table by job want this rather than a chain of prefix tests: a
+ * new family added above is then already excluded from the Master Brand Document's
+ * pending list, its orphan check and the team's edit count, instead of silently showing
+ * up there as an edit to a field that doesn't exist.
+ */
+export const isSectionFeedbackKey = (key: string) =>
+    isFlowFeedbackKey(key) || isLandingFeedbackKey(key) || isReelsFeedbackKey(key) || isStoriesFeedbackKey(key);
+
 /** One proposed edit, as the client's browser sends it to the create action. */
 export interface SuggestionItem {
     fieldKey: string;

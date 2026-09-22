@@ -102,7 +102,16 @@ const SopViewer = () => {
         const target = hash.replace(/^#/, "");
         if (!doc || !target) return;
         const el = doc.getElementById(`task-${target}`) ?? doc.getElementById(target);
-        el?.scrollIntoView({ block: "start" });
+        if (!el) return;
+        // Each phase is a <details class="phase">, collapsed on load. A real fragment
+        // navigation makes the browser expand one to reveal its target; scrollIntoView
+        // does not, so open every <details> above the task or the scroll goes nowhere.
+        // Matched on tagName, not instanceof: these nodes belong to the iframe's realm,
+        // where the parent window's HTMLDetailsElement never matches.
+        for (let n = el.parentElement; n; n = n.parentElement) {
+            if (n.tagName === "DETAILS") (n as HTMLDetailsElement).open = true;
+        }
+        el.scrollIntoView({ block: "start" });
     };
 
     if (!entry) {

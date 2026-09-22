@@ -56,6 +56,8 @@ import {
 // Aliased rather than reusing the slugify above: this must match the slug the dashboard's
 // own "+ New Page" wizard produces, so it uses the same function that wizard does.
 import { createDefaultContent, slugify as dashboardSlugify, genSharePassword } from "@/pages/client/dashboard/dashboard-model";
+import { SOP_DEPARTMENTS, sopDeptTabId } from "@/pages/team/sops/sop-departments";
+import { SopsContent } from "@/pages/team/sops/sops-content";
 import { createBlankTemplateData, isReservedSlug, slugify } from "@/pages/templates/template-one-screen";
 import { useTheme } from "@/providers/theme-provider";
 import { compressImageFile } from "@/utils/compress-image";
@@ -222,7 +224,7 @@ interface Department {
     header: string;
     icon: typeof Share07;
     sectionLabel: string;
-    kind: "docs" | "cards" | "empty" | "clientlist";
+    kind: "docs" | "cards" | "empty" | "clientlist" | "sops";
     tabs: DeptTab[];
     /** Extra static nav groups rendered above the main section (with a divider),
         e.g. a "Client Input" group linking out to shared docs like Owner Guides. */
@@ -323,6 +325,18 @@ const DEPARTMENTS: Department[] = [
             // surface, so it links out rather than rendering a card grid here.
             { id: "mockups", label: "Mockups & backdrops", icon: Image01, to: "/test" },
         ],
+    },
+    {
+        // Standard operating procedures. The sidebar rows are the SOP departments
+        // (ACC, WEB, …) read from sop-departments.ts, so a new department is a row
+        // there, not an edit here. Content pane and viewer live in pages/team/sops/.
+        id: "sops",
+        short: "SOPs",
+        header: "SOPs",
+        icon: ClipboardCheck,
+        sectionLabel: "Departments",
+        kind: "sops",
+        tabs: [{ id: "all", label: "All SOPs", icon: LayoutAlt01 }, ...SOP_DEPARTMENTS.map((d) => ({ id: sopDeptTabId(d.code), label: d.name, icon: d.icon }))],
     },
 ];
 
@@ -3807,7 +3821,9 @@ const DashboardLayout = () => {
                                 onCollapse={toggleNav}
                             />
                         )}
-                        {activeSection === "owner-guides" ? (
+                        {dept.kind === "sops" ? (
+                            <SopsContent tab={activeSection} onSelectTab={selectTab} />
+                        ) : activeSection === "owner-guides" ? (
                             <OwnerGuidesContent editing={editing} isOwner={isOwner} />
                         ) : dept.kind === "docs" ? (
                             activeSection === "popups" ? (

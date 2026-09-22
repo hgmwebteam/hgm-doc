@@ -1,0 +1,222 @@
+{
+ "meta": {
+  "eyebrow": "standard operating procedure \u00b7 ops",
+  "title": "Produce and publish an HGM SOP",
+  "lead": "How a process becomes an approved, on-brand SOP. If you remember one thing: <strong class=\"hl\">never invent a detail to fill a gap</strong> \u2014 flag it and ask the process owner.",
+  "sop_id": "HGM-SOP-OPS-001",
+  "version": "1.0",
+  "owner": "Web & Content Specialist (Kyle Zinger)",
+  "approved_by": "Operations Manager (Gillian)",
+  "effective_date": "2026-08-11",
+  "next_review": "2027-02-11",
+  "frequency": "On request, or when a process changes",
+  "duration": "45\u201390 minutes"
+ },
+ "blocks": [
+  {
+   "type": "section",
+   "num": "01",
+   "label": "Purpose and scope"
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "k": "Purpose",
+     "d": "Produces a consistent, approved SOP that lets any team member perform a task without asking the usual owner."
+    },
+    {
+     "k": "In scope",
+     "d": "All internal HGM processes documented as SOPs, across web, content, ops, finance, security, and client work."
+    },
+    {
+     "k": "Out of scope",
+     "d": "Client deliverables, one-off Asana task notes, and training material \u2014 each has its own format."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "02",
+   "label": "Before you start"
+  },
+  {
+   "type": "numcards",
+   "columns": 2,
+   "items": [
+    {
+     "t": "Project access",
+     "d": "Edit permission on the HGM SOP Studio Claude Project."
+    },
+    {
+     "t": "Source material",
+     "d": "Notes, a Fireflies transcript, a Scribe export, or a booked call with the process owner."
+    },
+    {
+     "t": "Department code",
+     "d": "One of WEB, CON, OPS, FIN, SEC, CLI \u2014 this sets the SOP ID."
+    },
+    {
+     "t": "Next SOP number",
+     "d": "The next sequential number for that department, from the SOP index."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "03",
+   "label": "Procedure"
+  },
+  {
+   "type": "sub",
+   "text": "Draft"
+  },
+  {
+   "type": "rows",
+   "items": [
+    {
+     "t": "Open a new chat in the project",
+     "d": "State the process name and the department code in your first message."
+    },
+    {
+     "t": "Attach all source material at once",
+     "d": "Paste notes or attach the transcript or export.",
+     "expect": "One batched round of clarifying questions, not a draft."
+    },
+    {
+     "t": "Answer every question",
+     "d": "Where you do not know, write <strong>unknown</strong>. The gap gets flagged instead of invented."
+    },
+    {
+     "t": "Review the returned draft",
+     "d": "Check it against the source material line by line.",
+     "expect": "Every step is one imperative action, with no vague frequency or location wording."
+    },
+    {
+     "t": "Resolve each open flag",
+     "d": "Supply the missing detail or confirm it with the process owner."
+    }
+   ]
+  },
+  {
+   "type": "sub",
+   "text": "Capture and generate"
+  },
+  {
+   "type": "rows",
+   "start": 6,
+   "items": [
+    {
+     "t": "Capture each screenshot placeholder",
+     "d": "Shoot the described view at 2\u00d7 resolution and name each file to match its number."
+    },
+    {
+     "t": "Request final output",
+     "d": "Approve the draft in chat.",
+     "expect": "A matched set: the .md source, the .json content file, and the styled .pdf."
+    },
+    {
+     "t": "Confirm the build report",
+     "d": "The run must report that brand fonts loaded and the Quality Gate passed."
+    }
+   ]
+  },
+  {
+   "type": "sub",
+   "text": "File and route"
+  },
+  {
+   "type": "rows",
+   "start": 9,
+   "items": [
+    {
+     "t": "File all three artifacts",
+     "d": "Save to the SOP folder in Google Drive using the naming convention."
+    },
+    {
+     "t": "Update the SOP index",
+     "d": "Record ID, title, owner, version, and next review date."
+    },
+    {
+     "t": "Route for approval",
+     "d": "Send the PDF to the Operations Manager and log the outcome in the index."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "04",
+   "label": "Exceptions and troubleshooting"
+  },
+  {
+   "type": "panel",
+   "kind": "warning",
+   "t": "Font fallback means the PDF is not brand compliant",
+   "text": "If the build reports a font fallback, the document is set in a substitute face rather than Inter. Fix the font path and rerun before routing for approval \u2014 do not send it."
+  },
+  {
+   "type": "table",
+   "headers": [
+    "Symptom",
+    "Fix",
+    "Escalate to"
+   ],
+   "rows": [
+    [
+     "Wordmark missing from the header",
+     "Confirm the light wordmark is attached to the project",
+     "Web &amp; Content Specialist"
+    ],
+    [
+     "Layout differs from earlier SOPs",
+     "Confirm the renderer was run, not rewritten",
+     "Web &amp; Content Specialist"
+    ],
+    [
+     "Process owner unavailable to verify",
+     "Deliver with open flags marked \u2014 do not guess",
+     "Operations Manager, via Google Chat"
+    ]
+   ]
+  },
+  {
+   "type": "section",
+   "num": "05",
+   "label": "Related documents and revision history"
+  },
+  {
+   "type": "bullets",
+   "items": [
+    "<code>HGM-Doc-Design-System.md</code> \u2014 the document design language and component vocabulary",
+    "<code>HGM-SOP-Template.md</code> \u2014 required section structure",
+    "<code>hgm_doc.py</code> and <code>hgm-doc.css</code> \u2014 the renderer",
+    "SOP index \u2014 the register of every SOP and its review date"
+   ]
+  },
+  {
+   "type": "table",
+   "headers": [
+    "Date",
+    "Version",
+    "Author",
+    "Change summary"
+   ],
+   "rows": [
+    [
+     "2026-08-11",
+     "1.0",
+     "Kyle Zinger",
+     "Initial release"
+    ]
+   ]
+  },
+  {
+   "type": "band",
+   "pill": "Remember",
+   "quote": "\"An SOP is finished when a new hire can run it without asking a single question \u2014 not when it looks complete.\"",
+   "aside_t": "Questions?",
+   "aside_d": "Kyle \u2014 Web &amp; Content"
+  }
+ ]
+}

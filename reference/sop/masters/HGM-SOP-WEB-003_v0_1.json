@@ -1,0 +1,1316 @@
+{
+ "meta": {
+  "eyebrow": "Working draft · standard operating procedure · WEB",
+  "title": "Post-launch connections: analytics, search, behaviour tracking and the deploy that carries them",
+  "lead": "How a freshly launched site gets its GA4, Search Console and Hotjar wired up, published, verified and handed over. If you remember one thing: <strong class=\"hl\">an env change is not live until the next build, and nothing is verified until you have seen the marker in the live HTML</strong>. Ridge &amp; Falls values are left in as a worked example — replace them per site.",
+  "sop_id": "HGM-SOP-WEB-003",
+  "version": "0.1",
+  "status": "draft",
+  "owner": "Web & Content Specialist (Kyle Zinger)",
+  "approved_by": "Not yet approved — working draft for Brandon (approver: Operations Manager, Gillian)",
+  "effective_date": "2026-09-11",
+  "next_review": "2027-03-11",
+  "frequency": "Once per site, in launch week",
+  "duration": "Spread across launch week; two working days on Ridge & Falls",
+  "tasks": [
+   {
+    "badge": "Phase 1",
+    "label": "Prove you are on the live site",
+    "hint": "Tasks 1.1–1.4 · start of every post-launch session",
+    "proc": "1"
+   },
+   {
+    "badge": "Phase 2",
+    "label": "Deploy so it actually publishes",
+    "hint": "Tasks 2.1–2.5 · every code or env change",
+    "proc": "2"
+   },
+   {
+    "badge": "Phase 3",
+    "label": "Analytics hooks in the code",
+    "hint": "Tasks 3.1–3.2 · once per engine",
+    "proc": "3"
+   },
+   {
+    "badge": "Phase 4",
+    "label": "Google Analytics 4",
+    "hint": "Tasks 4.1–4.10 · property, tag, settings, verify",
+    "proc": "4"
+   },
+   {
+    "badge": "Phase 5",
+    "label": "Google Search Console",
+    "hint": "Tasks 5.1–5.7 · verify, sitemap, owner, GA link",
+    "proc": "5"
+   },
+   {
+    "badge": "Phase 6",
+    "label": "Hotjar",
+    "hint": "Tasks 6.1–6.6 · client organisation, install, privacy",
+    "proc": "6"
+   },
+   {
+    "badge": "Phase 7",
+    "label": "Structured data check",
+    "hint": "Tasks 7.1–7.2 · list page and detail page",
+    "proc": "7"
+   },
+   {
+    "badge": "Phase 8",
+    "label": "Ownership map at handoff",
+    "hint": "Tasks 8.1–8.2 · who holds what, what is pending",
+    "proc": "8"
+   }
+  ],
+  "source": {
+   "kind": "manual",
+   "note": "Converted from SOP-POST-LAUNCH-CONNECTIONS.md, captured on the Ridge & Falls launch, 2026-09-10 to 2026-09-11"
+  },
+  "schema_version": 2,
+  "dept": "WEB",
+  "number": 3,
+  "slug": "post-launch-connections-analytics-search-behaviour-tracking-and-the-deploy-that-carries-them"
+ },
+ "blocks": [
+  {
+   "type": "section",
+   "num": "01",
+   "label": "Purpose and scope"
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "t": "Purpose",
+     "d": "Gets a newly launched site reporting to Google Analytics 4, verified in Google Search Console, recording in Hotjar, and publishes each of those changes through the one deploy path that actually works — then records who owns what at handoff."
+    },
+    {
+     "t": "In scope",
+     "d": "Netlify-hosted Next.js sites deployed through the Netlify connector. The Ridge &amp; Falls launch (2026-09-10 to 09-11) is the worked example throughout; every step here was performed on it."
+    },
+    {
+     "t": "Out of scope",
+     "d": "The launch itself (DNS cutover, go-live), the client-facing analytics walkthrough in <code>docs/ANALYTICS-SETUP.md</code>, and paid media tags beyond the Meta Pixel block already in the codebase."
+    }
+   ]
+  },
+  {
+   "type": "rules",
+   "k": "Always true",
+   "t": "Five standing rules",
+   "d": "These hold on every post-launch session. Everything else in this document is procedure; these are not negotiable.",
+   "items": [
+    {
+     "t": "Prove the repo is the live site before you edit",
+     "d": "DNS, deploy commit and an HTML compare. Then confirm the local env is filled before you diagnose anything that looks like missing data."
+    },
+    {
+     "t": "Commit, push, then deploy from a clean clone via the connector",
+     "d": "A bare <code>git push</code> to <code>main</code> may never publish. The connector's <code>deploy-site</code> from a shallow clone is the only path this document trusts."
+    },
+    {
+     "t": "An env change is not live until the next build",
+     "d": "The document head is rendered at build time. Every change to <code>GA_MEASUREMENT_ID</code>, <code>HOTJAR_SITE_ID</code> or <code>GOOGLE_SITE_VERIFICATION</code> is followed by a redeploy and a live check."
+    },
+    {
+     "t": "Read the breadcrumb before you create anything in Google Analytics",
+     "d": "A property is created in whichever account the Admin page is showing. Move properties; never delete and recreate — recreating changes the measurement ID."
+    },
+    {
+     "t": "A new asset is a new filename, always",
+     "d": "Static assets are cached immutable for a year. A changed image or SVG ships under a new name, never in place."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "02",
+   "label": "Roles and responsibilities"
+  },
+  {
+   "type": "table",
+   "headers": [
+    "Role",
+    "Responsibility"
+   ],
+   "rows": [
+    [
+     "Developer running post-launch (Brandon, on this run)",
+     "Performs tasks 1.1 to 8.2 and fills the ownership map"
+    ],
+    [
+     "Web & Content Specialist (Kyle Zinger)",
+     "Owns this document; first escalation; holds the kyle@ Google login used on GA4 and Search Console"
+    ],
+    [
+     "Account manager for the client",
+     "Requests the GA property move, the client's privacy wording, and the Cloudflare login from the client"
+    ],
+    [
+     "Client (Ridge & Falls: Enjoy Unique Stays)",
+     "Administrator on the GA4 property, Owner in Search Console, invited to Hotjar; moves the GA property into their own account"
+    ],
+    [
+     "Operations Manager (Gillian)",
+     "Approves this document once it leaves draft"
+    ]
+   ]
+  },
+  {
+   "type": "section",
+   "num": "03",
+   "label": "Prerequisites"
+  },
+  {
+   "type": "numcards",
+   "columns": 2,
+   "items": [
+    {
+     "t": "A clone of the site repo",
+     "d": "For Ridge &amp; Falls: <code>github.com/hgmwebteam/ridge-and-falls</code>, branch <code>main</code>. Set-up steps are in HGM-SOP-WEB-002, Phase 1."
+    },
+    {
+     "t": "The Netlify connector",
+     "d": "Connected in your Claude environment with access to the Netlify team that owns the site. It provides <code>get-deploy-for-site</code>, <code>deploy-site</code> and <code>manage-env-vars</code>."
+    },
+    {
+     "t": "A filled .env.local",
+     "d": "Restored from the site's 1Password entry (HGM-SOP-WEB-001). Task 1.3 checks it is actually filled, not a copy of the template."
+    },
+    {
+     "t": "Google logins",
+     "d": "<code>kyle@</code> and <code>hgmwebteam</code>. The agency GA account is <strong>Hidden Gem Media</strong>, ID <code>407691755</code>. One of these logins must end up holding both Search Console ownership and GA Editor access (task 5.7)."
+    },
+    {
+     "t": "The agency Hotjar login",
+     "d": "<code>hgmwebteam</code>. It holds one organisation per client; sites are added inside the client's organisation, never at the top level."
+    },
+    {
+     "t": "Terminal tools",
+     "d": "<code>git</code>, <code>dig</code>, <code>curl</code>, <code>npx</code>, and a real browser with no ad blocker for the Hotjar check."
+    }
+   ]
+  },
+  {
+   "type": "sub",
+   "text": "Which route should you take?"
+  },
+  {
+   "type": "para",
+   "text": "Wherever a task needs the machine you will see two or three boxes. <strong>Pick one</strong> — they do the same thing. The colour of the label bar tells you which kind it is. Browser settings in GA, Search Console and Hotjar have no shortcut: those are always point and click."
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "icon": "click",
+     "t": "Point &amp; click",
+     "d": "Buttons and menus in VS Code, or view-source in the browser. No typing beyond a URL and a find."
+    },
+    {
+     "icon": "terminal",
+     "t": "Terminal / CLI",
+     "d": "Commands you type in the VS Code terminal. Fast, but it does exactly what you say — including the wrong thing."
+    },
+    {
+     "icon": "prompt",
+     "t": "Claude prompt",
+     "d": "A prompt to paste into Claude Code. It also reaches the Netlify connector, which is the only way to run <code>deploy-site</code> and <code>manage-env-vars</code>."
+    }
+   ]
+  },
+  {
+   "type": "panel",
+   "kind": "success",
+   "t": "Recommended default",
+   "text": "<strong>New to this site?</strong> Use the Claude prompt for Phases 1 and 2 — it checks the things the raw commands do not, and every Phase 2 deploy goes through the connector anyway. <strong>Comfortable in a terminal?</strong> Type the checks yourself; use Claude for 2.3 and 2.5, which need the connector regardless."
+  },
+  {
+   "type": "section",
+   "num": "04",
+   "label": "Definitions"
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "t": "Measurement ID",
+     "d": "The <code>G-…</code> identifier of a GA4 data stream. It goes into <code>GA_MEASUREMENT_ID</code>. Deleting a property and recreating it produces a new one."
+    },
+    {
+     "t": "Env-gated block",
+     "d": "A piece of <code>app/layout.tsx</code> that renders only when its Netlify environment variable is set and passes a shape check. Unset means nothing is emitted."
+    },
+    {
+     "t": "Shallow clone",
+     "d": "<code>git clone --depth 1</code> of the committed tree only. It excludes <code>.next</code>, <code>RESOURCES/</code> and <code>.env.local</code>, which is why deploys are made from one."
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "t": "Proxy URL",
+     "d": "The single-use URL the Netlify connector's <code>deploy-site</code> returns. One deploy per URL; request a fresh one each time."
+    },
+    {
+     "t": "Domain property vs URL-prefix property",
+     "d": "Search Console's two property types. Domain covers every protocol and subdomain but verifies only by DNS TXT record. URL-prefix covers one exact prefix and can verify by HTML tag."
+    },
+    {
+     "t": "Client organisation",
+     "d": "Hotjar's container for one client. Plan limits and team seats are per organisation, so a client's sites live inside their own."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "05",
+   "label": "Procedure"
+  },
+  {
+   "type": "sub",
+   "id": "1",
+   "text": "Phase 1 — Prove you are on the live site",
+   "d": "Start of every post-launch session. Ten minutes on Ridge &amp; Falls; it would have prevented two false alarms."
+  },
+  {
+   "type": "step",
+   "n": "1.1",
+   "t": "Confirm the repo is the live site",
+   "d": "Check DNS, compare live HTML with the host's HTML, then compare the host's published commit (Netlify connector <strong>get-deploy-for-site</strong> → <code>commit_ref</code>) with <code>origin/main</code>.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "note": "replace <domain> and <site-name>",
+     "text": "dig +short NS <domain>; dig +short A <domain>\ncurl -s https://<domain>/ > /tmp/live.html\ncurl -s https://<site-name>.netlify.app/ > /tmp/host.html\ndiff -q /tmp/live.html /tmp/host.html\ngit fetch origin && git rev-parse origin/main   # compare with commit_ref"
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "I'm starting a post-launch session on this site. Before I touch\nanything, prove the repo is the live site:\n\n1. Run dig for NS and A on <domain> and tell me where DNS points.\n2. Fetch https://<domain>/ and the Netlify URL for this site and\n   compare the HTML. Report any difference.\n3. Ask the Netlify connector for get-deploy-for-site and compare\n   commit_ref with origin/main after a fetch.\n\nMake no changes. Tell me clearly if any of the three do not match."
+    }
+   ],
+   "expect": "DNS resolves to the Netlify site, <code>diff</code> is silent, and <code>commit_ref</code> equals <code>origin/main</code>. Ridge &amp; Falls: Netlify site <code>ridge-and-falls</code>, commit matched.",
+   "id": "WEB-003.1.1"
+  },
+  {
+   "type": "step",
+   "n": "1.2",
+   "t": "Fetch before you trust anything local",
+   "d": "A second developer pushes straight to <code>main</code> and deploys by API. On Ridge &amp; Falls the local clone was 36 commits behind. After pulling, re-read the project docs (<code>CLAUDE.md</code>, the team manual) from the new HEAD before touching code.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "git fetch && git status -sb\n# if behind:\ngit pull --ff-only",
+     "note": "type it yourself"
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "note": "then re-open CLAUDE.md",
+     "text": "VS Code: Source Control (left sidebar) → the ... menu → Pull\nIf it offers Sync Changes, click that instead."
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Fetch origin and tell me how far behind main is. If it is\nbehind and a fast-forward is possible, pull. If it is not\na fast-forward, STOP and show me why. Then summarise\nwhat changed in CLAUDE.md and the team manual since my\nlocal HEAD."
+    }
+   ],
+   "expect": "<code>git status -sb</code> shows <code>main...origin/main</code> with no <code>[behind N]</code>.",
+   "id": "WEB-003.1.2"
+  },
+  {
+   "type": "step",
+   "n": "1.3",
+   "t": "Check .env.local is actually filled",
+   "d": "Print each key with the <strong>length</strong> of its value, never the value. On Ridge &amp; Falls the file had 30 keys and 28 were blank — a copy of the template. If keys are blank, restore the file from the host's environment variables (or the 1Password entry, HGM-SOP-WEB-001) and restart the dev server.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "note": "lengths only",
+     "text": "awk -F= '/^[A-Za-z_][A-Za-z0-9_]*=/ { print $1, length($2) }' .env.local"
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "note": "look, don't copy",
+     "text": "VS Code: open .env.local from the Explorer.\nScan the right-hand side of each line — any KEY= with nothing\nafter the = is blank."
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Check .env.local: list every key with the LENGTH of its value.\nNever print a value. Tell me which keys are blank. If keys\nare blank, tell me which host environment variables would\nfill them, but do not fetch or write any secret yourself."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "What a blank env looks like",
+     "text": "Empty listings, missing photos, \"No properties match\". No Supabase URL means the cache is skipped; no Guesty credentials means the live read fails once the cached token expires. It looks like a broken site. It is a blank file."
+    },
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "Never print or paste values",
+     "text": "Check lengths, not contents. Do not paste an env value into Google Chat, an Asana comment or a Claude prompt."
+    }
+   ],
+   "expect": "Every key that the site needs shows a non-zero length, and the dev server renders listings with photos.",
+   "id": "WEB-003.1.3"
+  },
+  {
+   "type": "step",
+   "n": "1.4",
+   "t": "Tell the team the Guesty quota before anyone tests locally",
+   "d": "Guesty mints about five OAuth tokens per 24 hours per client ID, and production shares that allowance. Browsing home, listings and property pages locally reads the Supabase cache and spends nothing. Quotes and checkout mint a token. Say this before anyone \"tests locally\".",
+   "expect": "Nobody runs a local checkout without knowing it costs a production token.",
+   "id": "WEB-003.1.4"
+  },
+  {
+   "type": "sub",
+   "id": "2",
+   "text": "Phase 2 — Deploy so it actually publishes",
+   "d": "Used by every later phase. Tasks 2.1–2.4 publish a code change. Task 2.5 is how an env var is set — and it always ends by running 2.2–2.4 again."
+  },
+  {
+   "type": "step",
+   "n": "2.1",
+   "t": "Commit and push to main",
+   "d": "Always commit first, so the deploy is of a recorded tree.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "git push origin main",
+     "note": "type it yourself"
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "note": "pushes to main",
+     "text": "VS Code: Source Control → type a message → Commit → Sync Changes\n(or ... → Push)"
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Commit my staged changes with the message I give you, then\npush to origin main. Confirm the push landed by showing me\nthe new HEAD on origin/main. Do not deploy yet."
+    },
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "The push alone may never publish",
+     "text": "A push to <code>main</code> from a committer Netlify has not verified sits in review, invisible from our tooling. On Ridge &amp; Falls we waited six minutes and nothing happened. Do not wait for it — go to 2.2."
+    }
+   ],
+   "id": "WEB-003.2.1"
+  },
+  {
+   "type": "step",
+   "n": "2.2",
+   "t": "Make a shallow clone of the committed tree",
+   "d": "Never deploy from the repo root. The root upload includes <code>.next</code>, <code>RESOURCES/</code> and <code>.env.local</code> — about 700 MB — and Netlify returns 500s.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "git clone -q --depth 1 \"file://$PWD\" /tmp/rf-deploy && cd /tmp/rf-deploy",
+     "note": "type it yourself"
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Make a shallow clone of the committed tree for deployment:\ngit clone --depth 1 from file://$PWD into /tmp/rf-deploy.\nConfirm .next, RESOURCES/ and .env.local are NOT in the clone."
+    }
+   ],
+   "expect": "You are in <code>/tmp/rf-deploy</code> with only tracked files present.",
+   "id": "WEB-003.2.2"
+  },
+  {
+   "type": "step",
+   "n": "2.3",
+   "t": "Request a proxy URL from the connector, then deploy",
+   "d": "Ask the Netlify connector for <strong>deploy-site</strong>; it returns a one-time proxy URL. Run the deploy from the shallow clone with that URL. Each proxy URL is single-use — request a fresh one per deploy.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "note": "run inside /tmp/rf-deploy",
+     "text": "npx -y @netlify/mcp@latest --site-id <site-id> --proxy-path \"<proxy-url>\""
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Deploy this site from /tmp/rf-deploy using the Netlify connector:\n\n1. Call deploy-site for site <site-id> and get a fresh proxy URL.\n2. Run npx -y @netlify/mcp@latest --site-id <site-id>\n   --proxy-path \"<that url>\" from inside /tmp/rf-deploy.\n3. Tell me when the connector reports ready.\n\nNever deploy from the repo root. If the clone is missing, stop\nand tell me — do not create it from the working tree."
+    }
+   ],
+   "expect": "The connector reports the deploy as ready. Do not stop here — 2.4 is the real check.",
+   "id": "WEB-003.2.3"
+  },
+  {
+   "type": "step",
+   "n": "2.4",
+   "t": "Verify against production for a marker only the new build has",
+   "d": "A new filename, a new meta tag, the GA ID. \"Deploy is ready\" is not verification; cached pages can lag a minute. Repeat the curl until the marker appears.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "note": "replace <marker>",
+     "text": "curl -s https://<domain>/ | grep -c \"<marker>\""
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "note": "then Cmd + F",
+     "text": "Browser: open https://<domain>/ → View Page Source\n(Cmd + Option + U in Chrome) → Cmd + F for the marker.\nHard refresh with Cmd + Shift + R if it is missing."
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Fetch https://<domain>/ and tell me whether the string\n\"<marker>\" is in the live HTML. If not, retry every 30 seconds\nfor up to 3 minutes and report when it appears."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Why we poll HTML and not the API",
+     "text": "The <code>NETLIFY_AUTH_TOKEN</code> in the local env file returned 401 from Netlify's API, so deploys could not be polled by API. Polling the live HTML for the marker works regardless."
+    }
+   ],
+   "expect": "<code>grep -c</code> returns 1 or more.",
+   "id": "WEB-003.2.4"
+  },
+  {
+   "type": "step",
+   "n": "2.5",
+   "t": "Set or change an environment variable, then redeploy",
+   "d": "This needs the Netlify connector, so it is a Claude prompt route only. Ask for <strong>manage-env-vars</strong>, action <strong>upsert</strong>, context <strong>production</strong>, then run tasks 2.2 to 2.4 again — the head is rendered at build time, so the change is invisible until the next build.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Set an environment variable on the production site with the\nNetlify connector: manage-env-vars, action upsert, context\nproduction, key <NAME>, value <VALUE>. Then redeploy from a\nfresh shallow clone (tasks 2.2 to 2.3) and confirm the new\nvalue is in the live HTML. Do not put this variable in\n.env.local."
+    },
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "Production context only",
+     "text": "The three analytics variables are set in Netlify's Production context and never in <code>.env.local</code>, so dev and preview traffic does not report into the client's analytics."
+    }
+   ],
+   "expect": "After the redeploy, the marker for the new value (the <code>G-…</code> ID, the Hotjar ID, the verification token) is in the live HTML.",
+   "id": "WEB-003.2.5"
+  },
+  {
+   "type": "sub",
+   "id": "3",
+   "text": "Phase 3 — Analytics hooks in the code",
+   "d": "Once per engine. If the site already carries the three env-gated blocks, confirm them and move on."
+  },
+  {
+   "type": "step",
+   "n": "3.1",
+   "t": "Confirm the three env-gated blocks exist in app/layout.tsx",
+   "d": "They are modelled on the existing Meta Pixel block. Each reads a server-side env var (no <code>NEXT_PUBLIC_</code> prefix), shape-checks the value before interpolating it, and renders nothing while the var is unset.",
+   "body": [
+    {
+     "type": "table",
+     "headers": [
+      "Env var (Netlify, Production only)",
+      "Value shape",
+      "Renders"
+     ],
+     "rows": [
+      [
+       "<code>GA_MEASUREMENT_ID</code>",
+       "<code>G-…</code>",
+       "gtag.js plus <code>gtag('config')</code>, strategy <code>lazyOnload</code>"
+      ],
+      [
+       "<code>HOTJAR_SITE_ID</code>",
+       "digits",
+       "Hotjar snippet (hjsv 6), strategy <code>lazyOnload</code>"
+      ],
+      [
+       "<code>GOOGLE_SITE_VERIFICATION</code>",
+       "token",
+       "<code>&lt;meta name=\"google-site-verification\"&gt;</code> via Next <code>metadata.verification.google</code>"
+      ]
+     ]
+    }
+   ],
+   "expect": "All three blocks are present and gated. If any is missing, build it on the Meta Pixel pattern before continuing.",
+   "id": "WEB-003.3.1"
+  },
+  {
+   "type": "step",
+   "n": "3.2",
+   "t": "Confirm the names are documented and the purchase event is absent",
+   "d": "The three variable names appear in <code>.env.example</code> and in the docs' env list. There is <strong>no</strong> GA4 purchase event, by design.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Why there is no browser purchase event",
+     "text": "The site reports bookings server-side to Meta with a dedupe key. A browser purchase event in GA4 would double count. Do not add one."
+    }
+   ],
+   "expect": "<code>grep</code> for each name in <code>.env.example</code> finds it; <code>grep</code> for <code>purchase</code> in <code>app/layout.tsx</code> finds nothing.",
+   "id": "WEB-003.3.2"
+  },
+  {
+   "type": "sub",
+   "id": "4",
+   "text": "Phase 4 — Google Analytics 4",
+   "d": "Where the property lives is the part that cost the most time on Ridge &amp; Falls. Tasks 4.1 and 4.2 are about that; 4.3 onward are the settings and the check."
+  },
+  {
+   "type": "step",
+   "n": "4.1",
+   "t": "Read the breadcrumb, then create the property under the agency account",
+   "d": "In GA, open <strong>Admin</strong>. Read the account name in the breadcrumb at the top of the Admin page. Switch to <strong>Hidden Gem Media</strong> (<code>407691755</code>) if it is not showing. Only then choose <strong>Create → Property</strong>. Name it after the client's site and add a web data stream for the apex domain.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "The property lands in whichever account Admin is showing",
+     "text": "On Ridge &amp; Falls it landed under another client's account twice. The breadcrumb is the only thing that tells you where you are."
+    },
+    {
+     "type": "panel",
+     "kind": "success",
+     "t": "The agency pattern",
+     "text": "Create under Hidden Gem Media, make the client Administrator on the property (4.2), and let the client move it into their own account — they administer the destination, so the move works for them. Our property-level access travels with it."
+    }
+   ],
+   "expect": "A new property with a <code>G-…</code> measurement ID under Hidden Gem Media. Ridge &amp; Falls: property \"Ridge &amp; Falls\", stream ridgeandfalls.com, <code>G-PYNW47J2EK</code>.",
+   "id": "WEB-003.4.1"
+  },
+  {
+   "type": "step",
+   "n": "4.2",
+   "t": "Add the client as Administrator on the property and ask them to move it",
+   "d": "<strong>Admin → Property access management → Add users</strong>, role <strong>Administrator</strong>. Then ask the account manager to have the client move the property: <strong>Admin → Property details → Move property</strong>, choosing their account by its <strong>9-digit account ID</strong>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Why the move failed from our side",
+     "text": "Moving needs Administrator on the destination account, which we do not hold. There were also two accounts named for the client — pick by ID, not name. If the <strong>Move property</strong> option does not appear for the client, ask for temporary Administrator on their account instead."
+    },
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "Never delete and recreate",
+     "text": "Recreating a property changes the measurement ID, which means an env change and a redeploy. Moving keeps the ID and the data."
+    }
+   ],
+   "expect": "The client appears as Administrator. Ridge &amp; Falls: fred@enjoyuniquestays.com is Administrator; the move into Enjoy Unique Stays (<code>364107411</code>) is pending with the account manager.",
+   "id": "WEB-003.4.2"
+  },
+  {
+   "type": "step",
+   "n": "4.3",
+   "t": "Set GA_MEASUREMENT_ID and redeploy",
+   "d": "Run task 2.5 with <code>GA_MEASUREMENT_ID</code> = the <code>G-…</code> ID from 4.1. Then view source on production.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -s https://<domain>/ | grep -o \"gtag/js?id=G-[A-Z0-9]*\"\ncurl -s https://<domain>/ | grep -o \"gtag('config', 'G-[A-Z0-9]*')\"",
+     "note": "type it yourself"
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "note": "view source",
+     "text": "Browser: View Page Source on https://<domain>/ → Cmd + F\n\"gtag/js?id=\" — the G- ID next to it must match the one you set."
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Fetch https://<domain>/ and tell me the G- measurement ID in\nboth the gtag/js script URL and the gtag('config') call.\nBoth must equal <G-ID>."
+    }
+   ],
+   "expect": "Both greps print the ID you set.",
+   "id": "WEB-003.4.3"
+  },
+  {
+   "type": "step",
+   "n": "4.4",
+   "t": "Turn on page views for browser history events",
+   "d": "<strong>Admin → Data streams → </strong>your stream<strong> → Enhanced measurement → </strong>gear icon<strong> → Page views → Show advanced settings → Page changes based on browser history events</strong>: <strong>ON</strong>. The site fires one page view per full load and relies on this setting for client-side navigations.",
+   "expect": "The toggle shows on and the setting is saved.",
+   "id": "WEB-003.4.4"
+  },
+  {
+   "type": "step",
+   "n": "4.5",
+   "t": "Set data retention to 14 months",
+   "d": "<strong>Admin → Data collection and modification → Data retention → Event data retention</strong>: <strong>14 months</strong>. The default is 2.",
+   "expect": "Retention reads 14 months.",
+   "id": "WEB-003.4.5"
+  },
+  {
+   "type": "step",
+   "n": "4.6",
+   "t": "Set the property time zone and currency",
+   "d": "<strong>Admin → Property details</strong>. Time zone = the site's, from <code>BRAND.timezone</code> in the codebase (Eastern for Ridge &amp; Falls). Currency <strong>USD</strong>.",
+   "expect": "Property details show the site's time zone and USD.",
+   "id": "WEB-003.4.6"
+  },
+  {
+   "type": "step",
+   "n": "4.7",
+   "t": "Define internal traffic and set the filter to Active",
+   "d": "<strong>Admin → Data streams → </strong>stream<strong> → Configure tag settings → Define internal traffic</strong>: add the office and home IPs. Then <strong>Admin → Data filters → Internal Traffic → </strong>state<strong> Active</strong>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "Filters ship in Testing",
+     "text": "A filter in Testing does nothing to reports. It must read Active."
+    }
+   ],
+   "expect": "The Internal Traffic filter shows Active.",
+   "id": "WEB-003.4.7"
+  },
+  {
+   "type": "step",
+   "n": "4.8",
+   "t": "Leave Google Signals off unless the client wants demographics",
+   "d": "<strong>Admin → Data collection and modification → Data collection → Google signals data collection</strong>. Leave off by default; turn on only on the client's request.",
+   "expect": "Signals off, or on with the client's request recorded in <code>CLAUDE.md</code>.",
+   "id": "WEB-003.4.8"
+  },
+  {
+   "type": "step",
+   "n": "4.9",
+   "t": "Optional: create an approximate booking count event",
+   "d": "<strong>Admin → Events → Create event</strong>. Name <code>booking_confirmed</code>. Conditions: <code>event_name</code> equals <code>page_view</code> AND <code>page_location</code> contains <code>/confirmation</code>. Then mark it as a key event. This is approximate and carries no value.",
+   "expect": "<code>booking_confirmed</code> appears under Events and is marked as a key event.",
+   "id": "WEB-003.4.9"
+  },
+  {
+   "type": "step",
+   "n": "4.10",
+   "t": "Verify in Realtime with a real visit",
+   "d": "Open the live site in a browser, then <strong>Reports → Realtime</strong>. You should appear within a minute.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Two things that look like failure and are not",
+     "text": "The \"Data collection isn't active\" banner can take 48 hours to clear — ignore it if Realtime works. Google's <strong>Test your website</strong> button, and GA-based Search Console verification, may not see the tag because it loads after <code>window.load</code>."
+    }
+   ],
+   "expect": "One active user in Realtime, on the page you opened.",
+   "id": "WEB-003.4.10"
+  },
+  {
+   "type": "sub",
+   "id": "5",
+   "text": "Phase 5 — Google Search Console",
+   "d": "Domain property if you can reach DNS; URL-prefix property with an HTML tag if you cannot."
+  },
+  {
+   "type": "step",
+   "n": "5.1",
+   "t": "Decide which property type you can verify",
+   "d": "Find where the domain's DNS is hosted (<code>dig +short NS &lt;domain&gt;</code> from 1.1). <strong>If the agency holds that DNS login</strong> → add a <strong>Domain</strong> property in Search Console and verify with the DNS TXT record it gives you, then go to 5.4. <strong>If not</strong> → go to 5.2.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Ridge & Falls",
+     "text": "Registrar is Squarespace Domains; DNS is at <strong>Cloudflare</strong>; nobody at the agency holds that login. The Domain property is parked unverified and one TXT record will verify it later."
+    }
+   ],
+   "id": "WEB-003.5.1"
+  },
+  {
+   "type": "step",
+   "n": "5.2",
+   "t": "Add a URL-prefix property and choose the HTML tag method",
+   "d": "<strong>Add property → URL prefix</strong>, enter <code>https://&lt;domain&gt;</code> (the apex; www and http redirect to it, so coverage is equivalent). Under verification methods choose <strong>HTML tag</strong> and copy the <code>content</code> token only — not the whole tag.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "The Domain-property dialog reopens every visit",
+     "text": "Until you click <strong>try a URL prefix property instead</strong>. That is not a bug."
+    }
+   ],
+   "expect": "A token string on your clipboard. Ridge &amp; Falls property: <code>https://ridgeandfalls.com</code>.",
+   "id": "WEB-003.5.2"
+  },
+  {
+   "type": "step",
+   "n": "5.3",
+   "t": "Set GOOGLE_SITE_VERIFICATION, redeploy, then click Verify",
+   "d": "Run task 2.5 with <code>GOOGLE_SITE_VERIFICATION</code> = the token. Confirm the meta tag is in the live HTML, then return to Search Console and click <strong>Verify</strong>.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -s https://<domain>/ | grep -o 'name=\"google-site-verification\"[^>]*'",
+     "note": "type it yourself"
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "note": "view source",
+     "text": "Browser: View Page Source → Cmd + F \"google-site-verification\"\n→ the content= value must match the token you copied."
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Fetch https://<domain>/ and show me the content attribute of\nthe google-site-verification meta tag. Tell me whether it\nmatches <TOKEN>."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "The token is per Google account",
+     "text": "If a second login needs verified status, the site can carry a second token — Next accepts an array for <code>metadata.verification.google</code>."
+    }
+   ],
+   "expect": "Search Console shows the property as verified.",
+   "id": "WEB-003.5.3"
+  },
+  {
+   "type": "step",
+   "n": "5.4",
+   "t": "Submit the sitemap",
+   "d": "<strong>Sitemaps → Add a new sitemap</strong>: <code>sitemap.xml</code>. Noindex pages are excluded from it on purpose.",
+   "expect": "Status Success. Ridge &amp; Falls: 13 URLs.",
+   "id": "WEB-003.5.4"
+  },
+  {
+   "type": "step",
+   "n": "5.5",
+   "t": "Request indexing for the home page and the listings page only",
+   "d": "<strong>URL Inspection</strong> → enter <code>https://&lt;domain&gt;/</code> → <strong>Request indexing</strong>. Repeat for <code>/listings</code>. Stop there: the daily quota is small and the sitemap covers the rest.",
+   "expect": "Both URLs show \"Indexing requested\".",
+   "id": "WEB-003.5.5"
+  },
+  {
+   "type": "step",
+   "n": "5.6",
+   "t": "Add the client as Owner",
+   "d": "<strong>Settings → Users and permissions → Add user</strong>, permission <strong>Owner</strong>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "An added Owner depends on our token staying valid",
+     "text": "The client becomes independent only once they verify with their own TXT record or tag. Do not remove the agency's record until they have."
+    }
+   ],
+   "expect": "The client's login is listed as Owner.",
+   "id": "WEB-003.5.6"
+  },
+  {
+   "type": "step",
+   "n": "5.7",
+   "t": "Link GA4 to Search Console from one login that holds both",
+   "d": "The link must be created by a Google account that has verified ownership in Search Console <strong>and</strong> Editor or above on the GA property. If they are split across two logins, share Search Console ownership to the GA login first. Then <strong>GA Admin → Product links → Search Console links → Link</strong>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Ridge & Falls",
+     "text": "kyle@ and hgmwebteam were both in play. Sharing GSC ownership to the GA login resolved it."
+    }
+   ],
+   "expect": "The Search Console link is listed under Product links.",
+   "id": "WEB-003.5.7"
+  },
+  {
+   "type": "sub",
+   "id": "6",
+   "text": "Phase 6 — Hotjar",
+   "d": "Agency account, client organisation, keystrokes off and exclusions set before the first recording, real browser visit to verify."
+  },
+  {
+   "type": "step",
+   "n": "6.1",
+   "t": "Open the client's organisation in the hgmwebteam Hotjar account",
+   "d": "Log in as <code>hgmwebteam</code>. Switch to the client's organisation. If none exists, choose <strong>Add as a New Client Organization</strong> and name it after the <strong>client</strong>, not the site — plan limits and team seats are per organisation.",
+   "expect": "You are inside an organisation named for the client.",
+   "id": "WEB-003.6.1"
+  },
+  {
+   "type": "step",
+   "n": "6.2",
+   "t": "Survey the client's sibling sites for an existing hjid",
+   "d": "Read each sibling site's HTML and any Tag Manager container for <code>hjid</code>, so you do not create a second site for one that already runs Hotjar.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -s https://<sibling-domain>/ | grep -o \"hjid:[0-9]*\"",
+     "note": "type it yourself"
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "note": "view source",
+     "text": "Browser: View Page Source on each sibling site → Cmd + F \"hjid\".\nA hit shows the existing Hotjar site ID; no hit means none."
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "For each of these domains, fetch the home page and report\nwhether it loads Hotjar and, if so, the hjid value:\n<domain-1>, <domain-2>, <domain-3>.\nAlso check any Google Tag Manager container you can see."
+    }
+   ],
+   "expect": "A list of which sibling sites carry Hotjar and their IDs. Ridge &amp; Falls survey: only Paradise Pointe (site <code>6626800</code>) ran Hotjar; the rest none.",
+   "id": "WEB-003.6.2"
+  },
+  {
+   "type": "step",
+   "n": "6.3",
+   "t": "Add the site, then set HOTJAR_SITE_ID and redeploy",
+   "d": "Inside the client organisation, add the site for the apex domain and copy its numeric Site ID. Run task 2.5 with <code>HOTJAR_SITE_ID</code> = that ID.",
+   "expect": "The Hotjar snippet with your ID is in the live HTML. Ridge &amp; Falls: <code>6776829</code>.",
+   "id": "WEB-003.6.3"
+  },
+  {
+   "type": "step",
+   "n": "6.4",
+   "t": "Verify in a real browser, then confirm the loader",
+   "d": "Open the live site in a browser with <strong>no ad blocker</strong> (Brave and uBlock hide it) and browse two pages. Hotjar marks a site installed only after its script runs in a real browser — <code>curl</code> does not count. Separately, confirm the loader URL is valid.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -s -o /dev/null -w \"%{http_code}\\n\" \"https://static.hotjar.com/c/hotjar-<id>.js?sv=6\"\ncurl -s \"https://static.hotjar.com/c/hotjar-<id>.js?sv=6\" | grep -o \"site_id[^,]*\"",
+     "note": "type it yourself"
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "note": "real browser",
+     "text": "Browser (no ad blocker): open https://<domain>/, click through\ntwo pages. Then open\nhttps://static.hotjar.com/c/hotjar-<id>.js?sv=6 in a tab —\nit should load and mention site_id: <id>."
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Fetch https://static.hotjar.com/c/hotjar-<id>.js?sv=6 and\nreport the HTTP status and the site_id in the response.\nRemind me that Hotjar only marks the site installed after a\nreal browser visit, and that curl does not count."
+    }
+   ],
+   "expect": "Hotjar shows the site as installed; the loader returns 200 with the right <code>site_id</code>.",
+   "id": "WEB-003.6.4"
+  },
+  {
+   "type": "step",
+   "n": "6.5",
+   "t": "Fix the privacy settings before the first recording",
+   "d": "In the site's settings: turn <strong>keystroke capture off</strong> (it was on by default on Ridge &amp; Falls). Add URL exclusions for paths containing <code>/admin</code>, <code>/manual</code>, <code>/checkout</code> and <code>/confirmation</code>. Add the office IPs to <strong>IP blocking</strong>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "The confirmation page prints guest name and email as text",
+     "text": "Without the exclusion, a session recording captures personal data. Set the exclusions before any real traffic is recorded."
+    }
+   ],
+   "expect": "Keystrokes off, four exclusions listed, office IPs blocked.",
+   "id": "WEB-003.6.5"
+  },
+  {
+   "type": "step",
+   "n": "6.6",
+   "t": "Invite the client and set expectations on heatmaps",
+   "d": "<strong>Team → Invite</strong> the client's login. Tell them: the Basic plan samples about 10% of sessions; heatmaps are on-demand views, not objects to create — enter the <strong>full URL</strong>, use <strong>starts with</strong> for <code>/listings</code> (filtered views) and <strong>contains</strong> for <code>/property/</code> (all cabins pooled); data appears after a few dozen visits.",
+   "expect": "The client shows as invited in Team.",
+   "id": "WEB-003.6.6"
+  },
+  {
+   "type": "sub",
+   "id": "7",
+   "text": "Phase 7 — Structured data check after launch",
+   "d": "Test the list page, not just a detail page. That is where the duplicate showed up."
+  },
+  {
+   "type": "step",
+   "n": "7.1",
+   "t": "Run the Rich Results Test on the listing page and a detail page",
+   "d": "Open Google's Rich Results Test and test <code>/listings</code> (or the site's collection page) first, then one property detail page.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "What went wrong on Ridge & Falls",
+     "text": "The property page emitted a full <code>VacationRental</code> node while the listings <code>ItemList</code> emitted a thin copy with the same <code>@id</code>. The test merged them and scored every cabin \"2 critical\"."
+    }
+   ],
+   "expect": "Zero critical issues on both pages. If the list page fails → 7.2.",
+   "id": "WEB-003.7.1"
+  },
+  {
+   "type": "step",
+   "n": "7.2",
+   "t": "Fix with one builder function per entity",
+   "d": "Use a single builder for the entity — <code>vacationRentalJsonLd</code> in <code>lib/seo.ts</code> — from every page that mentions it. Fill the required property set from the schema spec page itself (fetched, not remembered) and the recommended set where the data is real. Leave out anything that would be invented, such as review dates or bed types. Then deploy (Phase 2) and re-run 7.1.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Say plainly when a rich result is partner-gated",
+     "text": "Google's vacation-rental rich result is for Hotel Center partners. The value here is entity completeness for search and answer engines, not a guaranteed rich result."
+    }
+   ],
+   "expect": "Both pages pass with zero critical issues.",
+   "id": "WEB-003.7.2"
+  },
+  {
+   "type": "sub",
+   "id": "8",
+   "text": "Phase 8 — Ownership map at handoff",
+   "d": "Fill this per site. The Ridge &amp; Falls map as of 2026-09-11 is the worked example."
+  },
+  {
+   "type": "step",
+   "n": "8.1",
+   "t": "Fill the ownership map",
+   "d": "One row per thing the client will eventually need to control. Record where it lives, who has access today, and what is pending.",
+   "body": [
+    {
+     "type": "table",
+     "headers": [
+      "Thing",
+      "Where it lives",
+      "Who has access",
+      "Pending"
+     ],
+     "rows": [
+      [
+       "Code",
+       "<code>github.com/hgmwebteam/ridge-and-falls</code>, <code>main</code>",
+       "HiddenGem",
+       "—"
+      ],
+      [
+       "Hosting",
+       "Netlify site <code>ridge-and-falls</code> (<code>89eb273f…</code>), primary ridgeandfalls.com",
+       "Netlify team; connector deploys",
+       "—"
+      ],
+      [
+       "Domain",
+       "Registrar Squarespace Domains; DNS at Cloudflare",
+       "<strong>Unknown login</strong>",
+       "Find the Cloudflare owner"
+      ],
+      [
+       "GA4",
+       "Property \"Ridge &amp; Falls\", <code>G-PYNW47J2EK</code>, in Hidden Gem Media (<code>407691755</code>)",
+       "kyle@ (Admin), fred@ (Admin)",
+       "Move into Enjoy Unique Stays <code>364107411</code>"
+      ],
+      [
+       "Search Console",
+       "URL-prefix <code>https://ridgeandfalls.com</code> (HTML tag); Domain property parked",
+       "kyle@, hgmwebteam (Owners)",
+       "Client verification; DNS TXT for the Domain property"
+      ],
+      [
+       "Hotjar",
+       "Site <code>6776829</code> inside the client organisation, hgmwebteam account",
+       "hgmwebteam",
+       "Client invite; privacy settings confirmed"
+      ],
+      [
+       "Env vars",
+       "Netlify (Production): <code>GA_MEASUREMENT_ID</code>, <code>HOTJAR_SITE_ID</code>, <code>GOOGLE_SITE_VERIFICATION</code>",
+       "—",
+       "—"
+      ],
+      [
+       "Privacy copy",
+       "<code>lib/privacy-content.ts</code>",
+       "—",
+       "Client wording for analytics and session recording"
+      ]
+     ]
+    }
+   ],
+   "expect": "Every row filled; every Pending item has a named owner in Asana.",
+   "id": "WEB-003.8.1"
+  },
+  {
+   "type": "step",
+   "n": "8.2",
+   "t": "Record the decisions, then publish the final state",
+   "d": "Ask the account manager to request the privacy wording from the client. Record the day's decisions in <code>CLAUDE.md</code> and the team manual's Updates. Commit, push, deploy from a shallow clone (Phase 2) and verify the live markers one last time.",
+   "expect": "<code>CLAUDE.md</code> carries the decisions; the live HTML carries the GA ID, the Hotjar ID and the verification tag.",
+   "id": "WEB-003.8.2"
+  },
+  {
+   "type": "section",
+   "num": "06",
+   "label": "Exceptions and edge cases"
+  },
+  {
+   "type": "sub",
+   "text": "A client change request arrives during launch week"
+  },
+  {
+   "type": "para",
+   "text": "The pattern, in order. Every example shipped on Ridge &amp; Falls followed it."
+  },
+  {
+   "type": "rows",
+   "items": [
+    {
+     "t": "Locate the code from the screenshot or chat request",
+     "d": "If the screenshot shows something \"missing\" on a dev box, check the data feed before the code — see task 1.3.",
+     "id": "WEB-003.10.1"
+    },
+    {
+     "t": "Edit, then run the checks",
+     "d": "<code>tsc</code>, <code>vitest</code> and <code>verify:brand</code>.",
+     "id": "WEB-003.10.2"
+    },
+    {
+     "t": "Render through the real stylesheet for a one-look check",
+     "d": "Use the Playwright harness so you are looking at the actual output, not a guess.",
+     "id": "WEB-003.10.3"
+    },
+    {
+     "t": "Record the decision",
+     "d": "In <code>CLAUDE.md</code> and the team manual's Updates.",
+     "id": "WEB-003.10.4"
+    },
+    {
+     "t": "Commit, deploy, verify live",
+     "d": "Phase 2, including the marker check in 2.4.",
+     "id": "WEB-003.10.5"
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "t": "A changed asset is a new filename",
+     "d": "Static assets are cached immutable for a year. Ship <code>wordmark-light-compact.svg</code>, <code>collection-*.webp</code>, <code>local-favorites-mclemore-resort-v3.webp</code> — never overwrite in place."
+    },
+    {
+     "t": "Keep the client's swatches even when contrast fails",
+     "d": "Document the contrast ratio at the declaration and tell the client the passing alternative. Do not silently change their colour."
+    },
+    {
+     "t": "Blur is often the sizes hint, not the file",
+     "d": "The Local Favorites portrait crop was blurry because of the <code>srcset</code> <code>sizes</code> hint, not the images. Check the hint before regenerating assets."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "07",
+   "label": "Troubleshooting and escalation"
+  },
+  {
+   "type": "table",
+   "headers": [
+    "Symptom",
+    "Likely cause",
+    "Fix"
+   ],
+   "rows": [
+    [
+     "Empty listings, missing photos, \"No properties match\" on a dev box",
+     "Blank <code>.env.local</code>",
+     "Task 1.3 — restore from host env vars, restart the dev server"
+    ],
+    [
+     "Pushed to <code>main</code>; nothing published after several minutes",
+     "Committer not verified by Netlify; deploy sits in review",
+     "Tasks 2.2–2.4 — deploy from a shallow clone via the connector"
+    ],
+    [
+     "Netlify returns 500 on deploy",
+     "Upload made from the repo root (~700 MB)",
+     "Task 2.2 — shallow clone first"
+    ],
+    [
+     "Env var changed but the live head is unchanged",
+     "No build since the change",
+     "Task 2.5 — redeploy, then check the marker"
+    ],
+    [
+     "GA property appeared in the wrong account",
+     "Admin breadcrumb showed another account",
+     "Task 4.2 — move it; never recreate"
+    ],
+    [
+     "Move property fails",
+     "No Administrator on the destination, or two same-name accounts",
+     "Pick by 9-digit ID; ask the client to move it, or for temporary Administrator"
+    ],
+    [
+     "\"Data collection isn't active\" banner in GA",
+     "Up to 48 hours of lag",
+     "Ignore if Realtime shows you (task 4.10)"
+    ],
+    [
+     "Google's Test your website does not see the tag",
+     "Tag loads after <code>window.load</code>",
+     "Expected; verify by view-source and Realtime instead"
+    ],
+    [
+     "Search Console keeps offering the Domain property",
+     "Normal dialog behaviour",
+     "Click try a URL prefix property instead"
+    ],
+    [
+     "GA to GSC link option missing",
+     "No single login holds both GSC ownership and GA Editor",
+     "Task 5.7 — share GSC ownership to the GA login"
+    ],
+    [
+     "Hotjar says not installed",
+     "No real browser visit yet, or an ad blocker",
+     "Task 6.4 — visit without a blocker; check the loader URL"
+    ],
+    [
+     "Rich Results Test scores every item critical on the list page",
+     "Thin duplicate node with the same <code>@id</code>",
+     "Task 7.2 — one builder per entity"
+    ],
+    [
+     "Local checkout stops working mid-test",
+     "Guesty token quota spent",
+     "Task 1.4 — stop minting; wait for the 24-hour window"
+    ]
+   ]
+  },
+  {
+   "type": "panel",
+   "kind": "brand",
+   "t": "Escalation",
+   "text": "Anything not in the table: message Kyle Zinger (Web &amp; Content Specialist) in the <strong>Web Team Google Chat group</strong>. For anything that needs the client — the GA move, the Cloudflare login, the privacy wording — go through the client's account manager, not the client directly."
+  },
+  {
+   "type": "section",
+   "num": "08",
+   "label": "Final checklist before handoff"
+  },
+  {
+   "type": "checklist",
+   "items": [
+    "Repo = live site confirmed (DNS, deploy commit, HTML compare)",
+    "Local clone fast-forwarded to origin; local env filled (lengths checked, not values)",
+    "Analytics hooks present in <code>app/layout.tsx</code>; env names documented",
+    "GA4 property created in the right account (breadcrumb checked); time zone and currency set",
+    "<code>GA_MEASUREMENT_ID</code> set in Production → deployed → tag in source → Realtime shows a visit",
+    "Enhanced measurement history events on; retention 14 months; internal traffic filter Active",
+    "Client is Administrator on the GA property; move requested if needed",
+    "Search Console property verified (DNS if possible, else HTML tag via env var and deploy)",
+    "Sitemap submitted; home and listings requested for indexing",
+    "Client added as Search Console Owner; GA to GSC link created from a login holding both",
+    "Hotjar site inside the client's organisation; <code>HOTJAR_SITE_ID</code> set → deployed → verified in a real browser",
+    "Hotjar keystrokes off, private pages excluded, office IPs blocked, client invited",
+    "Rich Results Test on list page and detail page: zero critical",
+    "Ownership map filled; pending items assigned; privacy copy requested from the client",
+    "<code>CLAUDE.md</code> and manual updated; committed; pushed; deployed; live markers verified"
+   ]
+  },
+  {
+   "type": "section",
+   "num": "09",
+   "label": "Related documents"
+  },
+  {
+   "type": "bullets",
+   "items": [
+    "<code>docs/ANALYTICS-SETUP.md</code> in the site repo — the client-facing walkthrough for GA4, Search Console and Hotjar",
+    "<code>CLAUDE.md</code> decisions 28–29 — the engineering record of the same two days",
+    "HGM-SOP-WEB-001 — env files in 1Password",
+    "HGM-SOP-WEB-002 — take a website change request from Asana to live (branch, preview, merge)",
+    "<code>SOP-POST-LAUNCH-CONNECTIONS.md</code> — the source notes this draft was converted from"
+   ]
+  },
+  {
+   "type": "section",
+   "num": "10",
+   "label": "Revision history"
+  },
+  {
+   "type": "table",
+   "headers": [
+    "Date",
+    "Version",
+    "Author",
+    "Change summary"
+   ],
+   "rows": [
+    [
+     "2026-09-11",
+     "0.1",
+     "Kyle Zinger",
+     "Working draft converted from the Ridge & Falls launch-week notes, for Brandon. Not yet approved."
+    ]
+   ]
+  },
+  {
+   "type": "band",
+   "pill": "Remember",
+   "quote": "\"Prove you are looking at the live site before you change it. Then remember that nothing you set is live until the next build, and nothing is verified until you have seen it in the live HTML.\"",
+   "aside_t": "Questions?",
+   "aside_d": "Kyle — Web Team Google Chat group"
+  }
+ ]
+}

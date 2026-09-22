@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HGMPortal — SOP dashboard wireframe v0.1</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --mute:#6b6b6b; --faint:#9a9a9a;
+    --line:#cfcfcf; --line2:#e4e4e4; --paper:#fff; --bg:#f2f2f2; --wash:#f7f7f7;
+    --mark:#1a1a1a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  body{padding:32px 24px 80px}
+  .wrap{max-width:1500px;margin:0 auto}
+  h1{font-size:22px;font-weight:600;margin:0 0 4px}
+  h2{font-size:17px;font-weight:600;margin:40px 0 10px}
+  .lede{color:var(--mute);max-width:74ch;margin:0 0 20px}
+  .lede b{color:var(--ink);font-weight:600}
+  code{font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#eaeaea;padding:1px 5px;border-radius:3px}
+
+  /* ---------- frame ---------- */
+  .frame{background:var(--paper);border:1px solid var(--line);position:relative;display:grid;grid-template-columns:80px 240px 1fr;min-height:1020px;overflow:hidden}
+  .frame .stamp{position:absolute;right:12px;top:8px;font-size:11px;color:var(--faint)}
+  .rail{border-right:1px solid var(--line2);padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:22px;background:var(--wash)}
+  .rail .logo{width:34px;height:34px;border:1px solid var(--line);border-radius:6px;margin-bottom:8px}
+  .rail .ico{width:44px;text-align:center;font-size:10px;color:var(--mute)}
+  .rail .ico span{display:block;width:28px;height:28px;margin:0 auto 4px;border:1px solid var(--line);border-radius:6px}
+  .rail .ico.on{color:var(--ink);font-weight:600}
+  .rail .ico.on span{border:2px solid var(--ink)}
+  .rail .ico.new span{border-style:dashed}
+
+  .panel{border-right:1px solid var(--line2);padding:18px 16px}
+  .panel h3{font-size:16px;font-weight:600;margin:0 0 18px}
+  .grp{font-size:11px;letter-spacing:.04em;color:var(--faint);margin:14px 0 6px;text-transform:uppercase}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:7px 8px;border-radius:6px;color:var(--ink)}
+  .row.on{background:#eaeaea;font-weight:600}
+  .row small{color:var(--faint)}
+  .row .lock{font-size:11px;color:var(--faint);margin-left:6px}
+  .panel .note{margin-top:22px;padding-top:12px;border-top:1px dashed var(--line);font-size:12px;color:var(--mute)}
+
+  .main{padding:20px 28px 28px;display:flex;flex-direction:column;gap:22px}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:1px solid var(--line2)}
+  .head h3{font-size:17px;font-weight:600;margin:0}
+  .head p{margin:2px 0 0;color:var(--mute)}
+  .btn{border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:6px;padding:8px 14px;font-weight:600;font-size:13px;white-space:nowrap}
+  .btn.ghost{background:transparent;color:var(--ink)}
+  .btn.sm{padding:5px 10px;font-size:12px}
+
+  .hero{position:relative}
+  .search{border:1px solid var(--ink);border-radius:8px;padding:14px 16px;font-size:16px;color:var(--faint);background:var(--paper)}
+  .search kbd{float:right;font:11px ui-monospace,monospace;border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--mute)}
+  .results{margin-top:8px;border:1px solid var(--line);border-radius:8px;background:var(--paper);box-shadow:0 8px 24px rgba(0,0,0,.06)}
+  .results .r{display:grid;grid-template-columns:110px 1fr auto;gap:14px;padding:10px 14px;border-top:1px solid var(--line2);align-items:center}
+  .results .r:first-child{border-top:0}
+  .results .r .id{font:12px ui-monospace,monospace;color:var(--mute)}
+  .results .r .t{font-weight:600}
+  .results .r .t small{display:block;font-weight:400;color:var(--mute)}
+  .results .r .k{font-size:12px;color:var(--faint)}
+  .results .foot{padding:8px 14px;border-top:1px solid var(--line2);font-size:12px;color:var(--faint)}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .three{display:grid;grid-template-columns:2fr 1fr;gap:18px}
+  .card{border:1px solid var(--line);border-radius:8px;padding:16px;background:var(--paper)}
+  .card h4{font-size:14px;font-weight:600;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+  .card h4 a{font-size:12px;font-weight:500;color:var(--mute)}
+  .list .li{display:grid;grid-template-columns:1fr auto;gap:12px;padding:9px 0;border-top:1px solid var(--line2);align-items:center}
+  .list .li:first-of-type{border-top:0}
+  .li .t{font-weight:600}
+  .li .t small{display:block;font-weight:400;color:var(--mute)}
+  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+  .pill.warn{border-color:var(--ink);color:var(--ink)}
+  .bars .b{display:grid;grid-template-columns:52px 1fr 28px;gap:10px;align-items:center;padding:6px 0}
+  .bars .b .bar{height:8px;background:var(--line2);border-radius:4px;position:relative}
+  .bars .b .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ink);border-radius:4px}
+  .bars .b .n{text-align:right;color:var(--mute);font-size:12px}
+  .runs{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .run{border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+  .run .t{font-weight:600}
+  .run .t small{display:block;font-weight:400;color:var(--mute)}
+  .run .prog{grid-column:1/-1;height:6px;background:var(--line2);border-radius:3px;position:relative}
+  .run .prog i{position:absolute;inset:0 auto 0 0;background:var(--ink);border-radius:3px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .sop{border:1px solid var(--line);border-radius:8px;padding:14px;min-height:150px;display:flex;flex-direction:column;gap:8px}
+  .sop .top{display:flex;justify-content:space-between;align-items:center}
+  .sop .id{font:12px ui-monospace,monospace;color:var(--mute)}
+  .sop .t{font-weight:600;flex:1}
+  .sop .meta{font-size:12px;color:var(--mute)}
+  .sop.dash{border-style:dashed;justify-content:center;align-items:center;color:var(--mute);text-align:center}
+  .footline{text-align:center;font-size:12px;color:var(--faint);padding-top:8px}
+  .sample{color:var(--faint);font-style:italic}
+
+  /* callouts */
+  .c{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--mark);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:3;box-shadow:0 0 0 3px #fff}
+  .rel{position:relative}
+  .rel > .c{left:-11px;top:-11px}
+
+  /* ---------- spec ---------- */
+  table{width:100%;border-collapse:collapse;background:var(--paper);border:1px solid var(--line);font-size:13.5px}
+  th,td{text-align:left;vertical-align:top;padding:10px 12px;border-top:1px solid var(--line2)}
+  th{background:var(--wash);font-weight:600;border-top:0}
+  td:first-child{width:36px}
+  td .num{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--mark);color:#fff;font-size:12px;font-weight:700;align-items:center;justify-content:center}
+  .ph{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+  ul{margin:8px 0 0 18px;padding:0}
+  li{margin:4px 0;max-width:80ch}
+  .qs li{margin:8px 0}
+  .legend{display:flex;gap:18px;font-size:12px;color:var(--mute);margin:10px 0 24px}
+  .legend span::before{content:"";display:inline-block;width:12px;height:12px;margin-right:6px;vertical-align:-2px;border:1px solid var(--line)}
+  .legend .d::before{border-style:dashed}
+  .legend .k::before{background:var(--ink);border-color:var(--ink);border-radius:50%}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>HGMPortal — SOP dashboard, landing page</h1>
+<p class="lede">Wireframe v0.1 for UX/UI review — AnhTuan &amp; Brandon · 15 Sep 2026 · from Kyle Zinger. Lo-fi on purpose: <b>regions, data and rules are the spec; the look is yours</b>, applied through the HGM design system and matching the Web Team and Client Docs pages. Desktop shown; the left panel collapses the same way theirs does.</p>
+<div class="legend"><span>Region</span><span class="d">Reserved space — ships later, layout holds the slot now</span><span class="k">Callout, keyed to the table below</span></div>
+
+<!-- ============================ FRAME ============================ -->
+<div class="frame">
+  <div class="stamp">hgmportal.com/dashboard?dept=sops · sample data · counts are placeholders unless noted</div>
+
+  <div class="rail rel">
+    <div class="c" style="left:29px;top:262px">1</div>
+    <div class="logo"></div>
+    <div class="ico"><span></span>Home</div>
+    <div class="ico"><span></span>Clients</div>
+    <div class="ico"><span></span>Website</div>
+    <div class="ico"><span></span>Docs</div>
+    <div class="ico on new"><span></span>SOPs</div>
+  </div>
+
+  <div class="panel rel">
+    <div class="c" style="left:16px;top:60px">2</div>
+    <h3>SOPs</h3>
+    <div class="grp">Views</div>
+    <div class="row on">All SOPs <small>3</small></div>
+    <div class="row">My open runs <small>—</small></div>
+    <div class="row">Needs review <small>—</small></div>
+    <div class="row">Pending approval <small>—</small></div>
+    <div class="grp">Departments</div>
+    <div class="row">Account Management <small>0</small></div>
+    <div class="row">Web <small>3</small></div>
+    <div class="row">Ads <small>0</small></div>
+    <div class="row">Content <small>0</small></div>
+    <div class="row">Platforms <small>0</small></div>
+    <div class="row"><span>Security<span class="lock">🔒</span></span> <small>0</small></div>
+    <div class="note">Departments and their order come from the <code>departments</code> table, not from code. Adding a seventh is a row, not a release. Pending approval is shown to leads and admin only.</div>
+  </div>
+
+  <div class="main">
+
+    <div class="head rel">
+      <div class="c">3</div>
+      <div>
+        <h3>All SOPs</h3>
+        <p>3 live across 1 of 6 departments · 0 need review</p>
+      </div>
+      <div class="btn">+ Create SOP</div>
+    </div>
+
+    <div class="hero rel">
+      <div class="c">4</div>
+      <div class="search">What are you trying to do? <kbd>Shift F</kbd></div>
+      <div class="results">
+        <div class="r"><span class="id">WEB-002 · 1.3</span><span class="t">Clone the repository into VS Code<small>Take a website change request from Asana to live → Phase 1, Set up a machine</small></span><span class="k">Task</span></div>
+        <div class="r"><span class="id">WEB-002 · 2.1</span><span class="t">Create a branch for the request<small>Take a website change request from Asana to live → Phase 2, Start a new request</small></span><span class="k">Task</span></div>
+        <div class="r"><span class="id">WEB-002</span><span class="t">Take a website change request from Asana to live<small>Web · v1.4 · Kyle Zinger</small></span><span class="k">SOP</span></div>
+        <div class="foot">Results are ranked title → phase heading → task title → task body. Selecting a task opens the SOP scrolled to that task.</div>
+      </div>
+    </div>
+
+    <div class="rel">
+      <div class="c">5</div>
+      <div class="card" style="border-style:dashed">
+        <h4>My open runs <a>Only shown when you have at least one</a></h4>
+        <div class="runs">
+          <div class="run"><span class="t">Take a website change request from Asana to live<small>6 of 14 tasks · started yesterday · v1.4</small></span><span class="btn ghost sm">Resume</span><span class="prog"><i style="width:43%"></i></span></div>
+          <div class="run"><span class="t sample">Sample run<small>2 of 9 tasks · started Sep 11</small></span><span class="btn ghost sm">Resume</span><span class="prog"><i style="width:22%"></i></span></div>
+          <div class="run" style="border-style:dashed;justify-content:center;color:var(--faint)">Up to 3 across; more → the My open runs view</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="three">
+      <div class="rel">
+        <div class="c">6</div>
+        <div class="card list" style="border-style:dashed">
+          <h4>Needs review <a>Needs review view ↗</a></h4>
+          <div class="li"><span class="t sample">Sample SOP title<small>Web · owner role (person) · review was due 14 days ago</small></span><span class="pill warn">14 days</span></div>
+          <div class="li"><span class="t sample">Sample SOP title<small>Content · owner role (person) · review due in 6 days</small></span><span class="pill">6 days</span></div>
+          <div class="li"><span class="t" style="color:var(--faint)">Empty state: “Nothing is due. Reviews are set 6 months from each approval.”</span><span></span></div>
+        </div>
+      </div>
+      <div class="rel">
+        <div class="c">7</div>
+        <div class="card bars">
+          <h4>Coverage by department</h4>
+          <div class="b"><span>ACC</span><span class="bar"><i style="width:0"></i></span><span class="n">0</span></div>
+          <div class="b"><span>WEB</span><span class="bar"><i style="width:100%"></i></span><span class="n">3</span></div>
+          <div class="b"><span>ADS</span><span class="bar"><i style="width:0"></i></span><span class="n">0</span></div>
+          <div class="b"><span>CON</span><span class="bar"><i style="width:0"></i></span><span class="n">0</span></div>
+          <div class="b"><span>PLA</span><span class="bar"><i style="width:0"></i></span><span class="n">0</span></div>
+          <div class="b"><span>SEC</span><span class="bar"><i style="width:0"></i></span><span class="n">0</span></div>
+          <p style="margin:10px 0 0;font-size:12px;color:var(--mute)">Zeros stay visible. Bars are live SOPs only; drafts don’t count.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="rel">
+      <div class="c">8</div>
+      <div class="card list" style="border-style:dashed">
+        <h4>Recently updated</h4>
+        <div class="li"><span class="t">Take a website change request from Asana to live<small>v1.4 · Kyle Zinger · 12 Sep 2026 · Route selection reframed as a platform choice; note added that the claude.ai website cannot run the prompts. No change to the procedure.</small></span><span class="pill">Web</span></div>
+        <div class="li"><span class="t sample">Sample SOP title<small>v2.0 · publisher · date · change summary from the revision-history row, “3 steps changed”</small></span><span class="pill">Ads</span></div>
+      </div>
+    </div>
+
+    <div class="rel">
+      <div class="c">9</div>
+      <div class="card">
+        <h4>Web <a>Grid ⋮⋮ · List ☰ · Sort: recently updated ▾</a></h4>
+        <div class="grid">
+          <div class="sop">
+            <div class="top"><span class="id">HGM-SOP-WEB-002</span><span class="pill">Live</span></div>
+            <div class="t">Take a website change request from Asana to live</div>
+            <div class="meta">v1.4 · Kyle Zinger · 12 Sep 2026<br>Web &amp; Content Specialist (Kyle Zinger) · review Mar 2027</div>
+          </div>
+          <div class="sop">
+            <div class="top"><span class="id">HGM-SOP-WEB-001</span><span class="pill">Draft</span></div>
+            <div class="t">Store, share and update client .env files in 1Password</div>
+            <div class="meta">v1.1 · Kyle Zinger<br>Awaiting 4 screenshots</div>
+          </div>
+          <div class="sop">
+            <div class="top"><span class="id">HGM-SOP-WEB-003</span><span class="pill">Draft</span></div>
+            <div class="t">Post-launch connections</div>
+            <div class="meta">v0.1 · Kyle Zinger<br>Working draft</div>
+          </div>
+          <div class="sop dash">🔒 Security SOPs carry the existing <b>Protected</b> badge and a <b>Pending approval</b> pill until the lead approves</div>
+        </div>
+        <p style="margin:12px 0 0;font-size:12px;color:var(--mute)">On All SOPs this repeats once per department with SOPs, in table order. Empty department: “No Ads SOPs yet — anyone can create one.” with a Create SOP link.</p>
+      </div>
+    </div>
+
+    <div class="footline rel"><div class="c" style="left:calc(50% - 160px);top:2px">10</div>Live from the SOP library — publish or update there and these numbers follow.</div>
+  </div>
+</div>
+
+<!-- ============================ SPEC ============================ -->
+<h2>Regions</h2>
+<p class="lede">Data sources are the tables in the portal plan v2 §4. Phase is the plan’s build phase; anything not phase 1 ships as reserved space so the layout doesn’t reflow when it lands.</p>
+<table>
+  <tr><th></th><th>Region</th><th>Data source</th><th>Phase</th><th>Rules</th></tr>
+  <tr><td><span class="num">1</span></td><td>Rail item <b>SOPs</b></td><td>—</td><td><span class="ph">1</span></td><td>Fifth icon under Docs. Route <code>/dashboard?dept=sops</code>. Same active state as the other four.</td></tr>
+  <tr><td><span class="num">2</span></td><td>Left panel</td><td><code>departments</code> (code, name, sort, lead_user_id, requires_approval, chat_space_id) · counts from <code>sops where status = live</code></td><td><span class="ph">1</span></td><td>Views above departments. My open runs and Needs review show a count only when &gt; 0. Pending approval is visible to leads and admin only. Lock icon where <code>requires_approval</code> is true (SEC today). Adding a department is a row insert; the panel, the coverage bars and the Create SOP dropdown all read the same table.</td></tr>
+  <tr><td><span class="num">3</span></td><td>Header</td><td>Aggregates of <code>sops</code></td><td><span class="ph">1</span></td><td>Title follows the selected view or department. Subtitle reads “N live across N of N departments · N need review” — it’s the only place a total appears. <b>+ Create SOP</b> matches + New Client and + New Guide. In phase 1 it opens the intake form; the Claude-driven interview behind it is phase 2. No Update button here — Update lives on each SOP page and in the card’s ⋯ menu.</td></tr>
+  <tr><td><span class="num">4</span></td><td>Task search</td><td>Postgres full-text over <code>sop_versions.json</code> (current version only), weighted: title A, phase heading B, task title C, task body D</td><td><span class="ph">1</span> box · <span class="ph">4</span> step-level ranking</td><td>Placeholder copy “What are you trying to do?”. Results are tasks first, then SOPs. Row shows ID + task number, task title, SOP → phase, and a type label. Selecting a task opens <code>/sop/HGM-SOP-WEB-002#1.3</code>. Also register SOPs and tasks as a result type in the global Shift F search — one search on the portal, not two. Phase 1 can ship SOP-title matching only; the box and the result shape don’t change when ranking lands.</td></tr>
+  <tr><td><span class="num">5</span></td><td>My open runs</td><td><code>sop_runs where completed_at is null</code></td><td><span class="ph">3</span></td><td>Hidden entirely at zero — no empty state, the space collapses. Up to three cards; more go to the view. Progress = checked_step_ids / total tasks in that version. Resume opens the SOP at the first unchecked task. If the SOP has a newer version than the run, show “Updated to v1.5 since you started” on the card.</td></tr>
+  <tr><td><span class="num">6</span></td><td>Needs review</td><td><code>sops where next_review_at &lt; now() + 30 days</code>, sorted most overdue first</td><td><span class="ph">4</span></td><td>Overdue rows get the strong pill; due-soon rows the plain one. Row shows SOP, department, owner role (person), days. Open goes to the SOP page. Empty state text is in the frame. This is the Operations Manager’s region — it must be visible without scrolling on a 1440 × 900 window.</td></tr>
+  <tr><td><span class="num">7</span></td><td>Coverage by department</td><td><code>departments</code> ⨝ <code>sops where status = live</code></td><td><span class="ph">1</span></td><td>One bar per department, table order, zeros shown. Same bar treatment as Clients per Account Manager on Home. Clicking a bar selects that department in the panel.</td></tr>
+  <tr><td><span class="num">8</span></td><td>Recently updated</td><td><code>sop_versions</code> latest 5 by <code>published_at</code></td><td><span class="ph">4</span></td><td>Row shows title, version, publisher, date and <code>change_summary</code> verbatim from the revision-history row. Reverts read “Reverted to v1.1”.</td></tr>
+  <tr><td><span class="num">9</span></td><td>SOP cards</td><td><code>sops</code> ⨝ current <code>sop_versions</code></td><td><span class="ph">1</span></td><td>Card: ID, status pill (Live · Draft · Pending approval · Archived), title, version strip (version · publisher · date), owner role with person, next review month. SEC cards carry the existing Protected badge. Grid/list toggle and sort match the Client List. Hover ⋯ menu: Open, Download PDF, Update SOP, Revert (lead/admin), Archive (admin). On All SOPs the block repeats per department; selecting a department in the panel shows that department only, with the same header and search above.</td></tr>
+  <tr><td><span class="num">10</span></td><td>Footer line</td><td>—</td><td><span class="ph">1</span></td><td>Same pattern as Home’s “Live from the Client List…”. Tells people where the numbers come from and that nothing on this page is edited here.</td></tr>
+</table>
+
+<h2>Decisions already made — don’t re-open</h2>
+<ul>
+  <li>Block JSON is the master; the portal renders HTML live, PDF at publish. The dashboard never holds content, only pointers.</li>
+  <li>Publish is immediate for every department except those with <code>requires_approval</code>; lead is notified with a diff; one-click revert on the page.</li>
+  <li>Claude is behind Create SOP and Update SOP only. There is no free-text Claude box anywhere on the dashboard (plan §6, “no general chat”).</li>
+  <li>SOP ID is the slug: <code>/sop/HGM-SOP-WEB-002</code>, tasks by fragment <code>#1.3</code>.</li>
+  <li>Light theme default; no gem yellow in document colour (the dashboard chrome follows the portal, the SOP page follows the house style).</li>
+</ul>
+
+<h2>Empty and edge states</h2>
+<ul>
+  <li><b>First launch, one department seeded.</b> Coverage shows WEB 3 and five zeros; Needs review and Recently updated show their empty text; My open runs is absent. The page should look intentional in this state, because this is the state Gillian sees first.</li>
+  <li><b>Empty department selected.</b> Header “Ads — 0 SOPs”, one dashed card: “No Ads SOPs yet — anyone can create one.” with Create SOP pre-filled to Ads.</li>
+  <li><b>Draft visibility.</b> Drafts are visible to their author, the department lead and admin; they don’t count toward coverage or appear in search for anyone else.</li>
+  <li><b>Contractor login.</b> Undecided (see below). Design the panel so a whole department can be hidden per role without a gap in the layout.</li>
+</ul>
+
+<h2>Open questions</h2>
+<ul class="qs">
+  <li><b>Department codes changed.</b> The house style and the authoring skill enforce WEB, CON, OPS, FIN, SEC, CLI. The new list is ACC, WEB, ADS, CON, PLA, SEC. <code>HGM-SOP-OPS-001</code> (how to produce an SOP) has no department under the new list. Options: keep OPS as a seventh, company-wide department; or move OPS-001 to a new home and re-ID it. Kyle to raise with Gillian. Nothing in this wireframe depends on the answer except the seed data.</li>
+  <li><b>Department leads</b> for ACC, ADS, CON, PLA and SEC, and which Google Chat space each notifies.</li>
+  <li><b>Contractor access</b> — none, read-only on some departments, or full contributor.</li>
+  <li><b>Search scope</b> — confirm the global Shift F search is Postgres-backed so SOP results can join it, or whether it needs its own index.</li>
+</ul>
+
+</div>
+</body>
+</html>

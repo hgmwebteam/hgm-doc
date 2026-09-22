@@ -1,0 +1,1008 @@
+{
+  "meta": {
+    "eyebrow": "Standard operating procedure · WEB",
+    "title": "Take a website change request from Asana to live",
+    "lead": "How a change request becomes a live client site without ever breaking the live site. If you remember one thing: <strong class=\"hl\">never work directly on main</strong> — main is the branch that <em>is</em> the live site. A branch is your own private copy of the site, and nothing on it reaches the live site until someone deliberately merges it.",
+    "sop_id": "HGM-SOP-WEB-002",
+    "version": "1.4",
+    "owner": "Web & Content Specialist (Kyle Zinger)",
+    "approved_by": "Operations Manager (Gillian)",
+    "effective_date": "2026-09-01",
+    "next_review": "2027-03-01",
+    "frequency": "Every website change request",
+    "duration": "~45 minutes for a small edit",
+    "status": "draft",
+    "tasks": [
+      {
+        "badge": "Phase 1",
+        "label": "Set up a machine",
+        "hint": "Tasks 1.1–1.9 · first time on this computer or site",
+        "proc": "1"
+      },
+      {
+        "badge": "Phase 2",
+        "label": "Start a new request",
+        "hint": "Tasks 2.1–2.2 · clean branch, gather the request",
+        "proc": "2"
+      },
+      {
+        "badge": "Phase 3",
+        "label": "Plan before building",
+        "hint": "Tasks 3.1–3.2 · get a plan, not code",
+        "proc": "3"
+      },
+      {
+        "badge": "Phase 4",
+        "label": "Build and check",
+        "hint": "Tasks 4.1–4.2 · build it, then check it locally",
+        "proc": "4"
+      },
+      {
+        "badge": "Phase 5",
+        "label": "Put it on a preview",
+        "hint": "Tasks 5.1–5.2 · pull request and Deploy Preview",
+        "proc": "5"
+      },
+      {
+        "badge": "Phase 6",
+        "label": "Approve and go live",
+        "hint": "Tasks 6.1–6.3 · route, merge, verify",
+        "proc": "6"
+      }
+    ],
+    "source": {
+      "kind": "manual"
+    },
+    "schema_version": 2,
+    "dept": "WEB",
+    "number": 2,
+    "slug": "take-a-website-change-request-from-asana-to-live"
+  },
+  "blocks": [
+    {
+      "type": "section",
+      "num": "01",
+      "label": "Purpose and scope"
+    },
+    {
+      "type": "cards",
+      "cols": 3,
+      "items": [
+        {
+          "t": "Purpose",
+          "d": "Takes a website change request from an Asana task all the way to the live client site without ever putting the live site at risk. Every step that touches the terminal offers two or three routes, so nobody has to type a command they do not understand."
+        },
+        {
+          "t": "In scope",
+          "d": "Content and code changes to HGM's Next.js client sites hosted on Netlify, requested through Asana and made in VS Code with Claude Code."
+        },
+        {
+          "t": "Out of scope",
+          "d": "Building a new site from scratch, hosting or domain (DNS) changes, and anything on a site that is not one of the Next.js client repositories (code stores) in the <code>hgmwebteam</code> GitHub organization."
+        }
+      ]
+    },
+    {
+      "type": "rules",
+      "k": "Always true",
+      "t": "Four standing rules",
+      "d": "These four hold on every job. Everything else in this document is procedure; these are not per-request judgement calls.",
+      "items": [
+        {
+          "t": "Never work directly on main",
+          "d": "A branch is your own private copy of the site. Nothing on a branch can reach the live site until someone deliberately merges it. This is the single rule that makes everything else here safe to get wrong."
+        },
+        {
+          "t": "Never send a credential",
+          "d": "Do not paste credentials into Google Chat, email, or an Asana comment, and never add <code>.env.local</code> to the site's code repository. Point the person at the 1Password vault instead."
+        },
+        {
+          "t": "Approval is routed, not sent to one person",
+          "d": "Who signs off depends on what the change is, not who asked for it. The routing table is at task 6.1, and silence is not approval &mdash; wait for an explicit yes."
+        },
+        {
+          "t": "Show the preview, not your laptop",
+          "d": "A <code>localhost</code> address proves nothing to anyone else. Open the Deploy Preview URL and confirm your change is really on it before you ask for sign-off."
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "num": "02",
+      "label": "Roles and responsibilities"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Role",
+        "Responsibility"
+      ],
+      "rows": [
+        [
+          "Anyone taking a website change request",
+          "Performs tasks 1.1 to 6.3"
+        ],
+        [
+          "Approver (AnhTuan, Makenna, or Gillian)",
+          "Approves the preview link at task 6.1, routed by what the change is &mdash; see the table there. Nothing merges without an explicit yes"
+        ],
+        [
+          "Developers (AnhTuan, Leshan, Brandon, Kyle)",
+          "Escalation for unrecognised changes, missing credentials, and Netlify settings (environment variables)"
+        ],
+        [
+          "Web &amp; Content Specialist (Kyle Zinger)",
+          "Owns this SOP and keeps it current"
+        ],
+        [
+          "Operations Manager (Gillian)",
+          "Approves this SOP and each revision"
+        ]
+      ]
+    },
+    {
+      "type": "panel",
+      "kind": "brand",
+      "t": "Who approves depends on the change",
+      "text": "Not on who asked for it. The routing table is at task 6.1."
+    },
+    {
+      "type": "section",
+      "num": "03",
+      "label": "Prerequisites"
+    },
+    {
+      "type": "para",
+      "text": "Phase 1 is once per machine, per site. After that, every job starts at Phase 2."
+    },
+    {
+      "type": "numcards",
+      "columns": 2,
+      "items": [
+        {
+          "t": "VS Code",
+          "d": "Download from <code>code.visualstudio.com</code>."
+        },
+        {
+          "t": "Node.js",
+          "d": "Version 20 or newer."
+        },
+        {
+          "t": "Claude Code",
+          "d": "Install from the VS Code Extensions panel, then sign in."
+        },
+        {
+          "t": "1Password",
+          "d": "Desktop app, signed in to the HGM account with access to the client's vault."
+        },
+        {
+          "t": "GitHub access",
+          "d": "Membership of the <code>hgmwebteam</code> organization. Request from a developer in the <strong>Web Team</strong> Google Chat group."
+        },
+        {
+          "t": "No Netlify account needed",
+          "d": "Netlify already watches these repositories and builds the preview itself when a pull request is opened. You never log in to Netlify or run a deploy command."
+        }
+      ]
+    },
+    {
+      "type": "sub",
+      "text": "Where are you working?"
+    },
+    {
+      "type": "para",
+      "text": "Every task that touches the machine is written up to three ways: a prompt for Claude Code, a command for the terminal, and buttons where VS Code has them. Which of those you can use depends on where you are sitting. On the portal page, <strong>pick your platform once</strong> in the selector under these cards and each task shows only the instructions that run there; where a task has nothing for your platform, it shows every route. On paper, the label bar on each box names the route &mdash; use the ones your platform can run."
+    },
+    {
+      "type": "cards",
+      "cols": 3,
+      "items": [
+        {
+          "icon": "vscode",
+          "t": "VS Code",
+          "d": "You have the site open in VS Code. You can paste prompts into the Claude Code panel, type commands in the built-in terminal, or use VS Code's own buttons and menus. All three routes show."
+        },
+        {
+          "icon": "terminal",
+          "t": "Terminal",
+          "d": "You work in a terminal window &mdash; VS Code's terminal or your computer's Terminal app. Only typed commands show. Free and fast, but it does exactly what you say &mdash; including the wrong thing."
+        },
+        {
+          "icon": "desktop",
+          "t": "Claude Desktop app",
+          "d": "You work in the Claude Desktop app's Claude Code tab. Only prompts show; each covers a whole phase, so a normal job is about four pastes. Uses Claude credits. The claude.ai website cannot run these &mdash; it cannot reach the site's code on your machine."
+        }
+      ]
+    },
+    {
+      "type": "para",
+      "text": "Here is how the three platforms compare in practice."
+    },
+    {
+      "type": "table",
+      "boxed": true,
+      "headers": [
+        "",
+        "VS Code",
+        "Terminal",
+        "Claude Desktop app"
+      ],
+      "rows": [
+        [
+          "Claude credits",
+          "Only when you use a prompt",
+          "None",
+          "Uses credits"
+        ],
+        [
+          "Difficulty",
+          "Easiest &mdash; buttons where they exist, plain English otherwise",
+          "Hardest &mdash; you must know the commands",
+          "Easy &mdash; plain English"
+        ],
+        [
+          "Speed",
+          "Medium",
+          "<strong>Fastest</strong>",
+          "Medium &mdash; you wait for a reply"
+        ],
+        [
+          "Catches mistakes",
+          "<strong>Yes</strong>, on the prompt route &mdash; it checks state first and warns before anything destructive",
+          "No &mdash; runs exactly what you type",
+          "<strong>Yes</strong> &mdash; checks state first, warns before anything destructive"
+        ],
+        [
+          "Available for",
+          "Every task",
+          "Every task",
+          "Every task"
+        ],
+        [
+          "Best when",
+          "It is your first time, or you want buttons for cloning and merging",
+          "You have done it before and know what to expect",
+          "You already work in the Desktop app and want the result verified"
+        ]
+      ]
+    },
+    {
+      "type": "panel",
+      "kind": "note",
+      "t": "Where your credits actually go",
+      "text": "Tasks 3.1 and 4.1 &mdash; the <strong>planning</strong> and <strong>execution</strong> prompts &mdash; are the overwhelming majority of Claude usage on any job, because Claude has to read a lot of the codebase to do them. They are also the two steps you cannot do any other way.<br><br>By comparison, asking Claude to run <code>git pull</code> or a deploy is a rounding error. Do not skip a Claude option to save credits if that option is doing something useful &mdash; the savings are tiny and the risk is not. The one place it matters: if you are near a usage limit and need to finish a job, run the mechanical steps yourself and save your remaining budget for task 4.1."
+    },
+    {
+      "type": "panel",
+      "kind": "success",
+      "t": "Recommended default",
+      "text": "<strong>New to this?</strong> Use the Claude option everywhere. It checks things the raw commands do not, and the credit cost of the mechanical steps is negligible.<br><br><strong>Comfortable in a terminal?</strong> Run tasks 2.1, 4.2 and 6.2 yourself &mdash; they are quick and predictable. Still use the Claude option for <strong>task 5.1</strong>, because it confirms your change is actually on the Deploy Preview URL, which is the mistake people make most often."
+    },
+    {
+      "type": "section",
+      "num": "04",
+      "label": "Definitions"
+    },
+    {
+      "type": "cards",
+      "cols": 3,
+      "items": [
+        {
+          "t": "Branch",
+          "d": "A private copy of the site's code where you make your change. Nothing on it reaches the live site until it is merged."
+        },
+        {
+          "t": "main",
+          "d": "The branch that <em>is</em> the live site. Never edited directly."
+        },
+        {
+          "t": "Deploy Preview",
+          "d": "A real, working web address running your pull request with real data &mdash; but not the live site. Netlify builds it automatically and posts the link on the pull request."
+        }
+      ]
+    },
+    {
+      "type": "cards",
+      "cols": 3,
+      "items": [
+        {
+          "t": "Pull request",
+          "d": "The GitHub page where a branch is reviewed and merged into <code>main</code>."
+        },
+        {
+          "t": ".env.local",
+          "d": "A plain text file at the project root holding the site's credentials. Never committed to git. See HGM-SOP-WEB-001."
+        },
+        {
+          "t": "Hard refresh",
+          "d": "<code>Cmd + Shift + R</code>. Forces the browser to re-fetch a page instead of serving a cached copy."
+        }
+      ]
+    },
+    {
+      "type": "cards",
+      "cols": 3,
+      "items": [
+        {
+          "t": "Repository (repo)",
+          "d": "The store of one site's code and its full history, kept on GitHub in the <code>hgmwebteam</code> organization. Cloning it puts a copy on your computer."
+        },
+        {
+          "t": "Git and commit",
+          "d": "Git tracks every change to the code. A commit is one saved set of changes on your branch. Committed is not merged &mdash; it is still only on your branch."
+        },
+        {
+          "t": "Push and merge",
+          "d": "Push uploads your branch to GitHub. Merge folds it into <code>main</code>, which is the moment it goes live. Only the approver's yes unlocks a merge."
+        }
+      ]
+    },
+    {
+      "type": "cards",
+      "cols": 3,
+      "items": [
+        {
+          "t": "Terminal (CLI)",
+          "d": "The panel in VS Code where you type commands. Open it with <strong>Terminal &rarr; New Terminal</strong>. Every terminal step here also has a point-and-click or Claude route."
+        },
+        {
+          "t": "Dev server and localhost",
+          "d": "<code>npm run dev</code> runs a private test copy of the site at <code>http://localhost:3000</code>. Only your computer can see it."
+        },
+        {
+          "t": "Environment variable",
+          "d": "A named setting the site reads while it runs, such as a booking-system key. On your computer they come from <code>.env.local</code>; on Netlify they are set in the site's settings."
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "num": "05",
+      "label": "Procedure"
+    },
+    {
+      "type": "sub",
+      "id": "1",
+      "text": "Phase 1 &mdash; Set up a machine"
+    },
+    {
+      "type": "para",
+      "text": "<span class=\"muted\">Once per machine, per site. After this, every job starts at Phase 2.</span>"
+    },
+    {
+      "type": "step",
+      "n": "1.1",
+      "t": "Install the four tools",
+      "id": "WEB-002.1.1",
+      "d": "VS Code, Node.js 20 or newer, the Claude Code extension, and the 1Password desktop app. Links are in prerequisites above.",
+      "expect": "Claude Code appears in the VS Code Extensions panel, signed in."
+    },
+    {
+      "type": "step",
+      "n": "1.2",
+      "t": "Open a new VS Code window",
+      "id": "WEB-002.1.2",
+      "d": "Choose <strong>File &rarr; New Window</strong>.",
+      "body": [
+        {
+          "type": "figure",
+          "path": "fig_HGM-SOP-WEB-002_f1-file-newwindow.jpg",
+          "caption": "File &rarr; New Window."
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "n": "1.3",
+      "t": "Open the Explorer, then click Clone Repository",
+      "id": "WEB-002.1.3",
+      "d": "The Explorer icon is at the top of the left sidebar. With no folder open it offers <strong>Open Folder</strong> and <strong>Clone Repository</strong>.",
+      "body": [
+        {
+          "type": "figure",
+          "path": "fig_HGM-SOP-WEB-002_f2-clone-button.jpg",
+          "caption": "The Explorer panel with no folder open."
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "n": "1.4",
+      "t": "Paste the repository URL and press Return",
+      "id": "WEB-002.1.4",
+      "d": "Then choose a folder to put the site in.",
+      "body": [
+        {
+          "type": "figure",
+          "path": "fig_HGM-SOP-WEB-002_f3-clone-url.jpg",
+          "caption": "The repository URL prompt."
+        },
+        {
+          "type": "code",
+          "kind": "click",
+          "text": "https://github.com/hgmwebteam/<site-name>.git\n\n# taberg-falls  ·  flohom  ·  paradise-pointe\n# treetop-escapes  ·  stay-saluda  ·  stay-on-30a\n# ridge-and-falls  ·  cohost",
+          "label": "Repository URLs",
+          "note": "one per client site"
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "n": "1.5",
+      "t": "Or pick the site from the list instead of typing",
+      "id": "WEB-002.1.5",
+      "d": "The same prompt lists every repository in the <code>hgmwebteam</code> organization.",
+      "body": [
+        {
+          "type": "figure",
+          "path": "fig_HGM-SOP-WEB-002_f4-repo-list.jpg",
+          "caption": "Start typing the site name to filter the list."
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "n": "1.6",
+      "t": "Click Open when VS Code asks",
+      "id": "WEB-002.1.6",
+      "d": "It asks &ldquo;Would you like to open the repository?&rdquo; once the clone finishes. Choose <strong>Open</strong>, not Open in New Window.",
+      "body": [
+        {
+          "type": "figure",
+          "path": "fig_HGM-SOP-WEB-002_f5-open-repo.jpg",
+          "caption": "Click <strong>Open</strong>."
+        },
+        {
+          "type": "panel",
+          "kind": "note",
+          "t": "If VS Code asks you to sign in to GitHub",
+          "text": "Do it. It only asks once per machine."
+        }
+      ],
+      "expect": "The site's files appear in the Explorer panel."
+    },
+    {
+      "type": "step",
+      "n": "1.7",
+      "t": "Run npm install",
+      "id": "WEB-002.1.7",
+      "d": "Open a terminal with <strong>Terminal &rarr; New Terminal</strong> (or <code>Ctrl + `</code>) and run <code>npm install</code>. It downloads the code the site depends on.",
+      "body": [
+        {
+          "type": "figure",
+          "path": "fig_HGM-SOP-WEB-002_f6-new-terminal.jpg",
+          "caption": "Terminal &rarr; New Terminal."
+        }
+      ],
+      "expect": "It finishes in a minute or two. Once per site, not once per job."
+    },
+    {
+      "type": "step",
+      "n": "1.8",
+      "t": "Find the site's .env.local entry in 1Password",
+      "id": "WEB-002.1.8",
+      "d": "Search the site name plus <code>env</code> &mdash; for example <em>Taberg Falls .env.local</em>. This file holds the site's credentials. Without it the site still runs, but property photos and prices will not load.",
+      "body": [
+        {
+          "type": "figure",
+          "path": "fig_HGM-SOP-WEB-002_f7-1p-search.jpg",
+          "caption": "Searching 1Password for the environment file."
+        }
+      ]
+    },
+    {
+      "type": "step",
+      "n": "1.9",
+      "t": "Copy the entry, then create .env.local in VS Code",
+      "id": "WEB-002.1.9",
+      "d": "Copy the entry's <strong>entire</strong> contents. In VS Code create a new file called exactly <code>.env.local</code> in the top folder of the site (the project root), alongside <code>package.json</code>. Paste, and save. Create it in VS Code, not Finder &mdash; Finder hides files whose names start with a dot.",
+      "body": [
+        {
+          "type": "figure",
+          "path": "fig_HGM-SOP-WEB-002_f8-1p-envlocal.jpg",
+          "caption": "The entry. Copy all of it, comments included."
+        }
+      ],
+      "expect": "The site runs locally with photos and prices loading."
+    },
+    {
+      "type": "panel",
+      "kind": "warning",
+      "t": "If it is not in 1Password",
+      "text": "Ask AnhTuan, Leshan, Brandon or Kyle &mdash; one of them will have it. Then, with as much warmth as you can manage, ask them to <strong>put it in 1Password</strong>, because that is where it was supposed to live all along. You are not the last person who will need it. Full procedure in HGM-SOP-WEB-001."
+    },
+    {
+      "type": "panel",
+      "kind": "critical",
+      "t": "Never send a credential",
+      "text": "Do not paste credentials into Google Chat, email, or an Asana comment, and do not add <code>.env.local</code> to the code repository. Git is set to ignore that file on purpose &mdash; leave it that way."
+    },
+    {
+      "type": "sub",
+      "text": "Doing Phase 1 in one go instead"
+    },
+    {
+      "type": "para",
+      "text": "Tasks 1.2 to 1.7 are the click-by-click route. Either of these does the same thing in one action."
+    },
+    {
+      "type": "code",
+      "kind": "terminal",
+      "text": "Press Cmd + Shift + P, type: Git: Clone\nPaste the same URL, choose a folder, then let VS Code open it.\nThen run: npm install",
+      "label": "Terminal / CLI",
+      "note": "command palette"
+    },
+    {
+      "type": "code",
+      "kind": "prompt",
+      "text": "Clone https://github.com/hgmwebteam/[site-name].git into\nthis folder, open it, and then run npm install. Tell me if\nanything fails.",
+      "label": "Claude prompt",
+      "note": "paste this in"
+    },
+    {
+      "type": "sub",
+      "id": "2",
+      "text": "Phase 2 &mdash; Start a new request"
+    },
+    {
+      "type": "para",
+      "text": "<span class=\"muted\">Begin here for every new job.</span>"
+    },
+    {
+      "type": "step",
+      "n": "2.1",
+      "t": "Get onto a clean, current branch",
+      "id": "WEB-002.2.1",
+      "d": "Three things happen here: confirm nothing is half-finished, get the latest code, and make a fresh branch to work on.",
+      "body": [
+        {
+          "type": "code",
+          "kind": "terminal",
+          "text": "git checkout main\ngit pull\ngit status\n\n# then, naming the branch after the job:\ngit checkout -b fix/terms-page-update",
+          "label": "Terminal / CLI",
+          "note": "type it yourself"
+        },
+        {
+          "type": "code",
+          "kind": "prompt",
+          "text": "I'm starting a new website change request. Please get me set up:\n\n1. Check I'm on main, that my working copy is clean, and that\n   it's in sync with origin/main. If there are uncommitted\n   changes I don't recognise, STOP and show me what they are.\n   Do not discard anything.\n2. Pull the latest main.\n3. Create a branch for this job called: fix/[short-description]\n   Use fix/ for corrections, feat/ for new features.\n4. Confirm which branch I'm on now.\n\nMake no other changes.",
+          "label": "Claude prompt",
+          "note": "paste this in"
+        },
+        {
+          "type": "panel",
+          "kind": "critical",
+          "t": "Stop if you see changes you do not recognise",
+          "text": "Ask a developer before going further. That is someone's unfinished work, or your own from last time, and carrying it into a new job tangles two changes together."
+        }
+      ],
+      "expect": "<code>git status</code> reports nothing to commit (a &ldquo;clean tree&rdquo;), and you are on your new branch."
+    },
+    {
+      "type": "step",
+      "n": "2.2",
+      "t": "Gather the whole request before opening Claude",
+      "id": "WEB-002.2.2",
+      "d": "Collect the Asana task text, the screenshots, the Loom transcript if there is one, and any follow-up messages.",
+      "body": [
+        {
+          "type": "panel",
+          "kind": "warning",
+          "t": "Claude cannot watch a Loom",
+          "text": "It cannot see video or hear audio, and it cannot open your Asana. Paste the <strong>transcript text</strong> instead. Auto-transcripts garble names badly &mdash; if a word looks like a client name, say what you think it means so Claude does not guess wrong."
+        }
+      ]
+    },
+    {
+      "type": "sub",
+      "id": "3",
+      "text": "Phase 3 &mdash; Plan before building"
+    },
+    {
+      "type": "para",
+      "text": "<span class=\"muted\">The step people skip, and the one that prevents the most rework.</span>"
+    },
+    {
+      "type": "step",
+      "n": "3.1",
+      "t": "Ask for a plan &mdash; not for code",
+      "id": "WEB-002.3.1",
+      "d": "Paste the whole prompt, with the request pasted into the marked block.",
+      "body": [
+        {
+          "type": "code",
+          "kind": "prompt",
+          "text": "I have a website change request. Do NOT write any code yet.\n\nREQUEST:\n\"\"\"\n[paste the whole request here - Asana text, what the\nscreenshots show, Loom transcript, follow-up messages]\n\"\"\"\n\nBefore you plan anything:\n\n1. Tell me what branch I'm on and whether it's clean and in\n   sync with origin/main. If it isn't, stop and say so.\n\n2. Read the actual files. Do not assume file names, component\n   names, or where content lives - find them and cite real\n   repo-relative paths and line numbers. If you tell me\n   something exists, you must have opened it.\n\n3. Tell me everywhere else this same content or data is\n   rendered. Our content is usually shared between pages, so\n   one change often needs to land in two or three places.\n   Name every one you find.\n\n4. If the request is ambiguous in a way that changes what you\n   build, ask me now rather than guessing.\n\nThen give me a plan with:\n\n- Every file you'll add, edit or delete, with real paths\n- What changes in each, in plain language\n- Risks: what could break, what's hard to undo, and what you\n  will NOT be able to check on my machine\n- Exactly how you'll prove it works before I look\n- Anything in the request you think is a bad idea, and why\n\nKeep it short enough to read in two minutes. I'll approve or\ncorrect it before you touch anything.",
+          "label": "Prompt 1 — planning",
+          "note": "paste all of it"
+        }
+      ],
+      "expect": "A short written plan naming real file paths. No code written yet."
+    },
+    {
+      "type": "step",
+      "n": "3.2",
+      "t": "Read the plan properly before approving it",
+      "id": "WEB-002.3.2",
+      "d": "Check four things: does it do what was actually asked; is the file list proportionate (a one-line copy change touching nine files deserves a question); did it find the <strong>other places</strong> the same content appears; and did it ask you anything at all &mdash; zero questions on a vague request usually means it guessed.",
+      "body": [
+        {
+          "type": "panel",
+          "kind": "brand",
+          "t": "Push back freely",
+          "text": "If anything looks off, say so and ask for a revised plan. Rewriting a plan costs seconds. Rewriting the wrong code costs an afternoon."
+        }
+      ]
+    },
+    {
+      "type": "sub",
+      "id": "4",
+      "text": "Phase 4 &mdash; Build and check"
+    },
+    {
+      "type": "step",
+      "n": "4.1",
+      "t": "Carry out the approved plan",
+      "id": "WEB-002.4.1",
+      "d": "Paste the whole prompt.",
+      "body": [
+        {
+          "type": "code",
+          "kind": "prompt",
+          "text": "The plan is approved. Implement it now.\n\nRules:\n\n- Build exactly what we agreed. If you find partway through\n  that the plan was wrong, STOP and tell me. Don't improvise\n  a different solution.\n- Don't expand scope. If you spot something else worth\n  fixing, list it at the end - don't fix it.\n- Match the existing style of each file you touch: naming,\n  formatting, and how heavily it's commented.\n\nBefore telling me it's done, verify it YOURSELF:\n\n- Run: npx tsc --noEmit        (must report no errors)\n- Run: npm run build           (must succeed)\n- Start the site and LOOK at the change in a real browser.\n  Confirm what I asked for is visibly there, and that what\n  sits next to it still looks right.\n- If it touches a form, an API route, or anything that can\n  fail, test the failure path too - not just the happy path.\n\nThen report:\n\n- What you changed, file by file\n- What you verified, with the ACTUAL output. Not \"it works.\"\n- What you could NOT check on my machine, and why, so I know\n  what still needs testing on the preview link\n- Then commit, with a message explaining WHY the change was\n  made, not just what changed\n\nIf any check fails, say so plainly. Don't report success with\nthe failure buried at the bottom.",
+          "label": "Prompt 2 — execution",
+          "note": "paste all of it"
+        }
+      ],
+      "expect": "A report naming what changed file by file, with actual command output &mdash; not &ldquo;it works&rdquo;."
+    },
+    {
+      "type": "step",
+      "n": "4.2",
+      "t": "Look at it yourself, locally",
+      "id": "WEB-002.4.2",
+      "d": "Start the dev server (your local test copy of the site), open the page you changed, and drag the window narrow to check mobile.",
+      "body": [
+        {
+          "type": "code",
+          "kind": "terminal",
+          "text": "npm run dev\n\n# then open http://localhost:3000\n# Ctrl + C stops it",
+          "label": "Terminal / CLI",
+          "note": "type it yourself"
+        },
+        {
+          "type": "code",
+          "kind": "prompt",
+          "text": "Start the dev server and show me the change. Screenshot the\nsection you edited at desktop width and again at 390px wide\nso I can check mobile. Tell me if anything next to it looks\nbroken. Then give me the local URL so I can click around\nmyself.",
+          "label": "Claude prompt",
+          "note": "paste this in"
+        },
+        {
+          "type": "panel",
+          "kind": "warning",
+          "t": "Two things that fool everyone",
+          "text": "<strong>Cannot see your change?</strong> Hard refresh with <code>Cmd + Shift + R</code> before assuming it failed. Browsers cache hard.<br><br><strong>Villa photos blank or green?</strong> Expected when <code>.env.local</code> is missing or incomplete. Listing photos and prices come from the booking system. Not a bug you caused &mdash; do not report it as one."
+        }
+      ],
+      "expect": "Your change is visible at both widths and nothing beside it looks broken."
+    },
+    {
+      "type": "sub",
+      "id": "5",
+      "text": "Phase 5 &mdash; Put it on a preview link"
+    },
+    {
+      "type": "para",
+      "text": "<span class=\"muted\">A real URL running real data, that is not the live site. You do not need a Netlify account and you do not run a deploy command &mdash; Netlify is already watching these repositories.</span>"
+    },
+    {
+      "type": "step",
+      "n": "5.1",
+      "t": "Push the branch and open a pull request",
+      "id": "WEB-002.5.1",
+      "d": "Uploading your branch to GitHub (a push) does not create a preview on its own. Opening the pull request is what triggers it.",
+      "body": [
+        {
+          "type": "code",
+          "kind": "click",
+          "text": "1.  Push the branch:\n      git push -u origin fix/terms-page-update\n\n2.  Open the repo on github.com. It offers a\n      Compare & pull request  button. Click it, then\n      Create pull request.\n\n3.  Wait for the Deploy Preview check, then open the URL.\n\nDo NOT merge yet. The pull request stays open until 6.2.",
+          "label": "Point & click",
+          "note": "GitHub, after one push"
+        },
+        {
+          "type": "code",
+          "kind": "prompt",
+          "text": "The change is finished and committed. Put it on a preview\nlink for review:\n\n1. Push my current branch to origin and set upstream.\n2. Give me the URL to open a pull request for this branch.\n   Do not merge it.\n3. Once I tell you the pull request is open, find the\n   Netlify Deploy Preview URL for it.\n4. Then fetch that URL and confirm my change is actually\n   present on it, so I don't send the team a link to the\n   wrong build.",
+          "label": "Claude prompt",
+          "note": "paste this in"
+        },
+        {
+          "type": "panel",
+          "kind": "critical",
+          "t": "If you ever use the Netlify CLI directly",
+          "text": "You should not need to. But if you do, <strong>never add <code>--prod</code></strong>. <code>netlify deploy --prod</code> publishes straight to the live site and skips every approval below. If you are unsure, do not run it &mdash; open a pull request instead."
+        }
+      ],
+      "expect": "A <strong>Deploy Preview</strong> check appears on the pull request, then a URL of the form <code>deploy-preview-&lt;number&gt;--&lt;site&gt;.netlify.app</code>."
+    },
+    {
+      "type": "step",
+      "n": "5.2",
+      "t": "Confirm you are looking at YOUR version",
+      "id": "WEB-002.5.2",
+      "d": "Open the Deploy Preview URL and check the change is really there before showing anyone.",
+      "body": [
+        {
+          "type": "panel",
+          "kind": "critical",
+          "t": "The most common mistake on this whole list",
+          "text": "People check the <strong>live site</strong>, see the old version, and report the change as broken &mdash; or see something unrelated and report it as fixed. The live site does not contain your work yet. Only the Deploy Preview URL does. Check the address bar every single time."
+        }
+      ],
+      "expect": "The address bar shows <code>deploy-preview-&lt;number&gt;</code>, not the live domain."
+    },
+    {
+      "type": "sub",
+      "id": "6",
+      "text": "Phase 6 &mdash; Approve and go live"
+    },
+    {
+      "type": "step",
+      "n": "6.1",
+      "t": "Send the preview link to the right approver",
+      "id": "WEB-002.6.1",
+      "d": "Comment on the Asana task with the Deploy Preview URL, a one-line summary of what changed, and anything you could not verify yourself. Tag the approver from the table below.",
+      "body": [
+        {
+          "type": "table",
+          "boxed": true,
+          "headers": [
+            "If the change is",
+            "Tag",
+            "Examples"
+          ],
+          "rows": [
+            [
+              "Web, design, or anything touching how the site is built",
+              "<strong>AnhTuan</strong>",
+              "Layout, components, a new page, styling, anything in the code"
+            ],
+            [
+              "An account or marketing task on a client site",
+              "<strong>Makenna</strong>",
+              "Client-supplied copy, a listing description, a campaign landing page"
+            ],
+            [
+              "Organization-level, or it commits HGM to something",
+              "<strong>Gillian</strong>",
+              "Pricing, terms, legal or policy text, anything on HGM's own site"
+            ]
+          ]
+        },
+        {
+          "type": "panel",
+          "kind": "brand",
+          "t": "Route by what the change is, not who asked for it",
+          "text": "A copy tweak an account manager requested is still a client-copy change, and goes to Makenna. When two rows apply, take the lower one: anything that commits HGM goes to Gillian."
+        },
+        {
+          "type": "panel",
+          "kind": "warning",
+          "t": "If you are the approver",
+          "text": "You cannot approve your own change. If AnhTuan made the edit, it goes to Gillian. The point of this task is a second pair of eyes, and self-approval is not that."
+        }
+      ],
+      "expect": "An explicit yes. Wait for it &mdash; silence is not approval."
+    },
+    {
+      "type": "step",
+      "n": "6.2",
+      "t": "Merge the pull request, then clean up",
+      "id": "WEB-002.6.2",
+      "d": "The pull request has been open since 5.1. Open it on github.com and click <strong>Merge</strong>.",
+      "body": [
+        {
+          "type": "code",
+          "kind": "click",
+          "text": "git checkout main\ngit pull",
+          "label": "Point & click, then terminal",
+          "note": "after merging on GitHub"
+        },
+        {
+          "type": "code",
+          "kind": "prompt",
+          "text": "The approver said yes. Help me finish:\n\n1. Confirm my branch is still in sync, and that nothing new\n   has landed on main that would conflict.\n2. Give me the pull request URL for this branch so I can\n   merge it on GitHub.\n\nAfter I tell you the merge is done:\n\n3. Switch me back to main and pull the latest.\n4. Fetch the live site and confirm my change is actually\n   there now.",
+          "label": "Claude prompt",
+          "note": "paste this in"
+        }
+      ],
+      "expect": "Netlify publishes the change to the live site automatically in 2&ndash;3 minutes."
+    },
+    {
+      "type": "step",
+      "n": "6.3",
+      "t": "Verify live, then close the task",
+      "id": "WEB-002.6.3",
+      "d": "Open the live site in a private / incognito window, confirm the change, then comment on the Asana task that it is live and mark it complete.",
+      "body": [
+        {
+          "type": "panel",
+          "kind": "success",
+          "t": "Why incognito",
+          "text": "Your normal browser may serve you a cached copy of the old page, and extensions can hide things that work fine for everyone else. Incognito is closer to what a real guest sees."
+        }
+      ],
+      "expect": "The change is visible to a logged-out visitor."
+    },
+    {
+      "type": "section",
+      "num": "06",
+      "label": "Exceptions and edge cases"
+    },
+    {
+      "type": "cards",
+      "cols": 2,
+      "items": [
+        {
+          "t": "Sites with extra checks",
+          "d": "Some repositories also define <code>npm run lint</code> and <code>npm run typecheck</code>. Run those too where they exist, in addition to the two checks in Prompt 2."
+        },
+        {
+          "t": "The credential is missing",
+          "d": "If <code>.env.local</code> is not in 1Password, get it from a developer and then ask them to store it properly. Do not keep a private copy as the only copy."
+        }
+      ]
+    },
+    {
+      "type": "cards",
+      "cols": 2,
+      "items": [
+        {
+          "t": "You need to undo everything",
+          "d": "Not yet saved to git (committed): <code>git checkout .</code> throws away your edits. Committed but not merged: leave the branch behind with <code>git checkout main</code>. Nothing on a branch can affect the live site."
+        },
+        {
+          "t": "Near a usage limit",
+          "d": "Run the mechanical tasks (2.1, 4.2, 6.2) yourself and save the remaining budget for task 4.1, which cannot be done another way."
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "num": "07",
+      "label": "Troubleshooting and escalation"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Symptom",
+        "Fix",
+        "If unresolved"
+      ],
+      "rows": [
+        [
+          "Villa photos missing or green locally",
+          "Expected. Photos and prices come from the booking system and need <code>.env.local</code>. Not a bug.",
+          "&mdash;"
+        ],
+        [
+          "A form or section looks blank on the live site",
+          "Try incognito with extensions off, and a different network. Privacy extensions and DNS filters block form and marketing tools, so a section can be invisible to you and fine for everyone else.",
+          "Developer, Web Team Google Chat"
+        ],
+        [
+          "Works locally but not on the Deploy Preview",
+          "Usually a setting (environment variable) missing in Netlify. Your computer reads <code>.env.local</code>; the preview reads Netlify's own settings instead.",
+          "Developer, Web Team Google Chat"
+        ],
+        [
+          "Claude says done but you cannot see it",
+          "Hard refresh, restart the dev server (<code>npm run dev</code>), then confirm the URL and branch with <code>git branch --show-current</code>. In that order.",
+          "Developer, Web Team Google Chat"
+        ],
+        [
+          "Changed files you do not recognise at task 2.1",
+          "Stop. Do not discard them.",
+          "Developer, before going further"
+        ]
+      ]
+    },
+    {
+      "type": "para",
+      "text": "Use the prompt below instead of guessing at a cause."
+    },
+    {
+      "type": "code",
+      "kind": "prompt",
+      "text": "Something isn't working. Before you change any code:\n\nWHAT I EXPECTED:\n[describe it]\n\nWHAT ACTUALLY HAPPENS:\n[describe it, and paste any error text exactly]\n\nWHERE I SAW IT:\n[local / preview URL / live site - paste the exact URL]\n\nPlease:\n\n1. Confirm which version I'm actually looking at, so we don't\n   debug the wrong build.\n2. Find the real cause by reading the code and testing it.\n   Don't guess. If you have a theory, prove it before acting\n   on it.\n3. Tell me the cause in plain language before you fix\n   anything, and say how confident you are.\n\nIf it turns out I'm mistaken about the problem, tell me\ndirectly.",
+      "label": "Prompt 3 — debugging",
+      "note": "use instead of guessing"
+    },
+    {
+      "type": "section",
+      "num": "08",
+      "label": "Final checklist before you merge",
+      "tone": "dark"
+    },
+    {
+      "type": "checklist",
+      "items": [
+        "The request is fully done &mdash; every part of it, not just the easy parts",
+        "<code>npx tsc --noEmit</code> reports no errors",
+        "<code>npm run build</code> succeeds",
+        "You looked at it locally, wide window and narrow",
+        "It is on a branch, not on <code>main</code>",
+        "A Deploy Preview URL exists and you confirmed your change is on it",
+        "The right approver has said yes, explicitly",
+        "Anything unverifiable is written in the Asana comment",
+        "You checked the live site in incognito after merging"
+      ]
+    },
+    {
+      "type": "section",
+      "num": "09",
+      "label": "Related documents"
+    },
+    {
+      "type": "bullets",
+      "items": [
+        "<code>HGM-SOP-WEB-001</code> &mdash; Store, share, and update client .env files in 1Password",
+        "<code>HGM-SOP-OPS-001</code> &mdash; Produce and publish an HGM SOP",
+        "Commands here are for HGM's Next.js client sites on Netlify. If a step turns out to be wrong or unclear, say so &mdash; a runbook nobody corrects stops being true."
+      ]
+    },
+    {
+      "type": "section",
+      "num": "10",
+      "label": "Revision history"
+    },
+    {
+      "type": "table",
+      "headers": [
+        "Date",
+        "Version",
+        "Author",
+        "Change summary"
+      ],
+      "rows": [
+        [
+          "2026-09-01",
+          "1.0",
+          "Kyle Zinger",
+          "Initial release. Converted from the Website Edit Runbook; approval routing added and the preview step changed from a manual Netlify CLI deploy to the automatic pull-request Deploy Preview."
+        ],
+        [
+          "2026-09-11",
+          "1.1",
+          "Kyle Zinger",
+          "Hand-built task picker removed; the renderers now draw it from meta.tasks. No change to the procedure."
+        ],
+        [
+          "2026-09-11",
+          "1.2",
+          "Kyle Zinger",
+          "Plain-language sweep of task titles and instructions; six terms added to Definitions (repository, git and commit, push and merge, terminal, dev server, environment variable). No change to the procedure."
+        ],
+        [
+          "2026-09-12",
+          "1.3",
+          "Kyle Zinger",
+          "Route cards reframed by place of work (Claude Code in VS Code, Terminal in VS Code, Buttons and menus in VS Code) and reordered to match; comparison table columns reordered the same way. Portal page: skip-ahead card moved under the SOP details grid, side menu enlarged and its height bug fixed, section chip row restored in the header on every width, eased in-page scrolling, phase tools as pill buttons with Reset progress alongside. No change to the procedure."
+        ],
+        [
+          "2026-09-12",
+          "1.4",
+          "Kyle Zinger",
+          "Route selection reframed as a platform choice &mdash; VS Code (prompts, terminal and buttons), Terminal (commands only), Claude Desktop app (prompts only). Route cards, comparison table and portal selector updated to match; note added that the claude.ai website cannot run the prompts. No change to the procedure."
+        ]
+      ]
+    },
+    {
+      "type": "band",
+      "pill": "Remember",
+      "quote": "\"Nothing on a branch can reach the live site until someone deliberately merges it. Everything else here is recoverable.\"",
+      "aside_t": "Questions?",
+      "aside_d": "Web Team Google Chat group"
+    }
+  ]
+}

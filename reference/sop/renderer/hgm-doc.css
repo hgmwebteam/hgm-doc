@@ -1,0 +1,614 @@
+/* ============================================================================
+   hgm-doc.css — HGM print stylesheet for WeasyPrint
+   ----------------------------------------------------------------------------
+   Reproduces the document design language of the HGM security cheat sheet and
+   session outline. Every color below is a design system token from
+   tokens/colors.css — nothing is invented. Geometry is measured from the
+   reference PDFs at 150dpi.
+
+   Toolchain: WeasyPrint 69.0 (same version that produced the references).
+   ========================================================================= */
+
+/* ---- fonts: local files, since Google Fonts is unreachable at build time -- */
+@font-face { font-family: 'Inter'; font-weight: 400; font-style: normal;
+             src: url('fonts/Inter-Regular.ttf'); }
+@font-face { font-family: 'Inter'; font-weight: 400; font-style: italic;
+             src: url('fonts/Inter-Italic.ttf'); }
+@font-face { font-family: 'Inter'; font-weight: 500; font-style: normal;
+             src: url('fonts/Inter-Medium.ttf'); }
+@font-face { font-family: 'Inter'; font-weight: 600; font-style: normal;
+             src: url('fonts/Inter-SemiBold.ttf'); }
+@font-face { font-family: 'Inter'; font-weight: 700; font-style: normal;
+             src: url('fonts/Inter-Bold.ttf'); }
+@font-face { font-family: 'Roboto Mono'; font-weight: 400; font-style: normal;
+             src: url('fonts/RobotoMono-Regular.ttf'); }
+@font-face { font-family: 'Roboto Mono'; font-weight: 400; font-style: italic;
+             src: url('fonts/RobotoMono-Italic.ttf'); }
+@font-face { font-family: 'Roboto Mono'; font-weight: 500; font-style: normal;
+             src: url('fonts/RobotoMono-Medium.ttf'); }
+
+/* ---- design tokens (verbatim from tokens/colors.css + spacing.css) ------- */
+:root {
+  --brand-50:  #F6F9FF;
+  --brand-100: #E7F0FF;
+  --brand-600: #0066DE;
+  --brand-700: #004FAA;
+  --brand-950: #001534;
+  --accent-yellow: #FFD602;   /* LOGO ONLY — never a document accent */
+
+  --neutral-50:  #FAFAFA;
+  --neutral-100: #F5F5F5;
+  --neutral-200: #E5E5E5;
+  --neutral-300: #D4D4D4;
+  --neutral-600: #525252;
+  --neutral-700: #404040;
+  --neutral-900: #171717;
+
+  --success-50: #F0FDF4;  --success-700: #15803D;
+  --warning-50: #FEFCE8;  --warning-700: #A16207;
+  --error-50:   #FEF2F2;  --error-600:   #DC2626;
+
+  --text-primary:   var(--neutral-900);
+  --text-secondary: var(--neutral-700);
+  --text-tertiary:  var(--neutral-600);
+  --text-brand:     var(--brand-700);
+  --border:         var(--neutral-200);
+
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
+
+  --radius-ctl:  6px;   /* inline code, pills, tick boxes */
+  --radius-card: 10px;  /* cards, panels, tables, figures — the Portal's 12px, a step down for print */
+  --radius-band: 14px;  /* the closing band and the standing-rules slab */
+}
+
+/* ---- page: margins measured from the references (40pt L/R) -------------- */
+@page {
+  size: letter;
+  margin: 32pt 40pt 30pt 40pt;
+  @bottom-left   { content: string(sop-id); font-family: var(--font-mono);
+                   font-size: 7pt; color: var(--neutral-600);
+                   letter-spacing: 0.04em; }
+  @bottom-center { content: 'Page ' counter(page) ' of ' counter(pages);
+                   font-family: var(--font-body); font-size: 7.5pt;
+                   color: var(--neutral-600); }
+  @bottom-right  { content: 'Internal — Hidden Gem Media';
+                   font-family: var(--font-body); font-size: 7.5pt;
+                   color: var(--neutral-600); }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 10pt;
+  line-height: 1.58;
+  color: var(--text-primary);
+  hyphens: none;
+}
+
+/* ============================ page header ================================ */
+.doc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18pt;
+}
+.doc-head .lockup { display: flex; align-items: center; gap: 8pt; }
+.doc-head .lockup img { height: 20pt; }
+/* Mono uppercase letterspaced eyebrow, top-right. A signature of the
+   reference documents — do not replace with sentence-case body text. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--neutral-600);
+}
+
+/* ============================ title block =============================== */
+h1.doc-title {
+  font-size: 30pt;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 11pt;
+  color: var(--text-primary);
+}
+.lead {
+  font-size: 11.5pt;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0 0 20pt;
+  max-width: 92%;
+}
+.lead strong, strong.hl { color: var(--text-brand); font-weight: 600; }
+
+/* ============================ section label ============================== */
+/* Replaces numbered blue headings. Mono, uppercase, wide tracking, brand-700,
+   with a thin rule filling the remaining width — matches both the PDFs and the
+   dashboard's "01 PERFORMANCE BREAKDOWN" pattern. */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 10pt;
+  margin: 26pt 0 11pt;
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-brand);
+  break-after: avoid;
+}
+.section-label .num { color: var(--neutral-300); }
+.section-label .rule {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* A phase heading is welded to whatever follows it — and when an intro
+   paragraph sits between the heading and the first task, that paragraph has to
+   carry the weld too, or the pair strands at the foot of a page with every task
+   overleaf. This left one page 84% empty before it was caught. */
+.phasehd { margin: 20pt 0 11pt; break-inside: avoid; break-after: avoid; }
+.phasehd h3.sub { margin: 0; }
+.phasehd .phd { margin: 5pt 0 0; color: var(--text-tertiary); font-size: 10pt; }
+h3.sub {
+  font-size: 13.5pt;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  margin: 20pt 0 9pt;
+  break-after: avoid;
+}
+
+p { margin: 0 0 9pt; }
+.muted { color: var(--text-tertiary); }
+
+/* ============================ card grids ================================= */
+.grid { display: flex; gap: 10pt; margin-bottom: 11pt; align-items: stretch; }
+.grid > * { flex: 1; }
+.grid.cols-3 > * { width: 33%; }
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 12pt 13pt 13pt;
+  background: #fff;
+  break-inside: avoid;
+}
+.card.tint    { background: var(--neutral-50); }
+.card.brand   { background: var(--brand-50); border-color: var(--brand-100); }
+.card .k {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-brand);
+  margin-bottom: 6pt;
+}
+/* Title, then a short brand rule, then the body. The rule is what gives the
+   title somewhere to stop — without it a 10.5pt title runs into 9.5pt body. */
+.card .t { font-weight: 600; font-size: 10.5pt; line-height: 1.35; }
+.card .t .ic { width: 12pt; height: 12pt; display: inline-block;
+               vertical-align: -2pt; margin-right: 6pt; }
+.card .t::after {
+  content: "";
+  display: block;
+  width: 16pt;
+  height: 1.4pt;
+  border-radius: 1pt;
+  background: var(--text-brand);
+  margin: 7pt 0 7pt;
+}
+.card .t:last-child::after { display: none; }
+.card .d { color: var(--text-tertiary); font-size: 9.5pt; line-height: 1.6; }
+
+/* numbered card: small blue numeral in a left gutter */
+.card.numbered { display: flex; gap: 8pt; }
+.card.numbered .n {
+  font-family: var(--font-mono);
+  font-size: 8.5pt;
+  font-weight: 500;
+  color: var(--text-brand);
+  flex: 0 0 10pt;
+  padding-top: 0.5pt;
+}
+.card.numbered .body { flex: 1; }
+
+/* two-column stack of numbered cards, as in "FIVE RED FLAGS" */
+/* Block, not flex: WeasyPrint will not split a flex container across pages,
+   which strands content and leaves half-empty pages. */
+.stack > * { margin-bottom: 7pt; }
+.stack > *:last-child { margin-bottom: 0; }
+.columns { display: flex; gap: 14pt; margin-bottom: 9pt; }
+.columns > * { flex: 1; }
+
+/* ============================ agenda / step rows ========================= */
+/* Mono gutter on the left, bold title, gray description. Matches the session
+   outline's agenda rows and is the right pattern for SOP procedure steps. */
+.rows > * { margin-bottom: 6pt; }
+.row {
+  display: flex;
+  gap: 12pt;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 8pt 11pt;
+  break-inside: avoid;
+}
+.row .gutter {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 500;
+  color: var(--text-brand);
+  flex: 0 0 34pt;
+  padding-top: 1pt;
+}
+.row .body { flex: 1; }
+.row .t { font-weight: 500; font-size: 10.5pt; line-height: 1.5; margin-bottom: 3pt; }
+.row .d { color: var(--text-tertiary); font-size: 9.5pt; line-height: 1.6; }
+.row .expect {
+  margin-top: 3pt;
+  font-size: 8.5pt;
+  color: var(--text-secondary);
+  padding-left: 7pt;
+  border-left: 2px solid var(--brand-100);
+}
+
+/* ============================ panels ==================================== */
+.panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 8pt;
+  border-radius: var(--radius-card);
+  padding: 12pt 14pt 13pt;
+  margin-bottom: 11pt;
+  background: #F3EFFC;              /* the key rule has its own hue, so it is
+                                       never confused with an expected result */
+  border: 1px solid #DED3F5;
+  break-inside: avoid;
+}
+.panel .ic { width: 13pt; height: 13pt; flex: 0 0 13pt; margin-top: 1.5pt; }
+.panel .pbody { flex: 1 1 auto; }
+.panel .pbody p:last-child { margin-bottom: 0; }
+.panel .t { font-weight: 600; font-size: 11pt; margin-bottom: 5pt; }
+.panel .t          { color: #5B3FBF; }
+.panel.note     { background: #EEF1F5; border-color: #DCE1E9; }
+.panel.note .t     { color: #3A424D; }
+.panel.warning  { background: #FEF8E9; border-color: #F2DFAB; }
+.panel.warning .t  { color: #A16207; }
+.panel.critical { background: #FDF0EF; border-color: #F7CEC9; }
+.panel.critical .t { color: #DC2626; }
+.panel.success  { background: #EDF8F1; border-color: #C2E6CF; }
+.panel.success .t  { color: #15803D; }
+
+
+/* ============================== task step ================================ */
+/* Number badge + instruction + the step's own screenshots, in ONE card. The
+   header never separates from what follows it. */
+/* Task cards stay breakable. Making short ones atomic was measured on both
+   WEB-001 and WEB-002: it improved one page of one document and cost WEB-002
+   three whole pages, because a card carrying a 300pt screenshot that will not
+   fit gets pushed whole and strands the page behind it. The `tall` class is
+   still emitted, so the rule can be revisited per-document if a future SOP
+   needs it. */
+.step {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 11pt 13pt 12pt;
+  margin-bottom: 10pt;
+  background: #fff;
+}
+.step .hd {
+  display: flex;
+  align-items: baseline;
+  gap: 9pt;
+  break-after: avoid;
+}
+.step .hd .n {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 500;
+  color: var(--text-brand);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
+  border-radius: 999px;
+  padding: 1.5pt 6pt;
+  flex: 0 0 auto;
+}
+.step .hd .t { flex: 1 1 auto; font-weight: 600; font-size: 12pt;
+               letter-spacing: -0.01em; }
+.step > .d { color: var(--text-tertiary); font-size: 9.5pt; line-height: 1.6; margin-top: 6pt; }
+.step .sbody { margin-top: 9pt; }
+.step .sbody > *:last-child { margin-bottom: 0; }
+.step .expect {
+  display: flex;
+  align-items: flex-start;
+  gap: 7pt;
+  margin-top: 9pt;
+  padding: 8pt 11pt;
+  background: #EDF3FF;
+  border: 1px solid #D3E2FA;
+  border-radius: var(--radius-card);
+  font-size: 9.5pt;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  break-inside: avoid;
+}
+.step .expect .ic { width: 11pt; height: 11pt; flex: 0 0 11pt; margin-top: 1pt; }
+.step .expect .xb { flex: 1 1 auto; }
+/* A real title at panel weight. It was a 6.5pt mono micro-label, which read as
+   broken sitting under an 11pt panel title in the card above it. */
+.step .expect .lb {
+  display: block;
+  font-weight: 600;
+  font-size: 11pt;
+  line-height: 1.35;
+  color: #004FAA;
+  margin-bottom: 3pt;
+}
+/* inside a step the figure is the step's own picture — tighter, no float */
+.step figure { margin-bottom: 0; }
+.step figure img { max-height: 300pt; }
+
+/* ======================= code / prompt blocks ============================ */
+/* Added for HGM-SOP-WEB-002 (runbooks carry terminal commands and prompts).
+   Deliberately NOT break-inside:avoid — a 40-line prompt must be allowed to
+   split across pages, or it orphans one the way figures used to. */
+.code {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  margin-bottom: 9pt;
+  overflow: hidden;
+}
+.code .lbl {
+  font-family: var(--font-mono);
+  font-size: 6.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5pt 10pt;
+  background: var(--neutral-50);
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 12pt;
+  break-after: avoid;
+}
+.code .lbl .r { color: var(--neutral-600); opacity: .8; }
+.code .lbl .ll { display: flex; align-items: center; gap: 5pt; }
+.code .lbl .ic { width: 9.5pt; height: 9.5pt; flex: 0 0 9.5pt; }
+.code pre {
+  margin: 0;
+  padding: 9pt 10pt;
+  font-family: var(--font-mono);
+  font-size: 7.6pt;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  color: var(--text-primary);
+}
+/* A prompt is copied whole, so it must never split: a split block drags the
+   page footer into the clipboard. Terminal and click blocks are short and stay
+   breakable. */
+.code.prompt        { break-inside: avoid; }
+.code.prompt .lbl   { background: #EDF3FF; color: #004FAA; border-bottom-color: #D3E2FA; }
+.code.click .lbl    { background: #EDF8F1; color: #15803D; border-bottom-color: #C2E6CF; }
+.code.terminal .lbl { background: #EEF1F5; color: #3A424D; border-bottom-color: #DCE1E9; }
+/* exact wording to post to a person; same neutral ground as terminal, and the
+   body is set in Inter because it is prose, not a command */
+.code.message .lbl  { background: #EEF1F5; color: #3A424D; border-bottom-color: #DCE1E9; }
+.code.message pre   { font-family: var(--font-body); font-size: 9.5pt; line-height: 1.6; }
+
+/* ============================= checklist ================================= */
+ul.checklist { margin: 0 0 9pt; padding: 0; }
+ul.checklist li {
+  list-style: none;
+  position: relative;
+  padding: 6pt 0 6pt 19pt;
+  border-top: 1px solid var(--neutral-100);
+  font-size: 9pt;
+  line-height: 1.5;
+  break-inside: avoid;
+}
+ul.checklist li:first-child { border-top: 0; }
+ul.checklist li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8.5pt;
+  width: 8pt;
+  height: 8pt;
+  border: 1px solid var(--neutral-300);
+  border-radius: 2px;
+}
+
+/* ============================ dark band ================================= */
+/* brand-950 (#001534). Closes the document. Pill + italic quote left,
+   contact block right. */
+.band {
+  background: var(--brand-950);
+  border-radius: var(--radius-band);
+  padding: 13pt 15pt;
+  margin-top: 14pt;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20pt;
+  break-inside: avoid;
+}
+.band .pill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 6.5pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(255,255,255,0.14);
+  border-radius: 999px;
+  padding: 2.5pt 7pt;
+  margin-bottom: 6pt;
+}
+.band .quote {
+  font-style: italic;
+  font-size: 9.5pt;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.88);
+  margin: 0;
+  max-width: 330pt;
+}
+.band .aside { text-align: right; flex: 0 0 auto; }
+.band .aside .t { color: #fff; font-weight: 600; font-size: 9.5pt; }
+.band .aside .d {
+  color: rgba(255,255,255,0.72);
+  font-size: 8.5pt;
+  line-height: 1.4;
+}
+
+/* ======================== standing rules ================================ */
+/* A brand-tinted slab carrying white cards: one step above the card grid it
+   sits among, one step below the closing band, which is the only place the
+   deep navy ground is used. Two across so the text has a measure; it may
+   break across a page, but each card stays whole. */
+.rules {
+  background: var(--brand-100);
+  border: 1px solid #CBDDF8;
+  border-radius: var(--radius-band);
+  padding: 15pt 16pt 16pt;
+  margin: 12pt 0 12pt;
+}
+.rules .k {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-brand);
+  margin: 0 0 6pt;
+}
+.rules h2 {
+  font-size: 15pt;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  margin: 0;
+  break-after: avoid;
+}
+.rules .rlead {
+  font-size: 9.5pt;
+  line-height: 1.55;
+  color: var(--text-tertiary);
+  margin: 6pt 0 0;
+  max-width: 340pt;
+}
+/* Deliberately NOT flex. A flex container cannot fragment, so a two-up grid
+   that does not fit jumps whole to the next page and leaves the slab
+   half-empty behind it. A table fragments cleanly, row by row, and each card
+   stays whole. This bit the figure block before; it is the same trap. */
+.rules .rgrid { display: table; width: 100%; table-layout: fixed; margin-top: 11pt;
+                border-collapse: separate; border-spacing: 5pt 4.5pt; }
+.rules .rrow  { display: table-row; }
+.rules .rcell { display: table-cell; vertical-align: top; width: 50%; }
+.rules .k, .rules h2 { break-after: avoid; }
+.rcard {
+  height: 100%;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 11pt 12pt 12pt;
+  break-inside: avoid;
+}
+.rcard .n {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--text-brand);
+  background: var(--brand-100);
+  border-radius: 999px;
+  padding: 2.5pt 7pt;
+  display: inline-block;
+}
+.rcard .t { font-weight: 600; font-size: 10.5pt; line-height: 1.35; color: var(--text-primary); margin-top: 7pt; }
+.rcard .d {
+  font-size: 9pt;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+  margin-top: 4pt;
+}
+
+/* ============================ tables ==================================== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 9pt;
+  font-size: 9pt;
+  break-inside: avoid;
+}
+th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-brand);
+  font-weight: 500;
+  padding: 5pt 8pt;
+  border-bottom: 1px solid var(--border);
+}
+/* The first column is the thing you look up, so it stays dominant and the
+   rest of the row steps back. Same rule as the screen copy. */
+td {
+  padding: 7pt 9pt;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-tertiary);
+  vertical-align: top;
+}
+td:first-child { color: var(--text-primary); font-weight: 500; }
+tr:last-child td { border-bottom: none; }
+table.boxed { border: 1px solid var(--border); border-radius: var(--radius-card); }
+
+/* metadata table on the cover: mono values, tinted label column */
+table.meta td { border-bottom: 1px solid var(--border); }
+table.meta { table-layout: fixed; }
+table.meta td.k {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: var(--neutral-50);
+  width: 78pt;
+}
+table.meta td.v { color: var(--text-primary); }
+table.meta td.v.mono { font-family: var(--font-mono); font-size: 8.5pt; }
+
+/* ============================ misc ===================================== */
+code, .mono { font-family: var(--font-mono); font-size: 8.5pt; }
+code { border-radius: var(--radius-ctl); }
+ul.plain { margin: 0 0 7pt; padding-left: 13pt; }
+ul.plain li { margin-bottom: 3pt; color: var(--text-secondary); }
+ul.plain li::marker { color: var(--neutral-300); }
+
+figure { margin: 0 0 9pt; break-inside: avoid; }
+figure img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 300pt;
+  display: block;
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+figcaption {
+  font-size: 8pt;
+  color: var(--text-tertiary);
+  margin-top: 4pt;
+}
+
+.brand-rule { height: 2px; background: var(--brand-600); margin: 0 0 14pt; }

@@ -3275,7 +3275,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             <p className="mt-1 text-sm text-tertiary">
                                                                 {journeyDoneCount === journeySteps.length
                                                                     ? "Every step is done — you're fully set up."
-                                                                    : "Where you are, and what happens next."}
+                                                                    : "Where you are, and what happens next. Weeks are estimates, counted from your Kick-off Call."}
                                                             </p>
                                                         </div>
                                                         <span className="text-sm font-semibold text-secondary tabular-nums">
@@ -3359,6 +3359,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                     </BadgeWithDot>
                                                                                 )
                                                                             )}
+                                                                            {/* Dropped once done: an estimate on a finished thing is noise. */}
+                                                                            {!step.done && step.eta && (
+                                                                                <Badge color="gray" size="sm" type="pill-color">
+                                                                                    {step.eta}
+                                                                                </Badge>
+                                                                            )}
                                                                         </div>
                                                                         {step.detail && (
                                                                             <p className="mt-1.5 text-sm text-pretty text-tertiary">{step.detail}</p>
@@ -3433,6 +3439,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                                         </span>
                                                                                                     </span>
                                                                                                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                                                                                        {!item.done && item.eta && (
+                                                                                                            <span className="text-xs text-quaternary">
+                                                                                                                {item.eta}
+                                                                                                            </span>
+                                                                                                        )}
                                                                                                         {canOpenItem && itemTarget && (
                                                                                                             <Button
                                                                                                                 size="sm"

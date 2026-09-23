@@ -135,7 +135,18 @@ export const JOURNEY_STEPS: {
         action?: string;
         /** Section this item opens, for items that ARE a section of the dashboard. */
         to?: SectionId;
+        /** This piece's own estimate — see the step's `eta`. The funnel lands piece by piece. */
+        eta?: string;
     }[];
+    /**
+     * When a client can expect this, counted from the Kick-off Call — "Week 1", "Week 4".
+     *
+     * Relative, never a date: a client who books their call three weeks late would read a
+     * stored date as us being late, and nobody would remember to re-type it. Set only on
+     * the things we deliver; a step waiting on the client has no estimate to give, and the
+     * step drops it once done, since an estimate on a finished thing is noise.
+     */
+    eta?: string;
     /** Heading above `items`, when the list needs naming. */
     itemsTitle?: string;
     /**
@@ -248,8 +259,9 @@ export const JOURNEY_STEPS: {
         detail: "Hosts, personas, properties and brand voice — the foundation everything else is built on.",
         icon: FileCheck02,
         to: "foundation",
+        eta: "Week 1",
     },
-    { id: "brandkit", label: "Review the Brand Kit", detail: "Colours, fonts and logo.", icon: Image01, to: "brand" },
+    { id: "brandkit", label: "Review the Brand Kit", detail: "Colours, fonts and logo.", icon: Image01, to: "brand", eta: "Week 1" },
     {
         // No `detail` line: it listed the same five pieces the items below now name one
         // by one, so it only said everything twice.
@@ -268,11 +280,13 @@ export const JOURNEY_STEPS: {
         icon: Mail01,
         itemsTickable: true,
         items: [
+            // Landing Page carries no estimate yet — the team has not set one, and an
+            // invented week is a promise to a client. Add it here when they have.
             { id: "landing", label: "Landing Page", to: "landing" },
-            { id: "flow", label: "Welcome Flow", to: "flow" },
-            { id: "pinnedposts", label: "Pinned Posts", to: "pinnedposts" },
-            { id: "pinnedstories", label: "Pinned Stories", to: "pinnedstories" },
-            { id: "reels", label: "Example Reels", to: "reels" },
+            { id: "flow", label: "Welcome Flow", to: "flow", eta: "Week 3" },
+            { id: "pinnedposts", label: "Pinned Posts", to: "pinnedposts", eta: "Week 3" },
+            { id: "pinnedstories", label: "Pinned Stories", to: "pinnedstories", eta: "Week 2" },
+            { id: "reels", label: "Example Reels", to: "reels", eta: "Week 3" },
         ],
     },
     {
@@ -290,6 +304,7 @@ export const JOURNEY_STEPS: {
         label: "Marketing Launch",
         detail: "It's go time! Ads running, content posting, emails sending. Now we let the data come in and optimize from there.",
         icon: Rocket02,
+        eta: "Week 4",
     },
 ];
 

@@ -67,6 +67,7 @@ import {
     clientOnboardingProgress,
     ensureClientOnboardingForm,
 } from "@/pages/client/client-onboarding-form-page";
+import { type BrandKitDraft, BrandKitDraftReview } from "@/pages/client/dashboard/brand-kit-draft";
 import { brandKitCss, brandKitFileName, brandKitHasContent } from "@/pages/client/dashboard/brand-kit-export";
 import { BrandPreview } from "@/pages/client/dashboard/brand-kit-preview";
 import { ShadeScales } from "@/pages/client/dashboard/brand-kit-shades";
@@ -735,14 +736,27 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         setBrandKitMsg(null);
     };
 
+    /** The last draft the generator returned, awaiting the AM's Replace / Add / Discard. */
+    const [brandKitDraft, setBrandKitDraft] = useState<BrandKitDraft | null>(null);
+    /** Bumped to abandon an in-flight poll: a second click, or leaving the page. */
+    const brandKitRun = useRef(0);
+    useEffect(
+        () => () => {
+            brandKitRun.current++;
+        },
+        [],
+    );
+
     /**
-     * Read the client's material and merge a draft palette in.
+     * Start a draft and wait for it.
      *
-     * Nothing here can destroy work an AM already did: logos are always appended, fonts
-     * only fill a blank (or the "Inter" default), and the palette is REPLACED only while it
-     * is still the untouched template — the four Untitled UI purples, which are wrong for
-     * every client. Once someone has edited a swatch, found colours are appended instead and
-     * they prune what they don't want with the delete button that's already there.
+     * The reading runs in generate-brand-kit-background — a Netlify background function with
+     * minutes to work, where the old synchronous endpoint had ~10 seconds for the page, its
+     * stylesheets and a model pass over the PDF together, and slow sites came back empty. The
+     * browser names the job, starts it, and polls brand-kit-job until it's done.
+     *
+     * Nothing is merged here: the draft goes to the review card, and applyBrandKitDraft runs
+     * only on the AM's choice.
      */
     const generateBrandKit = async () => {
         const url = (brandKitUrl.trim() || clientWebsite.trim()).trim();
@@ -751,64 +765,94 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             setBrandKitMsg({ kind: "err", text: "Add the client's website address, or upload their brand guidelines PDF." });
             return;
         }
+        const run = ++brandKitRun.current;
         setBrandKitBusy(true);
         setBrandKitMsg(null);
+        setBrandKitDraft(null);
         try {
-            // Team-only on the server too, so the session token travels with the request.
+            // Team-only on the server too, so the session token travels with both requests.
             const { data: sessionData } = await supabase.auth.getSession();
             const token = sessionData.session?.access_token;
             if (!token) {
                 setBrandKitMsg({ kind: "err", text: "Your sign-in has expired — reload the page and sign in again." });
                 return;
             }
-            const res = await fetch("/.netlify/functions/generate-brand-kit", {
+            const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+            const job = crypto.randomUUID();
+            const start = await fetch("/.netlify/functions/generate-brand-kit-background", {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ url, pdf_path: pdfPath }),
+                headers,
+                body: JSON.stringify({ job, url, pdf_path: pdfPath }),
             });
-            const json = (await res.json()) as {
-                error?: string;
-                colors?: BrandColor[];
-                fonts?: string;
-                logos?: { name: string; url: string }[];
-                source?: { pdf?: { pages: number; hexes_found: number; named: boolean } | null };
-            };
-            if (!res.ok) {
-                setBrandKitMsg({ kind: "err", text: json.error || "Couldn't read that site." });
+            if (!start.ok) {
+                setBrandKitMsg({ kind: "err", text: "Couldn't reach the generator. Try again in a moment." });
                 return;
             }
-            const found = json.colors ?? [];
-            const patch: Partial<DashboardContent["brand"]> = {};
-            if (found.length) patch.colors = isTemplatePalette(content.brand.colors) ? found : [...content.brand.colors, ...found];
-            if (json.fonts && (!content.brand.fonts.trim() || content.brand.fonts.trim() === "Inter")) patch.fonts = json.fonts;
-            if (json.logos?.length) {
-                patch.logos = [...(content.brand.logos ?? []), ...json.logos.map((l) => ({ id: uid(), name: l.name, url: l.url }))];
+
+            // A site read takes a few seconds; a PDF with the model pass up to a couple of
+            // minutes. "pending" past the grace period means the worker never started —
+            // most often an expired sign-in, which it refuses without writing anything.
+            const began = Date.now();
+            for (;;) {
+                await new Promise((r) => window.setTimeout(r, 2000));
+                if (run !== brandKitRun.current) return;
+                const res = await fetch(`/.netlify/functions/brand-kit-job?id=${job}`, { headers });
+                const json = (await res.json().catch(() => ({}))) as { status?: string; error?: string; kit?: BrandKitDraft };
+                if (run !== brandKitRun.current) return;
+                if (!res.ok) {
+                    setBrandKitMsg({ kind: "err", text: json.error || "Couldn't check on the draft. Try again." });
+                    return;
+                }
+                if (json.status === "done" && json.kit) {
+                    setBrandKitDraft(json.kit);
+                    return;
+                }
+                if (json.status === "error") {
+                    setBrandKitMsg({ kind: "err", text: json.error || "Couldn't read that." });
+                    return;
+                }
+                const waited = Date.now() - began;
+                if ((json.status === "pending" && waited > 25_000) || waited > 240_000) {
+                    setBrandKitMsg({
+                        kind: "err",
+                        text:
+                            json.status === "pending"
+                                ? "The generator didn't start — reload the page, sign in again, and retry."
+                                : "That's taking far longer than it should. Try again, or add the colours by hand.",
+                    });
+                    return;
+                }
             }
-            if (!Object.keys(patch).length) {
-                setBrandKitMsg({ kind: "err", text: "Nothing new found — the palette and fonts here are already filled in." });
-                return;
-            }
-            patchBrand(patch);
-            const bits = [
-                found.length && `${found.length} colour${found.length > 1 ? "s" : ""}`,
-                patch.fonts && "fonts",
-                json.logos?.length && `${json.logos.length} logo${json.logos.length > 1 ? "s" : ""}`,
-            ].filter(Boolean);
-            const pdf = json.source?.pdf;
-            const where = pdf ? `the PDF (${pdf.pages} page${pdf.pages === 1 ? "" : "s"})` : "the site";
-            // When the naming pass didn't run, the roles are positional guesses off the
-            // order the document introduced them — say so rather than let "Primary" read
-            // as something the document actually claimed.
-            const caveat = pdf && !pdf.named && found.length ? " Role names are from the order they appear — rename any that are wrong." : "";
-            setBrandKitMsg({
-                kind: "ok",
-                text: `Found ${bits.join(", ")} in ${where}. Review it, then Save changes — nothing is saved yet.${caveat}`,
-            });
         } catch {
-            setBrandKitMsg({ kind: "err", text: "Couldn't reach the generator. Try again in a moment." });
+            if (run === brandKitRun.current) setBrandKitMsg({ kind: "err", text: "Couldn't reach the generator. Try again in a moment." });
         } finally {
-            setBrandKitBusy(false);
+            if (run === brandKitRun.current) setBrandKitBusy(false);
         }
+    };
+
+    /**
+     * Put a reviewed draft into the kit — still unsaved, like every other edit here.
+     *
+     * "replace" swaps the palette and takes the draft's fonts; "add" appends the colours
+     * (skipping any hex already in the palette) and only fills a blank or template font.
+     * Logos are appended either way, skipping exact duplicates. Swatch sources are review
+     * aids, not part of the kit, so they're dropped here.
+     */
+    const applyBrandKitDraft = (mode: "replace" | "add") => {
+        const draft = brandKitDraft;
+        if (!draft) return;
+        const found = draft.colors.map((c) => ({ name: c.name, hex: c.hex }));
+        const have = new Set(content.brand.colors.map((c) => c.hex.toUpperCase()));
+        const patch: Partial<DashboardContent["brand"]> = {};
+        if (found.length) patch.colors = mode === "replace" ? found : [...content.brand.colors, ...found.filter((c) => !have.has(c.hex.toUpperCase()))];
+        const fontsBlank = !content.brand.fonts.trim() || content.brand.fonts.trim() === "Inter";
+        if (draft.fonts && (mode === "replace" || fontsBlank)) patch.fonts = draft.fonts;
+        const logoUrls = new Set((content.brand.logos ?? []).map((l) => l.url));
+        const newLogos = draft.logos.filter((l) => !logoUrls.has(l.url));
+        if (newLogos.length) patch.logos = [...(content.brand.logos ?? []), ...newLogos.map((l) => ({ id: uid(), name: l.name, url: l.url }))];
+        if (Object.keys(patch).length) patchBrand(patch);
+        setBrandKitDraft(null);
+        setBrandKitMsg({ kind: "ok", text: "Draft applied. Review it below, then Save changes — nothing is saved yet." });
     };
 
     /** Which Brand Kit value was just copied (a hex, an rgb() string, or "css" for the
@@ -5879,7 +5923,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     >
                                                                         {brandKitBusy
                                                                             ? brandKitPdf
-                                                                                ? "Reading the PDF…"
+                                                                                ? "Reading the PDF… up to 2 min"
                                                                                 : "Reading the site…"
                                                                             : "Generate brand kit"}
                                                                     </Button>
@@ -5894,6 +5938,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     >
                                                                         {brandKitMsg.text}
                                                                     </p>
+                                                                )}
+                                                                {brandKitDraft && (
+                                                                    <BrandKitDraftReview
+                                                                        draft={brandKitDraft}
+                                                                        canAdd={!isTemplatePalette(content.brand.colors)}
+                                                                        onReplace={() => applyBrandKitDraft("replace")}
+                                                                        onAdd={() => applyBrandKitDraft("add")}
+                                                                        onDiscard={() => setBrandKitDraft(null)}
+                                                                    />
                                                                 )}
                                                             </div>
                                                         )}

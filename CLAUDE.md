@@ -141,19 +141,37 @@ Canva; `netlify/lib/canva.mts` refreshes it before its 4-hour expiry. Netlify ne
 whose redirect URL is `https://hgmportal.com/.netlify/functions/canva-auth`. Without a
 connection the section falls back to uploading Canva's exported pages, same result.
 
-The Brand Kit's **Generate brand kit** button (`generate-brand-kit.mts`) drafts a palette,
-fonts and logos from the client's website, a brand guidelines PDF uploaded to the
-`brandkits` bucket, or both — the PDF wins outright where both are given. **No hex is ever
-invented**, and every part of it follows from that: the website half runs no model at all
-(colours come out of the CSS), and the PDF half extracts the hexes and embedded typefaces
-verbatim via `netlify/lib/pdf-brand.mts` (`unpdf` for the text layer, a zlib scan for
-`/BaseFont`), then shows a model **only that extracted text** so it can rank and name the
-swatches. Anything the model returns that isn't literally in the document is dropped, and
-if the call is slow or unavailable the extracted palette ships with positional role names
-rather than blocking the draft — so the endpoint stays synchronous. The browser uploads the
-PDF to storage and sends only its path; never POST the file itself, since Netlify's request
-body cap is far smaller than a real brand guide. Like `generate-overview.mts`, it RETURNS
-the draft for the AM to review rather than writing it.
+The Brand Kit's **Generate brand kit** button drafts a palette, fonts and logos from the
+client's website, a brand guidelines PDF uploaded to the `brandkits` bucket, or both — the
+PDF wins outright where both are given. **No hex is ever invented**, and every part of it
+follows from that. The logic is `netlify/lib/brand-kit.mts`; it runs as a job:
+`generate-brand-kit-background.mts` (a Netlify background function, 15-minute budget) builds
+the draft and stores it in Netlify Blobs (`netlify/lib/brand-kit-jobs.mts`, store
+`brand-kit-jobs`), and the dashboard polls `brand-kit-job.mts` for it under a job id it made
+itself; only the team member who started a job can read it.
+
+- **Website** (`netlify/lib/site-brand.mts`) runs no model. It scores the colours the site's
+  CSS declares by **where they're used** — button and header backgrounds, heading text,
+  `<meta name="theme-color">`, `var()` references resolved — and discounts rules whose classes
+  appear nowhere on the page, framework palettes (`--tw-*`, `--bs-*`, stock Bootstrap), hover
+  and disabled states. Counting occurrences, the first approach, returned black/white/greys on
+  every site. It says when evidence is thin (`confident: false` → "Check before saving"): a
+  site styled by JavaScript at runtime can't be read without rendering it.
+- **PDF** (`netlify/lib/pdf-brand.mts`) reads every printed code verbatim — `#2C302C`,
+  `HEX 2C302C`, RGB triples (CMYK/Pantone are never converted) — then shows Claude the PDF
+  itself. The model answers with **code IDs from that list, never a hex**, so it can rank and
+  name the palette but not add to it; swatches with no printed code come back as a note.
+
+The draft lands in a review card (`src/pages/client/dashboard/brand-kit-draft.tsx`) showing
+each swatch's evidence; nothing reaches the kit until the AM picks Replace or Add. The browser
+uploads the PDF to storage and sends only its path; never POST the file itself, since
+Netlify's request body cap is far smaller than a real brand guide.
+
+Accuracy is measured, not asserted: `scripts/brand-kit-eval/run.mts` scores the site reader
+against reference kits measured in a real browser (`fixtures.json`), and
+`scripts/brand-kit-eval/pdf-check.mts` is an offline self-check of the PDF path. Run both
+before changing either reader. The `/brand-kit` skill measures a site in a real browser for
+the cases the button flags, and is how fixtures get (re-)measured.
 
 `client-dashboard-page.tsx` itself is still ~4,700 lines of one component. That
 body has not been split — doing so needs real prop-threading, so treat it as a

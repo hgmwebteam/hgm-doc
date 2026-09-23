@@ -39,9 +39,86 @@ export interface BrandPdf {
     /** Every hex literally printed in the document, in document order, RAW — the caller
      *  normalises, so there is one normaliser rather than two that can drift. */
     hexes: string[];
+    /** Every colour code the document prints, in document order, with how it was written.
+     *  A superset of `hexes`: it also reads "HEX 2C302C" (no "#") and RGB triples, which
+     *  convert to a hex exactly. CMYK and Pantone are NOT converted — that conversion
+     *  depends on the print profile, so a hex from it would be one the document never gave. */
+    codes: PdfCode[];
+    /** How many CMYK / Pantone specs the document gives. Reported so a guide that only
+     *  gives print values reads as "print-only" rather than as a failed read. */
+    printOnly: number;
     /** Typeface families the file embeds. Unfiltered: the caller owns the generic-font
      *  denylist, and it already has one for the website reader. */
     fontCandidates: string[];
+}
+
+export interface PdfCode {
+    /** "#RRGGBB", upper case. */
+    hex: string;
+    /** Exactly as printed: "HEX 2C302C", "R44 G48 B44". */
+    raw: string;
+    page: number;
+    /** Pages the same colour is printed on — a hex on every page is usually the footer. */
+    pages: number[];
+}
+
+/* ── colour codes ───────────────────────────────────────────────────────── */
+
+const toHex = (r: number, g: number, b: number) =>
+    "#" +
+    [r, g, b]
+        .map((n) => n.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+
+/**
+ * The ways brand guides actually write a colour. Each is a literal read: the hex that comes
+ * out is the one printed, or the one an RGB triple denotes exactly.
+ *
+ * "#2C302C" was the only form the first version read, and it is the least common one in
+ * real guides — Canva and InDesign templates print "HEX 2C302C" or "Hex: 2c302c". Without
+ * a "#", only a full 6-digit value after the word HEX counts: a 3-digit one could be a
+ * page number or a price.
+ */
+const CODE_PATTERNS: { re: RegExp; read: (m: RegExpMatchArray) => string | null }[] = [
+    { re: /#([0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-z])/gi, read: (m) => m[1] },
+    { re: /\bhex(?:adecimal)?(?:\s*(?:code|value))?\s*[:=]?\s*([0-9a-f]{6})(?![0-9a-z])/gi, read: (m) => m[1] },
+    {
+        // "R44 G48 B44", "R: 44 G: 48 B: 44", "R 44 / G 48 / B 44" — capital letters only, so
+        // ordinary words don't match.
+        re: /\bR\s*[:=]?\s*(\d{1,3})\s*[,/|]?\s*G\s*[:=]?\s*(\d{1,3})\s*[,/|]?\s*B\s*[:=]?\s*(\d{1,3})\b/g,
+        read: (m) => rgb(m[1], m[2], m[3]),
+    },
+    { re: /\bRGB\s*[:=]?\s*\(?\s*(\d{1,3})\s*[,/ ]\s*(\d{1,3})\s*[,/ ]\s*(\d{1,3})\b/gi, read: (m) => rgb(m[1], m[2], m[3]) },
+];
+
+function rgb(r: string, g: string, b: string): string | null {
+    const n = [r, g, b].map(Number);
+    return n.every((x) => x >= 0 && x <= 255) ? toHex(n[0], n[1], n[2]).slice(1) : null;
+}
+
+const expand = (h: string) => (h.length === 3 ? [...h].map((c) => c + c).join("") : h).toUpperCase();
+
+/** Every colour code in the text, in reading order, merged by colour. */
+export function readCodes(pageTexts: string[]): PdfCode[] {
+    const hits: { hex: string; raw: string; page: number; at: number }[] = [];
+    pageTexts.forEach((text, i) => {
+        for (const { re, read } of CODE_PATTERNS) {
+            for (const m of text.matchAll(re)) {
+                const v = read(m);
+                if (v) hits.push({ hex: `#${expand(v)}`, raw: m[0].trim(), page: i + 1, at: (m.index ?? 0) + i * 1e7 });
+            }
+        }
+    });
+    hits.sort((a, b) => a.at - b.at);
+    const out: PdfCode[] = [];
+    for (const h of hits) {
+        const seen = out.find((o) => o.hex === h.hex);
+        if (seen) {
+            if (!seen.pages.includes(h.page)) seen.pages.push(h.page);
+        } else out.push({ hex: h.hex, raw: h.raw, page: h.page, pages: [h.page] });
+    }
+    return out;
 }
 
 /* ── fonts ──────────────────────────────────────────────────────────────── */
@@ -125,6 +202,11 @@ export async function readBrandPdf(bytes: Uint8Array): Promise<BrandPdf> {
 
     const { text: pageTexts } = await extractText(pdf, { mergePages: false });
 
+    const codes = readCodes(pageTexts.slice(0, MAX_PAGES).map((t) => t ?? ""));
+    const printOnly = pageTexts
+        .slice(0, MAX_PAGES)
+        .reduce((n, t) => n + (t?.match(/\bC\s*:?\s*\d{1,3}\s*%?\s*M\s*:?\s*\d{1,3}|\bCMYK\b|\bPantone\b|\bPMS\s*\d/gi)?.length ?? 0), 0);
+
     const blocks: string[] = [];
     let chars = 0;
     for (let i = 0; i < pageTexts.length && i < MAX_PAGES && chars < MAX_CHARS; i++) {
@@ -138,10 +220,7 @@ export async function readBrandPdf(bytes: Uint8Array): Promise<BrandPdf> {
 
     // Document order, not frequency: a guidelines doc introduces its primary first, and
     // that ordering is a real signal the website reader never gets.
-    const hexes: string[] = [];
-    for (const m of text.matchAll(/#[0-9a-f]{6}\b|#[0-9a-f]{3}\b/gi)) {
-        if (!hexes.some((h) => h.toLowerCase() === m[0].toLowerCase())) hexes.push(m[0]);
-    }
+    const hexes = codes.map((c) => c.hex);
 
-    return { pages: pdf.numPages, text, hexes, fontCandidates: baseFonts(raw) };
+    return { pages: pdf.numPages, text, hexes, codes, printOnly, fontCandidates: baseFonts(raw) };
 }

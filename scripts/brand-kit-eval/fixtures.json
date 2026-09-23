@@ -1,0 +1,80 @@
+{
+    "_about": "Reference kits for scripts/brand-kit-eval/run.mts, measured in headless Chromium: `primary` lists colours the rendered page paints its buttons, header and headings with (any one counts as a hit); `fonts` is [heading, body] from the computed font-family of the page's <h1> and its paragraphs \u2014 one entry means only the heading is checked. Wait for the page to finish loading before measuring: an early read reports the fallback face. Re-measure when a site redesigns.",
+    "sites": [
+        {
+            "url": "https://hiddengem.media",
+            "primary": ["#FFD60A", "#FFD935"],
+            "fonts": []
+        },
+        {
+            "url": "https://www.airbnb.com",
+            "primary": ["#FF385C", "#DA1249"],
+            "fonts": ["Airbnb Cereal VF"]
+        },
+        {
+            "url": "https://www.hipcamp.com",
+            "primary": ["#EC5017", "#FFA100"],
+            "fonts": ["Calibre"]
+        },
+        {
+            "url": "https://www.vacasa.com",
+            "primary": ["#003349", "#FFD000", "#0078AB"],
+            "fonts": ["Stix Two Text", "Public Sans"]
+        },
+        {
+            "url": "https://evolve.com",
+            "primary": ["#38B2C5", "#093F46", "#D24F45"],
+            "fonts": ["Nunito"]
+        },
+        {
+            "url": "https://www.avantstay.com",
+            "primary": ["#022B54", "#53C3D0", "#2FA6B4"],
+            "fonts": ["SangBleu Sunrise", "Source Sans Pro"]
+        },
+        {
+            "url": "https://www.casago.com",
+            "primary": ["#F36D21"],
+            "fonts": ["Poppins", "Poppins"]
+        },
+        {
+            "url": "https://www.inspirato.com",
+            "primary": ["#356D8D"],
+            "fonts": ["The Seasons", "Aeonik Pro"]
+        },
+        {
+            "url": "https://www.kasa.com",
+            "primary": ["#061332", "#195C8C"],
+            "fonts": ["Tiempos Headline", "TT Norms Pro"]
+        },
+        {
+            "url": "https://getaway.house",
+            "primary": ["#1C1C1C", "#67724D", "#33362E"],
+            "fonts": ["LttRecoletaBold", "Swiss-721"]
+        },
+        {
+            "url": "https://smokiestays.com",
+            "primary": ["#0A1628", "#C9A96E"],
+            "fonts": ["Playfair Display", "Inter"]
+        },
+        {
+            "url": "https://www.yourcabin.com",
+            "primary": ["#0A243F", "#00AEFF"],
+            "fonts": ["Plus Jakarta Sans", "Plus Jakarta Sans"]
+        },
+        {
+            "url": "https://www.homesteadmodern.com",
+            "primary": ["#9F4423", "#000000"],
+            "fonts": ["BW"]
+        },
+        {
+            "url": "https://www.greatcabinsinthesmokies.com",
+            "primary": ["#D0A339", "#C8A34D", "#A98634", "#191919"],
+            "fonts": ["EB Garamond", "Lato"]
+        },
+        {
+            "url": "https://joshuatreevacationhomerental.com",
+            "primary": ["#E6863E", "#453329", "#619586"],
+            "fonts": ["Bebas Neue", "Archivo Narrow"]
+        }
+    ]
+}

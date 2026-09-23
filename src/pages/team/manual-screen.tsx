@@ -360,7 +360,10 @@ const FUNCTIONS: { name: string; what: string }[] = [
         name: "generate-master-section",
         what: "Drafts Master Brand Document sections from the client's forms, website and pasted reviews — fills empty fields only.",
     },
-    { name: "generate-brand-kit", what: "Drafts the Brand Kit (colours, fonts) from the client's website." },
+    {
+        name: "generate-brand-kit-background",
+        what: "Drafts the Brand Kit (colours, fonts, logos) from the client's website and/or brand guidelines PDF, as a background job; brand-kit-job returns the draft.",
+    },
     { name: "generate-overview", what: "Drafts the team's Client Overview Document, one group of fields per call — the dashboard runs three." },
     { name: "generate-summary", what: "Transcribes call recordings (Deepgram) and summarises them (Claude) for /log-script." },
     { name: "ai-chat", what: "Answers questions in the dashboard's AI chat using that client's own content." },

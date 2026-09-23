@@ -280,9 +280,7 @@ export const JOURNEY_STEPS: {
         icon: Mail01,
         itemsTickable: true,
         items: [
-            // Landing Page carries no estimate yet — the team has not set one, and an
-            // invented week is a promise to a client. Add it here when they have.
-            { id: "landing", label: "Landing Page", to: "landing" },
+            { id: "landing", label: "Landing Page", to: "landing", eta: "Week 2" },
             { id: "flow", label: "Welcome Flow", to: "flow", eta: "Week 3" },
             { id: "pinnedposts", label: "Pinned Posts", to: "pinnedposts", eta: "Week 3" },
             { id: "pinnedstories", label: "Pinned Stories", to: "pinnedstories", eta: "Week 2" },

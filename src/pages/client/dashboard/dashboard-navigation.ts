@@ -308,6 +308,19 @@ export const JOURNEY_STEPS: {
 ];
 
 /**
+ * Each section's estimate, read off the journey — a step's `eta` for the section it jumps
+ * to, an item's own `eta` for the section it opens. The side menu shows it in place of
+ * "Soon", so a client sees when a row will open rather than only that it hasn't yet.
+ * Derived rather than typed a second time, so the menu can't drift from the journey.
+ */
+export const SECTION_ETA: Partial<Record<SectionId, string>> = Object.fromEntries(
+    JOURNEY_STEPS.flatMap((step) => [
+        ...(step.to && step.eta ? [[step.to, step.eta] as const] : []),
+        ...(step.items ?? []).flatMap((item) => (item.to && item.eta ? [[item.to, item.eta] as const] : [])),
+    ]),
+);
+
+/**
  * The four stages the launch meter groups the journey under, and the steps in each.
  *
  * Not the same taxonomy as NAV_GROUPS: the menu is organised by where a thing LIVES on the
@@ -483,10 +496,11 @@ export const NAV_GROUPS: {
         phase: "marketing",
         icon: Announcement02,
         items: [
+            // Same order as the journey's funnel step — by eta, so both lists agree.
             { id: "landing", label: "Landing Page", icon: Globe01 },
+            { id: "pinnedstories", label: "Pinned Stories", icon: Image03 },
             { id: "flow", label: "Welcome Flow", icon: Mail01 },
             { id: "pinnedposts", label: "Pinned Posts", icon: Camera01 },
-            { id: "pinnedstories", label: "Pinned Stories", icon: Image03 },
             { id: "reels", label: "Example Reels", icon: PlayCircle },
         ],
     },

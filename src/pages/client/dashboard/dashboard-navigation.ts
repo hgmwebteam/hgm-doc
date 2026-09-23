@@ -280,10 +280,11 @@ export const JOURNEY_STEPS: {
         icon: Mail01,
         itemsTickable: true,
         items: [
+            // Ordered by eta, so the client reads them in the order they will arrive.
             { id: "landing", label: "Landing Page", to: "landing", eta: "Week 2" },
+            { id: "pinnedstories", label: "Pinned Stories", to: "pinnedstories", eta: "Week 2" },
             { id: "flow", label: "Welcome Flow", to: "flow", eta: "Week 3" },
             { id: "pinnedposts", label: "Pinned Posts", to: "pinnedposts", eta: "Week 3" },
-            { id: "pinnedstories", label: "Pinned Stories", to: "pinnedstories", eta: "Week 2" },
             { id: "reels", label: "Example Reels", to: "reels", eta: "Week 3" },
         ],
     },
@@ -355,8 +356,8 @@ export const JOURNEY_BAR: { id: string; label: string; stage: string; steps: Jou
     { id: "call", label: "Onboarding Call", stage: "start", steps: ["call"] },
     { id: "masterdoc", label: "Master Brand", stage: "foundation", steps: ["masterdoc"] },
     { id: "brandkit", label: "Brand Kit", stage: "foundation", steps: ["brandkit"] },
-    // Expands into its five reviews, each named by the item: Landing Page, Welcome Flow,
-    // Pinned Posts, Pinned Stories, Example Reels.
+    // Expands into its five reviews, each named by the item: Landing Page, Pinned Stories,
+    // Welcome Flow, Pinned Posts, Example Reels.
     { id: "funnel", label: "Marketing Funnel", stage: "funnel", steps: ["funnel"] },
     // Last, so it wears the rocket and draws no name.
     { id: "launch", label: "Launch", stage: "live", steps: ["launch"] },

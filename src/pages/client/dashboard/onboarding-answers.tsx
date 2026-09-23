@@ -6,7 +6,7 @@
  * review screen to read back what the client said.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CheckDone01, Edit01, Flag01, Lightbulb01, MessageTextSquare01, Stars02 } from "@untitledui-pro/icons/line";
+import { AlertTriangle, CheckDone01, Edit01, Flag01, Lightbulb01, MessageTextSquare01, Stars02, Trash01 } from "@untitledui-pro/icons/line";
 import { RecordingPlayer } from "@/components/application/media-answer";
 import { Button } from "@/components/base/buttons/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
@@ -167,12 +167,18 @@ export const TeamRecordingSummary = ({ log }: { log?: ScriptLog }) => {
  * Passwords stay masked behind a per-row reveal: this panel sits open on the dashboard, a
  * weaker place to park a credential than a review screen someone had to deliberately open.
  * (Only the Onboarding Form carries any; Brand Vision has none.)
+ *
+ * With `onDeleteLogin`, each of those rows also gets a delete control, so a login can be
+ * moved into 1Password and removed one at a time. It is drawn only under `isTeamView` —
+ * the client opens this same panel on their own dashboard, and deleting their password
+ * from our records is our housekeeping, not an action to hand them.
  */
 export const OnboardingAnswers = ({
     sections,
     onEdit,
     isTeamView,
     clientName,
+    onDeleteLogin,
 }: {
     sections: OnboardingAnswerSection[];
     onEdit: (field: string) => void;
@@ -183,9 +189,45 @@ export const OnboardingAnswers = ({
      */
     isTeamView?: boolean;
     clientName: string;
+    /**
+     * Delete the stored password on one login row. Only passed for the Onboarding Form —
+     * the Brand Vision Form collects no credentials, so its rows never offer it.
+     * Rejecting leaves the row alone and the confirm in place, so a failed write cannot
+     * read as a password that is gone when it is still there.
+     */
+    onDeleteLogin?: (field: string) => Promise<void>;
 }) => {
     const [shown, setShown] = useState<Record<string, boolean>>({});
+    /* Armed per row: the first click only asks. There is no undo, and the rows sit close
+       enough together that a single-click delete beside Edit would eventually be a
+       mis-click on the wrong client's login. */
+    const [armedDelete, setArmedDelete] = useState("");
+    const [deleting, setDeleting] = useState("");
     const answered = sections.flatMap((s) => s.rows).filter((r) => r.lines.length || r.mediaPath).length;
+
+    /**
+     * A row is deletable when it still holds a password — which is exactly the rows that
+     * carry a `secret` line. Read off the rendered answer rather than re-deriving which
+     * questions are credential questions, so the control appears on precisely the rows
+     * that show something to hide, and disappears the moment one is cleared.
+     */
+    const canDeleteLogin = (row: OnboardingAnswerSection["rows"][number]) => !!onDeleteLogin && !!isTeamView && row.lines.some((l) => l.secret);
+
+    const runDelete = async (field: string) => {
+        if (!onDeleteLogin) return;
+        setDeleting(field);
+        try {
+            await onDeleteLogin(field);
+            setArmedDelete("");
+            // Drop any reveal for this row, so the next password to appear here starts masked.
+            setShown((v) => ({ ...v, [field]: false }));
+        } catch {
+            // Deliberately stays armed: the caller logs it, and a confirm that vanished
+            // would read as a password deleted when it is still in the row.
+        } finally {
+            setDeleting("");
+        }
+    };
 
     /* ── Team-only: AI summaries of the recorded answers ────────────────
        Every query below is gated on isTeamView. That is belt-and-braces rather than the
@@ -354,22 +396,54 @@ export const OnboardingAnswers = ({
                                                     </p>
                                                 ),
                                             )}
+                                            {canDeleteLogin(row) && armedDelete === row.field && (
+                                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        color="primary-destructive"
+                                                        isLoading={deleting === row.field}
+                                                        showTextWhileLoading
+                                                        onClick={() => void runDelete(row.field)}
+                                                    >
+                                                        {deleting === row.field ? "Deleting…" : "Yes, delete this password"}
+                                                    </Button>
+                                                    <Button size="sm" color="secondary" isDisabled={deleting === row.field} onClick={() => setArmedDelete("")}>
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            )}
                                             {row.mediaPath && <InlineRecording path={row.mediaPath} kind={row.mediaKind} />}
                                             {/* Team only. The client keeps seeing exactly what they
                                                 recorded and nothing else. */}
                                             {row.mediaPath && isTeamView && <TeamRecordingSummary log={summaries[row.mediaPath]} />}
                                         </dd>
-                                        <button
-                                            type="button"
-                                            onClick={() => onEdit(row.field)}
-                                            title={`Edit — ${row.label}`}
-                                            aria-label={`Edit ${row.label}`}
-                                            // Always visible, not hover-revealed: this panel is read on phones and tablets
-                                            // too, where there is no hover and an opacity-0 control is simply invisible.
-                                            className="col-start-2 row-start-1 -mt-0.5 flex size-7 shrink-0 items-center justify-center justify-self-end rounded-lg text-fg-quaternary transition duration-100 ease-linear hover:bg-primary hover:text-brand-secondary hover:ring-1 hover:ring-secondary"
-                                        >
-                                            <Edit01 className="size-3.5" aria-hidden="true" />
-                                        </button>
+                                        {/* Both controls share one grid cell, so they sit in a row inside it
+                                            rather than each claiming col-start-2 and stacking on top of the
+                                            other. Always visible, not hover-revealed: this panel is read on
+                                            phones and tablets too, where there is no hover and an opacity-0
+                                            control is simply invisible. */}
+                                        <div className="col-start-2 row-start-1 -mt-0.5 flex items-center gap-1 justify-self-end">
+                                            {canDeleteLogin(row) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setArmedDelete((f) => (f === row.field ? "" : row.field))}
+                                                    title={`Delete the saved password — ${row.label}`}
+                                                    aria-label={`Delete the saved password for ${row.label}`}
+                                                    className="flex size-7 shrink-0 items-center justify-center rounded-lg text-fg-quaternary transition duration-100 ease-linear hover:bg-primary hover:text-fg-error-secondary hover:ring-1 hover:ring-secondary"
+                                                >
+                                                    <Trash01 className="size-3.5" aria-hidden="true" />
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => onEdit(row.field)}
+                                                title={`Edit — ${row.label}`}
+                                                aria-label={`Edit ${row.label}`}
+                                                className="flex size-7 shrink-0 items-center justify-center rounded-lg text-fg-quaternary transition duration-100 ease-linear hover:bg-primary hover:text-brand-secondary hover:ring-1 hover:ring-secondary"
+                                            >
+                                                <Edit01 className="size-3.5" aria-hidden="true" />
+                                            </button>
+                                        </div>
                                     </div>
                                 );
                             })}

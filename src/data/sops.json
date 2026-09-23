@@ -1,0 +1,44 @@
+[
+    {
+        "id": "HGM-SOP-WEB-001",
+        "dept": "WEB",
+        "title": "Store, share, and update client .env files in 1Password",
+        "version": "1.1",
+        "status": "draft",
+        "owner_role": "Web & Content Specialist",
+        "owner": "Kyle Zinger",
+        "updated": "2026-09-01",
+        "next_review": null,
+        "html": "html/HGM-SOP-WEB-001.html",
+        "pdf": "pdf/HGM-SOP-WEB-001_v1_1.pdf",
+        "change_summary": "Rebuilt to the phased task structure. Four screenshots still to be captured."
+    },
+    {
+        "id": "HGM-SOP-WEB-002",
+        "dept": "WEB",
+        "title": "Take a website change request from Asana to live",
+        "version": "1.4",
+        "status": "draft",
+        "owner_role": "Web & Content Specialist",
+        "owner": "Kyle Zinger",
+        "updated": "2026-09-12",
+        "next_review": null,
+        "html": "html/HGM-SOP-WEB-002.html",
+        "pdf": "pdf/HGM-SOP-WEB-002_v1_4.pdf",
+        "change_summary": "Route selection reframed as a platform choice (VS Code, Terminal, Claude Desktop app). No change to the procedure."
+    },
+    {
+        "id": "HGM-SOP-WEB-003",
+        "dept": "WEB",
+        "title": "Post-launch connections: analytics, search, behaviour tracking and the deploy that carries them",
+        "version": "0.1",
+        "status": "draft",
+        "owner_role": "Web & Content Specialist",
+        "owner": "Kyle Zinger",
+        "updated": "2026-09-11",
+        "next_review": null,
+        "html": "html/HGM-SOP-WEB-003.html",
+        "pdf": "pdf/HGM-SOP-WEB-003_v0_1.pdf",
+        "change_summary": "Working draft for Brandon. Not yet interviewed or approved."
+    }
+]

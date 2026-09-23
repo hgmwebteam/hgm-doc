@@ -66,6 +66,7 @@ import {
     clientOnboardingAnswers,
     clientOnboardingProgress,
     ensureClientOnboardingForm,
+    withLoginCleared,
 } from "@/pages/client/client-onboarding-form-page";
 import { type BrandKitDraft, BrandKitDraftReview } from "@/pages/client/dashboard/brand-kit-draft";
 import { brandKitCss, brandKitFileName, brandKitHasContent } from "@/pages/client/dashboard/brand-kit-export";
@@ -153,6 +154,7 @@ import {
     REVIEW_WORKING_PROMPT,
     compileMasterDocument,
     foundationProgress,
+    masterDocumentHtml,
 } from "@/pages/client/dashboard/master-brand-document";
 import { DocField, DocRail, DocSection, DocStat, FavoriteTable, SourceBadge, WorkflowBadge } from "@/pages/client/dashboard/master-brand-fields";
 import { OnboardingAnswers } from "@/pages/client/dashboard/onboarding-answers";
@@ -619,6 +621,28 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        from an empty object. */
     const [armedReset, setArmedReset] = useState<null | "intake" | "brand">(null);
     const [resetting, setResetting] = useState(false);
+
+    /* ── Delete one stored login once it is in 1Password ──
+       The Onboarding Form's Account Setup section collects real passwords, and they sit in
+       client_onboarding_pages until someone removes them. The team's working order is to
+       copy a login into the client's 1Password vault and delete that one, then the next —
+       so the control lives on each login row in the answers panel, not up here on the
+       section, and it takes one login at a time.
+
+       Only the password goes: the username, @handle and platform stay, because they say
+       which account each login belongs to and are not the secret. Throws rather than
+       swallowing, so a failed write leaves the row's confirm in place instead of reading
+       as a password that is gone when it is still there. */
+    const deleteLogin = async (field: string) => {
+        if (!intakeSlug) return;
+        const cleared = withLoginCleared(intakeData, field);
+        const { error } = await supabase.from("client_onboarding_pages").update({ data: cleared }).eq("slug", intakeSlug);
+        if (error) {
+            console.error("[delete login]", error);
+            throw error;
+        }
+        setIntakeData(cleared);
+    };
 
     const resetForm = async (kind: "intake" | "brand") => {
         const slugToClear = kind === "intake" ? intakeSlug : onboardingSlug;
@@ -1827,12 +1851,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      */
     const copyMasterDocForDocs = async () => {
         const compiled = compileMasterDocument(clientName, clientWebsite, foundation);
-        const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const html = [
-            `<h1>Master Brand Document — ${esc(clientName.trim() || "Client")}</h1>`,
-            `<p>${esc([clientWebsite.trim() && `Website: ${clientWebsite.trim()}`, `Generated: ${compiled.generatedOn}`].filter(Boolean).join("  ·  "))}</p>`,
-            ...compiled.sections.map((s, i) => `<h2>${i + 1}. ${esc(s.label)}</h2><p>${esc(s.value.trim() || "Not provided yet.").replace(/\n/g, "<br>")}</p>`),
-        ].join("");
+        const html = masterDocumentHtml(clientName, clientWebsite, foundation, compiled.generatedOn);
         try {
             await navigator.clipboard.write([
                 new ClipboardItem({
@@ -1855,22 +1874,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** The Client Overview brief, copied the same way — rich text for Google Docs, plain text behind it. */
     const copyOverviewForDocs = async () => {
         const compiled = compileOverviewDocument(overviewDoc);
-        const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const html = [
-            `<h1>Client Overview — ${esc(overviewDoc.business_name.trim() || overviewDoc.client_name.trim() || "Client")}</h1>`,
-            `<p>${esc(`Generated: ${compiled.generatedOn}`)}</p>`,
-            ...compiled.sections.map((s, i) => `<h2>${i + 1}. ${esc(s.label)}</h2><p>${esc(s.value || "Not provided yet.").replace(/\n/g, "<br>")}</p>`),
-        ].join("");
         try {
             await navigator.clipboard.write([
                 new ClipboardItem({
-                    "text/html": new Blob([html], { type: "text/html" }),
-                    "text/plain": new Blob([compiled.doc], { type: "text/plain" }),
+                    "text/html": new Blob([compiled.html], { type: "text/html" }),
+                    "text/plain": new Blob([compiled.markdown], { type: "text/plain" }),
                 }),
             ]);
         } catch {
             try {
-                await navigator.clipboard.writeText(compiled.doc);
+                await navigator.clipboard.writeText(compiled.markdown);
             } catch {
                 return;
             }
@@ -3892,6 +3905,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     sections={clientOnboardingAnswers(intakeData)}
                                                                     isTeamView={isTeam}
                                                                     clientName={clientName}
+                                                                    onDeleteLogin={isTeam && !isTemplate ? deleteLogin : undefined}
                                                                     onEdit={(field) => {
                                                                         setFormModalField(field);
                                                                         setFormModal("intake");
@@ -5408,10 +5422,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         label="Reviews"
                                                                         badge={isTeam ? <SourceBadge>From guest reviews</SourceBadge> : undefined}
                                                                     >
+                                                                        {/* The team's line is an instruction — it tells an AM what to go and do,
+                                                                            and the Paste guest reviews box below acts on it. A client reading that
+                                                                            is being handed someone else's to-do list, so they get the finding
+                                                                            instead: the work is done, and this is what it turned up. */}
                                                                         <p className="text-md text-tertiary">
-                                                                            Pull guest reviews and analyze them to identify recurring themes in what guests love
-                                                                            about their stays. The goal is to gain deeper insights into the brand's strengths
-                                                                            and use these findings to inform and enhance future marketing efforts.
+                                                                            {isTeam
+                                                                                ? "Pull guest reviews and analyze them to identify recurring themes in what guests love about their stays. The goal is to gain deeper insights into the brand's strengths and use these findings to inform and enhance future marketing efforts."
+                                                                                : "We read through your guest reviews to understand what people love most about staying with you. These are the strengths that came up again and again — the details guests single out, and the way a stay makes them feel — and they shape how we market you."}
                                                                         </p>
 
                                                                         <DocField

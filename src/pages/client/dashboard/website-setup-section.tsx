@@ -11,16 +11,19 @@
  * the team only in edit mode (saved with the ordinary Save button). A team member viewing a
  * locked dashboard sees the client's answers as read-only prose, like every other section.
  *
- * What is NOT asked for here, on purpose: passwords and API keys. The dashboard row is
- * readable with the public anon key, so the section collects account emails only and sends
- * the client to their own password-gated owner guide for the logins themselves.
+ * Passwords and API keys are not asked for here, with one exception: the Netlify login
+ * (email + password), which the team wanted collected on the dashboard during the onboarding
+ * call. The row is readable with the public anon key, so every other login goes through the
+ * client's own password-gated owner guide instead.
  */
-import type { ReactNode } from "react";
-import { CheckCircle, LinkExternal01, Lock01 } from "@untitledui-pro/icons/line";
+import { type ReactNode, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { BookOpen01, CheckCircle, Edit05, Eye, EyeOff, LinkExternal01, Lock01, XClose } from "@untitledui-pro/icons/line";
 import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
+import { readSopPage } from "@/lib/db-sync";
 import { editInput } from "@/pages/client/dashboard/dashboard-chrome";
 import { filled } from "@/pages/client/dashboard/dashboard-model";
 import {
@@ -30,8 +33,10 @@ import {
     type WebsiteSetup,
     type WebsiteSetupAccountId,
     accountState,
+    netlifyDone,
     websiteSetupProgress,
 } from "@/pages/client/dashboard/website-setup";
+import { ImageMagnifier } from "@/pages/client/owner-guide-screen";
 import { cx } from "@/utils/cx";
 
 export type WebsiteSetupSaveState = "idle" | "saving" | "saved" | "error";
@@ -98,6 +103,253 @@ const DoneBadge = ({ done, todo = "To do" }: { done: boolean; todo?: string }) =
         </BadgeWithDot>
     );
 
+/* ── The Netlify step-by-step pop-up ──
+   The owner guide's "Netlify Hosting" step, read live from the master template row so the
+   team keeps editing it in one place, shown read-only with the same screenshots and magnifier.
+   Fetched once per page load, on first open (the row carries every step's images). */
+type GuideInstruction = { id?: string; text: string; image?: string; lensPos?: { x: number; y: number } };
+type GuideStep = { title?: string; description?: string; benefits?: string[]; instructions?: (GuideInstruction | string)[] };
+
+let netlifyStepCache: Promise<GuideStep | null> | undefined;
+const loadNetlifyStep = () =>
+    (netlifyStepCache ??= readSopPage("owner-guide-content")
+        .then((row) => {
+            const steps = Array.isArray(row?.data) ? (row.data as GuideStep[]) : [];
+            return steps.find((s) => /netlify/i.test(s.title ?? "")) ?? null;
+        })
+        .catch((err) => {
+            netlifyStepCache = undefined; // let the next open retry
+            throw err;
+        }));
+
+const NetlifyGuideModal = ({
+    onClose,
+    setup,
+    editable,
+    onChange,
+}: {
+    onClose: () => void;
+    setup: WebsiteSetup;
+    editable: boolean;
+    onChange: (patch: Partial<WebsiteSetup>) => void;
+}) => {
+    // undefined = loading, null = failed or no such step
+    const [step, setStep] = useState<GuideStep | null | undefined>(undefined);
+    useEffect(() => {
+        let cancelled = false;
+        loadNetlifyStep()
+            .then((s) => !cancelled && setStep(s))
+            .catch(() => !cancelled && setStep(null));
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+    const instructions = (step?.instructions ?? []).map((i) => (typeof i === "string" ? { text: i } : i));
+
+    return createPortal(
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-overlay/70 p-4 backdrop-blur-[6px] duration-300 ease-out animate-in fade-in sm:p-8"
+            // mousedown, not click: the opening press resolves before the native click lands, so a
+            // click handler here would catch that same click on the fresh backdrop and close at once.
+            onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Netlify step-by-step guide"
+        >
+            <div className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-primary shadow-2xl ring-1 ring-secondary">
+                <div className="flex shrink-0 items-center justify-between gap-4 border-b border-secondary px-5 py-4">
+                    <div className="min-w-0">
+                        <h2 className="text-md font-semibold text-primary">Setting up your Netlify account</h2>
+                        <p className="mt-0.5 text-sm text-tertiary">Follow along — each screenshot shows where to click.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-lg text-fg-quaternary transition duration-100 ease-linear hover:bg-secondary hover:text-fg-secondary"
+                    >
+                        <XClose className="size-5" aria-hidden="true" />
+                    </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+                    {step === undefined ? (
+                        <p className="text-sm text-tertiary" role="status">
+                            Loading the guide…
+                        </p>
+                    ) : step === null ? (
+                        <p className="text-sm text-tertiary" role="status">
+                            Couldn't load the guide right now. Open Netlify and follow the three steps on the card — they cover it.
+                        </p>
+                    ) : (
+                        <>
+                            {filled(step.description) && <p className="text-md leading-relaxed text-secondary">{step.description}</p>}
+                            {!!step.benefits?.length && (
+                                <ul className="mt-4 grid list-none gap-2 p-0">
+                                    {step.benefits.map((b) => (
+                                        <li key={b} className="flex items-start gap-2 text-sm font-medium text-primary">
+                                            <CheckCircle className="mt-0.5 size-4 shrink-0 text-fg-success-secondary" aria-hidden="true" />
+                                            {b}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {instructions.length > 0 && (
+                                <>
+                                    <h3 className="mt-6 mb-3 text-[11px] font-semibold tracking-[0.1em] text-quaternary uppercase">
+                                        Step-by-step instructions
+                                    </h3>
+                                    <ol className="grid list-none gap-3 p-0">
+                                        {instructions.map((ins, i) => (
+                                            <li key={ins.id ?? i} className="rounded-xl border border-secondary bg-primary px-4 py-3.5">
+                                                <div className="flex items-start gap-3.5">
+                                                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-secondary text-sm font-bold text-brand-secondary tabular-nums">
+                                                        {i + 1}
+                                                    </span>
+                                                    <p className="flex-1 pt-1 text-md leading-relaxed text-secondary">{ins.text}</p>
+                                                </div>
+                                                {ins.image && (
+                                                    <div className="mt-3">
+                                                        <ImageMagnifier src={ins.image} editing={false} lensPos={ins.lensPos} />
+                                                    </div>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ol>
+                                </>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Done? The same two answers as the card, so the client can fill them in without leaving the guide. */}
+                <div className="shrink-0 border-t border-secondary bg-secondary px-5 py-4">
+                    <p className="mb-3 text-sm font-semibold text-primary">All set? Save the login you just created.</p>
+                    <NetlifyLogin setup={setup} editable={editable} onChange={onChange} />
+                </div>
+            </div>
+        </div>,
+        document.body,
+    );
+};
+
+/**
+ * The Netlify login, saved as a pair. A draft is typed and committed with Save Login (which
+ * autosaves for a client, or goes with the dashboard's Save for the team); once saved the
+ * pair reads back as prose with an Edit button, and Clear empties both. Same idiom as the
+ * owner guide's credential form, so a client who has seen one recognises the other.
+ */
+const NetlifyLogin = ({ setup, editable, onChange }: { setup: WebsiteSetup; editable: boolean; onChange: (patch: Partial<WebsiteSetup>) => void }) => {
+    const saved = netlifyDone(setup);
+    const [editing, setEditing] = useState(!saved);
+    const [email, setEmail] = useState(setup.netlify_email);
+    const [password, setPassword] = useState(setup.netlify_password);
+    const [show, setShow] = useState(false);
+    // Another view of the same pair (card ↔ pop-up) saved or cleared: follow it.
+    useEffect(() => {
+        setEmail(setup.netlify_email);
+        setPassword(setup.netlify_password);
+        setEditing(!netlifyDone(setup));
+    }, [setup.netlify_email, setup.netlify_password]);
+
+    const label = "text-sm font-medium text-secondary";
+
+    if (!editable || !editing) {
+        return (
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+                <div>
+                    <p className={label}>Netlify login email</p>
+                    <p className={cx("mt-1 text-md", filled(setup.netlify_email) ? "text-tertiary" : "text-quaternary italic")}>
+                        {filled(setup.netlify_email) ? setup.netlify_email : "Not filled in"}
+                    </p>
+                </div>
+                <div>
+                    <p className={label}>Netlify password</p>
+                    <p className={cx("mt-1 text-md", filled(setup.netlify_password) ? "text-tertiary" : "text-quaternary italic")}>
+                        {filled(setup.netlify_password) ? "••••••••" : "Not filled in"}
+                    </p>
+                </div>
+                {editable && (
+                    <Button size="sm" color="secondary" iconLeading={Edit05} onClick={() => setEditing(true)}>
+                        Edit
+                    </Button>
+                )}
+            </div>
+        );
+    }
+
+    const canSave = filled(email) && filled(password);
+    return (
+        <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                    <p className={label}>Netlify login email</p>
+                    <input
+                        type="email"
+                        autoComplete="off"
+                        placeholder="you@yourbusiness.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={cx(editInput(), "mt-1.5")}
+                    />
+                </div>
+                <div>
+                    <p className={label}>Netlify password</p>
+                    <div className="relative mt-1.5">
+                        <input
+                            type={show ? "text" : "password"}
+                            autoComplete="new-password"
+                            placeholder="The password you chose"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className={cx(editInput(), "pr-11")}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShow((v) => !v)}
+                            aria-label={show ? "Hide password" : "Show password"}
+                            aria-pressed={show}
+                            className="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-fg-quaternary transition duration-100 ease-linear hover:bg-secondary hover:text-fg-secondary"
+                        >
+                            {show ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+                <Button
+                    size="sm"
+                    isDisabled={!canSave}
+                    onClick={() => {
+                        onChange({ netlify_email: email.trim(), netlify_password: password });
+                        setEditing(false);
+                        setShow(false);
+                    }}
+                >
+                    Save login
+                </Button>
+                <Button
+                    size="sm"
+                    color="secondary-destructive"
+                    isDisabled={!filled(email) && !filled(password)}
+                    onClick={() => {
+                        setEmail("");
+                        setPassword("");
+                        if (saved) onChange({ netlify_email: "", netlify_password: "" });
+                    }}
+                >
+                    Clear
+                </Button>
+                {saved && (
+                    <Button size="sm" color="link-gray" onClick={() => setEditing(false)}>
+                        Cancel
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const WebsiteSetupSection = ({
     setup,
     onChange,
@@ -123,6 +375,7 @@ export const WebsiteSetupSection = ({
         onChange({ accounts: { ...setup.accounts, [id]: { ...accountState(setup, id), ...patch } } });
 
     const ownGuideUrl = ownerGuideSlug ? `/owner-guide/${ownerGuideSlug}` : "";
+    const [guideOpen, setGuideOpen] = useState(false);
 
     return (
         <div className="mt-3 flex flex-col gap-6">
@@ -149,7 +402,7 @@ export const WebsiteSetupSection = ({
                         <Badge color="warning" size="sm" type="pill-color">
                             Required
                         </Badge>
-                        <DoneBadge done={setup.netlify_done} />
+                        <DoneBadge done={netlifyDone(setup)} />
                     </div>
                 }
             >
@@ -160,8 +413,8 @@ export const WebsiteSetupSection = ({
                 <ol className="mt-4 grid list-none gap-2.5 p-0">
                     {[
                         "Open Netlify and choose Sign up with email — not GitHub, GitLab or Bitbucket.",
-                        "Use your business email address and a password of your own. Netlify's free plan is all you need.",
-                        "Come back here, enter the email you used, and tick the box.",
+                        "Use your business email address and a password of your own. You'll need Netlify's Pro plan.",
+                        "Come back here and enter the email and password you used.",
                     ].map((step, i) => (
                         <li key={step} className="flex gap-3 text-sm text-secondary">
                             <span className="grid size-6 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-bold text-quaternary tabular-nums">
@@ -171,27 +424,19 @@ export const WebsiteSetupSection = ({
                         </li>
                     ))}
                 </ol>
-                <div className="mt-4">
+                <div className="mt-4 flex flex-wrap items-center gap-3">
                     <Button size="sm" color="secondary" href={NETLIFY_SIGNUP_URL} target="_blank" rel="noopener noreferrer" iconTrailing={LinkExternal01}>
                         Open Netlify
                     </Button>
+                    {/* The owner guide's Netlify step in a pop-up — screenshots for every click, so an
+                        AM can walk the client through it on the onboarding call without leaving the page. */}
+                    <Button size="sm" color="link-color" iconTrailing={BookOpen01} onClick={() => setGuideOpen(true)}>
+                        Step-by-step guide
+                    </Button>
                 </div>
-                <div className="mt-5 grid gap-4 border-t border-secondary pt-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                    <Field
-                        label="Netlify account email"
-                        value={setup.netlify_email}
-                        placeholder="you@yourbusiness.com"
-                        editable={editable}
-                        onChange={(v) => onChange({ netlify_email: v })}
-                    />
-                    <Checkbox
-                        size="sm"
-                        className="md:pb-2"
-                        isSelected={setup.netlify_done}
-                        isDisabled={!editable}
-                        onChange={(v) => onChange({ netlify_done: v })}
-                        label="I've created my Netlify account"
-                    />
+                {guideOpen && <NetlifyGuideModal onClose={() => setGuideOpen(false)} setup={setup} editable={editable} onChange={onChange} />}
+                <div className="mt-5 border-t border-secondary pt-5">
+                    <NetlifyLogin setup={setup} editable={editable} onChange={onChange} />
                 </div>
             </Card>
 
@@ -201,7 +446,7 @@ export const WebsiteSetupSection = ({
                 badge={
                     setup.ai_website === "yes" ? (
                         <DoneBadge
-                            done={progress.complete && setup.netlify_done}
+                            done={progress.complete}
                             todo={`${SETUP_ACCOUNTS.filter((a) => accountState(setup, a.id).done).length}/${SETUP_ACCOUNTS.length} accounts`}
                         />
                     ) : setup.ai_website === "no" ? (

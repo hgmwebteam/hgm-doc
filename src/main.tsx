@@ -45,6 +45,7 @@ import { TeamReportScreen, TeamTicketsScreen } from "@/pages/team/tickets-screen
 import { RoadmapScreen } from "@/pages/team/roadmap-screen";
 import { SafeBrowsingScreen } from "@/pages/team/safe-browsing-screen";
 import { SettingsScreen } from "@/pages/team/settings-screen";
+import { SopViewerScreen } from "@/pages/team/sops/sop-viewer-screen";
 import { TestScreen } from "@/pages/team/test-screen";
 import { TemplateOneScreen } from "@/pages/templates/template-one-screen";
 import { TemplateScreen } from "@/pages/templates/template-screen";
@@ -118,7 +119,8 @@ const GlobalThemeToggle = () => {
     // Owner-guide pages have their own theme toggle in the sidebar (incl. /owner-guide/:slug).
     // Dynamic template-doc slugs (e.g. /template-1 copies) self-report via hideFloatingToggle
     // since they can't be listed in the static array below.
-    if (hideFloatingToggle || PAGES_WITHOUT_FLOATING_CHROME.includes(pathname) || pathname.startsWith("/owner-guide")) return null;
+    if (hideFloatingToggle || PAGES_WITHOUT_FLOATING_CHROME.includes(pathname) || pathname.startsWith("/owner-guide") || pathname.startsWith("/sop/"))
+        return null;
     return <ThemeToggle />;
 };
 
@@ -197,6 +199,8 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/template" element={<TemplateScreen />} />
                         <Route path="/home" element={<HomeScreen />} />
                         <Route path="/dashboard" element={<DashboardScreen />} />
+                        {/* Team-only: one SOP, read from the private `sops` bucket. Behind TeamGate + Google session. */}
+                        <Route path="/sop/:id" element={<SopViewerScreen />} />
                         <Route path="/webteam/ai-website-setup" element={<AiWebsiteSetupScreen />} />
                         <Route path="/webteam/component-library-architecture" element={<ComponentLibraryArchitectureScreen />} />
                         <Route path="/clients/reading-your-clients" element={<ReadingYourClientsScreen />} />

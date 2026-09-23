@@ -82,7 +82,7 @@ export default async (req: Request) => {
     }
     const setup = {
         netlify_email: short(s.netlify_email),
-        netlify_done: s.netlify_done === true,
+        netlify_password: short(s.netlify_password),
         ai_website: aiRaw === "yes" || aiRaw === "no" ? aiRaw : "",
         accounts,
         domain: short(s.domain),

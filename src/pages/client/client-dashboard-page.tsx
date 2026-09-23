@@ -1525,8 +1525,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      * never mixed in one menu. "Soon" is the client's word for anything they can't open;
      * "Hidden" is ours for anything the client can't see. A team member therefore never
      * sees "Soon", and a client never sees "Hidden". Where the journey gives the row an
-     * estimate, both read that ("Week 2") instead — the team keeps "Not shown to this
-     * client" as the tooltip, so the week never hides that the row is hidden.
+     * estimate, the client reads that ("Week 2") instead of "Soon", and the team reads
+     * both ("Week 2 · Hidden") — the week alone would hide that the client can't see it.
      *
      * Whether a row is merely unrevealed or has no section built yet still reads clearly to
      * the team without a second label: unbuilt rows stay dimmed and unopenable and carry no
@@ -1540,7 +1540,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         if (clientCanSee) return sectionBadge(s.id);
         return (
             <span className="ml-2 shrink-0 text-[10px] font-bold text-quaternary uppercase" title={isTeam ? "Not shown to this client" : undefined}>
-                {SECTION_ETA[s.id] ?? (isTeam ? "Hidden" : "Soon")}
+                {isTeam ? [SECTION_ETA[s.id], "Hidden"].filter(Boolean).join(" · ") : (SECTION_ETA[s.id] ?? "Soon")}
             </span>
         );
     };

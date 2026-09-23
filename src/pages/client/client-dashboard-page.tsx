@@ -2186,8 +2186,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     ...resolved,
                     done: intakeSubmitted,
                     progress: intakeInfo.total ? { value: intakeInfo.answered, total: intakeInfo.total } : null,
-                    detail: intakeSubmitted
-                        ? "Submitted — you can still update your answers."
+                    // The submitted date is the honest start of the clock for both sides: it is
+                    // when we actually had what we needed, so neither party has to reconstruct it
+                    // later from memory. Already stored by the form itself — only shown here.
+                    detail: intakeSubmittedAt
+                        ? `Submitted ${new Date(intakeSubmittedAt).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })} — you can still update your answers.`
                         : intakeInfo.total
                           ? `${intakeInfo.answered} of ${intakeInfo.total} questions answered.`
                           : step.detail,
@@ -2220,7 +2223,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             }
             return { ...resolved, done: journeyDone.includes(step.id), progress: null };
         });
-    }, [intakeSubmitted, onboardingSubmitted, intakeInfo, onboardingInfo, journeyDone, chatLink, folderLink, onboardingCallUrl]);
+    }, [intakeSubmitted, intakeSubmittedAt, onboardingSubmitted, intakeInfo, onboardingInfo, journeyDone, chatLink, folderLink, onboardingCallUrl]);
 
     const journeyDoneCount = journeySteps.filter((s) => s.done).length;
     /** First unfinished step — highlighted so a client can see what's next at a glance. */

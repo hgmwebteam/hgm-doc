@@ -1,5 +1,11 @@
 import { supabase } from "@/lib/supabase";
-import { isFlowFeedbackKey, isLandingFeedbackKey } from "@/pages/client/dashboard/suggestions-model";
+import {
+    isFlowFeedbackKey,
+    isLandingFeedbackKey,
+    isReelsFeedbackKey,
+    isSectionFeedbackKey,
+    isStoriesFeedbackKey,
+} from "@/pages/client/dashboard/suggestions-model";
 
 /**
  * Attention feed for the header notification bell (icon-rail.tsx HeaderBell).
@@ -90,14 +96,17 @@ export async function fetchAttentionItems(): Promise<AttentionItem[]> {
         }
     }
 
-    // 4) Client suggestions awaiting review — document edits, welcome-email feedback and
-    //    landing-page feedback share a table but are different jobs, and each is read and
-    //    closed in a different section, so they get separate lines.
+    // 4) Client suggestions awaiting review — document edits and each section's feedback
+    //    share a table but are different jobs, and each is read and closed in a different
+    //    section, so they get separate lines. `isSectionFeedbackKey` keeps the edit count
+    //    honest as families are added: a new one is excluded from it by definition.
     if (!suggestionsRes.error && suggestionsRes.data && suggestionsRes.data.length > 0) {
         const rows = suggestionsRes.data as { slug: string; field_key: string }[];
-        const edits = rows.filter((r) => !isFlowFeedbackKey(r.field_key) && !isLandingFeedbackKey(r.field_key));
+        const edits = rows.filter((r) => !isSectionFeedbackKey(r.field_key));
         const notes = rows.filter((r) => isFlowFeedbackKey(r.field_key));
         const landingNotes = rows.filter((r) => isLandingFeedbackKey(r.field_key));
+        const reelNotes = rows.filter((r) => isReelsFeedbackKey(r.field_key));
+        const storyNotes = rows.filter((r) => isStoriesFeedbackKey(r.field_key));
         const dashboards = (list: { slug: string }[]) => {
             const slugs = [...new Set(list.map((r) => r.slug))];
             return { slugs, label: `${slugs.length} dashboard${slugs.length === 1 ? "" : "s"}` };
@@ -130,6 +139,26 @@ export async function fetchAttentionItems(): Promise<AttentionItem[]> {
                 title: `${landingNotes.length} client comment${landingNotes.length === 1 ? "" : "s"} on landing pages`,
                 description: `On ${label} — read and mark done in the Landing page section`,
                 to: slugs.length === 1 ? `/${slugs[0]}#landing` : "/dashboard?dept=clients",
+            });
+        }
+        if (reelNotes.length > 0) {
+            const { slugs, label } = dashboards(reelNotes);
+            items.push({
+                id: "reels-feedback",
+                kind: "suggestions",
+                title: `${reelNotes.length} client comment${reelNotes.length === 1 ? "" : "s"} on example reels`,
+                description: `On ${label} — read and mark done in the Example Reels section`,
+                to: slugs.length === 1 ? `/${slugs[0]}#reels` : "/dashboard?dept=clients",
+            });
+        }
+        if (storyNotes.length > 0) {
+            const { slugs, label } = dashboards(storyNotes);
+            items.push({
+                id: "stories-feedback",
+                kind: "suggestions",
+                title: `${storyNotes.length} client comment${storyNotes.length === 1 ? "" : "s"} on pinned stories`,
+                description: `On ${label} — read and mark done in the Pinned Stories section`,
+                to: slugs.length === 1 ? `/${slugs[0]}#pinnedstories` : "/dashboard?dept=clients",
             });
         }
     }

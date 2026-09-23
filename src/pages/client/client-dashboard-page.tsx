@@ -170,11 +170,16 @@ import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, wi
 import {
     FLOW_FEEDBACK_KEY,
     LANDING_FEEDBACK_KEY,
+    REELS_FEEDBACK_KEY,
+    STORIES_FEEDBACK_KEY,
     type Suggestion,
     type SuggestionItem,
     applySuggestion,
     isFlowFeedbackKey,
     isLandingFeedbackKey,
+    isReelsFeedbackKey,
+    isSectionFeedbackKey,
+    isStoriesFeedbackKey,
     labelForKey,
     valueForKey,
 } from "@/pages/client/dashboard/suggestions-model";
@@ -954,9 +959,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     // person narrowed to their own sections must not be offered feedback on a section they
     // can't open. The Netlify function re-checks the same way.
     const foundationRevealed = clientVisible.includes("foundation");
-    /** The Welcome Email Flow shares the table: a client comments on emails the same way. */
+    /** Every section that carries a feedback box shares the table the same way the document
+     *  does, so each needs its own reveal test — and the Netlify function re-checks it. */
     const flowRevealed = clientVisible.includes("flow");
     const pinnedRevealed = clientVisible.includes("pinnedposts");
+    const landingRevealed = clientVisible.includes("landing");
+    const reelsRevealed = clientVisible.includes("reels");
+    const storiesRevealed = clientVisible.includes("pinnedstories");
+    /** Any of them is reason enough to load the table for a client. */
+    const anyFeedbackRevealed = foundationRevealed || flowRevealed || pinnedRevealed || landingRevealed || reelsRevealed || storiesRevealed;
 
     const refreshSuggestions = useCallback(async () => {
         if (!slug || isTemplate) return;
@@ -967,37 +978,32 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             if (signedInAsTeam) {
                 const { data, error } = await supabase.from("dashboard_suggestions").select("*").eq("slug", slug).order("created_at", { ascending: false });
                 if (!error && data) setSuggestions(data as Suggestion[]);
-            } else if (identityEmail && (foundationRevealed || flowRevealed || pinnedRevealed)) {
+            } else if (identityEmail && anyFeedbackRevealed) {
                 setSuggestions(await fetchSuggestions(slug, identityEmail));
             }
         } catch {
             /* the section just shows no suggestions — nothing is lost, they're server-side */
         }
-    }, [slug, isTemplate, signedInAsTeam, identityEmail, foundationRevealed, flowRevealed, pinnedRevealed]);
+    }, [slug, isTemplate, signedInAsTeam, identityEmail, anyFeedbackRevealed]);
     useEffect(() => {
         void refreshSuggestions();
     }, [refreshSuggestions]);
 
-    /* The table carries three kinds of row: Master Brand Document edits, welcome-email
-       feedback under `welcomeFlow.*`, Landing page feedback under `landingPage.*`, and
-       Pinned Posts feedback under `pinnedposts.*`. Split them here so no section counts,
-       lists or orphans another's — a feedback key resolves to no document field, so one left
-       in would show up as a pending edit and then as an orphan. */
+    /* The table carries two kinds of row: Master Brand Document edits, and a client's note
+       on a section — the welcome emails, the landing page, the example reels, the pinned
+       stories (`isSectionFeedbackKey`) and a pinned post (`isPinnedKey`, per post rather
+       than per section, so it lives beside that section). Split them here so no section
+       counts, lists or orphans another's — a feedback key resolves to no document field, so
+       one left in would show up as a pending edit and then as an orphan. */
     const pinnedFeedback = suggestions.filter((s) => isPinnedKey(s.field_key));
-    const pendingSuggestions = suggestions.filter(
-        (s) => s.status === "pending" && !isPinnedKey(s.field_key) && !isFlowFeedbackKey(s.field_key) && !isLandingFeedbackKey(s.field_key),
-    );
+    const pendingSuggestions = suggestions.filter((s) => s.status === "pending" && !isPinnedKey(s.field_key) && !isSectionFeedbackKey(s.field_key));
     const pendingByKey = new Map<string, Suggestion[]>();
     for (const s of pendingSuggestions) pendingByKey.set(s.field_key, [...(pendingByKey.get(s.field_key) ?? []), s]);
     const resolvedByKey = new Map<string, Suggestion>();
     for (const s of suggestions) if (s.status !== "pending" && !resolvedByKey.has(s.field_key)) resolvedByKey.set(s.field_key, s);
     /** Pending rows whose key no longer resolves (their row was deleted) — surfaced to
      *  the team above the document, since no field exists to hang them on. */
-    const orphanedPending = isTeam
-        ? pendingSuggestions.filter(
-              (s) => !isFlowFeedbackKey(s.field_key) && !isLandingFeedbackKey(s.field_key) && valueForKey(foundation, s.field_key) === null,
-          )
-        : [];
+    const orphanedPending = isTeam ? pendingSuggestions.filter((s) => valueForKey(foundation, s.field_key) === null) : [];
 
     const acceptSuggestion = (s: Suggestion) => {
         const patch = applySuggestion(foundation, s.field_key, s.suggested_value);
@@ -1153,17 +1159,19 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         highlights: content.instagram.highlights.map((h) => ({ label: h.title, src: h.image_url || undefined })),
     };
 
-    /* ── Client feedback on the welcome emails ──
-       Same table, same function, same identity rules as suggestion mode, under the
-       "welcomeFlow.{slot}" keys. The section renders; these do the reads and writes. */
-    const flowFeedback = suggestions.filter((s) => isFlowFeedbackKey(s.field_key));
-    const canFlowFeedback = !isTeam && !isTemplate && flowRevealed && !!suggestAuthor;
-    /** One note per person for the whole flow, not one per email — see FLOW_FEEDBACK_KEY.
-     *  `currentValue` stays empty: there is no single subject line a combined note is
-     *  "written on", so there is nothing for the team's staleness check to compare. */
-    const sendFlowFeedback = async (text: string) => {
+    /* ── Client feedback on a section ──
+       Same table, same function, same identity rules as suggestion mode, under one key per
+       section (see suggestions-model.ts). The sections render the box; these do the reads
+       and writes, and every family shares them — a fifth section is three lines below, not
+       another copy of this.
+
+       `currentValue` stays empty throughout: a note is written about a section, not about
+       one value, so there is nothing for the team's staleness check to compare. */
+
+    /** Sends (or replaces) this viewer's one open note under `fieldKey`. */
+    const sendSectionFeedback = (fieldKey: string, fieldLabel: string) => async (text: string) => {
         if (!slug || !suggestAuthor) throw new Error("Sign in with your email to send feedback.");
-        const item = { fieldKey: FLOW_FEEDBACK_KEY, fieldLabel: "Welcome emails · feedback", currentValue: "", suggestedValue: text };
+        const item = { fieldKey, fieldLabel, currentValue: "", suggestedValue: text };
         if (identityEmail) {
             await sendSuggestions(slug, identityEmail, [item]);
         } else {
@@ -1188,7 +1196,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
         await refreshSuggestions();
     };
-    /** Withdraw / resolve act on a row id, so both feedback families share them. */
+
+    /** Who may send at all: a client, on a real dashboard, in a section they can open. */
+    const canSectionFeedback = (revealed: boolean) => !isTeam && !isTemplate && revealed && !!suggestAuthor;
+
+    /** The welcome emails — one note for the whole flow, not one per email (FLOW_FEEDBACK_KEY). */
+    const flowFeedback = suggestions.filter((s) => isFlowFeedbackKey(s.field_key));
+    const canFlowFeedback = canSectionFeedback(flowRevealed);
+    const sendFlowFeedback = sendSectionFeedback(FLOW_FEEDBACK_KEY, "Welcome emails · feedback");
+
+    /** Withdraw / resolve act on a row id, so every feedback family shares them. */
     const withdrawFeedback = async (s: Suggestion) => {
         if (!slug) return;
         if (identityEmail) await withdrawSuggestion(slug, identityEmail, s.id);
@@ -1205,40 +1222,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         await refreshSuggestions();
     };
 
-    /* ── Client feedback on the landing page ──
-       The same three calls again under LANDING_FEEDBACK_KEY. Separate from the Approve /
-       Request changes verdict in landing-page-section.tsx, which lives in landing_pages:
-       that one closes, this one stays open either side of it. */
+    /** The landing page. Separate from the Approve / Request changes verdict in
+     *  landing-page-section.tsx, which lives in landing_pages: that one closes, this one
+     *  stays open either side of it. */
     const landingFeedback = suggestions.filter((s) => isLandingFeedbackKey(s.field_key));
-    const landingRevealed = (content.client_visible ?? DEFAULT_CLIENT_VISIBLE).includes("landing");
-    const canLandingFeedback = !isTeam && !isTemplate && landingRevealed && !!suggestAuthor;
-    const sendLandingFeedback = async (text: string) => {
-        if (!slug || !suggestAuthor) throw new Error("Sign in with your email to send feedback.");
-        const item = { fieldKey: LANDING_FEEDBACK_KEY, fieldLabel: "Landing page · feedback", currentValue: "", suggestedValue: text };
-        if (identityEmail) {
-            await sendSuggestions(slug, identityEmail, [item]);
-        } else {
-            // Team member previewing as the client — as themselves, so the function's
-            // one-open-note-per-author rule has to be reproduced by hand here.
-            await supabase
-                .from("dashboard_suggestions")
-                .delete()
-                .eq("slug", slug)
-                .eq("suggested_by", suggestAuthor)
-                .eq("status", "pending")
-                .eq("field_key", item.fieldKey);
-            const { error } = await supabase.from("dashboard_suggestions").insert({
-                slug,
-                field_key: item.fieldKey,
-                field_label: item.fieldLabel,
-                current_value: item.currentValue,
-                suggested_value: item.suggestedValue,
-                suggested_by: suggestAuthor,
-            });
-            if (error) throw new Error(error.message);
-        }
-        await refreshSuggestions();
-    };
+    const canLandingFeedback = canSectionFeedback(landingRevealed);
+    const sendLandingFeedback = sendSectionFeedback(LANDING_FEEDBACK_KEY, "Landing page · feedback");
+
+    /** The example reels — the section's only channel, so it is where every reel note lands. */
+    const reelsFeedback = suggestions.filter((s) => isReelsFeedbackKey(s.field_key));
+    const canReelsFeedback = canSectionFeedback(reelsRevealed);
+    const sendReelsFeedback = sendSectionFeedback(REELS_FEEDBACK_KEY, "Example reels · feedback");
+
+    /** The pinned stories, beside their per-slide notes and Approve all (pinned_stories) —
+     *  same relationship as the landing page's verdict above. */
+    const storiesFeedback = suggestions.filter((s) => isStoriesFeedbackKey(s.field_key));
+    const canStoriesFeedback = canSectionFeedback(storiesRevealed);
+    const sendStoriesFeedback = sendSectionFeedback(STORIES_FEEDBACK_KEY, "Pinned stories · feedback");
 
     const suggestDraftCount = Object.entries(suggestDraft).filter(([key, value]) => {
         const live = valueForKey(foundation, key);
@@ -3627,7 +3627,19 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 ? "Three reels made for your property, shown the way they play on a phone."
                                                                 : "Upload up to three 9:16 reels. The title and line under each phone are what the client reads — and what stands in for the footage when motion is off."}
                                                         </p>
-                                                        <ExampleReelsSection reels={content.reels ?? []} isLocked={isLocked} onChange={updateReel} />
+                                                        <ExampleReelsSection
+                                                            reels={content.reels ?? []}
+                                                            isLocked={isLocked}
+                                                            onChange={updateReel}
+                                                            feedback={{
+                                                                mode: isTeam ? "review" : canReelsFeedback ? "client" : "off",
+                                                                items: reelsFeedback,
+                                                                author: suggestAuthor,
+                                                                send: sendReelsFeedback,
+                                                                withdraw: withdrawFeedback,
+                                                                resolve: resolveFeedback,
+                                                            }}
+                                                        />
                                                     </Reveal>
                                                 )}
 
@@ -3646,6 +3658,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 isTemplate={isTemplate}
                                                                 teamName={user?.name ?? user?.email ?? ""}
                                                                 clientEmail={identityEmail}
+                                                                feedback={{
+                                                                    mode: isTeam ? "review" : canStoriesFeedback ? "client" : "off",
+                                                                    items: storiesFeedback,
+                                                                    author: suggestAuthor,
+                                                                    send: sendStoriesFeedback,
+                                                                    withdraw: withdrawFeedback,
+                                                                    resolve: resolveFeedback,
+                                                                }}
                                                             />
                                                         </div>
                                                     </>

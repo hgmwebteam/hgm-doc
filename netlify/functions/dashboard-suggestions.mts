@@ -16,9 +16,11 @@ import { createClient } from "@supabase/supabase-js";
  * save path. So the worst a caller with a stolen email + slug pair can do is file
  * suggestions an AM will read and decline. Keep it that way.
  *
- * The same rows also carry a client's feedback on the welcome emails, under field keys
- * "welcomeFlow.{0-8}" (see suggestions-model.ts). Nothing here treats them differently
- * except the visibility check: they need the flow section shared, not the foundation.
+ * The same rows also carry a client's feedback on a section rather than a document field —
+ * the welcome emails, the landing page, the example reels, the pinned stories, a pinned
+ * post — under their own key prefixes (see suggestions-model.ts). Nothing here treats them
+ * differently except the visibility check, which asks for that section rather than the
+ * foundation: SECTION_FOR_PREFIX below is the whole difference.
  *
  * Actions (POST, JSON):
  *   { action: "list",     slug, email }         → { suggestions: [...] }
@@ -31,6 +33,15 @@ const MAX_VALUE = 10_000;
 const MAX_PENDING = 200;
 // Scalars ("hosts"), taglines ("taglines.0"), row columns ("personas.{id}.age").
 const FIELD_KEY_RE = /^[a-zA-Z]+(\.[A-Za-z0-9-]{1,64}(\.[a-zA-Z]+)?)?$/;
+
+/** Key prefix → the dashboard section that must be shared for it. First match wins. */
+const SECTION_FOR_PREFIX: [string, string][] = [
+    ["welcomeFlow.", "flow"],
+    ["pinnedposts.", "pinnedposts"],
+    ["pinnedStories.", "pinnedstories"],
+    ["landingPage.", "landing"],
+    ["exampleReels.", "reels"],
+];
 
 const norm = (e: unknown) =>
     String(e ?? "")
@@ -87,11 +98,15 @@ export default async (req: Request) => {
     }
 
     if (action === "create") {
-        // Suggesting requires the section the key belongs to be shared with the client:
-        // feedback on a welcome email ("welcomeFlow.3") needs the flow shared, feedback or an
-        // approval on a pinned post ("pinnedposts.{postId}.feedback|approve") needs Pinned
-        // Posts shared, everything else is a Master Brand Document edit and needs the
-        // foundation shared.
+        // Suggesting requires the section the key belongs to be shared with the client: a
+        // note on the welcome emails ("welcomeFlow.all") needs the flow shared, one on the
+        // Example Reels ("exampleReels.all") needs that section, and so on down the table
+        // below. Anything unprefixed is a Master Brand Document edit and needs the
+        // foundation. Keep this in step with suggestions-model.ts, which owns the prefixes.
+        //
+        // Landing-page notes used to fall through to "foundation" here, so a client shown
+        // the landing page but not the document was refused their own feedback box while a
+        // client shown the document could comment on a page they couldn't open (2026-09-21).
         //
         // Shared with THIS person, not with the dashboard: access is per person, so their own
         // section list wins where they have one and only a caller without one falls back to
@@ -99,7 +114,7 @@ export default async (req: Request) => {
         const users = Array.isArray(data.dashboard_users) ? (data.dashboard_users as Record<string, unknown>[]) : [];
         const me = users.find((u) => norm(u.email) === email);
         const visible = Array.isArray(me?.sections) ? (me.sections as unknown[]) : Array.isArray(data.client_visible) ? (data.client_visible as unknown[]) : [];
-        const sectionFor = (key: string) => (key.startsWith("welcomeFlow.") ? "flow" : key.startsWith("pinnedposts.") ? "pinnedposts" : "foundation");
+        const sectionFor = (key: string) => SECTION_FOR_PREFIX.find(([prefix]) => key.startsWith(prefix))?.[1] ?? "foundation";
 
         const items = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
         if (items.length === 0 || items.length > MAX_ITEMS) return Response.json({ error: "Bad items." }, { status: 400 });

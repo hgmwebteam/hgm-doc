@@ -2201,8 +2201,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     ...resolved,
                     done: onboardingSubmitted,
                     progress: onboardingInfo.total ? { value: onboardingInfo.answered, total: onboardingInfo.total } : null,
-                    detail: onboardingSubmitted
-                        ? "Submitted — thank you."
+                    detail: onboardingSubmittedAt
+                        ? `Submitted ${new Date(onboardingSubmittedAt).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })} — thank you.`
                         : onboardingInfo.total
                           ? `${onboardingInfo.answered} of ${onboardingInfo.total} questions answered.`
                           : step.detail,
@@ -2223,7 +2223,18 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             }
             return { ...resolved, done: journeyDone.includes(step.id), progress: null };
         });
-    }, [intakeSubmitted, intakeSubmittedAt, onboardingSubmitted, intakeInfo, onboardingInfo, journeyDone, chatLink, folderLink, onboardingCallUrl]);
+    }, [
+        intakeSubmitted,
+        intakeSubmittedAt,
+        onboardingSubmitted,
+        onboardingSubmittedAt,
+        intakeInfo,
+        onboardingInfo,
+        journeyDone,
+        chatLink,
+        folderLink,
+        onboardingCallUrl,
+    ]);
 
     const journeyDoneCount = journeySteps.filter((s) => s.done).length;
     /** First unfinished step — highlighted so a client can see what's next at a glance. */

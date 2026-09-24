@@ -68,6 +68,7 @@ import {
     ensureClientOnboardingForm,
     withLoginCleared,
 } from "@/pages/client/client-onboarding-form-page";
+import { AutomationBrandingCard } from "@/pages/client/dashboard/automation-branding-card";
 import { type BrandKitDraft, BrandKitDraftReview } from "@/pages/client/dashboard/brand-kit-draft";
 import { brandKitCss, brandKitFileName, brandKitHasContent } from "@/pages/client/dashboard/brand-kit-export";
 import { BrandPreview } from "@/pages/client/dashboard/brand-kit-preview";
@@ -171,13 +172,13 @@ import {
 import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pages/client/dashboard/pinned-posts";
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
-    FLOW_FEEDBACK_KEY,
     LANDING_FEEDBACK_KEY,
     REELS_FEEDBACK_KEY,
     STORIES_FEEDBACK_KEY,
     type Suggestion,
     type SuggestionItem,
     applySuggestion,
+    flowFeedbackKey,
     isFlowFeedbackKey,
     isLandingFeedbackKey,
     isReelsFeedbackKey,
@@ -1225,10 +1226,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Who may send at all: a client, on a real dashboard, in a section they can open. */
     const canSectionFeedback = (revealed: boolean) => !isTeam && !isTemplate && revealed && !!suggestAuthor;
 
-    /** The welcome emails — one note for the whole flow, not one per email (FLOW_FEEDBACK_KEY). */
+    /** The welcome emails — one note per person per EMAIL, so a note names the email it is
+     *  about and the function can mirror it onto that email's row in the pipeline's table.
+     *  The section binds the open tab's slot; legacy whole-flow notes are still read. */
     const flowFeedback = suggestions.filter((s) => isFlowFeedbackKey(s.field_key));
     const canFlowFeedback = canSectionFeedback(flowRevealed);
-    const sendFlowFeedback = sendSectionFeedback(FLOW_FEEDBACK_KEY, "Welcome emails · feedback");
+    const sendFlowFeedback = (slot: number, text: string) => sendSectionFeedback(flowFeedbackKey(slot), `Welcome email ${slot + 1} · feedback`)(text);
 
     /** Withdraw / resolve act on a row id, so every feedback family shares them. */
     const withdrawFeedback = async (s: Suggestion) => {
@@ -3729,7 +3732,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     mode: isTeam ? "review" : canFlowFeedback ? "client" : "off",
                                                                     items: flowFeedback,
                                                                     author: suggestAuthor,
-                                                                    send: sendFlowFeedback,
+                                                                    // Per-email: the section binds the open tab's slot before it sends.
+                                                                    sendFor: sendFlowFeedback,
                                                                     withdraw: withdrawFeedback,
                                                                     resolve: resolveFeedback,
                                                                 }}
@@ -6356,6 +6360,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     </DocSection>
                                                                 )}
                                                             </div>
+                                                        )}
+
+                                                        {/* ── Automation branding (internal) ──
+                                                            The fonts and colours the reel, carousel and email automations
+                                                            read, kept beside the kit they come from. Team-only, and the
+                                                            table refuses anon besides — see automation-branding-card.tsx. */}
+                                                        {isTeam && (
+                                                            <AutomationBrandingCard
+                                                                slug={slug}
+                                                                clientName={clientName}
+                                                                editorEmail={user?.email ?? ""}
+                                                                prefillFrom={{
+                                                                    colors: content.brand.colors,
+                                                                    fonts: content.brand.fonts,
+                                                                    instagramUrl: content.instagram.profile_url,
+                                                                    websiteUrl: clientWebsite,
+                                                                    brandBio: foundation.brandBio,
+                                                                }}
+                                                            />
                                                         )}
                                                     </Reveal>
                                                 )}

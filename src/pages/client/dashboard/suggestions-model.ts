@@ -32,25 +32,30 @@ export interface Suggestion {
 
 /* ── Welcome-flow feedback ──
    A client's note on the welcome emails rides the same table, function and review loop
-   as a document edit, under its own key family so the two never mix. There is ONE note
-   per person for the whole flow — "welcomeFlow.all" — not one per email: a client
-   reviewing nine emails wants to write a single message and send it once (2026-09-10).
-   `suggested_value` holds the note.
+   as a document edit, under its own key family so the two never mix. ONE note per person
+   per EMAIL — "welcomeFlow.{0-8}" — because a note only helps the person rewriting that
+   email if it says which email it is about (2026-09-24). `suggested_value` holds it.
 
-   Notes written before that carry a per-email key instead ("welcomeFlow.3" was feedback
-   on E4) and are still read, labelled and resolved — only new notes use the combined
-   key, so nothing already sent is stranded.
+   It was briefly one combined note for the whole flow ("welcomeFlow.all", 2026-09-10).
+   Those rows are still read, labelled and resolved, so nothing already sent is stranded;
+   new notes always name an email.
+
+   The slot is also how a note reaches the email pipeline: the Netlify function mirrors it
+   into `email_wf_emails.feedback` on the row for this client and WEEK slot+1 — never
+   `position`, which repeats within a client and would land a note on the wrong email.
 
    parseKey below knows nothing about any of these keys on purpose — applySuggestion
    returns null, so a feedback row can never be "accepted" into the Master Brand
    Document. The team resolves it as done or dismissed. */
 
 export const FLOW_FEEDBACK_PREFIX = "welcomeFlow.";
-/** The one key a new note is stored under — the whole flow, not a single email. */
+/** The key a note on email `slot` (0-based) is stored under. */
+export const flowFeedbackKey = (slot: number) => `${FLOW_FEEDBACK_PREFIX}${slot}`;
+/** The legacy whole-flow key — still read and resolved, never written. */
 export const FLOW_FEEDBACK_KEY = `${FLOW_FEEDBACK_PREFIX}all`;
 export const isFlowFeedbackKey = (key: string) => key.startsWith(FLOW_FEEDBACK_PREFIX);
-/** The 0-based email a legacy per-email note addresses. NaN for a combined note and for
- *  any other key, so `Number.isInteger` is the test for "this one names an email". */
+/** The 0-based email a note addresses. NaN for the legacy combined note and for any other
+ *  key, so `Number.isInteger` is the test for "this one names an email". */
 export const flowFeedbackSlot = (key: string) => (isFlowFeedbackKey(key) ? Number(key.slice(FLOW_FEEDBACK_PREFIX.length)) : NaN);
 
 /* ── Landing-page feedback ──

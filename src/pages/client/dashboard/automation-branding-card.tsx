@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertCircle, Check, MagicWand01, Zap } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { supabase } from "@/lib/supabase";
@@ -84,8 +84,11 @@ export const AutomationBrandingCard = ({
     const [value, setValue] = useState<AutomationBranding>(EMPTY_AUTOMATION_BRANDING);
     const [state, setState] = useState<"loading" | "idle" | "saving" | "saved" | "error">("loading");
     const [error, setError] = useState("");
-    /** What is in the table, so Save knows whether anything actually changed. */
-    const savedRef = useRef<AutomationBranding>(EMPTY_AUTOMATION_BRANDING);
+    /** What is in the table, so Save knows whether anything actually changed. State, not a
+     *  ref: a successful save leaves `value` untouched and only moves this, so anything
+     *  derived from it has to re-render off it — as a ref it went stale and the card sat
+     *  there looking like the click had done nothing. */
+    const [saved, setSaved] = useState<AutomationBranding>(EMPTY_AUTOMATION_BRANDING);
 
     useEffect(() => {
         if (!slug) return;
@@ -103,7 +106,7 @@ export const AutomationBrandingCard = ({
                     return;
                 }
                 const row = mergeAutomationBranding(data);
-                savedRef.current = row;
+                setSaved(row);
                 setValue(row);
                 setState("idle");
             });
@@ -112,7 +115,7 @@ export const AutomationBrandingCard = ({
         };
     }, [slug]);
 
-    const dirty = useMemo(() => AUTOMATION_FIELDS.some((f) => value[f.key] !== savedRef.current[f.key]), [value]);
+    const dirty = AUTOMATION_FIELDS.some((f) => value[f.key] !== saved[f.key]);
     const filled = automationBrandingFilled(value);
 
     const set = (key: keyof AutomationBranding, v: string) => {
@@ -139,7 +142,7 @@ export const AutomationBrandingCard = ({
             setError(writeErr.message);
             return;
         }
-        savedRef.current = value;
+        setSaved(value);
         setState("saved");
     };
 
@@ -204,7 +207,7 @@ export const AutomationBrandingCard = ({
                 >
                     Save automation fields
                 </Button>
-                {state === "saved" && !dirty && (
+                {state === "saved" && (
                     <span className="flex items-center gap-1.5 text-sm text-success-primary">
                         <Check className="size-4" aria-hidden="true" />
                         Saved — the automations pick this up on their next run.

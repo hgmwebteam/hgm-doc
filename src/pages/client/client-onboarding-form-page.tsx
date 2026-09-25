@@ -176,12 +176,13 @@ const ONBOARDING_SECTIONS: SectionDef[] = [
                 },
             },
             {
-                // Public: this is the raw material for the website's About Us. Its label and
+                // Public: the raw material for guest-facing story copy (About Us, emails, landing
+                // page). Its label and
                 // hint say so, and share no wording with aboutYou below, so the two never
                 // read as the same question asked twice.
                 field: "story",
                 label: "Your story: how would you tell it to a guest?",
-                hint: "This becomes the “About Us” on your website, so write it the way you'd want guests to read it. How did the property come to be, and what do you care about? Rough notes are fine; we'll polish them.",
+                hint: "This helps us create marketing that tells your story, like an About Us section, a welcome email or your landing page. Write it the way you'd want guests to read it: how did the property come to be, and what do you care about? Rough notes are fine; we'll polish them.",
                 required: true,
                 long: true,
             },

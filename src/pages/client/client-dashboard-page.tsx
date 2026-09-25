@@ -2003,6 +2003,76 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
     };
 
+    /** One drafting request for one group of Master Brand Document fields. Throws with a reason the AM can read. */
+    const callMasterSection = async (token: string, group: string, extra: Record<string, unknown> = {}): Promise<Record<string, unknown> | null> => {
+        const res = await fetch("/.netlify/functions/generate-master-section", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ slug, group, ...extra }),
+        });
+        /* Read as text and parse by hand, same as the Overview draft: res.json() throws
+           "Unexpected end of JSON input" when the reply isn't JSON, and that string is
+           then the entire explanation an AM gets. The two ways it happens are nothing
+           listening on the dev functions port, and Netlify returning an HTML error page. */
+        const body = await res.text();
+        let json: Record<string, unknown> | null = null;
+        try {
+            json = body ? JSON.parse(body) : null;
+        } catch {
+            json = null;
+        }
+        if (!json) {
+            throw new Error(
+                res.status === 404 || res.status === 502
+                    ? "No functions server on :9999 — run `netlify functions:serve --port 9999` alongside the dev server."
+                    : `The server didn't send a usable reply (${res.status}).`,
+            );
+        }
+        if (!res.ok || json.error) throw new Error(String(json.error || `Request failed (${res.status})`));
+        return json;
+    };
+
+    /* ── Draft just the Reviews section, from the reviews pasted beside it ──
+       The full draft lives at the top of the document, nine sections away from the box an
+       AM pastes into, so pasting and then waiting for something to happen was the natural
+       mistake. This runs only the reviews group, where the reviews are. */
+    /** The ChatGPT prompt is the by-hand fallback, so it starts folded away. */
+    const [showManualPrompt, setShowManualPrompt] = useState(false);
+    const [reviewsDraftState, setReviewsDraftState] = useState<"idle" | "drafting" | "done" | "error">("idle");
+    const [reviewsDraftNote, setReviewsDraftNote] = useState("");
+    const draftReviewsSection = async () => {
+        if (!slug || isTemplate || reviewsDraftState === "drafting" || !reviewsPaste.trim()) return;
+        const bothFilled = !!foundation.corePillars.trim() && !!foundation.emotionalThemes.trim();
+        if (bothFilled) {
+            // mergeFoundationDraft only fills empty boxes, so this would do nothing. Say so.
+            setReviewsDraftState("error");
+            setReviewsDraftNote("Both boxes already have text, and drafting never overwrites. Clear the one you want redrafted, then try again.");
+            return;
+        }
+        setReviewsDraftState("drafting");
+        setReviewsDraftNote("");
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+            setReviewsDraftState("error");
+            setReviewsDraftNote("Your sign-in has expired — reload the page and sign in again.");
+            return;
+        }
+        try {
+            const out = await callMasterSection(token, "reviews", { reviewsText: reviewsPaste });
+            const fields = (out?.fields as Record<string, unknown> | undefined) ?? {};
+            setContent((c) => {
+                const current = { ...DEFAULT_FOUNDATION, ...c.foundation };
+                return { ...c, foundation: { ...current, ...mergeFoundationDraft(current, fields) } };
+            });
+            setReviewsDraftState("done");
+            setReviewsDraftNote("Drafted. Read both boxes above, edit anything that's off, then press Save changes — nothing is saved yet.");
+        } catch (err) {
+            setReviewsDraftState("error");
+            setReviewsDraftNote(err instanceof Error ? err.message : "Couldn't draft the reviews — try again.");
+        }
+    };
+
     /**
      * Draft the whole Master Brand Document from the client's own material.
      *
@@ -2030,34 +2100,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             return;
         }
 
-        /** One request. Returns null and records the reason when the group fails. */
-        const run = async (group: string, extra: Record<string, unknown> = {}): Promise<Record<string, unknown> | null> => {
-            const res = await fetch("/.netlify/functions/generate-master-section", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ slug, group, ...extra }),
-            });
-            /* Read as text and parse by hand, same as the Overview draft: res.json() throws
-               "Unexpected end of JSON input" when the reply isn't JSON, and that string is
-               then the entire explanation an AM gets. The two ways it happens are nothing
-               listening on the dev functions port, and Netlify returning an HTML error page. */
-            const body = await res.text();
-            let json: Record<string, unknown> | null = null;
-            try {
-                json = body ? JSON.parse(body) : null;
-            } catch {
-                json = null;
-            }
-            if (!json) {
-                throw new Error(
-                    res.status === 404 || res.status === 502
-                        ? "No functions server on :9999 — run `netlify functions:serve --port 9999` alongside the dev server."
-                        : `The server didn't send a usable reply (${res.status}).`,
-                );
-            }
-            if (!res.ok || json.error) throw new Error(String(json.error || `Request failed (${res.status})`));
-            return json;
-        };
+        const run = (group: string, extra: Record<string, unknown> = {}) => callMasterSection(token, group, extra);
 
         try {
             // The website first, once: its text feeds two of the groups below, and the links
@@ -5652,27 +5695,91 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         raw reviews are somebody else's copy, and the useful distillation of
                                                                         them is the two fields. Airbnb is not fetched for these — it serves
                                                                         bot-protection to datacenter IPs, so pasting is the reliable route. */}
+                                                                        {isTeam && !isTemplate && isLocked && (
+                                                                            <p className="mt-5 text-sm text-tertiary">
+                                                                                To fill these from guest reviews, press{" "}
+                                                                                <span className="font-semibold text-secondary">Edit dashboard</span> first — the
+                                                                                paste box appears here.
+                                                                            </p>
+                                                                        )}
                                                                         {isTeam && !isTemplate && !isLocked && (
                                                                             <div className="mt-5 rounded-2xl bg-primary p-4 ring-1 ring-secondary">
-                                                                                <label htmlFor="reviews-paste" className="text-sm font-medium text-secondary">
-                                                                                    Paste guest reviews
-                                                                                </label>
-                                                                                <p className="mt-1 text-xs text-tertiary">
-                                                                                    30 or more works best. Drafting reads these to fill both fields above —
-                                                                                    their Airbnb profile link is in the onboarding form.
+                                                                                <p className="text-sm font-semibold text-primary">
+                                                                                    Fill this section from guest reviews
                                                                                 </p>
+                                                                                <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-tertiary">
+                                                                                    <li>
+                                                                                        Copy 30 or more reviews from their Airbnb, Google or booking site and
+                                                                                        paste them below.
+                                                                                    </li>
+                                                                                    <li>
+                                                                                        Press{" "}
+                                                                                        <span className="font-semibold text-secondary">
+                                                                                            Draft from these reviews
+                                                                                        </span>
+                                                                                        . It takes under a minute.
+                                                                                    </li>
+                                                                                    <li>
+                                                                                        Read both boxes above, fix anything that's off, then press Save changes.
+                                                                                    </li>
+                                                                                </ol>
+                                                                                <label
+                                                                                    htmlFor="reviews-paste"
+                                                                                    className="mt-4 block text-xs font-medium text-secondary"
+                                                                                >
+                                                                                    Guest reviews
+                                                                                </label>
                                                                                 <textarea
                                                                                     id="reviews-paste"
-                                                                                    rows={4}
+                                                                                    rows={5}
                                                                                     value={reviewsPaste}
-                                                                                    onChange={(e) => setReviewsPaste(e.target.value)}
+                                                                                    onChange={(e) => {
+                                                                                        setReviewsPaste(e.target.value);
+                                                                                        if (reviewsDraftState !== "drafting") setReviewsDraftState("idle");
+                                                                                    }}
                                                                                     placeholder="Paste the review text here — one after another is fine."
-                                                                                    className={cx(editInput(), "mt-2.5 resize-y font-mono text-[12px]")}
+                                                                                    className={cx(editInput(), "mt-1.5 resize-y font-mono text-[12px]")}
                                                                                 />
-                                                                                {reviewsPaste.trim() && (
-                                                                                    <p className="mt-1.5 text-xs text-quaternary tabular-nums">
-                                                                                        {reviewsPaste.trim().length.toLocaleString()} characters pasted — not
-                                                                                        saved, only used for drafting.
+                                                                                <div className="mt-3 flex flex-wrap items-center gap-3">
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        color="primary"
+                                                                                        iconLeading={Stars02}
+                                                                                        isDisabled={!reviewsPaste.trim()}
+                                                                                        isLoading={reviewsDraftState === "drafting"}
+                                                                                        showTextWhileLoading
+                                                                                        onClick={() => void draftReviewsSection()}
+                                                                                    >
+                                                                                        {reviewsDraftState === "drafting"
+                                                                                            ? "Reading the reviews…"
+                                                                                            : "Draft from these reviews"}
+                                                                                    </Button>
+                                                                                    {reviewsPaste.trim() && (
+                                                                                        <span className="text-xs text-quaternary tabular-nums">
+                                                                                            {reviewsPaste.trim().length.toLocaleString()} characters · not
+                                                                                            saved, only used for drafting
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                {reviewsDraftNote && (
+                                                                                    <p
+                                                                                        role={reviewsDraftState === "error" ? "alert" : undefined}
+                                                                                        className={cx(
+                                                                                            "mt-2 flex items-start gap-1.5 text-sm",
+                                                                                            reviewsDraftState === "error"
+                                                                                                ? "text-error-primary"
+                                                                                                : "text-success-primary",
+                                                                                        )}
+                                                                                    >
+                                                                                        {reviewsDraftState === "error" ? (
+                                                                                            <AlertTriangle
+                                                                                                className="mt-0.5 size-4 shrink-0"
+                                                                                                aria-hidden="true"
+                                                                                            />
+                                                                                        ) : (
+                                                                                            <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                                                                        )}
+                                                                                        {reviewsDraftNote}
                                                                                     </p>
                                                                                 )}
                                                                             </div>
@@ -5682,14 +5789,19 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         handed — it tells whoever reads it to go and run the analysis. Team only. */}
                                                                         {isTeam && (
                                                                             <div className="mt-5 overflow-hidden rounded-2xl bg-primary ring-1 ring-secondary">
-                                                                                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-secondary px-4 py-3">
+                                                                                <div
+                                                                                    className={cx(
+                                                                                        "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
+                                                                                        showManualPrompt && "border-b border-secondary",
+                                                                                    )}
+                                                                                >
                                                                                     <div className="flex flex-wrap items-center gap-2.5">
-                                                                                        <p className="font-mono text-[11px] font-semibold tracking-[0.08em] text-quaternary uppercase">
-                                                                                            Working prompt
+                                                                                        <p className="text-sm font-medium text-secondary">
+                                                                                            Or do it by hand in ChatGPT
                                                                                         </p>
-                                                                                        <BadgeWithDot color="warning" size="sm" type="pill-color">
-                                                                                            Delete once filled
-                                                                                        </BadgeWithDot>
+                                                                                        <span className="text-xs text-quaternary">
+                                                                                            Only if the Draft button isn't working
+                                                                                        </span>
                                                                                     </div>
                                                                                     <div className="flex items-center gap-3">
                                                                                         <button
@@ -5708,16 +5820,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         </button>
                                                                                         <button
                                                                                             type="button"
-                                                                                            onClick={() =>
-                                                                                                patchFoundation({ promptHidden: !foundation.promptHidden })
-                                                                                            }
+                                                                                            onClick={() => setShowManualPrompt((v) => !v)}
                                                                                             className="text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:text-secondary"
                                                                                         >
-                                                                                            {foundation.promptHidden ? "Show" : "Hide"}
+                                                                                            {showManualPrompt ? "Hide" : "Show"}
                                                                                         </button>
                                                                                     </div>
                                                                                 </div>
-                                                                                {!foundation.promptHidden && (
+                                                                                {showManualPrompt && (
                                                                                     <div className="px-4 py-4">
                                                                                         <pre className="font-mono text-xs leading-relaxed whitespace-pre-wrap text-secondary">
                                                                                             {REVIEW_WORKING_PROMPT}

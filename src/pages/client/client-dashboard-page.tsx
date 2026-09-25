@@ -1025,6 +1025,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Accepted locally but not yet saved — flipped to accepted in the DB only after
      *  persistAndLock's upsert succeeds, so an abandoned tab leaves them pending. */
     const [queuedAccepts, setQueuedAccepts] = useState<ReadonlySet<string>>(new Set());
+    /** What each queued suggestion replaced, so the team still sees it and can Undo before Save. */
+    const [previousById, setPreviousById] = useState<ReadonlyMap<string, string>>(new Map());
     const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
     /** What actually went wrong, so a failed send says why instead of "try again". */
     const [sendError, setSendError] = useState("");
@@ -1081,9 +1083,38 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const acceptSuggestion = (s: Suggestion) => {
         const patch = applySuggestion(foundation, s.field_key, s.suggested_value);
         if (!patch) return; // row deleted since — the orphan list offers Decline instead
+        const previous = valueForKey(foundation, s.field_key) ?? "";
         patchFoundation(patch);
         setQueuedAccepts((prev) => new Set(prev).add(s.id));
+        setPreviousById((prev) => new Map(prev).set(s.id, previous));
         if (isLocked) setIsLocked(false); // the existing Save button owns persistence
+    };
+    /** Put a queued Replace back. Only before Save — after it the suggestion is resolved. */
+    const undoAcceptSuggestion = (s: Suggestion) => {
+        const previous = previousById.get(s.id);
+        if (previous === undefined) return;
+        const patch = applySuggestion(foundation, s.field_key, previous);
+        if (patch) patchFoundation(patch);
+        setQueuedAccepts((prev) => {
+            const next = new Set(prev);
+            next.delete(s.id);
+            return next;
+        });
+        setPreviousById((prev) => {
+            const next = new Map(prev);
+            next.delete(s.id);
+            return next;
+        });
+    };
+    /* Resolved without replacing the field: the AM used some of it by hand, or it needed
+       nothing more. Recorded as accepted — the client's note reads "was accepted". */
+    const markSuggestionDone = (s: Suggestion) => {
+        void supabase
+            .from("dashboard_suggestions")
+            .update({ status: "accepted", resolved_by: user?.email ?? "", resolved_at: new Date().toISOString() })
+            .eq("id", s.id)
+            .eq("status", "pending")
+            .then(() => void refreshSuggestions());
     };
     const declineSuggestion = (s: Suggestion) => {
         void supabase
@@ -1867,6 +1898,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     .in("id", [...queuedAccepts]);
                 if (!flushErr) {
                     setQueuedAccepts(new Set());
+                    setPreviousById(new Map());
                     void refreshSuggestions();
                 }
             }
@@ -4558,6 +4590,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             setDraft: (k, v) => setSuggestDraft((d) => ({ ...d, [k]: v })),
                                                             queuedAccepts,
                                                             accept: acceptSuggestion,
+                                                            undo: undoAcceptSuggestion,
+                                                            previousById,
+                                                            markDone: markSuggestionDone,
                                                             decline: declineSuggestion,
                                                             withdraw: withdrawOwnSuggestion,
                                                             // Whoever this view would sign a suggestion as — so a team member

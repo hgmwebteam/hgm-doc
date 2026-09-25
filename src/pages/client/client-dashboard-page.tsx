@@ -4676,43 +4676,59 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             spans the page. It was the only button kept: two
                                                             buttons for one action read as two different things. Leaving suggest mode
                                                             is the sticky bar's Cancel, which shows whenever the mode is on. */}
+                                                            {/* Pinned to the top of the scroller from tablet up, so the way in to
+                                                            suggesting stays in view the whole way down the document. The bg-primary
+                                                            band behind it hides text scrolling past its rounded corners. Not on
+                                                            phones: stacked, the box is a third of the screen. */}
                                                             {canSuggest && (
-                                                                <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-brand bg-brand-primary p-5 sm:flex-row sm:items-center sm:justify-between">
-                                                                    <div className="flex items-start gap-4">
-                                                                        <FeaturedIcon icon={Edit01} color="brand" theme="light" size="lg" />
-                                                                        <div className="min-w-0">
-                                                                            <p className="text-md font-semibold text-primary">
-                                                                                {suggestMode
-                                                                                    ? "You're suggesting — click into any field below and type your change"
-                                                                                    : "Want to change something? Edit it right here"}
-                                                                            </p>
-                                                                            <p className="mt-1 text-sm text-tertiary">
-                                                                                {suggestMode
-                                                                                    ? "Change as many fields as you like, then press Send at the bottom of the screen. Your account manager reviews every suggestion before it's saved."
-                                                                                    : "Type your changes straight into this document and your account manager will review them."}
-                                                                            </p>
+                                                                <div className="z-20 mt-3 bg-primary py-3 md:sticky md:top-0">
+                                                                    <div className="flex flex-col gap-4 rounded-2xl border border-brand bg-brand-primary p-5 sm:flex-row sm:items-center sm:justify-between">
+                                                                        <div className="flex items-start gap-4">
+                                                                            <FeaturedIcon icon={Edit01} color="brand" theme="light" size="lg" />
+                                                                            <div className="min-w-0">
+                                                                                <p className="text-md font-semibold text-primary">
+                                                                                    {suggestMode
+                                                                                        ? "You're suggesting — click into any field below and type your change"
+                                                                                        : "Want to change something? Edit it right here"}
+                                                                                </p>
+                                                                                <p className="mt-1 text-sm text-tertiary">
+                                                                                    {suggestMode
+                                                                                        ? "Change as many fields as you like, then press Send at the bottom of the screen. Your account manager reviews every suggestion before it's saved."
+                                                                                        : "Type your changes straight into this document and your account manager will review them."}
+                                                                                </p>
+                                                                            </div>
                                                                         </div>
+                                                                        {!suggestMode && (
+                                                                            <Button
+                                                                                size="lg"
+                                                                                color="primary"
+                                                                                iconLeading={Edit01}
+                                                                                className="shrink-0"
+                                                                                onClick={() => setSuggestMode(true)}
+                                                                            >
+                                                                                Suggest edits
+                                                                            </Button>
+                                                                        )}
                                                                     </div>
-                                                                    {!suggestMode && (
-                                                                        <Button
-                                                                            size="lg"
-                                                                            color="primary"
-                                                                            iconLeading={Edit01}
-                                                                            className="shrink-0"
-                                                                            onClick={() => setSuggestMode(true)}
-                                                                        >
-                                                                            Suggest edits
-                                                                        </Button>
-                                                                    )}
                                                                 </div>
                                                             )}
 
                                                             {/* Rail beside the document on wide screens; above it on narrow ones, where a
                                                             sticky column would eat the reading width. */}
                                                             <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
-                                                                <DocRail sections={FOUNDATION_SECTIONS} progress={foundationFilledMap} />
+                                                                <DocRail
+                                                                    sections={FOUNDATION_SECTIONS}
+                                                                    progress={foundationFilledMap}
+                                                                    belowPinnedBar={canSuggest}
+                                                                />
 
-                                                                <div className="flex min-w-0 flex-1 flex-col gap-8">
+                                                                {/* With the box pinned, a section jumped to would land under it. */}
+                                                                <div
+                                                                    className={cx(
+                                                                        "flex min-w-0 flex-1 flex-col gap-8",
+                                                                        canSuggest && "md:[&_[id^='mbd-']]:scroll-mt-48",
+                                                                    )}
+                                                                >
                                                                     {/* ── 1. About the hosts ── */}
                                                                     <DocSection
                                                                         id="hosts"

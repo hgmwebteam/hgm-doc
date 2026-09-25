@@ -4578,6 +4578,40 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 <p className="mt-2 text-xs text-quaternary">Unlock the dashboard to edit this document.</p>
                                                             )}
 
+                                                            {/* Client-only: the headline way in to suggesting. The rail button alone was
+                                                            missed — hosts sent their edits as a Google Doc instead — so this spans the
+                                                            page above the document and names that habit outright. */}
+                                                            {canSuggest && (
+                                                                <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-brand bg-brand-primary p-5 sm:flex-row sm:items-center sm:justify-between">
+                                                                    <div className="flex items-start gap-4">
+                                                                        <FeaturedIcon icon={Edit01} color="brand" theme="light" size="lg" />
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-md font-semibold text-primary">
+                                                                                {suggestMode
+                                                                                    ? "You're suggesting — click into any field below and type your change"
+                                                                                    : "Want to change something? Edit it right here"}
+                                                                            </p>
+                                                                            <p className="mt-1 text-sm text-tertiary">
+                                                                                {suggestMode
+                                                                                    ? "Change as many fields as you like, then press Send at the bottom of the screen. Your account manager reviews every suggestion before it's saved."
+                                                                                    : "No need to send a Google Doc or email — type your changes straight into this document and your account manager will review them."}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                    {!suggestMode && (
+                                                                        <Button
+                                                                            size="lg"
+                                                                            color="primary"
+                                                                            iconLeading={Edit01}
+                                                                            className="shrink-0"
+                                                                            onClick={() => setSuggestMode(true)}
+                                                                        >
+                                                                            Suggest edits
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
                                                             {/* Rail beside the document on wide screens; above it on narrow ones, where a
                                                             sticky column would eat the reading width. */}
                                                             <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
@@ -4593,8 +4627,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         canSuggest ? (
                                                                             <div className="flex flex-col items-start gap-2">
                                                                                 <Button
-                                                                                    size="sm"
+                                                                                    size="md"
                                                                                     color={suggestMode ? "secondary" : "primary"}
+                                                                                    iconLeading={suggestMode ? undefined : Edit01}
                                                                                     onClick={() => {
                                                                                         setSuggestMode((v) => !v);
                                                                                         if (suggestMode) setSuggestDraft({});

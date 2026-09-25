@@ -474,7 +474,7 @@ const ACCESS_SECTIONS: SectionDef[] = [
             {
                 field: "billingAddress",
                 label: "Full Billing Address",
-                hint: "Street, city, state, ZIP and country. If it's the property address you gave on the Onboarding Form, just write “Same as property address”.",
+                hint: "Street, city, state, ZIP and country.",
                 required: true,
                 long: true,
             },

@@ -1,14 +1,21 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
-import { PixelPage } from "@/pages/client/pixel-page";
-import { PopupPage } from "@/pages/client/popup-page";
+import {
+    type ChatWidgetPageData,
+    type ClientPageData,
+    type DashboardPageData,
+    type HostOnboardingPageData,
+    type LeadCapturePageData,
+    supabase,
+} from "@/lib/supabase";
 import { ChatWidgetScreen } from "@/pages/client/chat-widget-screen";
 import { ClientDashboardPage } from "@/pages/client/client-dashboard-page";
+import { AccessFormPage, type ClientOnboardingData, ClientOnboardingFormPage } from "@/pages/client/client-onboarding-form-page";
 import { HostOnboardingFormPage } from "@/pages/client/host-onboarding-form-page";
-import { ClientOnboardingFormPage, type ClientOnboardingData } from "@/pages/client/client-onboarding-form-page";
-import { TemplateOneScreen } from "@/pages/templates/template-one-screen";
+import { PixelPage } from "@/pages/client/pixel-page";
+import { PopupPage } from "@/pages/client/popup-page";
 import { NotFound } from "@/pages/not-found";
-import { supabase, type ChatWidgetPageData, type ClientPageData, type DashboardPageData, type HostOnboardingPageData, type LeadCapturePageData } from "@/lib/supabase";
+import { TemplateOneScreen } from "@/pages/templates/template-one-screen";
 
 type ClientOnboardingPageRow = {
     slug: string;
@@ -186,9 +193,9 @@ const ClientDashboardScreen = ({ slug }: { slug: string }) => {
     );
 };
 
-/* Host Onboarding Forms (the client's FIRST form, before Brand Vision) live at
-   /{name}-onboarding and load from client_onboarding_pages. */
-const ClientOnboardingScreen = ({ slug }: { slug: string }) => {
+/* Onboarding Forms live at /{name}-onboarding and Account Access Forms at /{name}-access;
+   both load from client_onboarding_pages. */
+const ClientOnboardingScreen = ({ slug, access = false }: { slug: string; access?: boolean }) => {
     const [data, setData] = useState<ClientOnboardingPageRow | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
@@ -212,7 +219,8 @@ const ClientOnboardingScreen = ({ slug }: { slug: string }) => {
     if (loading) return <Spinner />;
     if (notFound) return <NotFound />;
 
-    return <ClientOnboardingFormPage key={slug} slug={slug} initialClientName={data?.client_name ?? ""} initialData={data?.data} />;
+    const Form = access ? AccessFormPage : ClientOnboardingFormPage;
+    return <Form key={slug} slug={slug} initialClientName={data?.client_name ?? ""} initialData={data?.data} />;
 };
 
 export const ClientScreen = () => {
@@ -237,6 +245,11 @@ export const ClientScreen = () => {
     // NOTE: must stay AFTER the "-hostonboarding" check — that suffix also ends with "-onboarding".
     if (clientSlug?.endsWith("-onboarding")) {
         return <ClientOnboardingScreen slug={clientSlug} />;
+    }
+
+    // Account Access Forms share client_onboarding_pages, one row per form.
+    if (clientSlug?.endsWith("-access")) {
+        return <ClientOnboardingScreen slug={clientSlug} access />;
     }
 
     return <PixelScreen clientSlug={clientSlug} />;

@@ -309,7 +309,8 @@ export default async (req: Request) => {
     const spec = GROUPS[group];
     if (!spec) return Response.json({ error: "Unknown section group." }, { status: 400 });
 
-    const sources = await readClientSources(admin, slug);
+    // publicCopy: this document feeds what guests read, so team-only answers stay out.
+    const sources = await readClientSources(admin, slug, { publicCopy: true });
     if (!sources.hasAny && !siteText && !reviewsText) {
         return Response.json({ error: "There's nothing to draft from yet — this client hasn't submitted either form." }, { status: 400 });
     }

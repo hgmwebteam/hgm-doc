@@ -54,6 +54,9 @@ import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
 import { recordDashboardSave } from "@/lib/dashboard-updates";
 import { type DashboardContent, type HostOnboardingData, type OverviewDoc, supabase } from "@/lib/supabase";
 import {
+    ACCESS_FORM,
+    ACCESS_INTRO,
+    AccessFormPage,
     CREDENTIAL_LABELS,
     CREDENTIAL_LIST,
     type ClientOnboardingData,
@@ -65,6 +68,7 @@ import {
     TOTAL_QUESTIONS,
     clientOnboardingAnswers,
     clientOnboardingProgress,
+    ensureAccessForm,
     ensureClientOnboardingForm,
     withLoginCleared,
 } from "@/pages/client/client-onboarding-form-page";
@@ -190,7 +194,7 @@ import {
 import { mergeLiveContent, useDashboardLive } from "@/pages/client/dashboard/use-dashboard-live";
 import { type WebsiteSetup, mergeWebsiteSetup, saveWebsiteSetup, websiteSetupProgress } from "@/pages/client/dashboard/website-setup";
 import { type WebsiteSetupSaveState, WebsiteSetupSection } from "@/pages/client/dashboard/website-setup-section";
-import { HostOnboardingFormPage, ensureHostOnboardingForm, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
+import { HostOnboardingFormPage, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
 import { useSuppressFloatingThemeToggle, useTheme } from "@/providers/theme-provider";
 import { compressImageFile } from "@/utils/compress-image";
 import { cx } from "@/utils/cx";
@@ -209,7 +213,6 @@ Thanks!`;
 const CONTACT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(CONTACT_SUBJECT)}&body=${encodeURIComponent(CONTACT_BODY)}`;
 
 /** Read from the form itself so the copy never goes stale if a question is added. */
-const ONBOARDING_TOTAL_QUESTIONS = hostOnboardingProgress().total;
 
 export interface ClientDashboardPageProps {
     /** Page slug — when set, locking persists edits to dashboard_pages (shared). */
@@ -494,13 +497,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, []);
 
     // ── Client Input → Onboarding Form ──
-    // Every client's dashboard links to their own copy of the Brand Vision Form at
-    // {base}-hostonboarding, derived from this page's own slug ({base}-dashboard).
+    // Every client's dashboard links to their own copy of the Account Access Form at
+    // {base}-access, derived from this page's own slug ({base}-dashboard). This slot held
+    // the Brand Vision Form until its questions moved into the Onboarding Form; the section
+    // id stays "onboarding" so saved visibility and journey state keep working.
     // The row is provisioned on first visit to the section, so no one has to create
     // it by hand for each client. The template dashboard points at the master form.
     const clientBase = slug ? slug.replace(/-dashboard$/, "") : "";
-    const onboardingSlug = clientBase ? `${clientBase}-hostonboarding` : "";
-    const onboardingHref = isTemplate || !onboardingSlug ? "/brand-vision-form" : `/${onboardingSlug}`;
+    const onboardingSlug = clientBase ? `${clientBase}-access` : "";
+    const onboardingHref = isTemplate || !onboardingSlug ? "/access-form" : `/${onboardingSlug}`;
     const [onboardingStatus, setOnboardingStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
     const [onboardingInfo, setOnboardingInfo] = useState<{ answered: number; total: number; submittedAt?: string }>({ answered: 0, total: 0 });
     const [copiedOnboardingLink, setCopiedOnboardingLink] = useState(false);
@@ -534,23 +539,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         // Hard ceiling on the check: while Supabase is unreachable the request can
         // hang without ever rejecting, which would strand the card on "Checking…".
         const timedOut = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 10_000));
-        Promise.race([ensureHostOnboardingForm({ slug: onboardingSlug, clientName, clientWebsite }), timedOut])
+        Promise.race([ensureAccessForm({ slug: onboardingSlug, clientName, clientWebsite }), timedOut])
             .then((answers) => {
                 if (!answers) {
                     failed();
                     return;
                 }
-                const p = hostOnboardingProgress(answers);
+                const p = clientOnboardingProgress(answers, ACCESS_FORM);
                 setOnboardingInfo({ answered: p.answered, total: p.total, submittedAt: p.submittedAt });
-                setBrandData(answers as Partial<HostOnboardingData>);
+                setBrandData(answers as Partial<ClientOnboardingData>);
                 setOnboardingStatus("ready");
             })
             .catch(failed);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, isTemplate, onboardingSlug, onboardingStatus]);
 
-    // ── Client Input → Onboarding Form (the FIRST form — before Brand Vision) ──
-    // Same provision-on-first-visit pattern as the Brand Vision block above,
+    // ── Client Input → Onboarding Form ──
+    // Same provision-on-first-visit pattern as the Account Access block above,
     // against client_onboarding_pages at {base}-onboarding.
     const intakeSlug = clientBase ? `${clientBase}-onboarding` : "";
     const intakeHref = isTemplate || !intakeSlug ? "/client-onboarding-form" : `/${intakeSlug}`;
@@ -589,17 +594,50 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, isTemplate, intakeSlug, intakeStatus]);
 
+    /* ── Brand Vision Form — kept only for clients who already answered it ──
+       Its questions now live in the Onboarding Form, so a new client never gets one. A
+       client who already has answers keeps them readable and editable under the
+       Onboarding Form section. Read-only lookup: unlike the two current forms this never
+       provisions a row, which is what keeps it from appearing for new clients. */
+    const visionSlug = clientBase ? `${clientBase}-hostonboarding` : "";
+    const [visionData, setVisionData] = useState<Partial<HostOnboardingData> | null>(null);
+    const [visionStatus, setVisionStatus] = useState<"idle" | "loading" | "ready">("idle");
+    const [copiedVisionLink, setCopiedVisionLink] = useState(false);
+    const visionFetchRef = useRef(false);
+    const visionInfo = hostOnboardingProgress(visionData);
+    const hasVision = visionStatus === "ready" && visionInfo.answered > 0;
+
+    useEffect(() => {
+        if (activeSection !== "intake" || isTemplate || !visionSlug) return;
+        if (visionFetchRef.current || visionStatus === "ready") return;
+        visionFetchRef.current = true;
+        setVisionStatus("loading");
+        supabase
+            .from("host_onboarding_pages")
+            .select("data")
+            .eq("slug", visionSlug)
+            .maybeSingle()
+            .then(({ data: row, error }) => {
+                // A failed lookup just shows no card; the answers still reach the Onboarding
+                // Form through ensureClientOnboardingForm.
+                if (error) console.error("[brand vision read]", error);
+                setVisionData(((row as { data?: Partial<HostOnboardingData> } | null)?.data ?? null) || null);
+                setVisionStatus("ready");
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeSection, isTemplate, visionSlug, visionStatus]);
+
     /* ── Client-input forms open in a modal over the dashboard ──
        Keeps the AM/host in context instead of navigating away to the form page and
-       back. The client's own shared link (/{client}-onboarding, -hostonboarding)
+       back. The client's own shared link (/{client}-onboarding, -access)
        still renders full-page — that's what the "Copy Link" button sends.
        The raw row data is kept so the embedded form hydrates from what we already
        fetched for the progress card, rather than re-querying on open. */
-    const [formModal, setFormModal] = useState<null | "intake" | "brand">(null);
+    const [formModal, setFormModal] = useState<null | "intake" | "access" | "brand">(null);
     /** When the modal was opened from a specific answer's Edit control, the question to land on. */
     const [formModalField, setFormModalField] = useState("");
     const [intakeData, setIntakeData] = useState<Partial<ClientOnboardingData> | null>(null);
-    const [brandData, setBrandData] = useState<Partial<HostOnboardingData> | null>(null);
+    const [brandData, setBrandData] = useState<Partial<ClientOnboardingData> | null>(null);
 
     // Closing re-runs the progress fetch so the card reflects whatever they just answered.
     const closeFormModal = () => {
@@ -610,6 +648,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             intakeFetchRef.current = false;
             setIntakeStatus("idle");
         } else if (which === "brand") {
+            visionFetchRef.current = false;
+            setVisionStatus("idle");
+        } else if (which === "access") {
             onboardingFetchRef.current = false;
             setOnboardingStatus("idle");
         }
@@ -621,7 +662,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        only arms it — because there is no undo. Writing `{}` is enough to clear the
        row: both forms run their answers through mergeData(), which fills defaults
        from an empty object. */
-    const [armedReset, setArmedReset] = useState<null | "intake" | "brand">(null);
+    const [armedReset, setArmedReset] = useState<null | "intake" | "access">(null);
     const [resetting, setResetting] = useState(false);
 
     /* ── Delete one stored login once it is in 1Password ──
@@ -636,32 +677,38 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        swallowing, so a failed write leaves the row's confirm in place instead of reading
        as a password that is gone when it is still there. */
     const deleteLogin = async (field: string) => {
-        if (!intakeSlug) return;
-        const cleared = withLoginCleared(intakeData, field);
-        const { error } = await supabase.from("client_onboarding_pages").update({ data: cleared }).eq("slug", intakeSlug);
+        if (!onboardingSlug) return;
+        const cleared = withLoginCleared(brandData, field);
+        const { error } = await supabase.from("client_onboarding_pages").update({ data: cleared }).eq("slug", onboardingSlug);
         if (error) {
             console.error("[delete login]", error);
             throw error;
         }
-        setIntakeData(cleared);
+        setBrandData(cleared);
+        // Logins used to live in the Onboarding row, and the Access row was seeded with a
+        // copy. Clear that copy too, or "moved to 1Password" would leave the password behind.
+        if (intakeSlug && (intakeData?.answers?.[`${field}__pass`] ?? "").trim()) {
+            const oldCleared = withLoginCleared(intakeData, field);
+            const { error: oldError } = await supabase.from("client_onboarding_pages").update({ data: oldCleared }).eq("slug", intakeSlug);
+            if (oldError) {
+                console.error("[delete login]", oldError);
+                throw oldError;
+            }
+            setIntakeData(oldCleared);
+        }
     };
 
-    const resetForm = async (kind: "intake" | "brand") => {
+    const resetForm = async (kind: "intake" | "access") => {
         const slugToClear = kind === "intake" ? intakeSlug : onboardingSlug;
-        const table = kind === "intake" ? "client_onboarding_pages" : "host_onboarding_pages";
+        const table = "client_onboarding_pages";
         if (!slugToClear) return;
         setResetting(true);
         try {
             // Delete the recordings first. Wiping the row would otherwise strand the
             // files in the bucket with nothing referencing them.
-            const paths =
-                kind === "intake"
-                    ? Object.entries(intakeData?.answers ?? {})
-                          .filter(([k, v]) => k.endsWith("__media") && (v ?? "").trim())
-                          .map(([, v]) => v as string)
-                    : Object.values(brandData?.mediaAnswers ?? {})
-                          .map((m) => m?.path)
-                          .filter((x): x is string => !!x);
+            const paths = Object.entries((kind === "intake" ? intakeData : brandData)?.answers ?? {})
+                .filter(([k, v]) => k.endsWith("__media") && (v ?? "").trim())
+                .map(([, v]) => v as string);
             if (paths.length) await supabase.storage.from("recordings").remove(paths);
 
             const { error } = await supabase.from(table).update({ data: {} }).eq("slug", slugToClear);
@@ -3783,14 +3830,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     {TOTAL_QUESTIONS} questions · {ESTIMATE_LABEL}
                                                                 </p>
                                                                 <p className="mt-1 text-sm text-quaternary">{ONBOARDING_SAVES_NOTE}</p>
-                                                                {CREDENTIAL_LABELS.length > 0 && (
-                                                                    <div className="mt-5 max-w-2xl rounded-xl bg-secondary px-4 py-3 ring-1 ring-secondary">
-                                                                        <p className="text-sm text-secondary">
-                                                                            <span className="font-semibold text-primary">Worth having on hand:</span> This form
-                                                                            asks for a few account logins so we can set things up for you — {CREDENTIAL_LIST}.
-                                                                        </p>
-                                                                    </div>
-                                                                )}
                                                             </>
                                                         )}
 
@@ -3937,7 +3976,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     sections={clientOnboardingAnswers(intakeData)}
                                                                     isTeamView={isTeam}
                                                                     clientName={clientName}
-                                                                    onDeleteLogin={isTeam && !isTemplate ? deleteLogin : undefined}
                                                                     onEdit={(field) => {
                                                                         setFormModalField(field);
                                                                         setFormModal("intake");
@@ -3945,19 +3983,83 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 />
                                                             )}
                                                         </div>
+
+                                                        {/* Only for a client who answered the Brand Vision Form before its
+                                                            questions moved into this one. Their answers also fill any empty
+                                                            question above, so nothing has to be typed twice. */}
+                                                        {hasVision && visionData && (
+                                                            <div className="mt-4 rounded-2xl bg-primary p-5 ring-1 ring-secondary">
+                                                                <div className="flex flex-wrap items-center justify-between gap-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <FeaturedIcon
+                                                                            icon={visionInfo.submittedAt ? CheckCircle : FileCheck02}
+                                                                            color={visionInfo.submittedAt ? "success" : "brand"}
+                                                                            theme="light"
+                                                                            size="lg"
+                                                                        />
+                                                                        <div>
+                                                                            <p className="text-md font-semibold text-primary">Brand Vision Form</p>
+                                                                            <p className="mt-0.5 text-sm text-tertiary">
+                                                                                {visionInfo.submittedAt
+                                                                                    ? `Sent ${new Date(visionInfo.submittedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })} · your earlier answers, kept as you gave them`
+                                                                                    : `${visionInfo.answered} of ${visionInfo.total} answered · your earlier answers, kept as you gave them`}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-5 flex flex-wrap items-center gap-3">
+                                                                    <Button color="secondary" iconTrailing={ArrowRight} onClick={() => setFormModal("brand")}>
+                                                                        {visionInfo.submittedAt ? "Review your answers" : "Continue the form"}
+                                                                    </Button>
+                                                                    {isTeam && (
+                                                                        <Button
+                                                                            color="secondary"
+                                                                            iconLeading={Copy01}
+                                                                            onClick={() => {
+                                                                                void navigator.clipboard.writeText(`${window.location.origin}/${visionSlug}`);
+                                                                                setCopiedVisionLink(true);
+                                                                                window.setTimeout(() => setCopiedVisionLink(false), 2000);
+                                                                            }}
+                                                                        >
+                                                                            {copiedVisionLink ? "Link copied" : "Copy Link"}
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                                {visionInfo.submittedAt && (
+                                                                    <OnboardingAnswers
+                                                                        sections={hostOnboardingAnswers(visionData)}
+                                                                        isTeamView={isTeam}
+                                                                        clientName={clientName}
+                                                                        onEdit={() => setFormModal("brand")}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </Reveal>
                                                 )}
 
-                                                {/* ── Client Input — the Brand Vision Form the client fills in themselves ── */}
+                                                {/* ── Client Input — the Account Access Form: logins and billing ── */}
                                                 {activeSection === "onboarding" && (
                                                     <Reveal>
                                                         <SectionEyebrow section={activeSection} />
-                                                        <SectionHeading>Brand Vision Form</SectionHeading>
-                                                        <p className="mt-3 text-md text-tertiary">
-                                                            Your Brand Vision Form — {ONBOARDING_TOTAL_QUESTIONS} quick questions about why you built this
-                                                            property, who it's for, and how it should feel. It takes 5–10 minutes, and it's what everything
-                                                            below is built from: your Master Document, brand kit, emails, and chat widget all start here.
-                                                        </p>
+                                                        <SectionHeading>Account Access Form</SectionHeading>
+                                                        {!onboardingSubmitted && (
+                                                            <>
+                                                                <p className="mt-3 max-w-2xl text-md text-tertiary">{ACCESS_INTRO}</p>
+                                                                <p className="mt-4 text-sm text-quaternary">
+                                                                    {ACCESS_FORM.total} questions · {ACCESS_FORM.estimate}
+                                                                </p>
+                                                                <p className="mt-1 text-sm text-quaternary">{ONBOARDING_SAVES_NOTE}</p>
+                                                                {CREDENTIAL_LABELS.length > 0 && (
+                                                                    <div className="mt-5 max-w-2xl rounded-xl bg-secondary px-4 py-3 ring-1 ring-secondary">
+                                                                        <p className="text-sm text-secondary">
+                                                                            <span className="font-semibold text-primary">Worth having on hand:</span> This form
+                                                                            asks for a few account logins so we can set things up for you — {CREDENTIAL_LIST}.
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
 
                                                         <div className="mt-6 rounded-2xl bg-primary p-5 ring-1 ring-secondary">
                                                             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -4031,7 +4133,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 ) : (
                                                                     <Button
                                                                         iconTrailing={ArrowRight}
-                                                                        {...(isTemplate ? { href: onboardingHref } : { onClick: () => setFormModal("brand") })}
+                                                                        {...(isTemplate ? { href: onboardingHref } : { onClick: () => setFormModal("access") })}
                                                                     >
                                                                         {onboardingSubmitted
                                                                             ? "Review your answers"
@@ -4060,13 +4162,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     onboardingSlug &&
                                                                     onboardingReady &&
                                                                     (onboardingStarted || onboardingSubmitted) &&
-                                                                    (armedReset === "brand" ? (
+                                                                    (armedReset === "access" ? (
                                                                         <>
                                                                             <Button
                                                                                 color="primary-destructive"
                                                                                 isLoading={resetting}
                                                                                 showTextWhileLoading
-                                                                                onClick={() => void resetForm("brand")}
+                                                                                onClick={() => void resetForm("access")}
                                                                             >
                                                                                 {resetting ? "Resetting…" : "Yes, erase all answers"}
                                                                             </Button>
@@ -4082,7 +4184,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         <Button
                                                                             color="tertiary-destructive"
                                                                             iconLeading={RefreshCw01}
-                                                                            onClick={() => setArmedReset("brand")}
+                                                                            onClick={() => setArmedReset("access")}
                                                                         >
                                                                             Reset form
                                                                         </Button>
@@ -4094,12 +4196,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                         review screen to read them. */}
                                                             {onboardingSubmitted && brandData && (
                                                                 <OnboardingAnswers
-                                                                    sections={hostOnboardingAnswers(brandData)}
+                                                                    sections={clientOnboardingAnswers(brandData, ACCESS_FORM)}
                                                                     isTeamView={isTeam}
                                                                     clientName={clientName}
+                                                                    onDeleteLogin={isTeam && !isTemplate ? deleteLogin : undefined}
                                                                     onEdit={(field) => {
                                                                         setFormModalField(field);
-                                                                        setFormModal("brand");
+                                                                        setFormModal("access");
                                                                     }}
                                                                 />
                                                             )}
@@ -4568,6 +4671,40 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 <p className="mt-2 text-xs text-quaternary">Unlock the dashboard to edit this document.</p>
                                                             )}
 
+                                                            {/* Client-only: the headline way in to suggesting. The rail button alone was
+                                                            missed — hosts sent their edits as a Google Doc instead — so this spans the
+                                                            page above the document and names that habit outright. */}
+                                                            {canSuggest && (
+                                                                <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-brand bg-brand-primary p-5 sm:flex-row sm:items-center sm:justify-between">
+                                                                    <div className="flex items-start gap-4">
+                                                                        <FeaturedIcon icon={Edit01} color="brand" theme="light" size="lg" />
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-md font-semibold text-primary">
+                                                                                {suggestMode
+                                                                                    ? "You're suggesting — click into any field below and type your change"
+                                                                                    : "Want to change something? Edit it right here"}
+                                                                            </p>
+                                                                            <p className="mt-1 text-sm text-tertiary">
+                                                                                {suggestMode
+                                                                                    ? "Change as many fields as you like, then press Send at the bottom of the screen. Your account manager reviews every suggestion before it's saved."
+                                                                                    : "No need to send a Google Doc or email — type your changes straight into this document and your account manager will review them."}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                    {!suggestMode && (
+                                                                        <Button
+                                                                            size="lg"
+                                                                            color="primary"
+                                                                            iconLeading={Edit01}
+                                                                            className="shrink-0"
+                                                                            onClick={() => setSuggestMode(true)}
+                                                                        >
+                                                                            Suggest edits
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+
                                                             {/* Rail beside the document on wide screens; above it on narrow ones, where a
                                                             sticky column would eat the reading width. */}
                                                             <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
@@ -4583,8 +4720,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         canSuggest ? (
                                                                             <div className="flex flex-col items-start gap-2">
                                                                                 <Button
-                                                                                    size="sm"
+                                                                                    size="md"
                                                                                     color={suggestMode ? "secondary" : "primary"}
+                                                                                    iconLeading={suggestMode ? undefined : Edit01}
                                                                                     onClick={() => {
                                                                                         setSuggestMode((v) => !v);
                                                                                         if (suggestMode) setSuggestDraft({});
@@ -7180,14 +7318,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                 onClose={closeFormModal}
                                 startAtField={formModalField}
                             />
-                        ) : (
+                        ) : formModal === "brand" ? (
                             <HostOnboardingFormPage
-                                slug={onboardingSlug}
+                                slug={visionSlug}
                                 initialClientName={clientName}
                                 initialClientWebsite={clientWebsite}
+                                initialData={visionData}
+                                embedded
+                                onClose={closeFormModal}
+                            />
+                        ) : (
+                            <AccessFormPage
+                                slug={onboardingSlug}
+                                initialClientName={clientName}
                                 initialData={brandData}
                                 embedded
                                 onClose={closeFormModal}
+                                startAtField={formModalField}
                             />
                         )}
                     </div>

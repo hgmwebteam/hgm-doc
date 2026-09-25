@@ -10,10 +10,10 @@
  * The pure model (field-key addressing, apply/read/label) lives in
  * suggestions-model.ts so suggestions.check.ts can run it without React.
  */
-import { createContext, useContext } from "react";
+import { createContext, useContext, useState } from "react";
+import { Check, Copy01 } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
-import type { Suggestion, SuggestionItem } from "@/pages/client/dashboard/suggestions-model";
-import { cx } from "@/utils/cx";
+import { type Suggestion, type SuggestionItem, wordDiff } from "@/pages/client/dashboard/suggestions-model";
 
 export type { Suggestion };
 
@@ -31,7 +31,14 @@ export interface SuggestionCtx {
     setDraft: (key: string, value: string) => void;
     /** Accepted locally but not yet saved — flipped to accepted in the DB only after Save succeeds. */
     queuedAccepts: ReadonlySet<string>;
+    /** Replace the field with the suggestion (queued until Save). */
     accept: (s: Suggestion) => void;
+    /** Put the field back as it was before `accept`, while it is still only queued. */
+    undo: (s: Suggestion) => void;
+    /** What the field said when each queued suggestion was accepted, by suggestion id. */
+    previousById: ReadonlyMap<string, string>;
+    /** Resolve without touching the field — the AM used some of it by hand, or none. */
+    markDone: (s: Suggestion) => void;
     decline: (s: Suggestion) => void;
     withdraw: (s: Suggestion) => void;
     /** The client's own identity email (empty for team / anonymous unlocks). */
@@ -45,10 +52,106 @@ const shortDate = (iso: string) => {
     return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+const Label = ({ children }: { children: string }) => <p className="text-[11px] font-semibold tracking-wide text-quaternary uppercase">{children}</p>;
+
 /**
- * Everything a field shows about its suggestions: the pending box with Accept/Decline
- * (team) or Withdraw (the suggesting client), the queued-but-unsaved state, the stale
- * note when the field changed since the client saw it, and the resolved outcome note.
+ * The team's view of one pending suggestion: what the field says now beside what the client
+ * suggested, with the changed words marked, and three ways to handle it. Replace takes the
+ * suggestion whole and stays undoable until Save; Copy + Mark as done is for keeping some
+ * of it by hand; Decline leaves the field alone.
+ */
+const ReviewCard = ({ s, liveValue, ctx }: { s: Suggestion; liveValue: string; ctx: SuggestionCtx }) => {
+    const [copied, setCopied] = useState(false);
+    const queued = ctx.queuedAccepts.has(s.id);
+    const before = queued ? (ctx.previousById.get(s.id) ?? s.current_value) : liveValue;
+    const stale = !queued && s.current_value !== liveValue;
+    const parts = wordDiff(before, s.suggested_value);
+    const changed = parts.some((p) => p.kind !== "same");
+
+    const copy = () =>
+        void navigator.clipboard.writeText(s.suggested_value).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1600);
+        });
+
+    if (queued) {
+        return (
+            <div className="rounded-xl bg-success-primary p-3 ring-1 ring-secondary">
+                <p className="text-xs font-medium text-secondary">Replaced with the suggestion — press Save changes to make it permanent</p>
+                <div className="mt-2">
+                    <Label>Before</Label>
+                    <p className="mt-0.5 text-sm whitespace-pre-wrap text-tertiary">{before.trim() || <span className="italic">Empty</span>}</p>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                    <Button size="sm" color="secondary" onClick={() => ctx.undo(s)}>
+                        Undo
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="rounded-xl bg-brand-primary_alt p-3 ring-1 ring-secondary">
+            <p className="text-xs font-medium text-secondary">{`Suggested by ${s.suggested_by} · ${shortDate(s.created_at)}`}</p>
+            <div className="mt-2 grid gap-3 md:grid-cols-2">
+                <div className="min-w-0">
+                    <Label>Currently</Label>
+                    <p className="mt-0.5 text-sm whitespace-pre-wrap text-tertiary">{before.trim() || <span className="italic">Empty</span>}</p>
+                </div>
+                <div className="min-w-0">
+                    <Label>Suggested</Label>
+                    {/* Added words are highlighted, removed ones struck through. */}
+                    <p className="mt-0.5 text-sm whitespace-pre-wrap text-primary">
+                        {!s.suggested_value.trim() ? (
+                            <span className="text-quaternary italic">(cleared)</span>
+                        ) : (
+                            parts.map((p, i) =>
+                                p.kind === "same" ? (
+                                    <span key={i}>{p.text}</span>
+                                ) : p.kind === "add" ? (
+                                    <mark key={i} className="rounded bg-success-secondary px-0.5 text-primary">
+                                        {p.text}
+                                    </mark>
+                                ) : (
+                                    <del key={i} className="text-quaternary decoration-fg-error-primary">
+                                        {p.text}
+                                    </del>
+                                ),
+                            )
+                        )}
+                    </p>
+                    {!changed && <p className="mt-1 text-xs text-quaternary">Same as the current text.</p>}
+                </div>
+            </div>
+            {stale && (
+                <p className="mt-2 text-xs text-warning-primary">
+                    This field has changed since the suggestion was made — it was “{s.current_value.trim() || "empty"}” then.
+                </p>
+            )}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button size="sm" color="primary" onClick={() => ctx.accept(s)}>
+                    Replace with this
+                </Button>
+                <Button size="sm" color="secondary" iconLeading={copied ? Check : Copy01} onClick={copy}>
+                    {copied ? "Copied" : "Copy suggestion"}
+                </Button>
+                <Button size="sm" color="secondary" onClick={() => ctx.markDone(s)}>
+                    Mark as done
+                </Button>
+                <Button size="sm" color="tertiary" onClick={() => ctx.decline(s)}>
+                    Decline
+                </Button>
+            </div>
+            <p className="mt-2 text-xs text-quaternary">Want only part of it? Copy it, edit the field above yourself, then Mark as done.</p>
+        </div>
+    );
+};
+
+/**
+ * Everything a field shows about its suggestions: the team's review card (ReviewCard),
+ * or for the suggesting client their pending text with Withdraw, and the resolved
+ * outcome note.
  * Renders nothing when the field has no suggestion history — so it's safe under every
  * field in every mode.
  */
@@ -61,34 +164,16 @@ export const SuggestionBox = ({ sKey, liveValue }: { sKey: string; liveValue: st
 
     return (
         <div className="mt-2 flex flex-col gap-2">
-            {pending.map((s) => {
-                const queued = ctx.queuedAccepts.has(s.id);
-                const stale = s.current_value !== liveValue;
-                const mine = !!ctx.viewerEmail && s.suggested_by === ctx.viewerEmail;
-                return (
-                    <div key={s.id} className={cx("rounded-xl p-3 ring-1 ring-secondary", queued ? "bg-success-primary" : "bg-brand-primary")}>
-                        <p className="text-xs font-medium text-secondary">
-                            {queued ? "Accepted — press Save changes to make it permanent" : `Suggested by ${s.suggested_by} · ${shortDate(s.created_at)}`}
-                        </p>
+            {pending.map((s) =>
+                ctx.mode === "review" ? (
+                    <ReviewCard key={s.id} s={s} liveValue={liveValue} ctx={ctx} />
+                ) : (
+                    <div key={s.id} className="rounded-xl bg-brand-primary_alt p-3 ring-1 ring-secondary">
+                        <p className="text-xs font-medium text-secondary">{`Suggested by ${s.suggested_by} · ${shortDate(s.created_at)}`}</p>
                         <p className="mt-1 text-sm whitespace-pre-wrap text-primary">
                             {s.suggested_value.trim() ? s.suggested_value : <span className="text-quaternary italic">(cleared)</span>}
                         </p>
-                        {ctx.mode === "review" && stale && !queued && (
-                            <p className="mt-1.5 text-xs text-warning-primary">
-                                This field has changed since the suggestion was made — it was “{s.current_value.trim() || "empty"}” then.
-                            </p>
-                        )}
-                        {ctx.mode === "review" && !queued && (
-                            <div className="mt-2 flex items-center gap-2">
-                                <Button size="sm" color="primary" onClick={() => ctx.accept(s)}>
-                                    Accept
-                                </Button>
-                                <Button size="sm" color="secondary" onClick={() => ctx.decline(s)}>
-                                    Decline
-                                </Button>
-                            </div>
-                        )}
-                        {ctx.mode !== "review" && mine && (
+                        {!!ctx.viewerEmail && s.suggested_by === ctx.viewerEmail && (
                             <button
                                 type="button"
                                 onClick={() => ctx.withdraw(s)}
@@ -98,8 +183,8 @@ export const SuggestionBox = ({ sKey, liveValue }: { sKey: string; liveValue: st
                             </button>
                         )}
                     </div>
-                );
-            })}
+                ),
+            )}
             {pending.length === 0 && resolved && (
                 <p className="text-xs text-quaternary">
                     Your suggestion from {shortDate(resolved.created_at)} was {resolved.status}

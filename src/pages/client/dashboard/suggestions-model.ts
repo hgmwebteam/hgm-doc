@@ -233,3 +233,52 @@ export function labelForKey(f: Foundation, key: string): string {
     const rowName = (row?.name || row?.page || "").toString().trim();
     return `${LIST_LABELS[parsed.list]}${rowName ? ` “${rowName}”` : ""} · ${humanize(parsed.col)}`;
 }
+
+/* ── Before / after, for the team reviewing a suggestion ──
+   A client edits the whole field, so a suggestion is usually the old text with a few words
+   changed. Shown whole, the reviewer has to spot the difference by eye; this marks it. */
+
+export type DiffPart = { text: string; kind: "same" | "add" | "del" };
+
+/** Past this many words per side the diff is skipped — the table below grows with the
+ *  product of the two lengths, and a rewrite that long reads better as plain text anyway. */
+const DIFF_WORD_LIMIT = 800;
+
+/**
+ * Word-level difference between the saved text and a suggestion: the words kept, the words
+ * added, the words removed, in reading order. Whitespace rides with the word before it, so
+ * joining every part's text gives back `after` (dropping "del") or `before` (dropping "add").
+ */
+export const wordDiff = (before: string, after: string): DiffPart[] => {
+    const a = before.match(/\S+\s*|\s+/g) ?? [];
+    const b = after.match(/\S+\s*|\s+/g) ?? [];
+    if (a.length > DIFF_WORD_LIMIT || b.length > DIFF_WORD_LIMIT) {
+        return [...(before ? [{ text: before, kind: "del" as const }] : []), ...(after ? [{ text: after, kind: "add" as const }] : [])];
+    }
+    // Compare words without their trailing space, so "wild " and "wild" still match.
+    const key = (t: string) => t.trimEnd();
+    // lcs[i][j] = length of the longest common run of a[i..] and b[j..].
+    const lcs: number[][] = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+    for (let i = a.length - 1; i >= 0; i--)
+        for (let j = b.length - 1; j >= 0; j--) lcs[i][j] = key(a[i]) === key(b[j]) ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+
+    const parts: DiffPart[] = [];
+    const push = (text: string, kind: DiffPart["kind"]) => {
+        const last = parts[parts.length - 1];
+        if (last && last.kind === kind) last.text += text;
+        else parts.push({ text, kind });
+    };
+    let i = 0;
+    let j = 0;
+    while (i < a.length && j < b.length) {
+        if (key(a[i]) === key(b[j])) {
+            push(b[j], "same");
+            i++;
+            j++;
+        } else if (lcs[i + 1][j] >= lcs[i][j + 1]) push(a[i++], "del");
+        else push(b[j++], "add");
+    }
+    while (i < a.length) push(a[i++], "del");
+    while (j < b.length) push(b[j++], "add");
+    return parts;
+};

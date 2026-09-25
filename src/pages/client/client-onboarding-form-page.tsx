@@ -331,7 +331,7 @@ const ONBOARDING_SECTIONS: SectionDef[] = [
             },
             {
                 field: "brandKitLinks",
-                label: "Brand kit",
+                label: "Brand kit (optional)",
                 hint: "If you have logos, brand guidelines, fonts, or color palettes, paste a folder link here (Google Drive, Dropbox, …) or upload a PDF below — or share them in the Drive folder we'll provide after the Kick-Off Call.",
                 long: true,
                 upload: true,

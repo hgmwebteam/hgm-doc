@@ -202,19 +202,32 @@ Do not invent a demographic the source contradicts; leave a field empty rather t
         },
     },
     reviews: {
-        keys: ["corePillars", "emotionalThemes"],
+        /* The team's review-analysis prompt, run here so an AM only pastes the reviews and
+           presses Draft. It used to be a prompt they copied into ChatGPT and pasted back;
+           this asks for everything that prompt did — pillars, themes, the guests' own
+           quotes and a tagline per top theme — and lands each in its field. */
+        keys: ["corePillars", "emotionalThemes", "taglines"],
         needsReviews: true,
-        maxTokens: 2000,
-        instruction: `Analyse the pasted guest reviews as a hospitality marketing analyst.
+        maxTokens: 3000,
+        instruction: `Analyse the pasted guest reviews as an expert hospitality marketing analyst and brand strategist, to uncover insights for this business's marketing and branding.
 
-For core brand pillars: the 5-7 amenities, property features or design elements guests praise most often. Where a pillar has a striking line in the reviews, quote it verbatim underneath — that raw language is what social hooks and subject lines get built from.
+1. Core brand pillars and key selling points: the 5-7 amenities, property features or design elements guests praise most often, most-mentioned first. Under each of the top 3-5, give 3-4 quotes from the reviews — verbatim wherever possible, a close paraphrase only when a review is too long to quote — each on its own line starting with a quotation mark. This raw language is what social hooks and email subject lines get built from.
 
-For emotional themes: the 5-7 emotional or experiential themes guests use to describe their stay ("peaceful escape", "perfect for families", "attention to detail"). These are the emotional heart of the brand.
+2. Emotional and experiential themes: the 5-7 emotional or experiential themes guests use to describe their stay ("peaceful escape", "luxurious comfort", "perfect for families", "attention to detail"), most common first. These are the emotional heart of the brand. Under each of the top 3, give a short, impactful brand tagline (2-6 words) that captures that feeling, on its own line starting "Tagline:".
 
-Both as newline-separated lists. Base every line on the reviews in front of you — a pillar nobody mentioned is worse than a short list.`,
+3. Taglines: those same three taglines on their own, strongest first.
+
+Plain text lists — one item per line, no markdown. Base every line on the reviews in front of you: a pillar nobody mentioned, or a quote nobody wrote, is worse than a short list.`,
         properties: {
-            corePillars: str("Core brand pillars and key selling points, as a newline-separated list, with verbatim guest quotes where they land."),
-            emotionalThemes: str("Emotional and experiential themes, as a newline-separated list."),
+            corePillars: str(
+                "Core brand pillars and key selling points: one pillar per line, most-mentioned first, with 3-4 guest quotes on their own lines under each of the top 3-5.",
+            ),
+            emotionalThemes: str("Emotional and experiential themes: one per line, most common first, with a 'Tagline:' line under each of the top 3."),
+            taglines: {
+                type: "array",
+                items: { type: "string" },
+                description: "The three taglines from the top three themes, strongest first. 2-6 words each.",
+            },
         },
     },
 };

@@ -157,7 +157,6 @@ import { JourneyProgress } from "@/pages/client/dashboard/journey-progress";
 import {
     FOUNDATION_SECTIONS,
     LEGACY_FOUNDATION_FIELDS,
-    REVIEW_WORKING_PROMPT,
     compileMasterDocument,
     foundationProgress,
     masterDocumentHtml,
@@ -754,8 +753,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [masterDocCopied, setMasterDocCopied] = useState(false);
     const [headerDocCopied, setHeaderDocCopied] = useState(false);
     const [overviewCopied, setOverviewCopied] = useState(false);
-    /** "Copied" flash on the Reviews working prompt (team-only block). */
-    const [promptCopied, setPromptCopied] = useState(false);
     /* ── Master Document drafting (team-only) ──
        `masterDraftStep` is the label of the group being drafted, shown live: the run takes
        around a minute across eight model calls, and a single spinner for that long reads as
@@ -2036,17 +2033,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        The full draft lives at the top of the document, nine sections away from the box an
        AM pastes into, so pasting and then waiting for something to happen was the natural
        mistake. This runs only the reviews group, where the reviews are. */
-    /** The ChatGPT prompt is the by-hand fallback, so it starts folded away. */
-    const [showManualPrompt, setShowManualPrompt] = useState(false);
     const [reviewsDraftState, setReviewsDraftState] = useState<"idle" | "drafting" | "done" | "error">("idle");
     const [reviewsDraftNote, setReviewsDraftNote] = useState("");
     const draftReviewsSection = async () => {
         if (!slug || isTemplate || reviewsDraftState === "drafting" || !reviewsPaste.trim()) return;
-        const bothFilled = !!foundation.corePillars.trim() && !!foundation.emotionalThemes.trim();
-        if (bothFilled) {
+        const nothingEmpty = !!foundation.corePillars.trim() && !!foundation.emotionalThemes.trim() && foundation.taglines.some((t) => t.trim());
+        if (nothingEmpty) {
             // mergeFoundationDraft only fills empty boxes, so this would do nothing. Say so.
             setReviewsDraftState("error");
-            setReviewsDraftNote("Both boxes already have text, and drafting never overwrites. Clear the one you want redrafted, then try again.");
+            setReviewsDraftNote("Both boxes and the Taglines already have text, and drafting never overwrites. Clear what you want redrafted, then try again.");
             return;
         }
         setReviewsDraftState("drafting");
@@ -2066,7 +2061,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 return { ...c, foundation: { ...current, ...mergeFoundationDraft(current, fields) } };
             });
             setReviewsDraftState("done");
-            setReviewsDraftNote("Drafted. Read both boxes above, edit anything that's off, then press Save changes — nothing is saved yet.");
+            setReviewsDraftNote(
+                "Drafted. Read both boxes above (and the Taglines in About the brand, if they were empty), edit anything that's off, then press Save changes — nothing is saved yet.",
+            );
         } catch (err) {
             setReviewsDraftState("error");
             setReviewsDraftNote(err instanceof Error ? err.message : "Couldn't draft the reviews — try again.");
@@ -5720,7 +5717,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         . It takes under a minute.
                                                                                     </li>
                                                                                     <li>
-                                                                                        Read both boxes above, fix anything that's off, then press Save changes.
+                                                                                        It fills both boxes above — the praised features with guests' own
+                                                                                        quotes, and the themes with a tagline each — plus the Taglines in About
+                                                                                        the brand if they're empty. Read it, fix anything that's off, then press
+                                                                                        Save changes.
                                                                                     </li>
                                                                                 </ol>
                                                                                 <label
@@ -5781,62 +5781,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         )}
                                                                                         {reviewsDraftNote}
                                                                                     </p>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
-
-                                                                        {/* The working prompt is internal process, not something a client should be
-                                                                        handed — it tells whoever reads it to go and run the analysis. Team only. */}
-                                                                        {isTeam && (
-                                                                            <div className="mt-5 overflow-hidden rounded-2xl bg-primary ring-1 ring-secondary">
-                                                                                <div
-                                                                                    className={cx(
-                                                                                        "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
-                                                                                        showManualPrompt && "border-b border-secondary",
-                                                                                    )}
-                                                                                >
-                                                                                    <div className="flex flex-wrap items-center gap-2.5">
-                                                                                        <p className="text-sm font-medium text-secondary">
-                                                                                            Or do it by hand in ChatGPT
-                                                                                        </p>
-                                                                                        <span className="text-xs text-quaternary">
-                                                                                            Only if the Draft button isn't working
-                                                                                        </span>
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-3">
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => {
-                                                                                                void navigator.clipboard
-                                                                                                    .writeText(REVIEW_WORKING_PROMPT)
-                                                                                                    .then(() => {
-                                                                                                        setPromptCopied(true);
-                                                                                                        window.setTimeout(() => setPromptCopied(false), 1600);
-                                                                                                    });
-                                                                                            }}
-                                                                                            className="text-sm font-semibold text-brand-secondary transition duration-100 ease-linear hover:underline"
-                                                                                        >
-                                                                                            {promptCopied ? "Copied" : "Copy"}
-                                                                                        </button>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => setShowManualPrompt((v) => !v)}
-                                                                                            className="text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:text-secondary"
-                                                                                        >
-                                                                                            {showManualPrompt ? "Hide" : "Show"}
-                                                                                        </button>
-                                                                                    </div>
-                                                                                </div>
-                                                                                {showManualPrompt && (
-                                                                                    <div className="px-4 py-4">
-                                                                                        <pre className="font-mono text-xs leading-relaxed whitespace-pre-wrap text-secondary">
-                                                                                            {REVIEW_WORKING_PROMPT}
-                                                                                        </pre>
-                                                                                        <p className="mt-3 text-xs text-quaternary">
-                                                                                            Once complete, replace the two fields above with the insight from
-                                                                                            ChatGPT / Gemini.
-                                                                                        </p>
-                                                                                    </div>
                                                                                 )}
                                                                             </div>
                                                                         )}

@@ -232,7 +232,7 @@ const DASHBOARD_GROUPS: { group: string; items: { label: string; note: string }[
                 label: "Onboarding Form",
                 note: `The business, the brand and the guests — ${TOTAL_QUESTIONS} questions, ${ESTIMATE_LABEL}, autosaving as the client types. It absorbed the Brand Vision Form.`,
             },
-            { label: "Account Access Form", note: "The four account logins (Instagram, TikTok, PMS, Domain Host) and billing details." },
+            { label: "Account Access Form", note: "The three account logins (Instagram, TikTok, Domain Host) and billing details." },
         ],
     },
     {

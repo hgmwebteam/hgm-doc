@@ -95,9 +95,6 @@ type Question = {
 /** One link shared by both Local Favorites questions: a client's existing local-guide page. */
 const LOCAL_GUIDE_FIELD = "localGuideUrl";
 
-/** The PMS pick that means there is no login to ask for. */
-const NO_PMS = "No PMS";
-
 /** One row of a list answer: a name plus an optional link. */
 type ListRow = { text: string; link: string };
 
@@ -450,20 +447,6 @@ const ACCESS_SECTIONS: SectionDef[] = [
                 hint: "(If applicable)",
                 credentials: true,
                 handle: { label: "TikTok handle", placeholder: "@yourbusiness" },
-            },
-            {
-                field: "pmsLogin",
-                label: "Your Property Management System (PMS)",
-                hint: "Your booking system, and the login we use to connect calendar, rates and availability to the new website.",
-                required: true,
-                credentials: true,
-                credentialLabel: "your Property Management System (PMS)",
-                platform: {
-                    field: "pms",
-                    label: "Which PMS do you use?",
-                    options: ["Guesty", "Hostaway", "Hospitable", "OwnerRez", "Lodgify", "Streamline", "Track", "Mews", "Cloudbeds", "Oracle Opera", NO_PMS],
-                    otherPlaceholder: "Name your PMS",
-                },
             },
             {
                 field: "domainLogin",
@@ -902,8 +885,6 @@ function validateStep(step: Step, data: ClientOnboardingData): string | null {
         // question before the merge, so it stays required here.
         const platform = step.q.platform ? (data.answers[step.q.platform.field] ?? "").trim() : "";
         if (step.q.platform && !platform) return "Please pick one";
-        // Nothing to log in to.
-        if (platform === NO_PMS) return null;
         const user = (data.answers[`${step.q.field}__user`] ?? "").trim();
         const pass = (data.answers[`${step.q.field}__pass`] ?? "").trim();
         if (!user || !pass) return "Please fill in both the username and password";

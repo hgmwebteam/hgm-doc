@@ -161,6 +161,15 @@ assert.equal(merged.answers.email, "typed@here.com");
 assert.equal(merged.answers.differentiators, "Pet-friendly\nMost romantic spot");
 /* A question the new form cut (tone) stays out. */
 assert.equal(merged.answers.tone, undefined);
+/* One pasted local-guide link answers BOTH Local Favorites questions, with no rows typed. */
+const withGuide = clientOnboardingProgress({ answers: { localGuideUrl: "https://acme.com/local" } });
+assert.equal(withGuide.answered, 2);
+const guideRows = clientOnboardingAnswers({ answers: { localGuideUrl: "https://acme.com/local" } }).flatMap((s) => s.rows);
+for (const f of ["favoritesRestaurants", "favoritesActivities"])
+    assert.deepEqual(
+        guideRows.find((r) => r.field === f)!.lines.map((l) => l.text),
+        ["Guide: https://acme.com/local"],
+    );
 /* An "Other"-only answer counts as answered. */
 assert.ok(clientOnboardingProgress({ answers: { idealGuest__other: "Birdwatchers" } }).answered === 1);
 

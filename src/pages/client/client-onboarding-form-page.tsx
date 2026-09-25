@@ -77,11 +77,23 @@ type Question = {
         For "list your top 4–6…" questions, a single textarea makes the host invent a
         format and leaves us parsing prose. Rows are stored as plain lines of text, so
         old free-text answers still read back and downstream consumers are unaffected. */
-    list?: { itemPlaceholder: string; linkPlaceholder?: string; addLabel?: string; rows?: number };
+    list?: {
+        itemPlaceholder: string;
+        linkPlaceholder?: string;
+        addLabel?: string;
+        rows?: number;
+        /** Answer key of an optional "paste your existing guide" link shown above the rows.
+            A link answers the question on its own, and questions that name the same key
+            share it, so a client with a local-guide page pastes it once for both. */
+        guideField?: string;
+    };
     /** Multiple choice: pick any of `options` (up to `maxPick`), plus a free "Other". Stored
         as one picked option per line in the field, and the Other text in {field}__other. */
     choice?: { options: string[]; maxPick?: number };
 };
+
+/** One link shared by both Local Favorites questions: a client's existing local-guide page. */
+const LOCAL_GUIDE_FIELD = "localGuideUrl";
 
 /** The PMS pick that means there is no login to ask for. */
 const NO_PMS = "No PMS";
@@ -356,16 +368,28 @@ const ONBOARDING_SECTIONS: SectionDef[] = [
             {
                 field: "favoritesRestaurants",
                 label: "Local Favorites — Restaurants & Cafés",
-                hint: "List your top 3–6 go-to recommendations. If possible, include a link to each to ensure accuracy.",
+                hint: "Already have a page of local recommendations? Paste its link. Otherwise, list your top 3–6 go-to spots, with a link to each if you can.",
                 required: true,
-                list: { itemPlaceholder: "Restaurant or café name", linkPlaceholder: "Link (optional)", addLabel: "Add another", rows: 3 },
+                list: {
+                    itemPlaceholder: "Restaurant or café name",
+                    linkPlaceholder: "Link (optional)",
+                    addLabel: "Add another",
+                    rows: 3,
+                    guideField: LOCAL_GUIDE_FIELD,
+                },
             },
             {
                 field: "favoritesActivities",
                 label: "Local Favorites — Activities & Attractions",
-                hint: "List your top 3–6 go-to recommendations. If possible, include a link to each to ensure accuracy.",
+                hint: "Already have a page of local recommendations? Paste its link. Otherwise, list your top 3–6 go-to spots, with a link to each if you can.",
                 required: true,
-                list: { itemPlaceholder: "Activity or attraction", linkPlaceholder: "Link (optional)", addLabel: "Add another", rows: 3 },
+                list: {
+                    itemPlaceholder: "Activity or attraction",
+                    linkPlaceholder: "Link (optional)",
+                    addLabel: "Add another",
+                    rows: 3,
+                    guideField: LOCAL_GUIDE_FIELD,
+                },
             },
         ],
     },
@@ -613,6 +637,9 @@ const pickedOf = (data: ClientOnboardingData, field: string) =>
         .filter(Boolean);
 const otherOf = (data: ClientOnboardingData, field: string) => (data.answers[`${field}__other`] ?? "").trim();
 
+/** The existing-guide link a list question shares, if it has one and it's filled in. */
+const guideOf = (q: Question, data: ClientOnboardingData) => (q.list?.guideField ? (data.answers[q.list.guideField] ?? "").trim() : "");
+
 const isAnswered = (q: Question, data: ClientOnboardingData) =>
     q.credentials
         ? !!(
@@ -620,7 +647,7 @@ const isAnswered = (q: Question, data: ClientOnboardingData) =>
               (data.answers[`${q.field}__pass`] ?? "").trim() ||
               (q.platform && (data.answers[q.platform.field] ?? "").trim())
           )
-        : !!(data.answers[q.field] ?? "").trim() || (!!q.choice && !!otherOf(data, q.field)) || hasMedia(q, data);
+        : !!(data.answers[q.field] ?? "").trim() || (!!q.choice && !!otherOf(data, q.field)) || !!guideOf(q, data) || hasMedia(q, data);
 
 const DEFAULT_DATA: ClientOnboardingData = { answers: {} };
 
@@ -687,6 +714,8 @@ export const clientOnboardingAnswers = (partial?: Partial<ClientOnboardingData> 
                 const other = otherOf(data, q.field);
                 if (other) lines.push({ text: `Other: ${other}` });
             } else {
+                const guide = guideOf(q, data);
+                if (guide) lines.push({ text: `Guide: ${guide}` });
                 const v = (data.answers[q.field] ?? "").trim();
                 if (v) v.split("\n").forEach((t) => lines.push({ text: t }));
             }
@@ -886,8 +915,8 @@ function validateStep(step: Step, data: ClientOnboardingData): string | null {
     }
     const v = (data.answers[step.q.field] ?? "").trim();
     // A recording counts: required questions can be answered by voice or video.
-    if (step.q.list && step.q.required && !v) return "Please add at least one";
-    if (step.q.required && !v && !hasMedia(step.q, data)) return "Please fill this in, or record your answer";
+    if (step.q.list && step.q.required && !v && !guideOf(step.q, data)) return "Please paste a link or add at least one";
+    if (step.q.required && !v && !guideOf(step.q, data) && !hasMedia(step.q, data)) return "Please fill this in, or record your answer";
     if (step.q.email && v && !/^\S+@\S+\.\S+$/.test(v)) return "Hmm… that email doesn't look right";
     return null;
 }
@@ -1064,7 +1093,18 @@ const PlatformChips = ({ platform, value, onChange }: { platform: NonNullable<Qu
  * beside it, so the host fills in blanks rather than inventing a format — and
  * the team gets one item per line instead of a paragraph to unpick.
  */
-const ListQuestion = ({ q, value, onChange }: { q: Question; value: string; onChange: (field: string, value: string) => void }) => {
+const ListQuestion = ({
+    q,
+    value,
+    guide,
+    onChange,
+}: {
+    q: Question;
+    value: string;
+    /** Current value of the shared guide link, when the question offers one. */
+    guide: string;
+    onChange: (field: string, value: string) => void;
+}) => {
     const cfg = q.list!;
     const minRows = cfg.rows ?? 3;
     // Rows live in local state so a half-typed row stays on screen; serialization
@@ -1081,11 +1121,28 @@ const ListQuestion = ({ q, value, onChange }: { q: Question; value: string; onCh
 
     return (
         <div className="mt-8 flex max-w-xl flex-col gap-2.5">
+            {cfg.guideField && (
+                <label className="mb-4 block">
+                    <span className="text-xs font-semibold tracking-wide text-quaternary uppercase">Link to your existing guide</span>
+                    <input
+                        type="url"
+                        inputMode="url"
+                        data-step-autofocus
+                        placeholder="https://… (optional)"
+                        value={guide}
+                        onChange={(e) => onChange(cfg.guideField!, e.target.value)}
+                        className={cx(underlineCls, "mt-2 text-lg font-medium")}
+                    />
+                    <span className="mt-4 block text-xs font-semibold tracking-wide text-quaternary uppercase">
+                        {guide.trim() ? "Anything to add? (optional)" : "Or list them here"}
+                    </span>
+                </label>
+            )}
             {rows.map((row, i) => (
                 <div key={i} className="flex items-center gap-2">
                     <span className="w-5 shrink-0 text-sm text-quaternary tabular-nums">{i + 1}.</span>
                     <input
-                        {...(i === 0 ? { "data-step-autofocus": true } : {})}
+                        {...(i === 0 && !cfg.guideField ? { "data-step-autofocus": true } : {})}
                         type="text"
                         placeholder={cfg.itemPlaceholder}
                         value={row.text}
@@ -1399,7 +1456,7 @@ const ReviewScreen = ({
                                           .join("\n")
                                     : q.choice
                                       ? [...pickedOf(data, q.field), otherOf(data, q.field) && `Other: ${otherOf(data, q.field)}`].filter(Boolean).join("\n")
-                                      : (data.answers[q.field] ?? "").trim();
+                                      : [guideOf(q, data) && `Guide: ${guideOf(q, data)}`, (data.answers[q.field] ?? "").trim()].filter(Boolean).join("\n");
                                 return (
                                     <div key={q.field} className="group rounded-xl p-4 ring-1 ring-secondary">
                                         <div className="flex items-start justify-between gap-3">
@@ -1861,7 +1918,12 @@ export const ClientOnboardingFormPage = ({
                                             onChange={onText}
                                         />
                                     ) : step.q.list ? (
-                                        <ListQuestion q={step.q} value={data.answers[step.q.field] ?? ""} onChange={onText} />
+                                        <ListQuestion
+                                            q={step.q}
+                                            value={data.answers[step.q.field] ?? ""}
+                                            guide={step.q.list.guideField ? (data.answers[step.q.list.guideField] ?? "") : ""}
+                                            onChange={onText}
+                                        />
                                     ) : (
                                         <TextQuestion
                                             q={step.q}

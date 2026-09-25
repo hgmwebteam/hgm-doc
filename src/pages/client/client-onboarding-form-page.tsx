@@ -182,7 +182,7 @@ const ONBOARDING_SECTIONS: SectionDef[] = [
                 // read as the same question asked twice.
                 field: "story",
                 label: "Your story: how would you tell it to a guest?",
-                hint: "This helps us create marketing that tells your story, like an About Us section, a welcome email or your landing page. Write it the way you'd want guests to read it: how did the property come to be, and what do you care about? Rough notes are fine; we'll polish them.",
+                hint: "How did the property come to be? We'll use it in your marketing. Rough notes are fine.",
                 required: true,
                 long: true,
             },

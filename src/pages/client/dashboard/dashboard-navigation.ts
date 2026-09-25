@@ -170,7 +170,7 @@ export const JOURNEY_STEPS: {
     {
         id: "form",
         label: "Fill in the Onboarding Form",
-        detail: "Your business details and the logins we need.",
+        detail: "Your business, your brand and your guests.",
         icon: ClipboardCheck,
         to: "intake",
         auto: true,
@@ -190,9 +190,11 @@ export const JOURNEY_STEPS: {
         blockedNote: "Available once the Onboarding Form is complete",
     },
     {
+        // Id kept from when this step was the Brand Vision Form, so stored journey state still
+        // reads. It is the Account Access Form now: that form's questions moved into Onboarding.
         id: "vision",
-        label: "Fill in the Brand Vision Form",
-        detail: "How your brand should look, sound and feel.",
+        label: "Fill in the Account Access Form",
+        detail: "The logins and billing details we need to set things up.",
         icon: FileCheck02,
         to: "onboarding",
         auto: true,
@@ -230,7 +232,7 @@ export const JOURNEY_STEPS: {
         hrefLabel: "Book your onboarding call",
         requires: "vision",
         itemsTitle: "Have these ready before the call",
-        // Every login here is already asked for by the Onboarding form, so the wording is
+        // Every login here is already asked for by the Account Access form, so the wording is
         // "logged in", not "have your password". Facebook especially: we need the client
         // signed in to their own business page so they can add us as a user on the call —
         // we never ask for their Facebook password, and the form no longer asks either.
@@ -478,7 +480,7 @@ export const NAV_GROUPS: {
         icon: ClipboardCheck,
         items: [
             { id: "intake", label: "Onboarding Form", icon: ClipboardCheck },
-            { id: "onboarding", label: "Brand Vision Form", icon: FileCheck02 },
+            { id: "onboarding", label: "Account Access Form", icon: FileCheck02 },
         ],
     },
     {

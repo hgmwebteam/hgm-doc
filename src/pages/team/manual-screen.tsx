@@ -230,9 +230,9 @@ const DASHBOARD_GROUPS: { group: string; items: { label: string; note: string }[
         items: [
             {
                 label: "Onboarding Form",
-                note: `Property facts, links and the four account logins (Instagram, TikTok, PMS, Domain Host) — ${TOTAL_QUESTIONS} questions, ${ESTIMATE_LABEL}, autosaving as the client types.`,
+                note: `The business, the brand and the guests — ${TOTAL_QUESTIONS} questions, ${ESTIMATE_LABEL}, autosaving as the client types. It absorbed the Brand Vision Form.`,
             },
-            { label: "Brand Vision Form", note: "How the brand should look, sound and feel." },
+            { label: "Account Access Form", note: "The four account logins (Instagram, TikTok, PMS, Domain Host) and billing details." },
         ],
     },
     {
@@ -450,8 +450,9 @@ const LINK_GROUPS: { group: string; links: { to: string; what: string }[] }[] = 
     {
         group: "Client-facing forms",
         links: [
-            { to: "/brand-vision-form", what: "Brand Vision form" },
+            { to: "/brand-vision-form", what: "Brand Vision form (legacy)" },
             { to: "/client-onboarding-form", what: "Client onboarding form" },
+            { to: "/access-form", what: "Account access form" },
             { to: "/host-onboarding-form", what: "Host onboarding form" },
         ],
     },

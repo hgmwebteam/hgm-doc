@@ -16,7 +16,16 @@
  *   && node /tmp/hgm-check/logins.cjs
  */
 import assert from "node:assert/strict";
-import { CREDENTIAL_LABELS, clientOnboardingAnswers, withLoginCleared } from "@/pages/client/client-onboarding-form-page";
+import {
+    ACCESS_FORM,
+    CREDENTIAL_LABELS,
+    ONBOARDING_FORM,
+    accessSeedFrom,
+    clientOnboardingAnswers,
+    clientOnboardingProgress,
+    withBrandVisionAnswers,
+    withLoginCleared,
+} from "@/pages/client/client-onboarding-form-page";
 
 const filled = {
     answers: {
@@ -70,7 +79,7 @@ assert.equal(withLoginCleared({ answers: { domainLogin__pass: "   " } }, "domain
 
 /* The answers panel says a password was deleted rather than showing a blank, so nobody
    chases the client for a login they already gave. */
-const rows = clientOnboardingAnswers(one).flatMap((s) => s.rows);
+const rows = clientOnboardingAnswers(one, ACCESS_FORM).flatMap((s) => s.rows);
 const igLines = rows.find((r) => r.field === "instagramLogin")!.lines.map((l) => l.text);
 assert.ok(
     igLines.some((t) => t.startsWith("Password moved to 1Password on")),
@@ -80,14 +89,14 @@ assert.ok(igLines.includes("Username: acme"));
 
 /* The row still holding a password is still marked secret — that flag is what draws the
    delete control and the mask, so losing it would strip both at once. */
-const secretFields = clientOnboardingAnswers(one)
+const secretFields = clientOnboardingAnswers(one, ACCESS_FORM)
     .flatMap((s) => s.rows)
     .filter((r) => r.lines.some((l) => l.secret))
     .map((r) => r.field);
 assert.deepEqual(secretFields, ["pmsLogin"]);
 /* And once everything is cleared, nothing claims to be a secret any more. */
 assert.equal(
-    clientOnboardingAnswers(both)
+    clientOnboardingAnswers(both, ACCESS_FORM)
         .flatMap((s) => s.rows)
         .flatMap((r) => r.lines)
         .filter((l) => l.secret).length,
@@ -97,7 +106,62 @@ assert.equal(
 /* A login the client never filled in still reads as unanswered, not as deleted. */
 assert.equal(rows.find((r) => r.field === "tiktokLogin")!.lines.length, 0);
 
-/* Sanity: the form really does collect the four logins this is written against. */
+/* Sanity: the Account Access form collects the four logins this is written against, and
+   the Onboarding Form collects none — logins live in one row only. */
 assert.equal(CREDENTIAL_LABELS.length, 4);
+assert.equal(ONBOARDING_FORM.credentialLabels.length, 0);
+/* The two forms never ask the same question: each field key belongs to one form. */
+const keys = (f: typeof ONBOARDING_FORM) => f.questionSteps.map(({ q }) => q.field);
+assert.deepEqual(
+    keys(ONBOARDING_FORM).filter((k) => keys(ACCESS_FORM).includes(k)),
+    [],
+);
+assert.equal(ONBOARDING_FORM.total, 26);
+assert.equal(ACCESS_FORM.total, 7);
+
+/* ── Carrying the old Onboarding row's logins and billing into the new Access row ── */
+const oldRow = {
+    answers: { ...filled.answers, story: "We built it in 2019", billingAddress: "1 Main St", domainPlatform: "GoDaddy" },
+    submittedAt: "2026-08-01T00:00:00.000Z",
+};
+const seeded = accessSeedFrom(oldRow);
+/* Logins, platforms and billing come across… */
+assert.equal(seeded.answers.instagramLogin__pass, "ig-secret");
+assert.equal(seeded.answers.pms, "Guesty");
+assert.equal(seeded.answers.domainPlatform, "GoDaddy");
+assert.equal(seeded.answers.billingAddress, "1 Main St");
+/* …but nothing that belongs to the Onboarding Form does. */
+assert.equal(seeded.answers.story, undefined);
+assert.equal(seeded.answers.email, undefined);
+/* Answers that were submitted stay submitted; a row with nothing to carry starts fresh. */
+assert.equal(seeded.submittedAt, "2026-08-01T00:00:00.000Z");
+assert.equal(accessSeedFrom({ answers: { story: "x" }, submittedAt: "2026-08-01T00:00:00.000Z" }).submittedAt, undefined);
+assert.equal(accessSeedFrom(null).submittedAt, undefined);
+
+/* ── Filling the Onboarding Form from a Brand Vision row the client already sent ── */
+const vision = {
+    email: "host@vision.com",
+    businessName: "Acme Cabins",
+    purpose: { picked: ["To provide romantic getaways"], other: "" },
+    idealGuest: { picked: [], other: "Birdwatchers" },
+    threeWords: "Quiet, wild, warm",
+    differentiators: { picked: ["Pet-friendly"], other: "" },
+    brandKnownFor: { picked: ["Most romantic spot", "Best location/views"], other: "" },
+    tone: { picked: ["Witty and clever"], other: "" },
+};
+const merged = withBrandVisionAnswers({ answers: { email: "typed@here.com" } }, vision);
+/* Empty questions fill… */
+assert.equal(merged.answers.purpose, "To provide romantic getaways");
+assert.equal(merged.answers.idealGuest__other, "Birdwatchers");
+assert.equal(merged.answers.threeWords, "Quiet, wild, warm");
+/* …but nothing already typed here is overwritten. */
+assert.equal(merged.answers.email, "typed@here.com");
+/* The cut "known for" question's surviving options join the differentiators; ones
+   with no home in the new list are dropped rather than invented. */
+assert.equal(merged.answers.differentiators, "Pet-friendly\nMost romantic spot");
+/* A question the new form cut (tone) stays out. */
+assert.equal(merged.answers.tone, undefined);
+/* An "Other"-only answer counts as answered. */
+assert.ok(clientOnboardingProgress({ answers: { idealGuest__other: "Birdwatchers" } }).answered === 1);
 
 console.log("client-onboarding-form-page.check.ts — all assertions passed");

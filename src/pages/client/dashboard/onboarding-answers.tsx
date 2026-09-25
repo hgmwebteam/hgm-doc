@@ -160,13 +160,11 @@ export const TeamRecordingSummary = ({ log }: { log?: ScriptLog }) => {
  * A submitted form rendered inline, grouped by section.
  *
  * Takes pre-computed sections rather than raw form data so it serves BOTH client-input
- * forms — clientOnboardingAnswers() for the Onboarding Form and hostOnboardingAnswers()
- * for the Brand Vision Form. Their answer shapes are structurally identical, so neither
- * form page has to import from the other.
+ * forms — clientOnboardingAnswers() with the Onboarding or the Account Access form.
  *
  * Passwords stay masked behind a per-row reveal: this panel sits open on the dashboard, a
  * weaker place to park a credential than a review screen someone had to deliberately open.
- * (Only the Onboarding Form carries any; Brand Vision has none.)
+ * (Only the Account Access Form carries any.)
  *
  * With `onDeleteLogin`, each of those rows also gets a delete control, so a login can be
  * moved into 1Password and removed one at a time. It is drawn only under `isTeamView` —
@@ -190,8 +188,8 @@ export const OnboardingAnswers = ({
     isTeamView?: boolean;
     clientName: string;
     /**
-     * Delete the stored password on one login row. Only passed for the Onboarding Form —
-     * the Brand Vision Form collects no credentials, so its rows never offer it.
+     * Delete the stored password on one login row. Only passed for the Account Access Form —
+     * the Onboarding Form collects no credentials, so its rows never offer it.
      * Rejecting leaves the row alone and the confirm in place, so a failed write cannot
      * read as a password that is gone when it is still there.
      */

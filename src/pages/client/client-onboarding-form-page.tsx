@@ -392,9 +392,8 @@ const ONBOARDING_SECTIONS: SectionDef[] = [
             },
             {
                 field: "chatEmails",
-                label: "Email addresses to add to our Google Chat group",
+                label: "Email addresses to add to our Google Chat group (optional)",
                 hint: "Please list the email addresses of any team members who should be involved in ongoing communication, updates, or approvals.",
-                required: true,
                 list: { itemPlaceholder: "name@company.com", addLabel: "Add another person", rows: 3 },
             },
             { field: "notes", label: "Additional Notes (optional)", hint: "Anything else we should know before we begin?", long: true },

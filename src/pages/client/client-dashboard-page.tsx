@@ -52,7 +52,7 @@ import { Reveal } from "@/components/shared-assets/reveal";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
 import { recordDashboardSave } from "@/lib/dashboard-updates";
-import { type DashboardContent, type OverviewDoc, supabase } from "@/lib/supabase";
+import { type DashboardContent, type HostOnboardingData, type OverviewDoc, supabase } from "@/lib/supabase";
 import {
     ACCESS_FORM,
     ACCESS_INTRO,
@@ -193,6 +193,7 @@ import {
 import { mergeLiveContent, useDashboardLive } from "@/pages/client/dashboard/use-dashboard-live";
 import { type WebsiteSetup, mergeWebsiteSetup, saveWebsiteSetup, websiteSetupProgress } from "@/pages/client/dashboard/website-setup";
 import { type WebsiteSetupSaveState, WebsiteSetupSection } from "@/pages/client/dashboard/website-setup-section";
+import { HostOnboardingFormPage, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
 import { useSuppressFloatingThemeToggle, useTheme } from "@/providers/theme-provider";
 import { compressImageFile } from "@/utils/compress-image";
 import { cx } from "@/utils/cx";
@@ -592,13 +593,46 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, isTemplate, intakeSlug, intakeStatus]);
 
+    /* ── Brand Vision Form — kept only for clients who already answered it ──
+       Its questions now live in the Onboarding Form, so a new client never gets one. A
+       client who already has answers keeps them readable and editable under the
+       Onboarding Form section. Read-only lookup: unlike the two current forms this never
+       provisions a row, which is what keeps it from appearing for new clients. */
+    const visionSlug = clientBase ? `${clientBase}-hostonboarding` : "";
+    const [visionData, setVisionData] = useState<Partial<HostOnboardingData> | null>(null);
+    const [visionStatus, setVisionStatus] = useState<"idle" | "loading" | "ready">("idle");
+    const [copiedVisionLink, setCopiedVisionLink] = useState(false);
+    const visionFetchRef = useRef(false);
+    const visionInfo = hostOnboardingProgress(visionData);
+    const hasVision = visionStatus === "ready" && visionInfo.answered > 0;
+
+    useEffect(() => {
+        if (activeSection !== "intake" || isTemplate || !visionSlug) return;
+        if (visionFetchRef.current || visionStatus === "ready") return;
+        visionFetchRef.current = true;
+        setVisionStatus("loading");
+        supabase
+            .from("host_onboarding_pages")
+            .select("data")
+            .eq("slug", visionSlug)
+            .maybeSingle()
+            .then(({ data: row, error }) => {
+                // A failed lookup just shows no card; the answers still reach the Onboarding
+                // Form through ensureClientOnboardingForm.
+                if (error) console.error("[brand vision read]", error);
+                setVisionData(((row as { data?: Partial<HostOnboardingData> } | null)?.data ?? null) || null);
+                setVisionStatus("ready");
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeSection, isTemplate, visionSlug, visionStatus]);
+
     /* ── Client-input forms open in a modal over the dashboard ──
        Keeps the AM/host in context instead of navigating away to the form page and
        back. The client's own shared link (/{client}-onboarding, -access)
        still renders full-page — that's what the "Copy Link" button sends.
        The raw row data is kept so the embedded form hydrates from what we already
        fetched for the progress card, rather than re-querying on open. */
-    const [formModal, setFormModal] = useState<null | "intake" | "brand">(null);
+    const [formModal, setFormModal] = useState<null | "intake" | "access" | "brand">(null);
     /** When the modal was opened from a specific answer's Edit control, the question to land on. */
     const [formModalField, setFormModalField] = useState("");
     const [intakeData, setIntakeData] = useState<Partial<ClientOnboardingData> | null>(null);
@@ -613,6 +647,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             intakeFetchRef.current = false;
             setIntakeStatus("idle");
         } else if (which === "brand") {
+            visionFetchRef.current = false;
+            setVisionStatus("idle");
+        } else if (which === "access") {
             onboardingFetchRef.current = false;
             setOnboardingStatus("idle");
         }
@@ -624,7 +661,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        only arms it — because there is no undo. Writing `{}` is enough to clear the
        row: both forms run their answers through mergeData(), which fills defaults
        from an empty object. */
-    const [armedReset, setArmedReset] = useState<null | "intake" | "brand">(null);
+    const [armedReset, setArmedReset] = useState<null | "intake" | "access">(null);
     const [resetting, setResetting] = useState(false);
 
     /* ── Delete one stored login once it is in 1Password ──
@@ -660,7 +697,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
     };
 
-    const resetForm = async (kind: "intake" | "brand") => {
+    const resetForm = async (kind: "intake" | "access") => {
         const slugToClear = kind === "intake" ? intakeSlug : onboardingSlug;
         const table = "client_onboarding_pages";
         if (!slugToClear) return;
@@ -3942,6 +3979,58 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 />
                                                             )}
                                                         </div>
+
+                                                        {/* Only for a client who answered the Brand Vision Form before its
+                                                            questions moved into this one. Their answers also fill any empty
+                                                            question above, so nothing has to be typed twice. */}
+                                                        {hasVision && visionData && (
+                                                            <div className="mt-4 rounded-2xl bg-primary p-5 ring-1 ring-secondary">
+                                                                <div className="flex flex-wrap items-center justify-between gap-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <FeaturedIcon
+                                                                            icon={visionInfo.submittedAt ? CheckCircle : FileCheck02}
+                                                                            color={visionInfo.submittedAt ? "success" : "brand"}
+                                                                            theme="light"
+                                                                            size="lg"
+                                                                        />
+                                                                        <div>
+                                                                            <p className="text-md font-semibold text-primary">Brand Vision Form</p>
+                                                                            <p className="mt-0.5 text-sm text-tertiary">
+                                                                                {visionInfo.submittedAt
+                                                                                    ? `Sent ${new Date(visionInfo.submittedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })} · your earlier answers, kept as you gave them`
+                                                                                    : `${visionInfo.answered} of ${visionInfo.total} answered · your earlier answers, kept as you gave them`}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-5 flex flex-wrap items-center gap-3">
+                                                                    <Button color="secondary" iconTrailing={ArrowRight} onClick={() => setFormModal("brand")}>
+                                                                        {visionInfo.submittedAt ? "Review your answers" : "Continue the form"}
+                                                                    </Button>
+                                                                    {isTeam && (
+                                                                        <Button
+                                                                            color="secondary"
+                                                                            iconLeading={Copy01}
+                                                                            onClick={() => {
+                                                                                void navigator.clipboard.writeText(`${window.location.origin}/${visionSlug}`);
+                                                                                setCopiedVisionLink(true);
+                                                                                window.setTimeout(() => setCopiedVisionLink(false), 2000);
+                                                                            }}
+                                                                        >
+                                                                            {copiedVisionLink ? "Link copied" : "Copy Link"}
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                                {visionInfo.submittedAt && (
+                                                                    <OnboardingAnswers
+                                                                        sections={hostOnboardingAnswers(visionData)}
+                                                                        isTeamView={isTeam}
+                                                                        clientName={clientName}
+                                                                        onEdit={() => setFormModal("brand")}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </Reveal>
                                                 )}
 
@@ -4040,7 +4129,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 ) : (
                                                                     <Button
                                                                         iconTrailing={ArrowRight}
-                                                                        {...(isTemplate ? { href: onboardingHref } : { onClick: () => setFormModal("brand") })}
+                                                                        {...(isTemplate ? { href: onboardingHref } : { onClick: () => setFormModal("access") })}
                                                                     >
                                                                         {onboardingSubmitted
                                                                             ? "Review your answers"
@@ -4069,13 +4158,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     onboardingSlug &&
                                                                     onboardingReady &&
                                                                     (onboardingStarted || onboardingSubmitted) &&
-                                                                    (armedReset === "brand" ? (
+                                                                    (armedReset === "access" ? (
                                                                         <>
                                                                             <Button
                                                                                 color="primary-destructive"
                                                                                 isLoading={resetting}
                                                                                 showTextWhileLoading
-                                                                                onClick={() => void resetForm("brand")}
+                                                                                onClick={() => void resetForm("access")}
                                                                             >
                                                                                 {resetting ? "Resetting…" : "Yes, erase all answers"}
                                                                             </Button>
@@ -4091,7 +4180,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         <Button
                                                                             color="tertiary-destructive"
                                                                             iconLeading={RefreshCw01}
-                                                                            onClick={() => setArmedReset("brand")}
+                                                                            onClick={() => setArmedReset("access")}
                                                                         >
                                                                             Reset form
                                                                         </Button>
@@ -4109,7 +4198,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     onDeleteLogin={isTeam && !isTemplate ? deleteLogin : undefined}
                                                                     onEdit={(field) => {
                                                                         setFormModalField(field);
-                                                                        setFormModal("brand");
+                                                                        setFormModal("access");
                                                                     }}
                                                                 />
                                                             )}
@@ -7205,6 +7294,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                 embedded
                                 onClose={closeFormModal}
                                 startAtField={formModalField}
+                            />
+                        ) : formModal === "brand" ? (
+                            <HostOnboardingFormPage
+                                slug={visionSlug}
+                                initialClientName={clientName}
+                                initialClientWebsite={clientWebsite}
+                                initialData={visionData}
+                                embedded
+                                onClose={closeFormModal}
                             />
                         ) : (
                             <AccessFormPage

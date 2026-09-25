@@ -385,9 +385,8 @@ const ONBOARDING_SECTIONS: SectionDef[] = [
             },
             {
                 field: "decisionMakers",
-                label: "Who are the key decision-makers?",
+                label: "Who are the key decision-makers? (optional)",
                 hint: "Outline your team structure and identify who has final approval authority.",
-                required: true,
                 long: true,
             },
             {

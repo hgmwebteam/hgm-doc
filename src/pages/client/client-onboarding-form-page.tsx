@@ -479,6 +479,14 @@ const ACCESS_SECTIONS: SectionDef[] = [
                 long: true,
             },
             {
+                // Sits straight after the billing address because it is asked against it.
+                // Not required: the answer is "no" for most hosts, and a required field
+                // would make them type one.
+                field: "propertyStates",
+                label: "Are the properties we're marketing in a different state than your billing address?",
+                hint: "If yes, tell us which state(s). Plenty of hosts bill from one place and host in another — we just need to know where the properties actually are.",
+            },
+            {
                 // Not required — "if applicable", and plenty of hosts operate without one.
                 field: "taxId",
                 label: "Tax ID (if applicable)",

@@ -230,9 +230,12 @@ const DASHBOARD_GROUPS: { group: string; items: { label: string; note: string }[
         items: [
             {
                 label: "Onboarding Form",
-                note: `The business, the brand and the guests — ${TOTAL_QUESTIONS} questions, ${ESTIMATE_LABEL}, autosaving as the client types. It absorbed the Brand Vision Form.`,
+                note: `The business, the brand and the guests — ${TOTAL_QUESTIONS} questions, ${ESTIMATE_LABEL}, autosaving as the client types. It absorbed the Brand Vision Form. Submitting it emails the client's AM.`,
             },
-            { label: "Account Access Form", note: "The three account logins (Instagram, TikTok, Domain Host) and billing details." },
+            {
+                label: "Account Access Form",
+                note: "The three account logins (Instagram, TikTok, Domain Host) and billing details. Submitting it emails the client's AM which logins were shared, never the logins themselves.",
+            },
         ],
     },
     {
@@ -313,7 +316,7 @@ const TABLES: { group: string; rows: { name: string; what: string }[] }[] = [
             { name: "owner_guides", what: "Per-client owner guides — slug, share password, hidden steps. Guide content lives in sop_pages." },
             {
                 name: "client_onboarding_pages / host_onboarding_pages",
-                what: "The two intake forms' answers — autosaved (900 ms debounce) while the client types, stamped submittedAt when they submit.",
+                what: "The two intake forms' answers — autosaved (900 ms debounce) while the client types, stamped submittedAt when they submit. am_notified_at records when the AM was emailed, so each form emails once.",
             },
         ],
     },
@@ -376,6 +379,10 @@ const FUNCTIONS: { name: string; what: string }[] = [
     {
         name: "pinned-stories-review",
         what: "The client's per-slide notes and approval on Pinned Stories — only ever writes the live version's review, never the highlights.",
+    },
+    {
+        name: "form-submitted",
+        what: "Emails the client's Account Manager when they submit the Onboarding Form or the Account Access Form, one email per form, sent once. The AM comes from the Client List (clients.am) and their address from netlify/lib/team-emails.mts, so a new AM needs adding there. Sends through Resend from notifications@hgmportal.com; needs RESEND_API_KEY and RESEND_FROM in Netlify.",
     },
     {
         name: "canva-import",

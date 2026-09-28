@@ -149,6 +149,9 @@ const FormHeading = ({ eyebrow, title, lede, titleRef }: { eyebrow: string; titl
 
 /* ── Priority ────────────────────────────────────────────────────────────── */
 
+/** The legend lines' id prefix: each chip is described by its line, since the chip says only the level's name. */
+const PRIORITY_MEANING_ID = "priority-meaning";
+
 /**
  * The four chips as one radiogroup. Gap 8 hugging on desktop; at 390 the frame draws
  * two rows of two with 16 between chips and between rows (each chip FILL at 171 on the
@@ -174,7 +177,15 @@ const PriorityChips = ({ value, onChange, labelledBy, describedBy }: { value: Pr
     return (
         <div role="radiogroup" aria-required="true" aria-labelledby={labelledBy} aria-describedby={describedBy} onKeyDown={onKeyDown} className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:gap-2">
             {PRIORITY_LEVELS.map((p, i) => (
-                <PriorityChip key={p.value} level={p.value} selected={value === p.value} onSelect={onChange} tabIndex={value === p.value || (value === null && i === 0) ? 0 : -1} className="cursor-pointer" />
+                <PriorityChip
+                    key={p.value}
+                    level={p.value}
+                    selected={value === p.value}
+                    onSelect={onChange}
+                    tabIndex={value === p.value || (value === null && i === 0) ? 0 : -1}
+                    aria-describedby={`${PRIORITY_MEANING_ID}-${p.value}`}
+                    className="cursor-pointer"
+                />
             ))}
         </div>
     );
@@ -751,7 +762,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                             {PRIORITY_ERROR}
                         </p>
                     )}
-                    <PriorityLegend />
+                    <PriorityLegend idPrefix={PRIORITY_MEANING_ID} />
                 </div>
 
                 <FieldUpload id="files" label="Files" requirement="Optional" attachedCount={files.length} onFiles={addFiles} error={fileError || undefined} />

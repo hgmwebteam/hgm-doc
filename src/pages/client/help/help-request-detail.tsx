@@ -121,6 +121,18 @@ const ErrorNote = ({ message, onRetry }: { message: string; onRetry?: () => void
 /* ── The status block ────────────────────────────────────────────────────── */
 
 /**
+ * The account manager as the page names them: the full name on the ticket, else the mailbox
+ * name capitalised ("chiara@hiddengem.media" reads as "Chiara"), else "". One answer for the
+ * status sentence and the ACCOUNT MANAGER tile, so the sentence never says "Your account
+ * manager" beside a tile that names her.
+ */
+const accountManagerName = (ticket: Ticket): string => {
+    const name = (ticket.account_manager_name ?? "").trim();
+    const local = (ticket.account_manager_email ?? "").trim().split("@")[0] ?? "";
+    return name || (local ? local.charAt(0).toUpperCase() + local.slice(1) : "");
+};
+
+/**
  * The frame's "Promise" (129:94 / 122:80), now the request's status: bg/brand-primary with a
  * 1px border/brand. On the desktop a row, radius/2xl, padding 20 by 24; at 390 a column,
  * radius/xl, padding 16, gap 6, with the card shadow. The eyebrow in caption/meta, the big
@@ -138,7 +150,7 @@ const ErrorNote = ({ message, onRetry }: { message: string; onRetry?: () => void
  * sent. The 390 frame draws no sentence; the one exception is that completion notice.
  */
 const StatusBlock = ({ ticket }: { ticket: Ticket }) => {
-    const am = (ticket.account_manager_name ?? "").trim();
+    const am = accountManagerName(ticket);
     let eyebrow = "STATUS";
     let headline: string = STATUS_META[ticket.status].label;
     let line = "";
@@ -203,11 +215,7 @@ const Fact = ({ label, value }: { label: string; value: string }) => (
  * empty, so the grid never reflows per request.
  */
 const FactRow = ({ ticket }: { ticket: Ticket }) => {
-    // The manager's full name is on the ticket; the mailbox name, capitalised, is the
-    // fallback when it is missing ("chiara@hiddengem.media" reads as "Chiara").
-    const amName = (ticket.account_manager_name ?? "").trim();
-    const amLocal = (ticket.account_manager_email ?? "").trim().split("@")[0] ?? "";
-    const am = amName || (amLocal ? amLocal.charAt(0).toUpperCase() + amLocal.slice(1) : "");
+    const am = accountManagerName(ticket);
     const property = (ticket.property ?? "").trim();
     const by = (ticket.submitted_by_name ?? "").trim();
     const elapsed = elapsedLabel(ticket);

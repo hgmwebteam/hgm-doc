@@ -1212,15 +1212,21 @@ export const PriorityChipGroup = ({
  * Priority/Legend: the one-line meaning of each level, body/helper text/tertiary, with
  * the level's dot centred in a 8x20 column before it, gap 8 between rows and 8 between
  * dot and text. Shown under the chips so people pick by consequence, not by mood.
+ *
+ * `idPrefix` gives each line the id `{idPrefix}-{level}`, so a chip can name its line with
+ * aria-describedby: with no estimate in the pills (owner, 28 Sep 2026) the meaning lives only
+ * here, and a screen reader should hear it on the chip too.
  */
-export const PriorityLegend = ({ className }: { className?: string }) => (
+export const PriorityLegend = ({ className, idPrefix }: { className?: string; idPrefix?: string }) => (
     <ul className={cx("flex flex-col gap-2", className)}>
         {PRIORITY_LEVELS.map((p) => (
             <li key={p.value} className="flex items-start gap-2">
                 <span className="flex h-5 w-2 shrink-0 items-center justify-center">
                     <PriorityDot level={p.value} />
                 </span>
-                <span className="hc-t-body-helper min-w-0 flex-1 text-(--hc-text-tertiary)">{p.meaning}</span>
+                <span id={idPrefix ? `${idPrefix}-${p.value}` : undefined} className="hc-t-body-helper min-w-0 flex-1 text-(--hc-text-tertiary)">
+                    {p.meaning}
+                </span>
             </li>
         ))}
     </ul>

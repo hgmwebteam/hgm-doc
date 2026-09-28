@@ -56,6 +56,7 @@ import {
 // Aliased rather than reusing the slugify above: this must match the slug the dashboard's
 // own "+ New Page" wizard produces, so it uses the same function that wizard does.
 import { createDefaultContent, slugify as dashboardSlugify, genSharePassword } from "@/pages/client/dashboard/dashboard-model";
+import { LandingPageDirectoryContent } from "@/pages/team/landing-page-directory/landing-page-directory";
 import { SOP_DEPARTMENTS, sopDeptTabId } from "@/pages/team/sops/sop-departments";
 import { SopsContent } from "@/pages/team/sops/sops-content";
 import { createBlankTemplateData, isReservedSlug, slugify } from "@/pages/templates/template-one-screen";
@@ -218,6 +219,13 @@ interface DeptTab {
     to?: string;
 }
 
+/** A card section rendered below the department's main one, with its own tab list. */
+interface DeptSection {
+    id: string;
+    label: string;
+    tabs: DeptTab[];
+}
+
 interface Department {
     id: string;
     short: string;
@@ -229,7 +237,14 @@ interface Department {
     /** Extra static nav groups rendered above the main section (with a divider),
         e.g. a "Client Input" group linking out to shared docs like Owner Guides. */
     extraGroups?: { label: string; tabs: DeptTab[] }[];
+    /** Extra card sections rendered below the main one (with a divider). Each takes its own
+        custom tabs, stored in overview_tabs under `${dept.id}:${section.id}` (see sectionKey)
+        so the lists never mix; the cards themselves stay keyed by the department id. */
+    sections?: DeptSection[];
 }
+
+/** The overview_tabs.department value a section's custom tabs are stored under. */
+const sectionKey = (deptId: string, sectionId: string) => `${deptId}:${sectionId}`;
 
 /** Fixed client tiers for the Client List page (grouped in the sidebar). */
 const TIERS: { id: string; label: string; icon: typeof Share07 }[] = [
@@ -293,6 +308,21 @@ const DEPARTMENTS: Department[] = [
         kind: "cards",
         tabs: [{ id: "overview", label: "Overview", icon: LayoutAlt01 }],
         extraGroups: [{ label: "Client Input", tabs: [{ id: "owner-guides", label: "Owner Guides", icon: BookOpen01 }] }],
+        // Landing Page sits under Workflow as a section of its own, with its own tab list so
+        // landing-page work doesn't pile into the website workflow tabs. Its Directory and Prompt
+        // Library rows are the two pages of the Landing Page Directory tool
+        // (pages/team/landing-page-directory/), not card grids;
+        // tabs added beside it in edit mode are ordinary card grids.
+        sections: [
+            {
+                id: "landing-page",
+                label: "Landing Page",
+                tabs: [
+                    { id: "landing-page", label: "Directory", icon: LayoutAlt01 },
+                    { id: "landing-page-prompts", label: "Prompt Library", icon: LayoutAlt01 },
+                ],
+            },
+        ],
     },
     {
         id: "am",
@@ -439,9 +469,50 @@ const NavRow = ({
     </motion.div>
 );
 
+/** "Add tab" at the foot of a card section (edit mode): a dashed button that turns into an input. */
+const AddTabRow = ({ onAdd }: { onAdd: (label: string) => void }) => {
+    const [adding, setAdding] = useState(false);
+    const [newLabel, setNewLabel] = useState("");
+
+    const submitTab = () => {
+        if (newLabel.trim()) onAdd(newLabel.trim());
+        setNewLabel("");
+        setAdding(false);
+    };
+
+    return adding ? (
+        <input
+            type="text"
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value)}
+            onKeyDown={(e) => {
+                if (e.key === "Enter") submitTab();
+                if (e.key === "Escape") {
+                    setAdding(false);
+                    setNewLabel("");
+                }
+            }}
+            onBlur={submitTab}
+            placeholder="Tab name…"
+            autoFocus
+            className="mt-1 w-full rounded-lg border border-secondary bg-primary px-2.5 py-2 text-sm text-primary outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
+        />
+    ) : (
+        <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="mt-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-primary px-2.5 py-2 text-sm font-medium text-tertiary transition duration-100 ease-linear hover:border-brand hover:text-brand-secondary"
+        >
+            <Plus className="size-4 shrink-0" aria-hidden="true" />
+            Add tab
+        </button>
+    );
+};
+
 const Sidebar = ({
     department,
     tabs,
+    sections,
     activeSection,
     onSelect,
     editing,
@@ -453,24 +524,18 @@ const Sidebar = ({
 }: {
     department: Department;
     tabs: DeptTab[];
+    /** The department's extra card sections, custom tabs already merged in. */
+    sections: DeptSection[];
     activeSection: string;
     onSelect: (id: string) => void;
     editing: boolean;
     canEditTabs: boolean;
     customTabIds: string[];
-    onAddTab: (label: string) => void;
+    /** `sectionId` set ⇒ the tab joins that section rather than the main one. */
+    onAddTab: (label: string, sectionId?: string) => void;
     onDeleteTab: (id: string) => void;
     onCollapse?: () => void;
 }) => {
-    const [adding, setAdding] = useState(false);
-    const [newLabel, setNewLabel] = useState("");
-
-    const submitTab = () => {
-        if (newLabel.trim()) onAddTab(newLabel.trim());
-        setNewLabel("");
-        setAdding(false);
-    };
-
     return (
         <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
             {/* Department header */}
@@ -532,36 +597,37 @@ const Sidebar = ({
                     })}
 
                     {/* Add tab (edit mode, card departments) */}
-                    {editing &&
-                        canEditTabs &&
-                        (adding ? (
-                            <input
-                                type="text"
-                                value={newLabel}
-                                onChange={(e) => setNewLabel(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") submitTab();
-                                    if (e.key === "Escape") {
-                                        setAdding(false);
-                                        setNewLabel("");
-                                    }
-                                }}
-                                onBlur={submitTab}
-                                placeholder="Tab name…"
-                                autoFocus
-                                className="mt-1 w-full rounded-lg border border-secondary bg-primary px-2.5 py-2 text-sm text-primary outline-none placeholder:text-placeholder focus:border-brand focus:ring-1 focus:ring-brand"
-                            />
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => setAdding(true)}
-                                className="mt-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-primary px-2.5 py-2 text-sm font-medium text-tertiary transition duration-100 ease-linear hover:border-brand hover:text-brand-secondary"
-                            >
-                                <Plus className="size-4 shrink-0" aria-hidden="true" />
-                                Add tab
-                            </button>
-                        ))}
+                    {editing && canEditTabs && <AddTabRow onAdd={(label) => onAddTab(label)} />}
                 </motion.div>
+
+                {/* Extra card sections (e.g. "Landing Page") below the main one, each behind a
+                divider and taking its own tabs. */}
+                {sections.map((section) => (
+                    <div key={section.id} className="mt-4">
+                        <div className="mb-3 border-t border-secondary" />
+                        <p className="mb-1 px-2 text-xs font-semibold tracking-widest text-quaternary uppercase">{section.label}</p>
+                        <motion.div
+                            key={department.id + ":" + section.id}
+                            className="flex flex-col gap-1"
+                            initial="hidden"
+                            animate="show"
+                            variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+                        >
+                            {section.tabs.map((item) => (
+                                <NavRow
+                                    key={item.id}
+                                    item={item}
+                                    active={activeSection === item.id}
+                                    onSelect={() => onSelect(item.id)}
+                                    editing={editing}
+                                    isCustom={customTabIds.includes(item.id)}
+                                    onDelete={() => onDeleteTab(item.id)}
+                                />
+                            ))}
+                            {editing && canEditTabs && <AddTabRow onAdd={(label) => onAddTab(label, section.id)} />}
+                        </motion.div>
+                    </div>
+                ))}
             </nav>
         </aside>
     );
@@ -3735,7 +3801,7 @@ const DashboardLayout = () => {
         supabase
             .from("overview_tabs")
             .select("*")
-            .eq("department", dept.id)
+            .in("department", [dept.id, ...(dept.sections ?? []).map((s) => sectionKey(dept.id, s.id))])
             .order("created_at", { ascending: true })
             .then(({ data, error }) => {
                 if (!error && data) setCustomTabs(data as OverviewTab[]);
@@ -3743,7 +3809,13 @@ const DashboardLayout = () => {
             });
     }, [dept.id, dept.kind]);
 
-    const tabs: DeptTab[] = dept.kind === "cards" ? [...dept.tabs, ...customTabs.map((t) => ({ id: t.id, label: t.label, icon: LayoutAlt01 }))] : dept.tabs;
+    const customRow = (t: OverviewTab): DeptTab => ({ id: t.id, label: t.label, icon: LayoutAlt01 });
+    const tabs: DeptTab[] = dept.kind === "cards" ? [...dept.tabs, ...customTabs.filter((t) => t.department === dept.id).map(customRow)] : dept.tabs;
+    // Each extra section takes only the custom tabs stored under its own key.
+    const sections: DeptSection[] = (dept.sections ?? []).map((s) => ({
+        ...s,
+        tabs: [...s.tabs, ...customTabs.filter((t) => t.department === sectionKey(dept.id, s.id)).map(customRow)],
+    }));
 
     /** The first tab that actually renders something here — link rows (Manual) have no
      *  content of their own, so landing on one would show an empty department. */
@@ -3756,17 +3828,18 @@ const DashboardLayout = () => {
     };
 
     /** A tab either switches the section or, when it carries `to`, opens its own page.
-     *  extraGroups rows are searched too — they're rendered by the same side menu and are
-     *  the only way a link row reaches a department whose own `tabs` are empty (Clients). */
+     *  Section and extraGroups rows are searched too — they're rendered by the same side menu,
+     *  and the latter are the only way a link row reaches a department whose own `tabs` are
+     *  empty (Clients). */
     const selectTab = (id: string) => {
-        const t = tabs.find((x) => x.id === id) ?? dept.extraGroups?.flatMap((g) => g.tabs).find((x) => x.id === id);
+        const t = [...tabs, ...sections.flatMap((s) => s.tabs), ...(dept.extraGroups?.flatMap((g) => g.tabs) ?? [])].find((x) => x.id === id);
         if (t?.to) navigate(t.to);
         else setActiveSection(id);
     };
 
-    const addTab = async (label: string) => {
+    const addTab = async (label: string, sectionId?: string) => {
         const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-        const row: OverviewTab = { id, department: dept.id, label };
+        const row: OverviewTab = { id, department: sectionId ? sectionKey(dept.id, sectionId) : dept.id, label };
         setCustomTabs((prev) => [...prev, row]);
         setActiveSection(id);
         const { error } = await supabase.from("overview_tabs").insert(row);
@@ -3811,6 +3884,7 @@ const DashboardLayout = () => {
                             <Sidebar
                                 department={dept}
                                 tabs={tabs}
+                                sections={sections}
                                 activeSection={activeSection}
                                 onSelect={selectTab}
                                 editing={editing}
@@ -3825,6 +3899,8 @@ const DashboardLayout = () => {
                             <SopsContent tab={activeSection} onSelectTab={selectTab} />
                         ) : activeSection === "owner-guides" ? (
                             <OwnerGuidesContent editing={editing} isOwner={isOwner} />
+                        ) : dept.id === "website" && (activeSection === "landing-page" || activeSection === "landing-page-prompts") ? (
+                            <LandingPageDirectoryContent editing={editing} page={activeSection === "landing-page-prompts" ? "prompts" : "directory"} />
                         ) : dept.kind === "docs" ? (
                             activeSection === "popups" ? (
                                 <PopupsContent />

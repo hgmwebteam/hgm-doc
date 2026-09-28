@@ -177,6 +177,17 @@ the cases the button flags, and is how fixtures get (re-)measured.
 body has not been split — doing so needs real prop-threading, so treat it as a
 deliberate separate change rather than something to start mid-task.
 
+The Web Team's **Landing Page** section (`/dashboard?dept=website&tab=landing-page`) is
+`src/pages/team/landing-page-directory/`: its **Directory** row holds every client's landing-page
+setup and channel links, and its **Prompt Library** row (`tab=landing-page-prompts`) the prompts the
+team builds those pages with — two pages of one component, picked by its `page` prop. It is a port of the team's standalone
+Landing Page Directory page. The whole directory is one JSON document in `sop_pages` under the
+slug `landing-page-directory`, read and rewritten whole through `db-sync.ts`; `directory-seed.ts`
+is what shows until the first save writes that row. `directory-model.ts` holds the shapes and
+every derived rule (channel links from the domain and the current slugs, the four "needs
+attention" checks, live/tags status) with no React, and the rest are the screens: picker, cards,
+overview, table, editor, peek, prompt library. Editing rides the dashboard's own edit mode.
+
 `reference/` at the repo root is team material (design mockups, SOP screenshots,
 design-tool exports) and is **not** read by the app; only `src/` is bundled and only
 `public/` is served. See [reference/README.md](reference/README.md).

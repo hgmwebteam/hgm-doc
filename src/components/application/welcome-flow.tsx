@@ -547,8 +547,14 @@ const NEW_ITEMS: Record<string, () => unknown> = {
 
 /* ── Client feedback ─────────────────────────────────────────────── */
 
-/** Client feedback wiring — now shared with the Landing page, see client-feedback.tsx. */
-export type FlowFeedbackProps = ClientFeedbackProps;
+/** Client feedback wiring. The box itself is shared with the Landing page (see
+ *  client-feedback.tsx); only the send differs, because a note here names the email it is
+ *  about and the Landing page has one page to talk about. The section binds the open tab's
+ *  slot, so nothing outside has to know which email is on screen. */
+export type FlowFeedbackProps = Omit<ClientFeedbackProps, "send"> & {
+    /** Send (or replace) this person's open note on email `slot` (0-based). */
+    sendFor: (slot: number, text: string) => Promise<void>;
+};
 
 /** The two previews, in display order — mobile first. */
 const DEVICES = [
@@ -987,15 +993,26 @@ export const WelcomeFlowSection = ({
     };
 
     /* ── The client's feedback rail ──
-       Sits beside the previews so a note can be written while the emails are on screen,
-       and stays put as the tabs change: one note covers the whole flow, so a client who
-       has something to say about E2 and E6 writes it once and sends once. Sending again
-       replaces it, and the team reads it in the review card above. Null for the team and
+       Sits beside the previews so a note can be written while the email is on screen, and
+       belongs to the email in front of you: switching tabs switches the note, because a
+       note the team can act on says which email it is about. Sending again replaces that
+       email's note, and the team reads it in the review card above. Null for the team and
        for a viewer who can't send. */
+    const tabFeedback: ClientFeedbackProps | null = fb
+        ? {
+              ...fb,
+              items: fb.items.filter((s) => flowFeedbackSlot(s.field_key) === tab),
+              send: (text: string) => fb.sendFor(tab, text),
+          }
+        : null;
     const fbRail =
-        fb && flowHasAnything ? (
+        tabFeedback && flowHasAnything ? (
             <aside className="w-full shrink-0 empty:hidden @min-[1012px]:sticky @min-[1012px]:top-4 @min-[1012px]:w-[340px]">
-                <ClientFeedbackBox feedback={fb} placeholder="Your feedback on the welcome emails…" />
+                <ClientFeedbackBox
+                    feedback={tabFeedback}
+                    title={`Your feedback on ${stepLabel(tab)}`}
+                    placeholder={`What would you change about ${stepLabel(tab)}?`}
+                />
             </aside>
         ) : null;
 
@@ -1034,15 +1051,22 @@ export const WelcomeFlowSection = ({
 
             {/* Step tabs — always all nine, always on one line: the row scrolls sideways
                 rather than wrapping when the column is too narrow for all of them. A step
-                with nothing in it yet is drawn dashed. */}
+                with nothing in it yet is drawn dashed, and one this person has already
+                commented on carries a dot — with nine emails and one note each, "which
+                ones have I done?" is the question the strip has to answer. */}
             <div className="-mx-1 mt-6 flex flex-nowrap items-center gap-1.5 overflow-x-auto px-1 pb-1">
                 {FLOW_STEPS.map((step, i) => {
                     const filled = !!customs[i] || !!dbEmails[i] || i < flow.emails.length;
+                    const noted =
+                        !!fb &&
+                        fb.items.some(
+                            (s) => s.status === "pending" && flowFeedbackSlot(s.field_key) === i && (fb.mode === "review" || s.suggested_by === fb.author),
+                        );
                     return (
                         <button
                             key={step.key}
                             type="button"
-                            title={filled ? undefined : "Not ready yet"}
+                            title={filled ? (noted ? "You've left feedback on this one" : undefined) : "Not ready yet"}
                             onClick={() => {
                                 setTab(i);
                                 scrollYRef.current = 0;
@@ -1058,14 +1082,21 @@ export const WelcomeFlowSection = ({
                             )}
                         >
                             E{i + 1} {step.name}
+                            {noted && (
+                                <span
+                                    className={cx("ml-1.5 inline-block size-1.5 rounded-full align-middle", tab === i ? "bg-white" : "bg-fg-brand-primary")}
+                                    aria-label="feedback sent"
+                                />
+                            )}
                         </button>
                     );
                 })}
             </div>
             <p className="mt-2 text-xs text-quaternary">{tab === 0 ? "Sent when the lead signs up" : `Sent in week ${tab + 1}`}</p>
 
-            {/* Team review — every open client note on the flow, read and closed here. A note
-                written before the box was combined names the email it was about. */}
+            {/* Team review — every open client note on the flow, read and closed here, each
+                naming the email it is about. All nine at once on purpose: the AM works the
+                list, and switching tabs to find the next note would hide half of it. */}
             {fb?.mode === "review" && (
                 <div className="mt-4">
                     <ClientFeedbackReview

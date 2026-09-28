@@ -18,6 +18,7 @@
  */
 import assert from "node:assert/strict";
 import { DEFAULT_FOUNDATION, type Foundation, emptyFavorite, emptyFocusProperty, emptyPersona, emptyWebsiteLink } from "./dashboard-model";
+import { wordDiff } from "./suggestions-model";
 import {
     FLOW_FEEDBACK_KEY,
     LANDING_FEEDBACK_KEY,
@@ -142,6 +143,39 @@ for (const list of Object.keys(LIST_COLUMNS) as (keyof typeof LIST_COLUMNS)[]) {
     assert.equal(isSectionFeedbackKey("pinnedposts.abc123.feedback"), false, "pinned post keys must not read as section feedback");
     assert.equal(isStoriesFeedbackKey("pinnedposts.abc123.feedback"), false, "pinned post keys must not read as pinned stories");
     assert.equal(isSectionFeedbackKey("hosts"), false, "a document key must not read as feedback");
+}
+
+/* 10. The before / after the team reviews: the words that changed are marked, and nothing
+       is lost or invented — either side can be rebuilt from the parts. */
+{
+    const join = (parts: ReturnType<typeof wordDiff>, drop: "add" | "del") =>
+        parts
+            .filter((p) => p.kind !== drop)
+            .map((p) => p.text)
+            .join("");
+    const cases: [string, string][] = [
+        ["Quiet cabins by the lake", "Quiet cabins right by the lake"],
+        ["Hot tub and sauna", "Hot tub, sauna and cold plunge"],
+        ["", "Brand new text"],
+        ["Old text", ""],
+        ["Same words", "Same words"],
+        ["Line one\nLine two", "Line one\nLine two\nLine three"],
+    ];
+    for (const [before, after] of cases) {
+        const parts = wordDiff(before, after);
+        assert.equal(join(parts, "del"), after, `rebuilding the suggestion from ${JSON.stringify(parts)}`);
+        // Kept words carry the suggestion's spacing, so the saved side matches up to whitespace.
+        const words = (t: string) => t.replace(/\s+/g, " ").trim();
+        assert.equal(words(join(parts, "add")), words(before), `rebuilding the saved text from ${JSON.stringify(parts)}`);
+    }
+    // An addition in the middle is ONE added part, and the words around it stay "same".
+    const mid = wordDiff("Quiet cabins by the lake", "Quiet cabins right by the lake");
+    assert.deepEqual(
+        mid.filter((p) => p.kind !== "same").map((p) => [p.kind, p.text]),
+        [["add", "right "]],
+    );
+    // Nothing changed ⇒ nothing marked.
+    assert.ok(wordDiff("Same words", "Same words").every((p) => p.kind === "same"));
 }
 
 console.log("suggestions.check: all assertions passed");

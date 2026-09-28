@@ -50,24 +50,8 @@ export const foundationProgress = (f: Foundation): Record<FoundationSectionId, b
     links: f.websiteLinks.some((l) => filled(l.page) || filled(l.url)),
 });
 
-/** The ChatGPT/Gemini prompt an AM runs over 30+ guest reviews before filling in Reviews. */
-export const REVIEW_WORKING_PROMPT = `You are an expert hospitality marketing analyst and brand strategist. Your task is to analyze raw guest review data for a vacation rental business to uncover deep insights for its marketing and branding.
-
-Here is the raw text of the guest reviews:
-
-[PASTE ALL 30+ GUEST REVIEWS HERE]
-
-Based on this data, please perform the following two analyses:
-
-1. Identify Core Brand Pillars & Key Selling Points:
-- List the top 5-7 most frequently mentioned amenities, property features, or design elements that guests consistently praise.
-- List the top 5-7 most common emotional or experiential themes guests use to describe their stay (e.g., "peaceful escape," "luxurious comfort," "perfect for families," "attention to detail"). These themes should be the emotional heart of the brand.
-
-2. Generate Marketing Copy Insights:
-- For each of the top 3-5 most compelling amenities/features identified in the first step, provide 3-4 actual quotes (or close paraphrases) from the reviews. This raw, emotional language is excellent for social media hooks and email subject lines.
-- For the top 3 most common emotional/experiential themes, suggest a short, impactful Brand Tagline (2-6 words) that captures that feeling.
-
-Output your results clearly using bullet points for each section.`;
+/* The review-analysis prompt the team used to paste into ChatGPT now runs server-side:
+   the "reviews" group in netlify/functions/generate-master-section.mts. */
 
 /** v1 Master Document fields, kept read-only so pre-redesign answers stay visible. */
 export const LEGACY_FOUNDATION_FIELDS = [

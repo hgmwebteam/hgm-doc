@@ -183,12 +183,16 @@ export const DocRail = <Id extends string>({
     sections,
     progress,
     action,
+    belowPinnedBar = false,
 }: {
     sections: readonly { id: Id; label: string }[];
     progress: Record<Id, boolean>;
     /** Optional control pinned above the section list (e.g. the client's Suggest edits
      *  button), separated from it by a divider so it reads as chrome, not a section. */
     action?: ReactNode;
+    /** Something is pinned to the top of the scroller above this rail (the client's
+     *  Suggest edits box), so the rail sticks below it instead of sliding under it. */
+    belowPinnedBar?: boolean;
 }) => {
     const [active, setActive] = useState<Id>(sections[0].id);
     const onScreen = useRef(new Set<Id>());
@@ -207,11 +211,13 @@ export const DocRail = <Id extends string>({
                 const first = sections.find((s) => onScreen.current.has(s.id));
                 if (first) setActive(first.id);
             },
-            { rootMargin: "-96px 0px -55% 0px" },
+            // Measured from below whatever covers the top of the scroller, so a section
+            // hidden under the pinned box never counts as the one being read.
+            { rootMargin: belowPinnedBar ? "-190px 0px -55% 0px" : "-96px 0px -55% 0px" },
         );
         els.forEach((el) => io.observe(el));
         return () => io.disconnect();
-    }, [sections]);
+    }, [sections, belowPinnedBar]);
 
     const jump = (id: Id) => {
         document.getElementById(`mbd-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -219,7 +225,7 @@ export const DocRail = <Id extends string>({
     };
 
     return (
-        <nav aria-label="Document sections" className="lg:sticky lg:top-6 lg:w-56 lg:shrink-0">
+        <nav aria-label="Document sections" className={cx("lg:sticky lg:w-56 lg:shrink-0", belowPinnedBar ? "lg:top-32" : "lg:top-6")}>
             {action && <div className="mb-4 border-b border-secondary pb-4">{action}</div>}
             <p className="font-mono text-[11px] font-semibold tracking-[0.08em] text-quaternary uppercase">Sections</p>
             <ul className="mt-3 flex flex-col gap-0.5">

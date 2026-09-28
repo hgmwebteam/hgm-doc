@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { flowSlot, pickFlowEmailRow } from "../lib/flow-feedback.mts";
 
 /**
  * Suggestion mode for the Master Brand Document.
@@ -18,9 +19,12 @@ import { createClient } from "@supabase/supabase-js";
  *
  * The same rows also carry a client's feedback on a section rather than a document field —
  * the welcome emails, the landing page, the example reels, the pinned stories, a pinned
- * post — under their own key prefixes (see suggestions-model.ts). Nothing here treats them
- * differently except the visibility check, which asks for that section rather than the
- * foundation: SECTION_FOR_PREFIX below is the whole difference.
+ * post — under their own key prefixes (see suggestions-model.ts). Two things treat them
+ * differently: the visibility check, which asks for that section rather than the foundation
+ * (SECTION_FOR_PREFIX below), and the mirror, which copies a welcome-email note onto that
+ * email's own row in email_wf_emails so the person rewriting it reads it where they work.
+ * dashboard_suggestions stays the source of truth — the mirror is best-effort and never
+ * fails the client's send.
  *
  * Actions (POST, JSON):
  *   { action: "list",     slug, email }         → { suggestions: [...] }
@@ -78,9 +82,33 @@ export default async (req: Request) => {
 
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
+    /** Copy (or clear) one email's note onto its row in the email pipeline's own table.
+     *
+     *  Matched by client name + WEEK, never `position`: position repeats within a client
+     *  (one live client has nine emails across six positions), so a position match would
+     *  write E5's note over E4's. `week` is unique per client; `position` is the fallback
+     *  only for rows written before `week` existed — the same rule the dashboard uses to
+     *  decide which slot an email fills.
+     *
+     *  Best-effort by design: the note is already saved in dashboard_suggestions, which is
+     *  what the AM reviews, so a missing row or a failed update must never turn the
+     *  client's send into an error. It returns nothing and throws nothing. */
+    const mirrorToEmailTable = async (slot: number, text: string | null) => {
+        const clientName = String((row as { client_name?: unknown }).client_name ?? "").trim();
+        if (!clientName) return;
+        try {
+            const { data: emails } = await supabaseAdmin.from("email_wf_emails").select("id, week, position").ilike("client_name", clientName);
+            const target = pickFlowEmailRow(emails ?? [], slot);
+            if (!target) return;
+            await supabaseAdmin.from("email_wf_emails").update({ feedback: text }).eq("id", target.id);
+        } catch {
+            /* The dashboard copy is the one that matters — see above. */
+        }
+    };
+
     // Identity: the email must be on THIS dashboard's allowlist, read fresh from the row —
     // never from anything the browser sends. An empty allowlist authenticates nobody.
-    const { data: row, error: readErr } = await supabaseAdmin.from("dashboard_pages").select("data").eq("slug", slug).single();
+    const { data: row, error: readErr } = await supabaseAdmin.from("dashboard_pages").select("data, client_name").eq("slug", slug).single();
     if (readErr || !row) return Response.json({ error: "Not found." }, { status: 404 });
     const data = (row.data ?? {}) as Record<string, unknown>;
     const allowed = Array.isArray(data.allowed_emails) ? (data.allowed_emails as unknown[]).map(norm) : [];
@@ -161,12 +189,27 @@ export default async (req: Request) => {
 
         const { error: insErr } = await supabaseAdmin.from("dashboard_suggestions").insert(clean);
         if (insErr) return Response.json({ error: "Could not save suggestions." }, { status: 500 });
+
+        // Feedback on a welcome email also lands on that email's own row.
+        for (const c of clean) {
+            const slot = flowSlot(c.field_key);
+            if (slot !== null) await mirrorToEmailTable(slot, c.suggested_value);
+        }
         return Response.json({ ok: true, created: clean.length });
     }
 
     if (action === "withdraw") {
         const id = String(body.id ?? "");
         if (!/^[0-9a-f-]{36}$/.test(id)) return Response.json({ error: "Bad id." }, { status: 400 });
+        // Read the key before deleting: a withdrawn note has to be cleared from the email
+        // table too, and after the delete there is nothing left to say which email it was.
+        const { data: going } = await supabaseAdmin
+            .from("dashboard_suggestions")
+            .select("field_key")
+            .eq("id", id)
+            .eq("slug", slug)
+            .eq("suggested_by", email)
+            .maybeSingle();
         // Scoped to the caller's own pending rows — nobody withdraws someone else's.
         const { error } = await supabaseAdmin
             .from("dashboard_suggestions")
@@ -176,6 +219,9 @@ export default async (req: Request) => {
             .eq("suggested_by", email)
             .eq("status", "pending");
         if (error) return Response.json({ error: "Could not withdraw." }, { status: 500 });
+
+        const slot = going ? flowSlot(String(going.field_key ?? "")) : null;
+        if (slot !== null) await mirrorToEmailTable(slot, null);
         return Response.json({ ok: true });
     }
 

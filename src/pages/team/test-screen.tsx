@@ -182,7 +182,7 @@ export const TestScreen = () => (
                         mode: "client",
                         items: [],
                         author: "preview@hgmportal.com",
-                        send: async () => undefined,
+                        sendFor: async () => undefined,
                         withdraw: async () => undefined,
                         resolve: async () => undefined,
                     }}

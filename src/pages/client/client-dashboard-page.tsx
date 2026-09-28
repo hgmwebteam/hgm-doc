@@ -54,6 +54,9 @@ import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
 import { recordDashboardSave } from "@/lib/dashboard-updates";
 import { type DashboardContent, type HostOnboardingData, type OverviewDoc, supabase } from "@/lib/supabase";
 import {
+    ACCESS_FORM,
+    ACCESS_INTRO,
+    AccessFormPage,
     CREDENTIAL_LABELS,
     CREDENTIAL_LIST,
     type ClientOnboardingData,
@@ -65,9 +68,11 @@ import {
     TOTAL_QUESTIONS,
     clientOnboardingAnswers,
     clientOnboardingProgress,
+    ensureAccessForm,
     ensureClientOnboardingForm,
     withLoginCleared,
 } from "@/pages/client/client-onboarding-form-page";
+import { AutomationBrandingCard } from "@/pages/client/dashboard/automation-branding-card";
 import { type BrandKitDraft, BrandKitDraftReview } from "@/pages/client/dashboard/brand-kit-draft";
 import { brandKitCss, brandKitFileName, brandKitHasContent } from "@/pages/client/dashboard/brand-kit-export";
 import { BrandPreview } from "@/pages/client/dashboard/brand-kit-preview";
@@ -152,7 +157,6 @@ import { JourneyProgress } from "@/pages/client/dashboard/journey-progress";
 import {
     FOUNDATION_SECTIONS,
     LEGACY_FOUNDATION_FIELDS,
-    REVIEW_WORKING_PROMPT,
     compileMasterDocument,
     foundationProgress,
     masterDocumentHtml,
@@ -171,13 +175,13 @@ import {
 import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pages/client/dashboard/pinned-posts";
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
-    FLOW_FEEDBACK_KEY,
     LANDING_FEEDBACK_KEY,
     REELS_FEEDBACK_KEY,
     STORIES_FEEDBACK_KEY,
     type Suggestion,
     type SuggestionItem,
     applySuggestion,
+    flowFeedbackKey,
     isFlowFeedbackKey,
     isLandingFeedbackKey,
     isReelsFeedbackKey,
@@ -189,7 +193,7 @@ import {
 import { mergeLiveContent, useDashboardLive } from "@/pages/client/dashboard/use-dashboard-live";
 import { type WebsiteSetup, mergeWebsiteSetup, saveWebsiteSetup, websiteSetupProgress } from "@/pages/client/dashboard/website-setup";
 import { type WebsiteSetupSaveState, WebsiteSetupSection } from "@/pages/client/dashboard/website-setup-section";
-import { HostOnboardingFormPage, ensureHostOnboardingForm, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
+import { HostOnboardingFormPage, hostOnboardingAnswers, hostOnboardingProgress } from "@/pages/client/host-onboarding-form-page";
 import { useSuppressFloatingThemeToggle, useTheme } from "@/providers/theme-provider";
 import { compressImageFile } from "@/utils/compress-image";
 import { cx } from "@/utils/cx";
@@ -208,7 +212,6 @@ Thanks!`;
 const CONTACT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(CONTACT_SUBJECT)}&body=${encodeURIComponent(CONTACT_BODY)}`;
 
 /** Read from the form itself so the copy never goes stale if a question is added. */
-const ONBOARDING_TOTAL_QUESTIONS = hostOnboardingProgress().total;
 
 export interface ClientDashboardPageProps {
     /** Page slug — when set, locking persists edits to dashboard_pages (shared). */
@@ -493,13 +496,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     }, []);
 
     // ── Client Input → Onboarding Form ──
-    // Every client's dashboard links to their own copy of the Brand Vision Form at
-    // {base}-hostonboarding, derived from this page's own slug ({base}-dashboard).
+    // Every client's dashboard links to their own copy of the Account Access Form at
+    // {base}-access, derived from this page's own slug ({base}-dashboard). This slot held
+    // the Brand Vision Form until its questions moved into the Onboarding Form; the section
+    // id stays "onboarding" so saved visibility and journey state keep working.
     // The row is provisioned on first visit to the section, so no one has to create
     // it by hand for each client. The template dashboard points at the master form.
     const clientBase = slug ? slug.replace(/-dashboard$/, "") : "";
-    const onboardingSlug = clientBase ? `${clientBase}-hostonboarding` : "";
-    const onboardingHref = isTemplate || !onboardingSlug ? "/brand-vision-form" : `/${onboardingSlug}`;
+    const onboardingSlug = clientBase ? `${clientBase}-access` : "";
+    const onboardingHref = isTemplate || !onboardingSlug ? "/access-form" : `/${onboardingSlug}`;
     const [onboardingStatus, setOnboardingStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
     const [onboardingInfo, setOnboardingInfo] = useState<{ answered: number; total: number; submittedAt?: string }>({ answered: 0, total: 0 });
     const [copiedOnboardingLink, setCopiedOnboardingLink] = useState(false);
@@ -533,23 +538,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         // Hard ceiling on the check: while Supabase is unreachable the request can
         // hang without ever rejecting, which would strand the card on "Checking…".
         const timedOut = new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 10_000));
-        Promise.race([ensureHostOnboardingForm({ slug: onboardingSlug, clientName, clientWebsite }), timedOut])
+        Promise.race([ensureAccessForm({ slug: onboardingSlug, clientName, clientWebsite }), timedOut])
             .then((answers) => {
                 if (!answers) {
                     failed();
                     return;
                 }
-                const p = hostOnboardingProgress(answers);
+                const p = clientOnboardingProgress(answers, ACCESS_FORM);
                 setOnboardingInfo({ answered: p.answered, total: p.total, submittedAt: p.submittedAt });
-                setBrandData(answers as Partial<HostOnboardingData>);
+                setBrandData(answers as Partial<ClientOnboardingData>);
                 setOnboardingStatus("ready");
             })
             .catch(failed);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, isTemplate, onboardingSlug, onboardingStatus]);
 
-    // ── Client Input → Onboarding Form (the FIRST form — before Brand Vision) ──
-    // Same provision-on-first-visit pattern as the Brand Vision block above,
+    // ── Client Input → Onboarding Form ──
+    // Same provision-on-first-visit pattern as the Account Access block above,
     // against client_onboarding_pages at {base}-onboarding.
     const intakeSlug = clientBase ? `${clientBase}-onboarding` : "";
     const intakeHref = isTemplate || !intakeSlug ? "/client-onboarding-form" : `/${intakeSlug}`;
@@ -588,17 +593,50 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeSection, isTemplate, intakeSlug, intakeStatus]);
 
+    /* ── Brand Vision Form — kept only for clients who already answered it ──
+       Its questions now live in the Onboarding Form, so a new client never gets one. A
+       client who already has answers keeps them readable and editable under the
+       Onboarding Form section. Read-only lookup: unlike the two current forms this never
+       provisions a row, which is what keeps it from appearing for new clients. */
+    const visionSlug = clientBase ? `${clientBase}-hostonboarding` : "";
+    const [visionData, setVisionData] = useState<Partial<HostOnboardingData> | null>(null);
+    const [visionStatus, setVisionStatus] = useState<"idle" | "loading" | "ready">("idle");
+    const [copiedVisionLink, setCopiedVisionLink] = useState(false);
+    const visionFetchRef = useRef(false);
+    const visionInfo = hostOnboardingProgress(visionData);
+    const hasVision = visionStatus === "ready" && visionInfo.answered > 0;
+
+    useEffect(() => {
+        if (activeSection !== "intake" || isTemplate || !visionSlug) return;
+        if (visionFetchRef.current || visionStatus === "ready") return;
+        visionFetchRef.current = true;
+        setVisionStatus("loading");
+        supabase
+            .from("host_onboarding_pages")
+            .select("data")
+            .eq("slug", visionSlug)
+            .maybeSingle()
+            .then(({ data: row, error }) => {
+                // A failed lookup just shows no card; the answers still reach the Onboarding
+                // Form through ensureClientOnboardingForm.
+                if (error) console.error("[brand vision read]", error);
+                setVisionData(((row as { data?: Partial<HostOnboardingData> } | null)?.data ?? null) || null);
+                setVisionStatus("ready");
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeSection, isTemplate, visionSlug, visionStatus]);
+
     /* ── Client-input forms open in a modal over the dashboard ──
        Keeps the AM/host in context instead of navigating away to the form page and
-       back. The client's own shared link (/{client}-onboarding, -hostonboarding)
+       back. The client's own shared link (/{client}-onboarding, -access)
        still renders full-page — that's what the "Copy Link" button sends.
        The raw row data is kept so the embedded form hydrates from what we already
        fetched for the progress card, rather than re-querying on open. */
-    const [formModal, setFormModal] = useState<null | "intake" | "brand">(null);
+    const [formModal, setFormModal] = useState<null | "intake" | "access" | "brand">(null);
     /** When the modal was opened from a specific answer's Edit control, the question to land on. */
     const [formModalField, setFormModalField] = useState("");
     const [intakeData, setIntakeData] = useState<Partial<ClientOnboardingData> | null>(null);
-    const [brandData, setBrandData] = useState<Partial<HostOnboardingData> | null>(null);
+    const [brandData, setBrandData] = useState<Partial<ClientOnboardingData> | null>(null);
 
     // Closing re-runs the progress fetch so the card reflects whatever they just answered.
     const closeFormModal = () => {
@@ -609,6 +647,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             intakeFetchRef.current = false;
             setIntakeStatus("idle");
         } else if (which === "brand") {
+            visionFetchRef.current = false;
+            setVisionStatus("idle");
+        } else if (which === "access") {
             onboardingFetchRef.current = false;
             setOnboardingStatus("idle");
         }
@@ -620,7 +661,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        only arms it — because there is no undo. Writing `{}` is enough to clear the
        row: both forms run their answers through mergeData(), which fills defaults
        from an empty object. */
-    const [armedReset, setArmedReset] = useState<null | "intake" | "brand">(null);
+    const [armedReset, setArmedReset] = useState<null | "intake" | "access">(null);
     const [resetting, setResetting] = useState(false);
 
     /* ── Delete one stored login once it is in 1Password ──
@@ -635,32 +676,38 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
        swallowing, so a failed write leaves the row's confirm in place instead of reading
        as a password that is gone when it is still there. */
     const deleteLogin = async (field: string) => {
-        if (!intakeSlug) return;
-        const cleared = withLoginCleared(intakeData, field);
-        const { error } = await supabase.from("client_onboarding_pages").update({ data: cleared }).eq("slug", intakeSlug);
+        if (!onboardingSlug) return;
+        const cleared = withLoginCleared(brandData, field);
+        const { error } = await supabase.from("client_onboarding_pages").update({ data: cleared }).eq("slug", onboardingSlug);
         if (error) {
             console.error("[delete login]", error);
             throw error;
         }
-        setIntakeData(cleared);
+        setBrandData(cleared);
+        // Logins used to live in the Onboarding row, and the Access row was seeded with a
+        // copy. Clear that copy too, or "moved to 1Password" would leave the password behind.
+        if (intakeSlug && (intakeData?.answers?.[`${field}__pass`] ?? "").trim()) {
+            const oldCleared = withLoginCleared(intakeData, field);
+            const { error: oldError } = await supabase.from("client_onboarding_pages").update({ data: oldCleared }).eq("slug", intakeSlug);
+            if (oldError) {
+                console.error("[delete login]", oldError);
+                throw oldError;
+            }
+            setIntakeData(oldCleared);
+        }
     };
 
-    const resetForm = async (kind: "intake" | "brand") => {
+    const resetForm = async (kind: "intake" | "access") => {
         const slugToClear = kind === "intake" ? intakeSlug : onboardingSlug;
-        const table = kind === "intake" ? "client_onboarding_pages" : "host_onboarding_pages";
+        const table = "client_onboarding_pages";
         if (!slugToClear) return;
         setResetting(true);
         try {
             // Delete the recordings first. Wiping the row would otherwise strand the
             // files in the bucket with nothing referencing them.
-            const paths =
-                kind === "intake"
-                    ? Object.entries(intakeData?.answers ?? {})
-                          .filter(([k, v]) => k.endsWith("__media") && (v ?? "").trim())
-                          .map(([, v]) => v as string)
-                    : Object.values(brandData?.mediaAnswers ?? {})
-                          .map((m) => m?.path)
-                          .filter((x): x is string => !!x);
+            const paths = Object.entries((kind === "intake" ? intakeData : brandData)?.answers ?? {})
+                .filter(([k, v]) => k.endsWith("__media") && (v ?? "").trim())
+                .map(([, v]) => v as string);
             if (paths.length) await supabase.storage.from("recordings").remove(paths);
 
             const { error } = await supabase.from(table).update({ data: {} }).eq("slug", slugToClear);
@@ -706,8 +753,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [masterDocCopied, setMasterDocCopied] = useState(false);
     const [headerDocCopied, setHeaderDocCopied] = useState(false);
     const [overviewCopied, setOverviewCopied] = useState(false);
-    /** "Copied" flash on the Reviews working prompt (team-only block). */
-    const [promptCopied, setPromptCopied] = useState(false);
     /* ── Master Document drafting (team-only) ──
        `masterDraftStep` is the label of the group being drafted, shown live: the run takes
        around a minute across eight model calls, and a single spinner for that long reads as
@@ -977,6 +1022,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Accepted locally but not yet saved — flipped to accepted in the DB only after
      *  persistAndLock's upsert succeeds, so an abandoned tab leaves them pending. */
     const [queuedAccepts, setQueuedAccepts] = useState<ReadonlySet<string>>(new Set());
+    /** What each queued suggestion replaced, so the team still sees it and can Undo before Save. */
+    const [previousById, setPreviousById] = useState<ReadonlyMap<string, string>>(new Map());
     const [sendState, setSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
     /** What actually went wrong, so a failed send says why instead of "try again". */
     const [sendError, setSendError] = useState("");
@@ -1033,9 +1080,38 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const acceptSuggestion = (s: Suggestion) => {
         const patch = applySuggestion(foundation, s.field_key, s.suggested_value);
         if (!patch) return; // row deleted since — the orphan list offers Decline instead
+        const previous = valueForKey(foundation, s.field_key) ?? "";
         patchFoundation(patch);
         setQueuedAccepts((prev) => new Set(prev).add(s.id));
+        setPreviousById((prev) => new Map(prev).set(s.id, previous));
         if (isLocked) setIsLocked(false); // the existing Save button owns persistence
+    };
+    /** Put a queued Replace back. Only before Save — after it the suggestion is resolved. */
+    const undoAcceptSuggestion = (s: Suggestion) => {
+        const previous = previousById.get(s.id);
+        if (previous === undefined) return;
+        const patch = applySuggestion(foundation, s.field_key, previous);
+        if (patch) patchFoundation(patch);
+        setQueuedAccepts((prev) => {
+            const next = new Set(prev);
+            next.delete(s.id);
+            return next;
+        });
+        setPreviousById((prev) => {
+            const next = new Map(prev);
+            next.delete(s.id);
+            return next;
+        });
+    };
+    /* Resolved without replacing the field: the AM used some of it by hand, or it needed
+       nothing more. Recorded as accepted — the client's note reads "was accepted". */
+    const markSuggestionDone = (s: Suggestion) => {
+        void supabase
+            .from("dashboard_suggestions")
+            .update({ status: "accepted", resolved_by: user?.email ?? "", resolved_at: new Date().toISOString() })
+            .eq("id", s.id)
+            .eq("status", "pending")
+            .then(() => void refreshSuggestions());
     };
     const declineSuggestion = (s: Suggestion) => {
         void supabase
@@ -1225,10 +1301,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Who may send at all: a client, on a real dashboard, in a section they can open. */
     const canSectionFeedback = (revealed: boolean) => !isTeam && !isTemplate && revealed && !!suggestAuthor;
 
-    /** The welcome emails — one note for the whole flow, not one per email (FLOW_FEEDBACK_KEY). */
+    /** The welcome emails — one note per person per EMAIL, so a note names the email it is
+     *  about and the function can mirror it onto that email's row in the pipeline's table.
+     *  The section binds the open tab's slot; legacy whole-flow notes are still read. */
     const flowFeedback = suggestions.filter((s) => isFlowFeedbackKey(s.field_key));
     const canFlowFeedback = canSectionFeedback(flowRevealed);
-    const sendFlowFeedback = sendSectionFeedback(FLOW_FEEDBACK_KEY, "Welcome emails · feedback");
+    const sendFlowFeedback = (slot: number, text: string) => sendSectionFeedback(flowFeedbackKey(slot), `Welcome email ${slot + 1} · feedback`)(text);
 
     /** Withdraw / resolve act on a row id, so every feedback family shares them. */
     const withdrawFeedback = async (s: Suggestion) => {
@@ -1817,6 +1895,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     .in("id", [...queuedAccepts]);
                 if (!flushErr) {
                     setQueuedAccepts(new Set());
+                    setPreviousById(new Map());
                     void refreshSuggestions();
                 }
             }
@@ -1921,6 +2000,76 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
     };
 
+    /** One drafting request for one group of Master Brand Document fields. Throws with a reason the AM can read. */
+    const callMasterSection = async (token: string, group: string, extra: Record<string, unknown> = {}): Promise<Record<string, unknown> | null> => {
+        const res = await fetch("/.netlify/functions/generate-master-section", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ slug, group, ...extra }),
+        });
+        /* Read as text and parse by hand, same as the Overview draft: res.json() throws
+           "Unexpected end of JSON input" when the reply isn't JSON, and that string is
+           then the entire explanation an AM gets. The two ways it happens are nothing
+           listening on the dev functions port, and Netlify returning an HTML error page. */
+        const body = await res.text();
+        let json: Record<string, unknown> | null = null;
+        try {
+            json = body ? JSON.parse(body) : null;
+        } catch {
+            json = null;
+        }
+        if (!json) {
+            throw new Error(
+                res.status === 404 || res.status === 502
+                    ? "No functions server on :9999 — run `netlify functions:serve --port 9999` alongside the dev server."
+                    : `The server didn't send a usable reply (${res.status}).`,
+            );
+        }
+        if (!res.ok || json.error) throw new Error(String(json.error || `Request failed (${res.status})`));
+        return json;
+    };
+
+    /* ── Draft just the Reviews section, from the reviews pasted beside it ──
+       The full draft lives at the top of the document, nine sections away from the box an
+       AM pastes into, so pasting and then waiting for something to happen was the natural
+       mistake. This runs only the reviews group, where the reviews are. */
+    const [reviewsDraftState, setReviewsDraftState] = useState<"idle" | "drafting" | "done" | "error">("idle");
+    const [reviewsDraftNote, setReviewsDraftNote] = useState("");
+    const draftReviewsSection = async () => {
+        if (!slug || isTemplate || reviewsDraftState === "drafting" || !reviewsPaste.trim()) return;
+        const nothingEmpty = !!foundation.corePillars.trim() && !!foundation.emotionalThemes.trim() && foundation.taglines.some((t) => t.trim());
+        if (nothingEmpty) {
+            // mergeFoundationDraft only fills empty boxes, so this would do nothing. Say so.
+            setReviewsDraftState("error");
+            setReviewsDraftNote("Both boxes and the Taglines already have text, and drafting never overwrites. Clear what you want redrafted, then try again.");
+            return;
+        }
+        setReviewsDraftState("drafting");
+        setReviewsDraftNote("");
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+            setReviewsDraftState("error");
+            setReviewsDraftNote("Your sign-in has expired — reload the page and sign in again.");
+            return;
+        }
+        try {
+            const out = await callMasterSection(token, "reviews", { reviewsText: reviewsPaste });
+            const fields = (out?.fields as Record<string, unknown> | undefined) ?? {};
+            setContent((c) => {
+                const current = { ...DEFAULT_FOUNDATION, ...c.foundation };
+                return { ...c, foundation: { ...current, ...mergeFoundationDraft(current, fields) } };
+            });
+            setReviewsDraftState("done");
+            setReviewsDraftNote(
+                "Drafted. Read both boxes above (and the Taglines in About the brand, if they were empty), edit anything that's off, then press Save changes — nothing is saved yet.",
+            );
+        } catch (err) {
+            setReviewsDraftState("error");
+            setReviewsDraftNote(err instanceof Error ? err.message : "Couldn't draft the reviews — try again.");
+        }
+    };
+
     /**
      * Draft the whole Master Brand Document from the client's own material.
      *
@@ -1948,34 +2097,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             return;
         }
 
-        /** One request. Returns null and records the reason when the group fails. */
-        const run = async (group: string, extra: Record<string, unknown> = {}): Promise<Record<string, unknown> | null> => {
-            const res = await fetch("/.netlify/functions/generate-master-section", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ slug, group, ...extra }),
-            });
-            /* Read as text and parse by hand, same as the Overview draft: res.json() throws
-               "Unexpected end of JSON input" when the reply isn't JSON, and that string is
-               then the entire explanation an AM gets. The two ways it happens are nothing
-               listening on the dev functions port, and Netlify returning an HTML error page. */
-            const body = await res.text();
-            let json: Record<string, unknown> | null = null;
-            try {
-                json = body ? JSON.parse(body) : null;
-            } catch {
-                json = null;
-            }
-            if (!json) {
-                throw new Error(
-                    res.status === 404 || res.status === 502
-                        ? "No functions server on :9999 — run `netlify functions:serve --port 9999` alongside the dev server."
-                        : `The server didn't send a usable reply (${res.status}).`,
-                );
-            }
-            if (!res.ok || json.error) throw new Error(String(json.error || `Request failed (${res.status})`));
-            return json;
-        };
+        const run = (group: string, extra: Record<string, unknown> = {}) => callMasterSection(token, group, extra);
 
         try {
             // The website first, once: its text feeds two of the groups below, and the links
@@ -3729,7 +3851,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     mode: isTeam ? "review" : canFlowFeedback ? "client" : "off",
                                                                     items: flowFeedback,
                                                                     author: suggestAuthor,
-                                                                    send: sendFlowFeedback,
+                                                                    // Per-email: the section binds the open tab's slot before it sends.
+                                                                    sendFor: sendFlowFeedback,
                                                                     withdraw: withdrawFeedback,
                                                                     resolve: resolveFeedback,
                                                                 }}
@@ -3779,14 +3902,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     {TOTAL_QUESTIONS} questions · {ESTIMATE_LABEL}
                                                                 </p>
                                                                 <p className="mt-1 text-sm text-quaternary">{ONBOARDING_SAVES_NOTE}</p>
-                                                                {CREDENTIAL_LABELS.length > 0 && (
-                                                                    <div className="mt-5 max-w-2xl rounded-xl bg-secondary px-4 py-3 ring-1 ring-secondary">
-                                                                        <p className="text-sm text-secondary">
-                                                                            <span className="font-semibold text-primary">Worth having on hand:</span> This form
-                                                                            asks for a few account logins so we can set things up for you — {CREDENTIAL_LIST}.
-                                                                        </p>
-                                                                    </div>
-                                                                )}
                                                             </>
                                                         )}
 
@@ -3933,7 +4048,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     sections={clientOnboardingAnswers(intakeData)}
                                                                     isTeamView={isTeam}
                                                                     clientName={clientName}
-                                                                    onDeleteLogin={isTeam && !isTemplate ? deleteLogin : undefined}
                                                                     onEdit={(field) => {
                                                                         setFormModalField(field);
                                                                         setFormModal("intake");
@@ -3941,19 +4055,83 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 />
                                                             )}
                                                         </div>
+
+                                                        {/* Only for a client who answered the Brand Vision Form before its
+                                                            questions moved into this one. Their answers also fill any empty
+                                                            question above, so nothing has to be typed twice. */}
+                                                        {hasVision && visionData && (
+                                                            <div className="mt-4 rounded-2xl bg-primary p-5 ring-1 ring-secondary">
+                                                                <div className="flex flex-wrap items-center justify-between gap-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <FeaturedIcon
+                                                                            icon={visionInfo.submittedAt ? CheckCircle : FileCheck02}
+                                                                            color={visionInfo.submittedAt ? "success" : "brand"}
+                                                                            theme="light"
+                                                                            size="lg"
+                                                                        />
+                                                                        <div>
+                                                                            <p className="text-md font-semibold text-primary">Brand Vision Form</p>
+                                                                            <p className="mt-0.5 text-sm text-tertiary">
+                                                                                {visionInfo.submittedAt
+                                                                                    ? `Sent ${new Date(visionInfo.submittedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })} · your earlier answers, kept as you gave them`
+                                                                                    : `${visionInfo.answered} of ${visionInfo.total} answered · your earlier answers, kept as you gave them`}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-5 flex flex-wrap items-center gap-3">
+                                                                    <Button color="secondary" iconTrailing={ArrowRight} onClick={() => setFormModal("brand")}>
+                                                                        {visionInfo.submittedAt ? "Review your answers" : "Continue the form"}
+                                                                    </Button>
+                                                                    {isTeam && (
+                                                                        <Button
+                                                                            color="secondary"
+                                                                            iconLeading={Copy01}
+                                                                            onClick={() => {
+                                                                                void navigator.clipboard.writeText(`${window.location.origin}/${visionSlug}`);
+                                                                                setCopiedVisionLink(true);
+                                                                                window.setTimeout(() => setCopiedVisionLink(false), 2000);
+                                                                            }}
+                                                                        >
+                                                                            {copiedVisionLink ? "Link copied" : "Copy Link"}
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                                {visionInfo.submittedAt && (
+                                                                    <OnboardingAnswers
+                                                                        sections={hostOnboardingAnswers(visionData)}
+                                                                        isTeamView={isTeam}
+                                                                        clientName={clientName}
+                                                                        onEdit={() => setFormModal("brand")}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </Reveal>
                                                 )}
 
-                                                {/* ── Client Input — the Brand Vision Form the client fills in themselves ── */}
+                                                {/* ── Client Input — the Account Access Form: logins and billing ── */}
                                                 {activeSection === "onboarding" && (
                                                     <Reveal>
                                                         <SectionEyebrow section={activeSection} />
-                                                        <SectionHeading>Brand Vision Form</SectionHeading>
-                                                        <p className="mt-3 text-md text-tertiary">
-                                                            Your Brand Vision Form — {ONBOARDING_TOTAL_QUESTIONS} quick questions about why you built this
-                                                            property, who it's for, and how it should feel. It takes 5–10 minutes, and it's what everything
-                                                            below is built from: your Master Document, brand kit, emails, and chat widget all start here.
-                                                        </p>
+                                                        <SectionHeading>Account Access Form</SectionHeading>
+                                                        {!onboardingSubmitted && (
+                                                            <>
+                                                                <p className="mt-3 max-w-2xl text-md text-tertiary">{ACCESS_INTRO}</p>
+                                                                <p className="mt-4 text-sm text-quaternary">
+                                                                    {ACCESS_FORM.total} questions · {ACCESS_FORM.estimate}
+                                                                </p>
+                                                                <p className="mt-1 text-sm text-quaternary">{ONBOARDING_SAVES_NOTE}</p>
+                                                                {CREDENTIAL_LABELS.length > 0 && (
+                                                                    <div className="mt-5 max-w-2xl rounded-xl bg-secondary px-4 py-3 ring-1 ring-secondary">
+                                                                        <p className="text-sm text-secondary">
+                                                                            <span className="font-semibold text-primary">Worth having on hand:</span> This form
+                                                                            asks for a few account logins so we can set things up for you — {CREDENTIAL_LIST}.
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
 
                                                         <div className="mt-6 rounded-2xl bg-primary p-5 ring-1 ring-secondary">
                                                             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -4027,7 +4205,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 ) : (
                                                                     <Button
                                                                         iconTrailing={ArrowRight}
-                                                                        {...(isTemplate ? { href: onboardingHref } : { onClick: () => setFormModal("brand") })}
+                                                                        {...(isTemplate ? { href: onboardingHref } : { onClick: () => setFormModal("access") })}
                                                                     >
                                                                         {onboardingSubmitted
                                                                             ? "Review your answers"
@@ -4056,13 +4234,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     onboardingSlug &&
                                                                     onboardingReady &&
                                                                     (onboardingStarted || onboardingSubmitted) &&
-                                                                    (armedReset === "brand" ? (
+                                                                    (armedReset === "access" ? (
                                                                         <>
                                                                             <Button
                                                                                 color="primary-destructive"
                                                                                 isLoading={resetting}
                                                                                 showTextWhileLoading
-                                                                                onClick={() => void resetForm("brand")}
+                                                                                onClick={() => void resetForm("access")}
                                                                             >
                                                                                 {resetting ? "Resetting…" : "Yes, erase all answers"}
                                                                             </Button>
@@ -4078,7 +4256,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         <Button
                                                                             color="tertiary-destructive"
                                                                             iconLeading={RefreshCw01}
-                                                                            onClick={() => setArmedReset("brand")}
+                                                                            onClick={() => setArmedReset("access")}
                                                                         >
                                                                             Reset form
                                                                         </Button>
@@ -4090,12 +4268,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                         review screen to read them. */}
                                                             {onboardingSubmitted && brandData && (
                                                                 <OnboardingAnswers
-                                                                    sections={hostOnboardingAnswers(brandData)}
+                                                                    sections={clientOnboardingAnswers(brandData, ACCESS_FORM)}
                                                                     isTeamView={isTeam}
                                                                     clientName={clientName}
+                                                                    onDeleteLogin={isTeam && !isTemplate ? deleteLogin : undefined}
                                                                     onEdit={(field) => {
                                                                         setFormModalField(field);
-                                                                        setFormModal("brand");
+                                                                        setFormModal("access");
                                                                     }}
                                                                 />
                                                             )}
@@ -4451,6 +4630,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             setDraft: (k, v) => setSuggestDraft((d) => ({ ...d, [k]: v })),
                                                             queuedAccepts,
                                                             accept: acceptSuggestion,
+                                                            undo: undoAcceptSuggestion,
+                                                            previousById,
+                                                            markDone: markSuggestionDone,
                                                             decline: declineSuggestion,
                                                             withdraw: withdrawOwnSuggestion,
                                                             // Whoever this view would sign a suggestion as — so a team member
@@ -4564,41 +4746,64 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 <p className="mt-2 text-xs text-quaternary">Unlock the dashboard to edit this document.</p>
                                                             )}
 
+                                                            {/* Client-only: THE way in to suggesting. A small rail button used to do this
+                                                            and was missed — hosts sent their edits as a Google Doc instead — so this
+                                                            spans the page. It was the only button kept: two
+                                                            buttons for one action read as two different things. Leaving suggest mode
+                                                            is the sticky bar's Cancel, which shows whenever the mode is on. */}
+                                                            {/* Pinned to the top of the scroller from tablet up, so the way in to
+                                                            suggesting stays in view the whole way down the document. The bg-primary
+                                                            band behind it hides text scrolling past its rounded corners. Not on
+                                                            phones: stacked, the box is a third of the screen. */}
+                                                            {canSuggest && (
+                                                                <div className="z-20 mt-3 bg-primary py-3 md:sticky md:top-0">
+                                                                    <div className="flex flex-col gap-4 rounded-2xl border border-brand bg-brand-primary p-5 sm:flex-row sm:items-center sm:justify-between">
+                                                                        <div className="flex items-start gap-4">
+                                                                            <FeaturedIcon icon={Edit01} color="brand" theme="light" size="lg" />
+                                                                            <div className="min-w-0">
+                                                                                <p className="text-md font-semibold text-primary">
+                                                                                    {suggestMode
+                                                                                        ? "You're suggesting — click into any field below and type your change"
+                                                                                        : "Want to change something? Edit it right here"}
+                                                                                </p>
+                                                                                <p className="mt-1 text-sm text-tertiary">
+                                                                                    {suggestMode
+                                                                                        ? "Change as many fields as you like, then press Send at the bottom of the screen. Your account manager reviews every suggestion before it's saved."
+                                                                                        : "Type your changes straight into this document and your account manager will review them."}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                        {!suggestMode && (
+                                                                            <Button
+                                                                                size="lg"
+                                                                                color="primary"
+                                                                                iconLeading={Edit01}
+                                                                                className="shrink-0"
+                                                                                onClick={() => setSuggestMode(true)}
+                                                                            >
+                                                                                Suggest edits
+                                                                            </Button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
                                                             {/* Rail beside the document on wide screens; above it on narrow ones, where a
                                                             sticky column would eat the reading width. */}
                                                             <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
                                                                 <DocRail
                                                                     sections={FOUNDATION_SECTIONS}
                                                                     progress={foundationFilledMap}
-                                                                    action={
-                                                                        /* Client-only: suggestion mode. Reads identically in ?preview=client —
-                                                                           the standing "Viewing as client" banner already says you're
-                                                                           previewing, so this stays in the client's voice rather than
-                                                                           explaining itself to an AM. Sent / failed is reported by the sticky
-                                                                           bar, next to the button actually pressed. */
-                                                                        canSuggest ? (
-                                                                            <div className="flex flex-col items-start gap-2">
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    color={suggestMode ? "secondary" : "primary"}
-                                                                                    onClick={() => {
-                                                                                        setSuggestMode((v) => !v);
-                                                                                        if (suggestMode) setSuggestDraft({});
-                                                                                    }}
-                                                                                >
-                                                                                    {suggestMode ? "Cancel suggesting" : "Suggest edits"}
-                                                                                </Button>
-                                                                                {suggestMode && (
-                                                                                    <p className="text-xs text-tertiary">
-                                                                                        Type into any field, then send — your team reviews every suggestion.
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-                                                                        ) : undefined
-                                                                    }
+                                                                    belowPinnedBar={canSuggest}
                                                                 />
 
-                                                                <div className="flex min-w-0 flex-1 flex-col gap-8">
+                                                                {/* With the box pinned, a section jumped to would land under it. */}
+                                                                <div
+                                                                    className={cx(
+                                                                        "flex min-w-0 flex-1 flex-col gap-8",
+                                                                        canSuggest && "md:[&_[id^='mbd-']]:scroll-mt-48",
+                                                                    )}
+                                                                >
                                                                     {/* ── 1. About the hosts ── */}
                                                                     <DocSection
                                                                         id="hosts"
@@ -5487,81 +5692,95 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         raw reviews are somebody else's copy, and the useful distillation of
                                                                         them is the two fields. Airbnb is not fetched for these — it serves
                                                                         bot-protection to datacenter IPs, so pasting is the reliable route. */}
+                                                                        {isTeam && !isTemplate && isLocked && (
+                                                                            <p className="mt-5 text-sm text-tertiary">
+                                                                                To fill these from guest reviews, press{" "}
+                                                                                <span className="font-semibold text-secondary">Edit dashboard</span> first — the
+                                                                                paste box appears here.
+                                                                            </p>
+                                                                        )}
                                                                         {isTeam && !isTemplate && !isLocked && (
                                                                             <div className="mt-5 rounded-2xl bg-primary p-4 ring-1 ring-secondary">
-                                                                                <label htmlFor="reviews-paste" className="text-sm font-medium text-secondary">
-                                                                                    Paste guest reviews
-                                                                                </label>
-                                                                                <p className="mt-1 text-xs text-tertiary">
-                                                                                    30 or more works best. Drafting reads these to fill both fields above —
-                                                                                    their Airbnb profile link is in the onboarding form.
+                                                                                <p className="text-sm font-semibold text-primary">
+                                                                                    Fill this section from guest reviews
                                                                                 </p>
+                                                                                <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-tertiary">
+                                                                                    <li>
+                                                                                        Copy 30 or more reviews from their Airbnb, Google or booking site and
+                                                                                        paste them below.
+                                                                                    </li>
+                                                                                    <li>
+                                                                                        Press{" "}
+                                                                                        <span className="font-semibold text-secondary">
+                                                                                            Draft from these reviews
+                                                                                        </span>
+                                                                                        . It takes under a minute.
+                                                                                    </li>
+                                                                                    <li>
+                                                                                        It fills both boxes above — the praised features with guests' own
+                                                                                        quotes, and the themes with a tagline each — plus the Taglines in About
+                                                                                        the brand if they're empty. Read it, fix anything that's off, then press
+                                                                                        Save changes.
+                                                                                    </li>
+                                                                                </ol>
+                                                                                <label
+                                                                                    htmlFor="reviews-paste"
+                                                                                    className="mt-4 block text-xs font-medium text-secondary"
+                                                                                >
+                                                                                    Guest reviews
+                                                                                </label>
                                                                                 <textarea
                                                                                     id="reviews-paste"
-                                                                                    rows={4}
+                                                                                    rows={5}
                                                                                     value={reviewsPaste}
-                                                                                    onChange={(e) => setReviewsPaste(e.target.value)}
+                                                                                    onChange={(e) => {
+                                                                                        setReviewsPaste(e.target.value);
+                                                                                        if (reviewsDraftState !== "drafting") setReviewsDraftState("idle");
+                                                                                    }}
                                                                                     placeholder="Paste the review text here — one after another is fine."
-                                                                                    className={cx(editInput(), "mt-2.5 resize-y font-mono text-[12px]")}
+                                                                                    className={cx(editInput(), "mt-1.5 resize-y font-mono text-[12px]")}
                                                                                 />
-                                                                                {reviewsPaste.trim() && (
-                                                                                    <p className="mt-1.5 text-xs text-quaternary tabular-nums">
-                                                                                        {reviewsPaste.trim().length.toLocaleString()} characters pasted — not
-                                                                                        saved, only used for drafting.
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
-
-                                                                        {/* The working prompt is internal process, not something a client should be
-                                                                        handed — it tells whoever reads it to go and run the analysis. Team only. */}
-                                                                        {isTeam && (
-                                                                            <div className="mt-5 overflow-hidden rounded-2xl bg-primary ring-1 ring-secondary">
-                                                                                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-secondary px-4 py-3">
-                                                                                    <div className="flex flex-wrap items-center gap-2.5">
-                                                                                        <p className="font-mono text-[11px] font-semibold tracking-[0.08em] text-quaternary uppercase">
-                                                                                            Working prompt
-                                                                                        </p>
-                                                                                        <BadgeWithDot color="warning" size="sm" type="pill-color">
-                                                                                            Delete once filled
-                                                                                        </BadgeWithDot>
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-3">
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() => {
-                                                                                                void navigator.clipboard
-                                                                                                    .writeText(REVIEW_WORKING_PROMPT)
-                                                                                                    .then(() => {
-                                                                                                        setPromptCopied(true);
-                                                                                                        window.setTimeout(() => setPromptCopied(false), 1600);
-                                                                                                    });
-                                                                                            }}
-                                                                                            className="text-sm font-semibold text-brand-secondary transition duration-100 ease-linear hover:underline"
-                                                                                        >
-                                                                                            {promptCopied ? "Copied" : "Copy"}
-                                                                                        </button>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={() =>
-                                                                                                patchFoundation({ promptHidden: !foundation.promptHidden })
-                                                                                            }
-                                                                                            className="text-sm font-semibold text-tertiary transition duration-100 ease-linear hover:text-secondary"
-                                                                                        >
-                                                                                            {foundation.promptHidden ? "Show" : "Hide"}
-                                                                                        </button>
-                                                                                    </div>
+                                                                                <div className="mt-3 flex flex-wrap items-center gap-3">
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        color="primary"
+                                                                                        iconLeading={Stars02}
+                                                                                        isDisabled={!reviewsPaste.trim()}
+                                                                                        isLoading={reviewsDraftState === "drafting"}
+                                                                                        showTextWhileLoading
+                                                                                        onClick={() => void draftReviewsSection()}
+                                                                                    >
+                                                                                        {reviewsDraftState === "drafting"
+                                                                                            ? "Reading the reviews…"
+                                                                                            : "Draft from these reviews"}
+                                                                                    </Button>
+                                                                                    {reviewsPaste.trim() && (
+                                                                                        <span className="text-xs text-quaternary tabular-nums">
+                                                                                            {reviewsPaste.trim().length.toLocaleString()} characters · not
+                                                                                            saved, only used for drafting
+                                                                                        </span>
+                                                                                    )}
                                                                                 </div>
-                                                                                {!foundation.promptHidden && (
-                                                                                    <div className="px-4 py-4">
-                                                                                        <pre className="font-mono text-xs leading-relaxed whitespace-pre-wrap text-secondary">
-                                                                                            {REVIEW_WORKING_PROMPT}
-                                                                                        </pre>
-                                                                                        <p className="mt-3 text-xs text-quaternary">
-                                                                                            Once complete, replace the two fields above with the insight from
-                                                                                            ChatGPT / Gemini.
-                                                                                        </p>
-                                                                                    </div>
+                                                                                {reviewsDraftNote && (
+                                                                                    <p
+                                                                                        role={reviewsDraftState === "error" ? "alert" : undefined}
+                                                                                        className={cx(
+                                                                                            "mt-2 flex items-start gap-1.5 text-sm",
+                                                                                            reviewsDraftState === "error"
+                                                                                                ? "text-error-primary"
+                                                                                                : "text-success-primary",
+                                                                                        )}
+                                                                                    >
+                                                                                        {reviewsDraftState === "error" ? (
+                                                                                            <AlertTriangle
+                                                                                                className="mt-0.5 size-4 shrink-0"
+                                                                                                aria-hidden="true"
+                                                                                            />
+                                                                                        ) : (
+                                                                                            <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                                                                        )}
+                                                                                        {reviewsDraftNote}
+                                                                                    </p>
                                                                                 )}
                                                                             </div>
                                                                         )}
@@ -6356,6 +6575,25 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     </DocSection>
                                                                 )}
                                                             </div>
+                                                        )}
+
+                                                        {/* ── Automation branding (internal) ──
+                                                            The fonts and colours the reel, carousel and email automations
+                                                            read, kept beside the kit they come from. Team-only, and the
+                                                            table refuses anon besides — see automation-branding-card.tsx. */}
+                                                        {isTeam && (
+                                                            <AutomationBrandingCard
+                                                                slug={slug}
+                                                                clientName={clientName}
+                                                                editorEmail={user?.email ?? ""}
+                                                                prefillFrom={{
+                                                                    colors: content.brand.colors,
+                                                                    fonts: content.brand.fonts,
+                                                                    instagramUrl: content.instagram.profile_url,
+                                                                    websiteUrl: clientWebsite,
+                                                                    brandBio: foundation.brandBio,
+                                                                }}
+                                                            />
                                                         )}
                                                     </Reveal>
                                                 )}
@@ -7157,14 +7395,23 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                 onClose={closeFormModal}
                                 startAtField={formModalField}
                             />
-                        ) : (
+                        ) : formModal === "brand" ? (
                             <HostOnboardingFormPage
-                                slug={onboardingSlug}
+                                slug={visionSlug}
                                 initialClientName={clientName}
                                 initialClientWebsite={clientWebsite}
+                                initialData={visionData}
+                                embedded
+                                onClose={closeFormModal}
+                            />
+                        ) : (
+                            <AccessFormPage
+                                slug={onboardingSlug}
+                                initialClientName={clientName}
                                 initialData={brandData}
                                 embedded
                                 onClose={closeFormModal}
+                                startAtField={formModalField}
                             />
                         )}
                     </div>

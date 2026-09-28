@@ -32,25 +32,30 @@ export interface Suggestion {
 
 /* ── Welcome-flow feedback ──
    A client's note on the welcome emails rides the same table, function and review loop
-   as a document edit, under its own key family so the two never mix. There is ONE note
-   per person for the whole flow — "welcomeFlow.all" — not one per email: a client
-   reviewing nine emails wants to write a single message and send it once (2026-09-10).
-   `suggested_value` holds the note.
+   as a document edit, under its own key family so the two never mix. ONE note per person
+   per EMAIL — "welcomeFlow.{0-8}" — because a note only helps the person rewriting that
+   email if it says which email it is about (2026-09-24). `suggested_value` holds it.
 
-   Notes written before that carry a per-email key instead ("welcomeFlow.3" was feedback
-   on E4) and are still read, labelled and resolved — only new notes use the combined
-   key, so nothing already sent is stranded.
+   It was briefly one combined note for the whole flow ("welcomeFlow.all", 2026-09-10).
+   Those rows are still read, labelled and resolved, so nothing already sent is stranded;
+   new notes always name an email.
+
+   The slot is also how a note reaches the email pipeline: the Netlify function mirrors it
+   into `email_wf_emails.feedback` on the row for this client and WEEK slot+1 — never
+   `position`, which repeats within a client and would land a note on the wrong email.
 
    parseKey below knows nothing about any of these keys on purpose — applySuggestion
    returns null, so a feedback row can never be "accepted" into the Master Brand
    Document. The team resolves it as done or dismissed. */
 
 export const FLOW_FEEDBACK_PREFIX = "welcomeFlow.";
-/** The one key a new note is stored under — the whole flow, not a single email. */
+/** The key a note on email `slot` (0-based) is stored under. */
+export const flowFeedbackKey = (slot: number) => `${FLOW_FEEDBACK_PREFIX}${slot}`;
+/** The legacy whole-flow key — still read and resolved, never written. */
 export const FLOW_FEEDBACK_KEY = `${FLOW_FEEDBACK_PREFIX}all`;
 export const isFlowFeedbackKey = (key: string) => key.startsWith(FLOW_FEEDBACK_PREFIX);
-/** The 0-based email a legacy per-email note addresses. NaN for a combined note and for
- *  any other key, so `Number.isInteger` is the test for "this one names an email". */
+/** The 0-based email a note addresses. NaN for the legacy combined note and for any other
+ *  key, so `Number.isInteger` is the test for "this one names an email". */
 export const flowFeedbackSlot = (key: string) => (isFlowFeedbackKey(key) ? Number(key.slice(FLOW_FEEDBACK_PREFIX.length)) : NaN);
 
 /* ── Landing-page feedback ──
@@ -228,3 +233,52 @@ export function labelForKey(f: Foundation, key: string): string {
     const rowName = (row?.name || row?.page || "").toString().trim();
     return `${LIST_LABELS[parsed.list]}${rowName ? ` “${rowName}”` : ""} · ${humanize(parsed.col)}`;
 }
+
+/* ── Before / after, for the team reviewing a suggestion ──
+   A client edits the whole field, so a suggestion is usually the old text with a few words
+   changed. Shown whole, the reviewer has to spot the difference by eye; this marks it. */
+
+export type DiffPart = { text: string; kind: "same" | "add" | "del" };
+
+/** Past this many words per side the diff is skipped — the table below grows with the
+ *  product of the two lengths, and a rewrite that long reads better as plain text anyway. */
+const DIFF_WORD_LIMIT = 800;
+
+/**
+ * Word-level difference between the saved text and a suggestion: the words kept, the words
+ * added, the words removed, in reading order. Whitespace rides with the word before it, so
+ * joining every part's text gives back `after` (dropping "del") or `before` (dropping "add").
+ */
+export const wordDiff = (before: string, after: string): DiffPart[] => {
+    const a = before.match(/\S+\s*|\s+/g) ?? [];
+    const b = after.match(/\S+\s*|\s+/g) ?? [];
+    if (a.length > DIFF_WORD_LIMIT || b.length > DIFF_WORD_LIMIT) {
+        return [...(before ? [{ text: before, kind: "del" as const }] : []), ...(after ? [{ text: after, kind: "add" as const }] : [])];
+    }
+    // Compare words without their trailing space, so "wild " and "wild" still match.
+    const key = (t: string) => t.trimEnd();
+    // lcs[i][j] = length of the longest common run of a[i..] and b[j..].
+    const lcs: number[][] = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+    for (let i = a.length - 1; i >= 0; i--)
+        for (let j = b.length - 1; j >= 0; j--) lcs[i][j] = key(a[i]) === key(b[j]) ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+
+    const parts: DiffPart[] = [];
+    const push = (text: string, kind: DiffPart["kind"]) => {
+        const last = parts[parts.length - 1];
+        if (last && last.kind === kind) last.text += text;
+        else parts.push({ text, kind });
+    };
+    let i = 0;
+    let j = 0;
+    while (i < a.length && j < b.length) {
+        if (key(a[i]) === key(b[j])) {
+            push(b[j], "same");
+            i++;
+            j++;
+        } else if (lcs[i + 1][j] >= lcs[i][j + 1]) push(a[i++], "del");
+        else push(b[j++], "add");
+    }
+    while (i < a.length) push(a[i++], "del");
+    while (j < b.length) push(b[j++], "add");
+    return parts;
+};

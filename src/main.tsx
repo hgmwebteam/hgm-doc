@@ -6,7 +6,7 @@ import { HelpMenu } from "@/components/application/help-menu";
 import { ThemeToggle } from "@/components/base/theme-toggle/theme-toggle";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { ChatWidgetScreen } from "@/pages/client/chat-widget-screen";
-import { ClientOnboardingFormPage } from "@/pages/client/client-onboarding-form-page";
+import { AccessFormPage, ClientOnboardingFormPage } from "@/pages/client/client-onboarding-form-page";
 import { ClientScreen } from "@/pages/client/client-screen";
 import { HelpCenterScreen } from "@/pages/client/help/help-center-screen";
 import { HostOnboardingFormPage } from "@/pages/client/host-onboarding-form-page";
@@ -41,12 +41,12 @@ import { PromptLibraryScreen } from "@/pages/team/prompt-library-screen";
 import { QuestionsScreen } from "@/pages/team/questions-screen";
 import { ReadingYourClientsScreen } from "@/pages/team/reading-your-clients-screen";
 import { RequestsScreen } from "@/pages/team/requests-screen";
-import { TeamReportScreen, TeamTicketsScreen } from "@/pages/team/tickets-screen";
 import { RoadmapScreen } from "@/pages/team/roadmap-screen";
 import { SafeBrowsingScreen } from "@/pages/team/safe-browsing-screen";
 import { SettingsScreen } from "@/pages/team/settings-screen";
 import { SopViewerScreen } from "@/pages/team/sops/sop-viewer-screen";
 import { TestScreen } from "@/pages/team/test-screen";
+import { TeamReportScreen, TeamTicketsScreen } from "@/pages/team/tickets-screen";
 import { TemplateOneScreen } from "@/pages/templates/template-one-screen";
 import { TemplateScreen } from "@/pages/templates/template-screen";
 import { RouteProvider } from "@/providers/router-provider";
@@ -214,6 +214,7 @@ createRoot(document.getElementById("root")!).render(
                         {/* Legacy alias — the template's old URL; links in the wild still resolve. */}
                         <Route path="/host-onboarding-form" element={<HostOnboardingFormPage />} />
                         <Route path="/client-onboarding-form" element={<ClientOnboardingFormPage />} />
+                        <Route path="/access-form" element={<AccessFormPage />} />
                         <Route path="/requests" element={<RequestsScreen />} />
                         {/* Client requests, for the team: every client's, and the form that raises one. */}
                         <Route path="/team/tickets" element={<TeamTicketsScreen />} />

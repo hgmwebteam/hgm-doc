@@ -56,7 +56,18 @@ const sentStamp = (iso: string) => {
  * comes back tomorrow still sees their note landed; the old confirmation line timed out
  * after six seconds and left the page looking like nothing had happened.
  */
-export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedback: ClientFeedbackProps; placeholder: string; rows?: number }) => {
+export const ClientFeedbackBox = ({
+    feedback,
+    placeholder,
+    title = "Your feedback",
+    rows = 6,
+}: {
+    feedback: ClientFeedbackProps;
+    placeholder: string;
+    /** Names what this note is about — the Welcome Flow passes the email it belongs to. */
+    title?: string;
+    rows?: number;
+}) => {
     const pending = feedback.items.filter((s) => s.status === "pending");
     /** The viewer's own open note — the box edits it in place. */
     const mine = pending.find((s) => s.suggested_by === feedback.author);
@@ -108,7 +119,7 @@ export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedbac
         return (
             <div className={card}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-primary">Your feedback</p>
+                    <p className="text-sm font-semibold text-primary">{title}</p>
                     <span className="rounded-full bg-warning-primary px-2.5 py-1 text-xs font-medium text-warning-primary">Awaiting review</span>
                 </div>
 
@@ -170,7 +181,7 @@ export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedbac
     return (
         <div className={card}>
             <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-primary">Your feedback</p>
+                <p className="text-sm font-semibold text-primary">{title}</p>
                 {editing && <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary">Editing</span>}
             </div>
 
@@ -236,7 +247,7 @@ export const ClientFeedbackBox = ({ feedback, placeholder, rows = 6 }: { feedbac
  * `labelFor` adds a per-note suffix where a section has one worth showing (the Welcome Flow
  * names the email a legacy per-email note was written about). Return null for no suffix.
  */
-export const ClientFeedbackReview = ({ feedback, labelFor }: { feedback: ClientFeedbackProps; labelFor?: (s: Suggestion) => string | null }) => {
+export const ClientFeedbackReview = ({ feedback, labelFor }: { feedback: Omit<ClientFeedbackProps, "send">; labelFor?: (s: Suggestion) => string | null }) => {
     if (feedback.mode !== "review") return null;
     const pending = feedback.items.filter((s) => s.status === "pending");
     if (pending.length === 0) return null;

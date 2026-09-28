@@ -1,5 +1,5 @@
+import { type SupabaseClient, createClient } from "@supabase/supabase-js";
 import { lookup } from "node:dns/promises";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Shared readers for the functions that draft a client's documents.
@@ -114,12 +114,21 @@ export const isCredential = (k: string): boolean => /__pass$/.test(k) || /pass(w
  */
 export const readable = (o: Record<string, unknown>): string =>
     Object.entries(o)
-        .filter(
-            ([k, v]) =>
-                !k.endsWith("__media") && !k.endsWith("__mediaKind") && !isCredential(k) && typeof v !== "object" && String(v ?? "").trim(),
-        )
+        .filter(([k, v]) => !k.endsWith("__media") && !k.endsWith("__mediaKind") && !isCredential(k) && typeof v !== "object" && String(v ?? "").trim())
         .map(([k, v]) => `${k}: ${String(v).trim()}`)
         .join("\n");
+
+/**
+ * Answers the client wrote for the team alone. The Onboarding Form's "Getting to know you"
+ * question tells them it "won't appear anywhere public", so a draft of anything a guest
+ * reads (the Master Brand Document) must not see it — typed or recorded. Team-only
+ * briefs (the Client Overview) still may.
+ */
+export const TEAM_ONLY_FIELDS = ["aboutYou"];
+
+const isTeamOnly = (key: string) => TEAM_ONLY_FIELDS.some((f) => key === f || key.startsWith(`${f}__`));
+/** Recordings are stored as {slug}/{field}-{timestamp}.{ext} (media-answer.tsx). */
+const isTeamOnlyRecording = (path: string) => TEAM_ONLY_FIELDS.some((f) => path.split("/").pop()?.startsWith(`${f}-`));
 
 export interface ClientSources {
     clientName: string;
@@ -140,7 +149,7 @@ export interface ClientSources {
  * written. The two form tables are named from the dashboard slug: "acme-dashboard" gives
  * "acme", which is how the form pages and recording folders are named.
  */
-export async function readClientSources(admin: SupabaseClient, slug: string): Promise<ClientSources> {
+export async function readClientSources(admin: SupabaseClient, slug: string, opts: { publicCopy?: boolean } = {}): Promise<ClientSources> {
     const base = slug.replace(/-dashboard$/, "");
 
     const [dash, intake, brandVision, transcripts] = await Promise.all([
@@ -149,7 +158,7 @@ export async function readClientSources(admin: SupabaseClient, slug: string): Pr
         admin.from("host_onboarding_pages").select("data").eq("slug", `${base}-hostonboarding`).maybeSingle(),
         admin
             .from("script_logs")
-            .select("source_label,transcript")
+            .select("source_label,source_path,transcript")
             .in("client_slug", [`${base}-onboarding`, `${base}-hostonboarding`])
             .eq("status", "done"),
     ]);
@@ -158,9 +167,12 @@ export async function readClientSources(admin: SupabaseClient, slug: string): Pr
     // submittedAt); reading the row flat handed every draft an intake with no answers in it
     // and made the website lookup miss. Fall back to the flat shape for any older row.
     const intakeRow = (intake.data?.data as Record<string, unknown> | undefined) ?? {};
-    const intakeAnswers = (intakeRow.answers as Record<string, unknown> | undefined) ?? intakeRow;
+    const allIntake = (intakeRow.answers as Record<string, unknown> | undefined) ?? intakeRow;
+    const intakeAnswers = opts.publicCopy ? Object.fromEntries(Object.entries(allIntake).filter(([k]) => !isTeamOnly(k))) : allIntake;
     const visionAnswers = (brandVision.data?.data as Record<string, unknown> | undefined) ?? {};
-    const spoken = (transcripts.data ?? []).filter((t) => (t.transcript ?? "").trim());
+    const spoken = (transcripts.data ?? []).filter(
+        (t) => (t.transcript ?? "").trim() && !(opts.publicCopy && isTeamOnlyRecording(String(t.source_path ?? ""))),
+    );
 
     const intakeText = readable(intakeAnswers);
     const visionText = readable(visionAnswers);
@@ -203,8 +215,7 @@ export const sourceBlocks = (s: ClientSources): string =>
  * sentence that merely contains the word ("their target market is unknown to them") is real
  * content someone should see.
  */
-const PLACEHOLDER =
-    /^[<[(]?\s*(unknown|n\/?a|none|null|tbd|not\s+(stated|provided|given|specified|mentioned|available|filled(\s+in)?)|[-–—?])\s*[>\])]?[.]?$/i;
+const PLACEHOLDER = /^[<[(]?\s*(unknown|n\/?a|none|null|tbd|not\s+(stated|provided|given|specified|mentioned|available|filled(\s+in)?)|[-–—?])\s*[>\])]?[.]?$/i;
 
 export const blankIfPlaceholder = (v: unknown): string => {
     const t = String(v ?? "").trim();
@@ -306,7 +317,9 @@ export function stripHtml(html: string, cap = 12_000): string {
 }
 
 export const pageTitle = (html: string): string =>
-    stripHtml(html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "", 120).replace(/\s+/g, " ").trim();
+    stripHtml(html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "", 120)
+        .replace(/\s+/g, " ")
+        .trim();
 
 /**
  * Same-host links, with their anchor text as the page name.

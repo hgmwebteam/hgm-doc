@@ -1,4 +1,6 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
+import { CLIENT_TICKET_COLUMNS, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { ticketFiles } from "../lib/ticket-files.mts";
 
 /**
  * One request and its full history.
@@ -21,16 +23,16 @@ import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFr
  * `team_update` IS sent: it is an update written for them, and actorName() in help-model.ts
  * puts the name of whoever wrote it on the byline.
  *
- * POST application/json { slug, reference } + Authorization: Bearer <session token> -> { ticket, events: [...] }
+ * ── THE COMPLETION EMAIL ADDRESS IS NEVER SENT ──────────────────────────────
+ * Everyone on a dashboard's list can open every request it raised, so an address typed on
+ * one would be readable by all of them. The answer carries only `completion_email_set`: an
+ * address is stored AND the completion email switch is not off, so turning the switch off
+ * takes the promise off every request page at once. The files are listed by name, type and
+ * size, never by where they are kept.
+ *
+ * POST application/json { slug, reference } + Authorization: Bearer <session token>
+ *   -> { viewer, ticket: { ...columns, urls, completion_email_set }, events: [...], files: [{ name, mime, bytes }] }
  */
-
-/** Kept in step with ticket-create.mts and ticket-withdraw.mts, which hand back the same row.
- *  The internal routing columns - tenant_id, portal_client_id, asana_task_gid, asana_task_url,
- *  asana_project_gid, derived_subject, routed_at, route_error - are absent by construction
- *  rather than stripped afterwards, so a new column has to be added here on purpose before a
- *  client can ever see it. */
-const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, priority, image_count, drive_folder_url, client_slug, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, account_manager_name, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
 
 /** `mirrored_to_asana` is deliberately not among them: whether we managed to copy an update
  *  into Asana is a fact about our plumbing, not about the client's request. */
@@ -59,12 +61,11 @@ export default async (req: Request) => {
 
         const db = reportingDb();
 
-        const { data: ticket, error } = await db
-            .from("tickets")
-            .select(TICKET_COLUMNS)
-            .eq("reference", reference)
-            .eq("client_slug", gate.caller.slug)
-            .maybeSingle();
+        // The shared list (ticket-columns.mts) plus the pages; the base list alone while the
+        // pages column is not in the database yet.
+        const read = (cols: string) => db.from("tickets").select(cols).eq("reference", reference).eq("client_slug", gate.caller.slug).maybeSingle();
+        let { data: ticket, error } = await read(withPages(CLIENT_TICKET_COLUMNS));
+        if (error && isMissingColumn(error)) ({ data: ticket, error } = await read(CLIENT_TICKET_COLUMNS));
 
         if (error) {
             console.error("[ticket-detail] read failed", error.message);
@@ -78,7 +79,7 @@ export default async (req: Request) => {
         let query = db
             .from("ticket_events")
             .select(EVENT_COLUMNS)
-            .eq("ticket_id", (ticket as { id: string }).id)
+            .eq("ticket_id", (ticket as unknown as { id: string }).id)
             .order("created_at", { ascending: true })
             .limit(MAX_EVENTS);
         if (gate.via !== "staff") query = query.neq("kind", "route_failed");
@@ -94,9 +95,19 @@ export default async (req: Request) => {
         // On the record for staff, with the reference, so "who read REQ-2418"
         // has an answer. After the 404 decision, so a probe for a reference
         // that is not this client's records nothing.
-        await recordAccess(gate, "ticket-detail", String((ticket as { reference?: unknown }).reference ?? "") || null);
+        await recordAccess(gate, "ticket-detail", String((ticket as unknown as { reference?: unknown }).reference ?? "") || null);
 
-        return Response.json({ viewer: viewerOf(gate), ticket, events: events ?? [] });
+        const ticketId = (ticket as unknown as { id: string }).id;
+        // Whether a completion email will go, never to whom. A missing column is "no".
+        let completionEmailSet = false;
+        if (completionEmailModeNow() !== "off") {
+            const { data: addr, error: addrErr } = await db.from("tickets").select("notify_email").eq("id", ticketId).maybeSingle();
+            if (addrErr && !isMissingColumn(addrErr)) console.error("[ticket-detail] completion email read failed", addrErr.message, reference);
+            completionEmailSet = !addrErr && typeof (addr as { notify_email?: unknown } | null)?.notify_email === "string" && !!(addr as { notify_email: string }).notify_email.trim();
+        }
+        const files = await ticketFiles(ticketId);
+
+        return Response.json({ viewer: viewerOf(gate), ticket: { ...(ticket as unknown as Record<string, unknown>), completion_email_set: completionEmailSet }, events: events ?? [], files });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-detail] not configured", err.message);

@@ -85,10 +85,45 @@ export const staffName = (user: { user_metadata?: Record<string, unknown> } | nu
 };
 
 /** Mirrors src/pages/client/dashboard/dashboard-model.ts. Kept in step deliberately. */
-interface DashboardUser {
+export interface DashboardUser {
     email: string;
     name?: string;
 }
+
+/**
+ * Who is on a dashboard's access list: `data.dashboard_users`, or, only when that key is
+ * absent (null or undefined), `data.allowed_emails` as bare addresses. The `??` is exact on
+ * purpose: an EMPTY dashboard_users means an AM emptied the list, and it does not fall back
+ * to an older allowed_emails. A list that is not an array counts as empty, and only entries
+ * whose email is a string with something in it once trimmed are kept, so a malformed row is
+ * "nobody listed" rather than a 500.
+ *
+ * verifyCaller decides who may open the help centre with it, and isListedOn whether a
+ * completion email address could open the request page. The platform holds a copy that
+ * returns the normalised addresses (src/lib/tickets/portal-access.ts, deciding the email's
+ * link at send time), and reporting-system-proof holds that copy to this function, so the
+ * two repositories cannot drift silently. Membership is always normEmail(entry.email) ===
+ * normEmail(address).
+ */
+export const listedUsers = (content: unknown): DashboardUser[] => {
+    const c = (content && typeof content === "object" ? content : {}) as { dashboard_users?: unknown; allowed_emails?: unknown };
+    const raw: unknown[] =
+        c.dashboard_users !== undefined && c.dashboard_users !== null
+            ? Array.isArray(c.dashboard_users)
+                ? c.dashboard_users
+                : []
+            : Array.isArray(c.allowed_emails)
+              ? c.allowed_emails.map((email: unknown) => ({ email }))
+              : [];
+    const out: DashboardUser[] = [];
+    for (const entry of raw) {
+        if (!entry || typeof entry !== "object") continue;
+        const { email, name } = entry as { email?: unknown; name?: unknown };
+        if (typeof email !== "string" || !email.trim()) continue;
+        out.push(typeof name === "string" ? { email, name } : { email });
+    }
+    return out;
+};
 
 export interface Caller {
     slug: string;
@@ -197,13 +232,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     const NOT_LISTED = { ok: false as const, status: 403, error: "Not authorised.", reason: "not_listed" as const };
     if (error || !row) return NOT_LISTED;
 
-    const content = (row.data ?? {}) as {
-        dashboard_users?: DashboardUser[];
-        allowed_emails?: string[];
-        client_name?: string;
-    };
-    const users: DashboardUser[] =
-        content.dashboard_users ?? (content.allowed_emails ?? []).map((e) => ({ email: e }));
+    const content = (row.data ?? {}) as { client_name?: unknown };
     // THE NAME IS A COLUMN, NOT A KEY IN data. All 54 dashboards carry it there
     // ("Paradise Pointe", "FLOHOM") and none carries data.client_name, so the
     // first version fell through to the slug and staff were told they were
@@ -212,7 +241,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     const rowName = ((row as { client_name?: string | null }).client_name ?? "").trim();
     const clientName =
         rowName ||
-        (content.client_name ?? "").trim() ||
+        (typeof content.client_name === "string" ? content.client_name : "").trim() ||
         slug
             .replace(/-dashboard$/, "")
             .split("-")
@@ -224,7 +253,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     // in. A dashboard with an empty list is deliberately open by URL for its
     // marketing content; inheriting that here would publish every request a
     // client has ever raised to anyone who guesses the slug.
-    const listed = users.filter((u) => u.email.trim());
+    const listed = listedUsers(row.data);
 
     // STAFF, decided before the list is consulted, because staff are on no
     // client's list and should not be. The three tests are in staff.mts. They
@@ -284,6 +313,24 @@ export const verifyStaff = async (accessToken: string): Promise<GateResult> => {
         accessListEmpty: false,
         caller: { slug: "all", clientName: "", email: who, name: staffName(authData?.user, who) },
     };
+};
+
+/**
+ * Whether an address is on a dashboard's access list, by the same rule verifyCaller uses
+ * (listedUsers). ticket-create records it as notify_email_listed when a completion email
+ * address is entered: the platform's FALLBACK for "may the email link to the request page",
+ * used only when its own send-time read of the list cannot run. A read error is false, the
+ * answer that promises less.
+ */
+export const isListedOn = async (slug: string, email: string): Promise<boolean> => {
+    try {
+        const { data, error } = await portalDb().from("dashboard_pages").select("data").eq("slug", slug).maybeSingle();
+        if (error || !data) return false;
+        const who = normEmail(email);
+        return listedUsers((data as { data?: unknown }).data).some((u) => normEmail(u.email) === who);
+    } catch {
+        return false;
+    }
 };
 
 /**

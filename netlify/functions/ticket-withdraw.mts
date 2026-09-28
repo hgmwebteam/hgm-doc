@@ -1,4 +1,5 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller } from "../lib/reporting.mts";
+import { CLIENT_TICKET_COLUMNS, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
 
 /**
  * A client withdraws their own request.
@@ -25,11 +26,6 @@ import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFr
  * POST application/json { slug, reference, confirm: true } + Authorization: Bearer <session token> -> { ticket }
  */
 
-/** Kept in step with ticket-create.mts and ticket-detail.mts, which hand back the same row.
- *  Internal routing columns (tenant_id, portal_client_id, asana_*, derived_subject, routed_at,
- *  route_error) are absent by construction rather than stripped afterwards. */
-const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, image_count, drive_folder_url, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, account_manager_name, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
 
 /** Matches OPEN_STATUSES in src/pages/client/help/help-model.ts, where canWithdraw() shows or
  *  hides the button. That copy decides what a client is offered; this one decides what
@@ -63,12 +59,16 @@ export default async (req: Request) => {
 
         // Scoped by the verified slug, so a reference belonging to another client is a 404
         // and not a way to find out that it exists.
-        const { data: ticket, error } = await db
-            .from("tickets")
-            .select(TICKET_COLUMNS)
-            .eq("reference", reference)
-            .eq("client_slug", gate.caller.slug)
-            .maybeSingle();
+        // The same row ticket-create and ticket-detail hand back (ticket-columns.mts), plus
+        // the pages; the base list while the pages column is not in the database yet. This
+        // list used to be its own copy and had drifted (no priority, no client_slug).
+        let columns = withPages(CLIENT_TICKET_COLUMNS);
+        const read = () => db.from("tickets").select(columns).eq("reference", reference).eq("client_slug", gate.caller.slug).maybeSingle();
+        let { data: ticket, error } = await read();
+        if (error && isMissingColumn(error) && columns !== CLIENT_TICKET_COLUMNS) {
+            columns = CLIENT_TICKET_COLUMNS;
+            ({ data: ticket, error } = await read());
+        }
 
         if (error) {
             console.error("[ticket-withdraw] read failed", error.message);
@@ -76,7 +76,7 @@ export default async (req: Request) => {
         }
         if (!ticket) return jsonError(404, "We could not find a request with that reference.");
 
-        const current = ticket as { id: string; status: string; submitted_by: string | null };
+        const current = ticket as unknown as { id: string; status: string; submitted_by: string | null };
 
         if ((current.submitted_by ?? "").toLowerCase() !== gate.caller.email) {
             return jsonError(403, "Only the person who raised a request can withdraw it. Ask them, or speak to your account manager.");
@@ -92,7 +92,7 @@ export default async (req: Request) => {
             // The guard: if the team completed it in the meantime, this matches nothing and
             // the completion stands.
             .in("status", OPEN_STATUSES)
-            .select(TICKET_COLUMNS)
+            .select(columns)
             .maybeSingle();
 
         if (writeErr) {

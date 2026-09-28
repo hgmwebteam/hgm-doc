@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { type TicketImage, uploadTicketImages } from "../lib/drive.mts";
+import { cleanNotifyEmail, cleanUrls, completionEmailOpen } from "../../src/pages/client/help/request-rules.ts";
 import {
     BRAIN_API_KEY,
     BRAIN_TICKET_URL,
@@ -7,11 +7,15 @@ import {
     cleanDate,
     cleanText,
     jsonError,
+    isListedOn,
     portalDb,
     readJson,
     reportingDb,
     accessTokenFrom, verifyCaller,
 } from "../lib/reporting.mts";
+import { isStaffEmail } from "../lib/staff.mts";
+import { CLIENT_TICKET_COLUMNS, NOTIFY_COLUMNS, asNote, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { type VerifiedFile, claimUploads, recordAttachments, ticketFiles, verifyUploads } from "../lib/ticket-files.mts";
 
 /**
  * A client raises a request.
@@ -22,11 +26,11 @@ import {
  * first and can refuse the call; everything after the row exists is best effort and can
  * only ever ADD to it.
  *
- *   verify the caller -> validate the request -> resolve who they are ->
- *   INSERT the ticket -> INSERT the "received" event -> store the images ->
- *   tell the brain
+ *   verify the caller -> validate the request -> the same request, a minute ago? ->
+ *   prove the files -> resolve who they are -> INSERT the ticket -> INSERT the
+ *   "received" event -> claim and list the files -> tell the brain
  *
- * Past the insert, nothing is allowed to turn into an error the client sees. A Drive outage
+ * Past the insert, nothing is allowed to turn into an error the client sees. A storage hiccup
  * or a platform deploy must not cost somebody the paragraph they just typed, and a sweep
  * over anything still `received` picks up what the handoff missed. That rule is the whole
  * reason the brain is told LAST and told only `{ ticket_id }`: the row is the single copy of
@@ -41,15 +45,37 @@ import {
  * what is not.
  *
  * ── WHY A REPEAT SUBMISSION IS RETURNED, NOT INSERTED ───────────────────────
- * The slow work (images, the platform handoff) happens after the row exists, so an
+ * The slow work (the files, the platform handoff) happens after the row exists, so an
  * invocation that runs out of time leaves a real ticket behind and shows the client a
  * network error. The obvious thing for them to do next is press the button again. Without
  * the "the same request, a minute ago" check below that produces two tickets, two Asana
  * tasks and two people chasing the same job, which is precisely the mess this exists to end.
  *
- * POST application/json
- *   { slug, topic, title, detail, property?, needed_by?, images? } + Authorization: Bearer <session token>
- *   -> 201 { ticket }
+ * ── FILES ARRIVE AS IDS, NEVER AS BYTES ─────────────────────────────────────
+ * The browser uploads each file straight to the private ticket-files bucket through a signed
+ * URL (ticket-upload-url) while the person is still typing, and sends only `upload_id` and
+ * the `file_id`s. Every file is proved against the ledger before the row exists (this
+ * caller's, still nobody's, really in the bucket, the size and type it was minted as), so a
+ * refusal costs nothing; it is claimed and listed after. The old base64 `images` field is
+ * refused with a sentence that asks for a reload: only a tab opened before this change
+ * sends it. See netlify/lib/ticket-files.mts.
+ *
+ * ── PAGES AND THE COMPLETION EMAIL ADDRESS ──────────────────────────────────
+ * `urls` are the pages the request is about (request-rules.ts cleans them). `notify_email` is
+ * the one address HiddenGem Media emails when the request is completed; it is validated and
+ * stored ONLY while the completion email switch lets this caller store one
+ * (VITE_TICKET_COMPLETION_EMAIL: off by default, staff, on), and otherwise ignored entirely:
+ * not validated, not stored, not returned, only counted in the log. The address is never
+ * logged, never an Asana follower, and never returned by any other endpoint.
+ * `notify_email_listed` records whether the address could open the request page when it was
+ * raised; the platform uses it only when its send-time read of the list cannot run.
+ * Either column set may be missing (the SQL is applied by hand): the insert retries without
+ * them and notes that they were not stored, and the request still goes.
+ *
+ * POST application/json + Authorization: Bearer <session token>
+ *   { slug, topic, title, detail, priority?, property?, needed_by?, urls?, notify_email?,
+ *     upload_id?, files?: [{ file_id }] }
+ *   -> 201 { ticket, files: [{ name, mime, bytes }] }   (the insert path and the duplicate path)
  */
 
 /* ── caps ────────────────────────────────────────────────────────────────── */
@@ -57,19 +83,6 @@ import {
 const MAX_TITLE = 140;
 const MAX_DETAIL = 5000;
 const MAX_PROPERTY = 160;
-const MAX_FILE_NAME = 200;
-
-/** Both mirror src/pages/client/help/help-api.ts, which enforces them in the browser first.
- *  Repeated here because the browser's copy is advice: this one is the rule. The payload cap
- *  counts BASE64 characters, the same measure the browser counts, so the two can never
- *  disagree about which file was the one over the line. */
-const MAX_IMAGES = 6;
-const MAX_IMAGE_PAYLOAD_CHARS = 4_000_000;
-
-/** What may be attached to a request. Deliberately the same list netlify/lib/drive.mts
- *  accepts, HEIC included: an iPhone hands over HEIC by default and a client photographing a
- *  property is on a phone. Anything not on it is refused here, before a byte is decoded. */
-const ALLOWED_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic", "image/heif"]);
 
 /** The handoff is best effort and the client is waiting, so it gets a budget rather than the
  *  whole invocation. Anything still `received` is the sweep's job. */
@@ -80,13 +93,11 @@ const BRAIN_TIMEOUT_MS = 5_000;
  *  raises the same thing twice in an afternoon gets two tickets. */
 const DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
 
-/** Kept in step with ticket-detail.mts and ticket-withdraw.mts, which hand back the same row.
- *  Everything a client has no business seeing is absent by construction rather than deleted
- *  afterwards: tenant_id, portal_client_id, asana_task_gid, asana_task_url, asana_project_gid,
- *  derived_subject, routed_at and route_error are all internal routing state. derived_subject
- *  in particular is OUR summary of their words, not theirs. */
-const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, priority, image_count, drive_folder_url, client_slug, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, account_manager_name, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
+/** A tab opened before files moved to direct uploads still posts base64 `images`. */
+const RELOAD_FOR_FILES = "This page was updated while it was open. Copy your description, reload the page, and attach the files again.";
+
+/** The note a request carries when the three columns are not in the database yet. */
+const COLUMNS_MISSING_NOTE = "The request carried page addresses and/or a completion email address, but the reporting database has no columns for them yet, so they were not stored.";
 
 /* ── cleaning what a person typed ────────────────────────────────────────── */
 
@@ -172,10 +183,9 @@ interface Identity {
  * portal project on 11 Sep 2026: of 54 dashboard rows, 0 carry `data.client_name` and 54
  * carry the top-level `client_name` COLUMN, which is also the one the help screen reads
  * (fetchClientRow in help-api.ts). So every caller would otherwise arrive here called
- * "paradise-pointe", and that string would become the client_name on the ticket, the key
- * both name matches below are tried on, and the Drive folder name - which netlify/lib/
- * drive.mts goes out of its way to keep human ("a person opening Drive should see 'Paradise
- * Pointe', not a slug"). One read of the column fixes all four. The fallback chain stays, so
+ * "paradise-pointe", and that string would become the client_name on the ticket and the key
+ * both name matches below are tried on ("a person reading the task should see 'Paradise
+ * Pointe', not a slug"). One read of the column fixes all three. The fallback chain stays, so
  * the day reporting.mts prefers the column this becomes belt and braces rather than a
  * behaviour change.
  *
@@ -246,18 +256,6 @@ const resolveIdentity = async (slug: string, fallbackName: string): Promise<Iden
     return { clientName, portalClientId, tenantId, notes };
 };
 
-/** One field, capped, for whoever picks the ticket up. `intake_notes` is the only free-text
- *  column on the row a human reads, and routing overwrites it with its own reason if it
- *  later fails, which is the right precedence: a live routing failure matters more than a
- *  mapping gap recorded on receipt. */
-const asNote = (notes: string[]): string | null => {
-    const joined = notes
-        .map((n) => n.trim())
-        .filter(Boolean)
-        .join(" ");
-    return joined ? `Unresolved on receipt: ${joined}`.slice(0, 900) : null;
-};
-
 /* ── the platform handoff ────────────────────────────────────────────────── */
 
 /**
@@ -268,86 +266,6 @@ const asNote = (notes: string[]): string | null => {
  * brain's side of that contract (`routed_at` is its guard), which is why calling this twice
  * is safe and why the sweep can call it again for anything still `received`.
  */
-/** How long into the request images may still be going to Drive. The rest of
- *  the 26s belongs to the write-back that records where they went, the handoff
- *  to the brain, and the response. Anything not uploaded by then is diverted to
- *  Supabase Storage, which is quick, and the note says so. */
-const IMAGE_BUDGET_MS = 16_000;
-
-/**
- * Store a request's images, list each one on the ticket, and record the count.
- *
- * Shared by the ordinary path and the duplicate-window path below, because a
- * retry that carries the images the first attempt lost has to store them the
- * same way. Never throws: uploadTicketImages says honestly where the images
- * ended up, and every write after it only ADDS to the row. `priorNotes` is
- * whatever intake_notes already carries, so this joins rather than replaces.
- *
- * Mutates `row` to match what is now stored, so the answer the client gets
- * is the row as it is, not as it was inserted.
- */
-const storeImagesFor = async (
-    db: ReturnType<typeof reportingDb>,
-    row: Record<string, unknown> & { id: string; reference: string },
-    clientName: string,
-    images: TicketImage[],
-    priorNotes: string[],
-    deadline: number,
-): Promise<void> => {
-    try {
-        const stored = await uploadTicketImages({ clientName, reference: row.reference, images, deadline });
-        // ONE ROW PER FILE, BEFORE THE COUNT. The brain reads these rows when
-        // it creates the Asana task and puts each file on it (attachments.ts
-        // over there); a count alone left the task saying "1 image" over
-        // nothing. Written before the ticket's own patch so that by the time
-        // image_count says N, N rows exist. A row that fails to insert is a
-        // file the task will not carry: the brain builds its attachments line
-        // from the rows, not the count, so the task says so too.
-        let recorded = 0;
-        if (stored.files.length) {
-            const { error: attErr } = await db.from("ticket_attachments").insert(
-                stored.files.map((f) => ({
-                    ticket_id: row.id,
-                    store: f.store,
-                    bucket: f.store === "portal" ? f.bucket : null,
-                    path: f.store === "portal" ? f.path : null,
-                    drive_file_id: f.store === "drive" ? f.driveFileId : null,
-                    drive_url: f.store === "drive" ? f.driveUrl : null,
-                    file_name: f.fileName,
-                    mime: f.mime,
-                    bytes: f.bytes,
-                })),
-            );
-            if (attErr) console.error("[ticket-create] could not record the attachments", attErr.message, row.reference);
-            else recorded = stored.files.length;
-        }
-        const unrecorded = stored.files.length - recorded;
-
-        const patch: Record<string, unknown> = { image_count: stored.uploaded, updated_at: new Date().toISOString() };
-        if (stored.folderUrl) patch.drive_folder_url = stored.folderUrl;
-        // A human step is owed only when something is not where it should be. The
-        // note joins whatever is already there, so one field answers "what does
-        // somebody have to do about this ticket".
-        const attachmentNote = unrecorded
-            ? `${unrecorded} stored image(s) could not be listed on the ticket, so the Asana task will not carry them; they are still where the images for this request are kept.`
-            : "";
-        if (stored.note || attachmentNote) patch.intake_notes = asNote([...priorNotes, stored.note, attachmentNote]);
-
-        const { error: patchErr } = await db.from("tickets").update(patch).eq("id", row.id);
-        if (patchErr) {
-            console.error("[ticket-create] could not record where the images went", patchErr.message, row.reference);
-        } else {
-            // intake_notes stays off the answer: it is a note for the team and
-            // TICKET_COLUMNS has never carried it.
-            row.image_count = stored.uploaded;
-            if (stored.folderUrl) row.drive_folder_url = stored.folderUrl;
-        }
-    } catch (err) {
-        // For the module failing outright, not for its logic, which never throws.
-        console.error("[ticket-create] image storage failed outright", err instanceof Error ? err.message : String(err), row.reference);
-    }
-};
-
 const tellTheBrain = async (ticketId: string): Promise<void> => {
     if (!BRAIN_TICKET_URL || !BRAIN_API_KEY) {
         console.error("[ticket-create] BRAIN_TICKETS_RECEIVED_URL / BRAIN_API_KEY are not set - ticket left for the sweep", ticketId);
@@ -378,9 +296,14 @@ interface CreateBody {
     detail?: unknown;
     property?: unknown;
     needed_by?: unknown;
-    images?: unknown;
-    /** Team only. A client has no priority control, and one is never inferred for them. */
+    /** Everyone sets one since 13 Sep 2026: the client's form carries the same four levels. */
     priority?: unknown;
+    urls?: unknown;
+    notify_email?: unknown;
+    upload_id?: unknown;
+    files?: unknown;
+    /** The retired base64 path. Only a tab opened before 28 Sep 2026 sends it. */
+    images?: unknown;
 }
 
 const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
@@ -390,12 +313,20 @@ const cleanPriority = (v: unknown): Priority | null => {
     return (PRIORITIES as readonly string[]).includes(s) ? (s as Priority) : null;
 };
 
+const sameList = (a: unknown, b: string[]): boolean => {
+    const x = Array.isArray(a) ? (a as unknown[]) : [];
+    return x.length === b.length && x.every((v, i) => v === b[i]);
+};
+
+/** The row as the caller may see it: the internal note and the listed flag never leave. */
+const forCaller = (row: Record<string, unknown>, showAddress: boolean): Record<string, unknown> => {
+    const { intake_notes: _notes, notify_email_listed: _listed, notify_email, ...rest } = row;
+    void _notes;
+    void _listed;
+    return showAddress && typeof notify_email === "string" && notify_email ? { ...rest, notify_email } : rest;
+};
+
 export default async (req: Request) => {
-    // One clock for the whole request. Netlify kills a synchronous function at
-    // 26 seconds and everything below shares that budget, so the parts that can
-    // overrun are measured from HERE rather than from wherever they happen to
-    // start.
-    const startedAt = Date.now();
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
     const parsed = await readJson<CreateBody>(req);
@@ -414,12 +345,13 @@ export default async (req: Request) => {
         // the same rule as for a client. Priority was staff-only at first; the
         // owner opened it to clients on 13 Sep 2026, with the legend as the guide.
         const caller = gate.caller;
-        // Everyone sets a priority now (owner, 13 Sep 2026: the client's form carries
-        // the same four levels and the legend that explains them). The team's task
-        // notes say who raised the ticket, so a client's "urgent" reads as a client's.
         const priority = cleanPriority(body.priority);
 
         /* ── what they typed ─────────────────────────────────────────────── */
+
+        // An open tab from before files moved to direct uploads. Its files would be
+        // silently dropped, so it is told to reload rather than half-accepted.
+        if (Array.isArray(body.images) && body.images.length > 0) return jsonError(422, RELOAD_FOR_FILES);
 
         const title = cleanText(body.title, MAX_TITLE);
         const detail = cleanBody(body.detail, MAX_DETAIL);
@@ -441,28 +373,27 @@ export default async (req: Request) => {
             if (neededBy < floor) return jsonError(422, "That date has already passed. Pick a date from today onwards, or leave it blank.");
         }
 
-        /* ── the attachments ─────────────────────────────────────────────── */
+        const pages = cleanUrls(body.urls);
+        if (!pages.ok) return jsonError(422, pages.error);
+        const urls = pages.urls;
 
-        const rawImages = Array.isArray(body.images) ? body.images : [];
-        if (rawImages.length > MAX_IMAGES) return jsonError(422, `A request can carry at most ${MAX_IMAGES} images.`);
-
-        const images: TicketImage[] = [];
-        let payloadChars = 0;
-        for (const raw of rawImages) {
-            const item = (raw ?? {}) as { name?: unknown; mime?: unknown; dataBase64?: unknown };
-            const mime = String(item.mime ?? "")
-                .toLowerCase()
-                .split(";")[0]
-                .trim();
-            const dataBase64 = typeof item.dataBase64 === "string" ? item.dataBase64 : "";
-            if (!ALLOWED_IMAGE_MIME.has(mime)) return jsonError(422, "Only images can be attached to a request.");
-            if (!dataBase64) return jsonError(422, "One of those images could not be read. Remove it and try again.");
-            payloadChars += dataBase64.length;
-            // 413 rather than 422: help-api.ts already has the sentence for it, and Netlify
-            // rejects the whole body over 6MB anyway, so this is the limit that is real.
-            if (payloadChars > MAX_IMAGE_PAYLOAD_CHARS) return jsonError(413, "Those images are too large to send together. Remove one and try again.");
-            images.push({ name: cleanText(item.name, MAX_FILE_NAME) || "image", mime, dataBase64 });
+        // THE SWITCH DECIDES WHETHER AN ADDRESS EXISTS AT ALL. Until the platform can send,
+        // nobody may be promised an email, so an address sent anyway (an old tab, a hand-made
+        // call) is not validated, not stored and not returned. Counted, never logged.
+        const emailOpen = completionEmailOpen(completionEmailModeNow(), gate.via === "staff");
+        let notify: string | null = null;
+        if (emailOpen) {
+            const cleaned = cleanNotifyEmail(body.notify_email);
+            if (!cleaned.ok) return jsonError(422, cleaned.error);
+            notify = cleaned.email;
+        } else if (body.notify_email !== undefined && body.notify_email !== null && body.notify_email !== "") {
+            console.log("[ticket-create] completion email address ignored: the switch is off for this caller", 1);
         }
+
+        // The files, as ids. Both or neither: a file id means nothing without its upload.
+        const fileIds = Array.isArray(body.files) ? body.files.map((f) => (f && typeof f === "object" ? (f as { file_id?: unknown }).file_id : undefined)) : [];
+        if (body.files !== undefined && !Array.isArray(body.files)) return jsonError(400, "Bad request.");
+        if (fileIds.length && (body.upload_id === undefined || body.upload_id === null)) return jsonError(400, "Bad request.");
 
         /* ── the topic, as it is right now ───────────────────────────────── */
 
@@ -476,102 +407,134 @@ export default async (req: Request) => {
 
         /* ── the same request, a minute ago ──────────────────────────────── */
 
+        // intake_notes as well, for the writes this path can make below; the new columns so
+        // a retry can be reconciled. Both are stripped from the answer (forCaller). Without
+        // the new columns in the database yet, the base list, and nothing new is written.
         const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
-        const { data: recent } = await db
-            .from("tickets")
-            // intake_notes as well, for the one write this path can make below;
-            // it is stripped from the answer.
-            .select(`${TICKET_COLUMNS}, intake_notes`)
-            .eq("client_slug", caller.slug)
-            .eq("submitted_by", caller.email)
-            .eq("title", title)
-            .eq("detail", detail)
-            .gte("created_at", since)
-            .order("created_at", { ascending: false })
-            .limit(1);
-        if (recent && recent.length) {
+        const recentQuery = (cols: string) =>
+            db.from("tickets").select(cols).eq("client_slug", caller.slug).eq("submitted_by", caller.email).eq("title", title).eq("detail", detail).gte("created_at", since).order("created_at", { ascending: false }).limit(1);
+        let columnsMissing = false;
+        let recentRes = await recentQuery(`${withPages(CLIENT_TICKET_COLUMNS)}, ${NOTIFY_COLUMNS}, intake_notes`);
+        if (recentRes.error && isMissingColumn(recentRes.error)) {
+            columnsMissing = true;
+            recentRes = await recentQuery(`${CLIENT_TICKET_COLUMNS}, intake_notes`);
+        }
+        if (recentRes.error) console.error("[ticket-create] duplicate lookup failed, treating the request as new", recentRes.error.message);
+        const recent = (recentRes.data ?? []) as unknown as Array<Record<string, unknown>>;
+
+        if (recent.length) {
             // The first attempt landed; only the answer was lost. Handing back the ticket it
             // made is both true and what the client wanted, and it creates no second task.
-            const { intake_notes: priorNotes, ...existing } = recent[0] as Record<string, unknown> & {
-                id: string;
-                reference: string;
-                client_name: string | null;
-                intake_notes: string | null;
-            };
+            const existing = recent[0] as Record<string, unknown> & { id: string; reference: string; status: string; intake_notes: string | null };
             console.warn("[ticket-create] repeat submission inside the window, returning the existing ticket", existing.reference);
+            const priorNotes = typeof existing.intake_notes === "string" && existing.intake_notes ? [existing.intake_notes.replace(/^Unresolved on receipt: /, "")] : [];
 
-            // THE PRIORITY THE RETRY CARRIES. Between the attempt that died and this
-            // one the person may have changed the chip; the row keeps the first
-            // value and the task would be filed under it. Reconciled only while the
-            // ticket is still received: once routed, the Asana task's column holds
-            // the value and a silent change here would leave the two disagreeing.
-            if (priority && existing.priority !== priority && existing.status === "received") {
-                const { error: prioErr } = await db.from("tickets").update({ priority }).eq("id", existing.id).eq("status", "received").is("routed_at", null);
-                if (prioErr) console.warn("[ticket-create] could not carry the retry's priority onto the existing ticket", existing.reference, prioErr.message);
-                else existing.priority = priority;
+            // WHAT THE RETRY CARRIES. Between the attempt that died and this one the
+            // person may have changed the chip, the pages or the address; the row keeps the
+            // first values and the task would be filed under them. Reconciled only while the
+            // ticket is still received: once routed, the Asana task holds the values and a
+            // silent change here would leave the two disagreeing.
+            const patch: Record<string, unknown> = {};
+            if (priority && existing.priority !== priority) patch.priority = priority;
+            if (!columnsMissing && !sameList(existing.urls, urls)) patch.urls = urls.length ? urls : null;
+            if (!columnsMissing && emailOpen && (existing.notify_email ?? null) !== notify) {
+                patch.notify_email = notify;
+                patch.notify_email_listed = notify ? isStaffEmail(notify) || (await isListedOn(caller.slug, notify)) : null;
+            }
+            if (Object.keys(patch).length && existing.status === "received") {
+                const { error: patchErr } = await db.from("tickets").update(patch).eq("id", existing.id).eq("status", "received").is("routed_at", null);
+                if (patchErr) console.warn("[ticket-create] could not carry the retry's values onto the existing ticket", existing.reference, patchErr.message);
+                else Object.assign(existing, patch);
             }
 
-            // THE IMAGES THE FIRST ATTEMPT LOST. The invocation that is most likely to
-            // have died is the one carrying images - they are the slow part - and it
-            // dies AFTER the row exists and BEFORE anything is stored. So the retry
-            // is the only copy of the photos, and answering with the bare ticket
-            // dropped them on the floor (found in review, 12 Sep 2026). Stored only
-            // when the ticket lists nothing yet: rows are the truth, not
-            // image_count, because the first attempt can also have died between
-            // writing the rows and patching the count.
-            if (images.length) {
-                const { count } = await db.from("ticket_attachments").select("id", { count: "exact", head: true }).eq("ticket_id", existing.id);
-                if (count === 0) {
-                    const prior = typeof priorNotes === "string" && priorNotes ? [priorNotes.replace(/^Unresolved on receipt: /, "")] : [];
-                    await storeImagesFor(db, existing, existing.client_name || caller.clientName, images, prior, startedAt + IMAGE_BUDGET_MS);
-                    // The first attempt never got this far, so the brain has not been told.
-                    // Idempotent on its side, so telling it again costs nothing if it had.
-                    await tellTheBrain(existing.id);
-                }
+            // THE FILES THE FIRST ATTEMPT LOST. The attempt most likely to have died is the
+            // one that got past the insert and not past the listing. Proved against THIS
+            // ticket, so rows the dead attempt already claimed for it pass; then claimed and
+            // listed, skipping what is already on it, so a partial first attempt is finished
+            // rather than left short.
+            if (fileIds.length) {
+                const verified = await verifyUploads({ caller, via: gate.via, uploadId: body.upload_id, fileIds, ticketId: existing.id });
+                if (!verified.ok) return jsonError(verified.status, verified.error);
+                const claimed = await claimUploads(existing.id, verified.files);
+                const { recorded, total } = await recordAttachments(existing.id, claimed, priorNotes, verified.files.length);
+                if (total !== null) existing.image_count = total;
+                // Idempotent on the brain's side, so telling it again costs nothing if it had.
+                if (recorded > 0) await tellTheBrain(existing.id);
             }
-            return Response.json({ ticket: existing }, { status: 201 });
+            const files = await ticketFiles(existing.id);
+            return Response.json({ ticket: forCaller(existing, emailOpen), files }, { status: 201 });
+        }
+
+        /* ── the files, proved before the row exists ─────────────────────── */
+
+        let verified: VerifiedFile[] = [];
+        if (fileIds.length) {
+            const check = await verifyUploads({ caller, via: gate.via, uploadId: body.upload_id, fileIds });
+            if (!check.ok) return jsonError(check.status, check.error);
+            verified = check.files;
         }
 
         /* ── who they are ────────────────────────────────────────────────── */
 
         const identity = await resolveIdentity(caller.slug, caller.clientName);
+        const notifyListed = notify ? isStaffEmail(notify) || (await isListedOn(caller.slug, notify)) : null;
 
         /* ── the row ─────────────────────────────────────────────────────── */
 
-        // image_count starts at 0 and is corrected once the images are actually somewhere.
-        // Understating is survivable; a client told six screenshots are attached when none
-        // are reachable is not. `reference` and `status` are left to their column defaults so
-        // "REQ-nnnn" and "received" have exactly one definition, in the database.
-        const { data: ticket, error: insertErr } = await db
-            .from("tickets")
-            .insert({
-                client_slug: caller.slug,
-                portal_client_id: identity.portalClientId,
-                tenant_id: identity.tenantId,
-                client_name: identity.clientName,
-                submitted_by: caller.email,
-                submitted_by_name: caller.name,
-                topic: topicRow.key,
-                title,
-                detail,
-                property: property || null,
-                needed_by: neededBy,
-                priority,
-                image_count: 0,
-                // Intake observations, NOT a routing failure. route_error belongs to the
-                // brain, and its sweep finds new arrivals with route_error IS NULL, so a
-                // note written there put every ticket in the wrong half of that triage.
-                intake_notes: asNote(identity.notes),
-            })
-            .select(TICKET_COLUMNS)
-            .single();
+        // image_count starts at 0 and is set to the number of files actually listed. It
+        // counts every file now, not only images; the name predates PDFs. Understating is
+        // survivable; a client told six files are attached when none are reachable is not.
+        // `reference` and `status` are left to their column defaults so "REQ-nnnn" and
+        // "received" have exactly one definition, in the database.
+        const base = {
+            client_slug: caller.slug,
+            portal_client_id: identity.portalClientId,
+            tenant_id: identity.tenantId,
+            client_name: identity.clientName,
+            submitted_by: caller.email,
+            submitted_by_name: caller.name,
+            topic: topicRow.key,
+            title,
+            detail,
+            property: property || null,
+            needed_by: neededBy,
+            priority,
+            image_count: 0,
+        };
+        // Only named when there is something to store, so a request with no pages and no
+        // address inserts exactly as it did before the columns existed.
+        const carriesNew = urls.length > 0 || notify !== null;
+        const extra = carriesNew ? { urls: urls.length ? urls : null, ...(notify ? { notify_email: notify, notify_email_listed: notifyListed } : {}) } : {};
+        const insert = (withNew: boolean, notes: string[]) =>
+            db
+                .from("tickets")
+                .insert({
+                    ...base,
+                    ...(withNew ? extra : {}),
+                    // Intake observations, NOT a routing failure. route_error belongs to the
+                    // brain, and its sweep finds new arrivals with route_error IS NULL, so a
+                    // note written there put every ticket in the wrong half of that triage.
+                    intake_notes: asNote(notes),
+                })
+                .select(withNew && carriesNew ? `${withPages(CLIENT_TICKET_COLUMNS)}, ${NOTIFY_COLUMNS}` : CLIENT_TICKET_COLUMNS)
+                .single();
+
+        let notes = identity.notes;
+        let { data: ticket, error: insertErr } = await insert(true, notes);
+        if (insertErr && carriesNew && isMissingColumn(insertErr)) {
+            // The SQL has not been pasted yet. The request still goes; the team is told what
+            // it carried that could not be kept, and the client is promised nothing about it.
+            console.warn("[ticket-create] the pages / completion email columns are missing, storing the request without them");
+            notes = [...identity.notes, COLUMNS_MISSING_NOTE];
+            ({ data: ticket, error: insertErr } = await insert(false, notes));
+        }
 
         if (insertErr || !ticket) {
             console.error("[ticket-create] insert failed", insertErr?.message);
             return jsonError(500, "We could not save your request. Nothing was sent - try again in a moment.");
         }
 
-        const row = ticket as Record<string, unknown> & { id: string; reference: string };
+        const row = ticket as unknown as Record<string, unknown> & { id: string; reference: string };
 
         /* ── everything past here is best effort ─────────────────────────── */
 
@@ -586,13 +549,19 @@ export default async (req: Request) => {
         });
         if (eventErr) console.error("[ticket-create] received event failed", eventErr.message, row.reference);
 
-        // Leaves room for the write-back, the brain handoff and the response
-        // itself, all inside the platform's 26s.
-        if (images.length) await storeImagesFor(db, row, identity.clientName, images, identity.notes, startedAt + IMAGE_BUDGET_MS);
+        // Claimed and listed BEFORE the brain is told, so routing's notes line and the
+        // task's attachments see every file.
+        let files: Array<{ name: string; mime: string; bytes: number | null }> = [];
+        if (verified.length) {
+            const claimed = await claimUploads(row.id, verified);
+            const { total } = await recordAttachments(row.id, claimed, notes, verified.length);
+            if (total !== null) row.image_count = total;
+            files = await ticketFiles(row.id);
+        }
 
         await tellTheBrain(row.id);
 
-        return Response.json({ ticket: row }, { status: 201 });
+        return Response.json({ ticket: forCaller(row, emailOpen), files }, { status: 201 });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-create] not configured", err.message);

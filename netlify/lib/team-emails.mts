@@ -8,12 +8,12 @@
  */
 const ACCOUNT_MANAGER_EMAILS: Record<string, string> = {
     "Alicia Morin": "alicia@hiddengem.media",
-    "Makenna Moran": "",
-    "Charlotte Pickering": "",
-    "Ananya Arora": "",
-    "Nicole Araya": "",
-    "Chiara Henry": "",
-    "Kristal Puguan": "",
+    "Makenna Moran": "makenna@hiddengem.media",
+    "Charlotte Pickering": "charlotte@hiddengem.media",
+    "Ananya Arora": "ananya@hiddengem.media",
+    "Nicole Araya": "nicole@hiddengem.media",
+    "Chiara Henry": "chiara@hiddengem.media",
+    "Kristal Puguan": "kristal@hiddengem.media",
 };
 
 /** Case- and whitespace-insensitive, because `clients.am` also keeps legacy free-typed names. */

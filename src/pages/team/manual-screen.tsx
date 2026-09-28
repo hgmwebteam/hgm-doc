@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
     AlertTriangle,
     ArrowRight,
@@ -45,22 +45,48 @@ type IconType = typeof File02;
  * current when routes, tables or skills change.
  */
 
-const SECTIONS: { id: string; label: string; icon: IconType }[] = [
-    { id: "about", label: "The site in one minute", icon: LayoutAlt01 },
-    { id: "where", label: "Where things live", icon: FolderClosed },
-    { id: "access", label: "Who can see what", icon: Key01 },
-    { id: "commands", label: "Custom commands", icon: Terminal },
-    { id: "claude", label: "Claude Code setup", icon: Package },
-    { id: "client-pages", label: "Client pages", icon: File02 },
-    { id: "dashboard", label: "The client dashboard", icon: LayoutAlt01 },
-    { id: "links", label: "All links", icon: LinkExternal01 },
-    { id: "logs", label: "Project logs", icon: ClipboardCheck },
-    { id: "editing", label: "Editing & saving", icon: Edit03 },
-    { id: "data", label: "Database & storage", icon: Database01 },
-    { id: "ai", label: "AI features", icon: Zap },
-    { id: "infra", label: "Deploy & infrastructure", icon: Server01 },
-    { id: "rules", label: "Rules that never break", icon: AlertTriangle },
+/**
+ * Page order IS menu order: the side menu groups these by `topic`, and a topic is
+ * a run of neighbours, so the numbers read 01, 02, 03… down the menu as well as
+ * down the page. Add a section where its topic already is, never at the end.
+ */
+const SECTIONS: { id: string; label: string; icon: IconType; topic: string }[] = [
+    { id: "about", label: "The site in one minute", icon: LayoutAlt01, topic: "Start here" },
+    { id: "where", label: "Where things live", icon: FolderClosed, topic: "Start here" },
+    { id: "access", label: "Who can see what", icon: Key01, topic: "Start here" },
+    { id: "rules", label: "Rules that never break", icon: AlertTriangle, topic: "Start here" },
+    { id: "commands", label: "Custom commands", icon: Terminal, topic: "Tools" },
+    { id: "claude", label: "Claude Code setup", icon: Package, topic: "Tools" },
+    { id: "client-pages", label: "Client pages", icon: File02, topic: "Pages" },
+    { id: "dashboard", label: "The client dashboard", icon: LayoutAlt01, topic: "Pages" },
+    { id: "links", label: "All links", icon: LinkExternal01, topic: "Pages" },
+    { id: "logs", label: "Project logs", icon: ClipboardCheck, topic: "Pages" },
+    { id: "editing", label: "Editing & saving", icon: Edit03, topic: "Editing & data" },
+    { id: "data", label: "Database & storage", icon: Database01, topic: "Editing & data" },
+    { id: "ai", label: "AI features", icon: Zap, topic: "Behind the scenes" },
+    { id: "email", label: "Email notifications (Resend)", icon: Mail01, topic: "Behind the scenes" },
+    { id: "infra", label: "Deploy & infrastructure", icon: Server01, topic: "Behind the scenes" },
 ];
+
+const TOPIC_ICONS: Record<string, IconType> = {
+    "Start here": BookOpen01,
+    Tools: Terminal,
+    Pages: File02,
+    "Editing & data": Database01,
+    "Behind the scenes": Server01,
+};
+
+/** SECTIONS folded into their topics, in page order. */
+const TOPICS = SECTIONS.reduce<{ label: string; sections: typeof SECTIONS }[]>((acc, sec) => {
+    const last = acc[acc.length - 1];
+    if (last?.label === sec.topic) last.sections.push(sec);
+    else acc.push({ label: sec.topic, sections: [sec] });
+    return acc;
+}, []);
+
+/** DocSection renders its id with this prefix. */
+const sectionEl = (id: string) => document.getElementById(`mbd-${id}`);
+const pad = (n: number) => String(n).padStart(2, "0");
 
 const num = (id: string) => SECTIONS.findIndex((s) => s.id === id) + 1;
 
@@ -230,9 +256,12 @@ const DASHBOARD_GROUPS: { group: string; items: { label: string; note: string }[
         items: [
             {
                 label: "Onboarding Form",
-                note: `The business, the brand and the guests — ${TOTAL_QUESTIONS} questions, ${ESTIMATE_LABEL}, autosaving as the client types. It absorbed the Brand Vision Form.`,
+                note: `The business, the brand and the guests — ${TOTAL_QUESTIONS} questions, ${ESTIMATE_LABEL}, autosaving as the client types. It absorbed the Brand Vision Form. Submitting it emails the client's AM.`,
             },
-            { label: "Account Access Form", note: "The three account logins (Instagram, TikTok, Domain Host) and billing details." },
+            {
+                label: "Account Access Form",
+                note: "The three account logins (Instagram, TikTok, Domain Host) and billing details. Submitting it emails the client's AM which logins were shared, never the logins themselves.",
+            },
         ],
     },
     {
@@ -313,7 +342,7 @@ const TABLES: { group: string; rows: { name: string; what: string }[] }[] = [
             { name: "owner_guides", what: "Per-client owner guides — slug, share password, hidden steps. Guide content lives in sop_pages." },
             {
                 name: "client_onboarding_pages / host_onboarding_pages",
-                what: "The two intake forms' answers — autosaved (900 ms debounce) while the client types, stamped submittedAt when they submit.",
+                what: "The two intake forms' answers — autosaved (900 ms debounce) while the client types, stamped submittedAt when they submit. am_notified_at records when the AM was emailed, so each form emails once.",
             },
         ],
     },
@@ -355,6 +384,30 @@ const TABLES: { group: string; rows: { name: string; what: string }[] }[] = [
     },
 ];
 
+/** The email setup, one row per system it touches, in the order it was set up (2026-09-28). */
+const EMAIL_SETUP: { name: string; what: string }[] = [
+    {
+        name: "Resend",
+        what: "Sends the email. The account belongs to anhtuan@hiddengem.media. API keys → the key Netlify uses has Sending access. Domains → hgmportal.com must read Verified, or every send is refused.",
+    },
+    {
+        name: "GoDaddy (DNS)",
+        what: "hgmportal.com's DNS lives at GoDaddy. Resend's records are added there: TXT resend._domainkey (DKIM), MX and TXT on send (bounces + SPF), and TXT _dmarc. Copy them from Resend's Domains page exactly; the Name field takes only the part before .hgmportal.com.",
+    },
+    {
+        name: "Netlify env vars",
+        what: "RESEND_API_KEY (secret) and RESEND_FROM = HGM Portal <notifications@hgmportal.com>. A change applies to the next deploy, not the running one.",
+    },
+    {
+        name: "Supabase",
+        what: "Migration 20260928120000_client_onboarding_am_notified adds client_onboarding_pages.am_notified_at. The function stamps it before sending, so each form emails once, even on a resubmit or double-click.",
+    },
+    {
+        name: "Code",
+        what: "netlify/functions/form-submitted.mts sends the email. netlify/lib/team-emails.mts maps each AM's name to their address.",
+    },
+];
+
 const FUNCTIONS: { name: string; what: string }[] = [
     {
         name: "generate-master-section",
@@ -376,6 +429,10 @@ const FUNCTIONS: { name: string; what: string }[] = [
     {
         name: "pinned-stories-review",
         what: "The client's per-slide notes and approval on Pinned Stories — only ever writes the live version's review, never the highlights.",
+    },
+    {
+        name: "form-submitted",
+        what: "Emails the client's Account Manager when they submit the Onboarding Form or the Account Access Form, one email per form, sent once. The AM comes from the Client List (clients.am) and their address from netlify/lib/team-emails.mts, so a new AM needs adding there. Sends through Resend from notifications@hgmportal.com; needs RESEND_API_KEY and RESEND_FROM in Netlify.",
     },
     {
         name: "canva-import",
@@ -696,7 +753,99 @@ const DOCS_MENU: { id: string; label: string; icon: IconType; to: string }[] = [
     { id: "backgrounds", label: "Backgrounds", icon: Palette, to: "/background" },
 ];
 
-const ManualSideMenu = ({ onCollapse }: { onCollapse?: () => void }) => {
+/**
+ * This page's own sections, hung under the Manual row and grouped by topic — the
+ * rail pattern from hiddengem.media's /background: group rows carry an icon, a
+ * label, a mono count and a chevron; children hang off a hairline whose segment
+ * turns brand at the section you are reading. Collapsing is instant (no height
+ * animation) because /manual takes no motion beyond hover and focus.
+ */
+const ManualTopics = ({ activeId, onJump }: { activeId: string; onJump: (id: string) => void }) => {
+    const activeTopic = SECTIONS.find((s) => s.id === activeId)?.topic;
+    // Wide screens open every topic; a phone opens only the first, so the menu
+    // above the content doesn't push the manual a screen down.
+    const [open, setOpen] = useState<Set<string>>(() => {
+        const wide = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+        return new Set(wide ? TOPICS.map((t) => t.label) : [TOPICS[0].label]);
+    });
+    // Reading into a closed topic opens it, so the marker is never hidden.
+    useEffect(() => {
+        if (activeTopic) setOpen((o) => (o.has(activeTopic) ? o : new Set(o).add(activeTopic)));
+    }, [activeTopic]);
+
+    const toggle = (label: string) =>
+        setOpen((o) => {
+            const n = new Set(o);
+            if (n.has(label)) n.delete(label);
+            else n.add(label);
+            return n;
+        });
+
+    return (
+        <div className="mt-1 mb-2 flex flex-col gap-0.5 pl-2">
+            {TOPICS.map((topic) => {
+                const isOpen = open.has(topic.label);
+                const Icon = TOPIC_ICONS[topic.label] ?? File02;
+                const holdsActive = topic.label === activeTopic;
+                const listId = `manual-topic-${topic.label.replace(/\W+/g, "-").toLowerCase()}`;
+                return (
+                    <div key={topic.label}>
+                        <button
+                            type="button"
+                            aria-expanded={isOpen}
+                            aria-controls={listId}
+                            onClick={() => toggle(topic.label)}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium text-secondary outline-focus-ring transition duration-100 ease-linear hover:bg-secondary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+                        >
+                            <Icon className={cx("size-4 shrink-0", holdsActive ? "text-fg-brand-primary" : "text-fg-quaternary")} aria-hidden="true" />
+                            <span className="min-w-0 flex-1 truncate">{topic.label}</span>
+                            <span className="font-mono text-xs text-quaternary">{topic.sections.length}</span>
+                            <ChevronDown
+                                className={cx("size-4 shrink-0 text-fg-quaternary transition-transform duration-100 ease-linear", !isOpen && "-rotate-90")}
+                                aria-hidden="true"
+                            />
+                        </button>
+                        {isOpen && (
+                            <ul id={listId} className="mt-0.5 mb-1 ml-[15px] border-l border-secondary">
+                                {topic.sections.map((sec) => {
+                                    const active = sec.id === activeId;
+                                    return (
+                                        <li key={sec.id} className="relative">
+                                            {/* The hairline's segment beside the section being read. */}
+                                            <span
+                                                className={cx("absolute top-1 bottom-1 -left-[1.5px] w-0.5 rounded-full", active ? "bg-brand-solid" : "bg-transparent")}
+                                                aria-hidden="true"
+                                            />
+                                            <a
+                                                href={`#${sec.id}`}
+                                                aria-current={active ? "location" : undefined}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    onJump(sec.id);
+                                                }}
+                                                className={cx(
+                                                    "flex items-baseline gap-2 rounded-md py-1.5 pr-2 pl-3 text-sm outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2",
+                                                    active ? "font-medium text-brand-secondary" : "text-tertiary hover:text-primary",
+                                                )}
+                                            >
+                                                <span className={cx("font-mono text-xs", active ? "text-brand-secondary" : "text-quaternary")}>
+                                                    {pad(num(sec.id))}
+                                                </span>
+                                                <span className="min-w-0">{sec.label}</span>
+                                            </a>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+const ManualSideMenu = ({ onCollapse, activeId, onJump }: { onCollapse?: () => void; activeId: string; onJump: (id: string) => void }) => {
     const navigate = useNavigate();
 
     return (
@@ -714,19 +863,21 @@ const ManualSideMenu = ({ onCollapse }: { onCollapse?: () => void }) => {
                         const current = item.id === "manual";
                         const Icon = item.icon;
                         return (
-                            <button
-                                key={item.id}
-                                type="button"
-                                aria-current={current ? "page" : undefined}
-                                onClick={current ? undefined : () => navigate(item.to)}
-                                className={cx(
-                                    "group flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2",
-                                    current ? "bg-brand-primary text-brand-secondary" : "text-secondary hover:bg-secondary hover:text-primary",
-                                )}
-                            >
-                                <Icon className={cx("size-4 shrink-0", current ? "text-fg-brand-primary" : "text-fg-quaternary")} aria-hidden="true" />
-                                <span className="truncate">{item.label}</span>
-                            </button>
+                            <Fragment key={item.id}>
+                                <button
+                                    type="button"
+                                    aria-current={current ? "page" : undefined}
+                                    onClick={current ? undefined : () => navigate(item.to)}
+                                    className={cx(
+                                        "group flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2",
+                                        current ? "bg-brand-primary text-brand-secondary" : "text-secondary hover:bg-secondary hover:text-primary",
+                                    )}
+                                >
+                                    <Icon className={cx("size-4 shrink-0", current ? "text-fg-brand-primary" : "text-fg-quaternary")} aria-hidden="true" />
+                                    <span className="truncate">{item.label}</span>
+                                </button>
+                                {current && <ManualTopics activeId={activeId} onJump={onJump} />}
+                            </Fragment>
                         );
                     })}
                 </div>
@@ -747,6 +898,56 @@ const ManualSideMenu = ({ onCollapse }: { onCollapse?: () => void }) => {
 
 export const ManualScreen = () => {
     const { collapsed: navCollapsed, toggle: toggleNav } = useNavCollapsed();
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [activeId, setActiveId] = useState(SECTIONS[0].id);
+
+    const jump = (id: string) => {
+        sectionEl(id)?.scrollIntoView({ block: "start", behavior: "instant" });
+        setActiveId(id);
+        history.replaceState(null, "", `#${id}`);
+    };
+
+    // A shared link like /manual#email lands on that section. Sections above it
+    // (Project logs) finish loading after the first jump and push it down, so it
+    // stays pinned while the page settles — until the reader scrolls themselves.
+    useEffect(() => {
+        const id = decodeURIComponent(location.hash.slice(1)).replace(/^mbd-/, "");
+        const root = scrollRef.current;
+        if (!root || !SECTIONS.some((s) => s.id === id)) return;
+        jump(id);
+        const pin = new ResizeObserver(() => sectionEl(id)?.scrollIntoView({ block: "start", behavior: "instant" }));
+        if (root.firstElementChild) pin.observe(root.firstElementChild);
+        const stop = () => pin.disconnect();
+        const timer = window.setTimeout(stop, 3000);
+        const events = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+        events.forEach((e) => root.addEventListener(e, stop, { once: true, passive: true }));
+        return () => {
+            stop();
+            window.clearTimeout(timer);
+            events.forEach((e) => root.removeEventListener(e, stop));
+        };
+    }, []);
+
+    // The section being read is the last one whose top has passed the upper
+    // quarter of the scroll area — measured on scroll, which is cheap at 15.
+    useEffect(() => {
+        const root = scrollRef.current;
+        if (!root) return;
+        const onScroll = () => {
+            const line = root.getBoundingClientRect().top + root.clientHeight * 0.25;
+            let current = SECTIONS[0].id;
+            for (const sec of SECTIONS) {
+                const el = sectionEl(sec.id);
+                if (el && el.getBoundingClientRect().top <= line) current = sec.id;
+            }
+            // At the very bottom the last short sections can never reach the line.
+            if (root.scrollTop + root.clientHeight >= root.scrollHeight - 4) current = SECTIONS[SECTIONS.length - 1].id;
+            setActiveId(current);
+        };
+        onScroll();
+        root.addEventListener("scroll", onScroll, { passive: true });
+        return () => root.removeEventListener("scroll", onScroll);
+    }, []);
 
     return (
         <AppShell
@@ -759,7 +960,7 @@ export const ManualScreen = () => {
         >
             {navCollapsed && <CollapsedTopBar title="Manual" onExpand={toggleNav} />}
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-secondary p-2">
+            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-secondary p-2">
                 <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
                     <header>
                         <h1 className="text-display-xs font-semibold text-primary">Manual</h1>
@@ -770,7 +971,7 @@ export const ManualScreen = () => {
                     </header>
 
                     <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
-                        <ManualSideMenu onCollapse={toggleNav} />
+                        <ManualSideMenu onCollapse={toggleNav} activeId={activeId} onJump={jump} />
 
                         <div className="flex min-w-0 flex-1 flex-col gap-8 rounded-2xl bg-primary p-6 ring-1 ring-secondary sm:p-8">
                             <DocSection id="about" label="The site in one minute" number={num("about")}>
@@ -871,6 +1072,41 @@ export const ManualScreen = () => {
                                         { t: "Unlocked", s: "lasts this browser tab", accent: true },
                                     ]}
                                 />
+                            </DocSection>
+
+                            <DocSection
+                                id="rules"
+                                label="Rules that never break"
+                                number={num("rules")}
+                                badge={
+                                    <Badge color="error" size="sm">
+                                        Non-negotiable
+                                    </Badge>
+                                }
+                            >
+                                <ol className="flex flex-col gap-2 text-md text-tertiary">
+                                    <li>
+                                        <strong className="text-secondary">1. Submitted guides are immutable.</strong> Once a client submits/locks their guide,
+                                        nothing about it may ever change again — including by the team.
+                                    </li>
+                                    <li>
+                                        <strong className="text-secondary">2. No deploys without saying so.</strong> Nothing goes to production unless you
+                                        explicitly ask to ship/deploy.
+                                    </li>
+                                    <li>
+                                        <strong className="text-secondary">3. Supabase is the only store.</strong> Editable content never lives only in the
+                                        browser — if it isn't saved to Supabase, it doesn't exist.
+                                    </li>
+                                    <li>
+                                        <strong className="text-secondary">4. Test dashboard first.</strong> Dashboard experiments go to /hgm-test-dashboard
+                                        before any real client sees them.
+                                    </li>
+                                    <li>
+                                        <strong className="text-secondary">5. Clients never write documents directly.</strong> A client's edit is a suggestion
+                                        until an AM accepts it — and their browser can't write the database at all; the few client actions there are go through
+                                        validated server functions.
+                                    </li>
+                                </ol>
                             </DocSection>
 
                             <DocSection id="commands" label="Custom commands" number={num("commands")}>
@@ -1143,6 +1379,43 @@ export const ManualScreen = () => {
                                 />
                             </DocSection>
 
+                            <DocSection id="email" label="Email notifications (Resend)" number={num("email")}>
+                                <p className="mb-2 text-md text-tertiary">
+                                    When a client submits their <strong className="text-secondary">Onboarding Form</strong> or their{" "}
+                                    <strong className="text-secondary">Account Access Form</strong>, their Account Manager gets one email for that form, with
+                                    links to the answers and the dashboard. The access email says which logins were shared, never the logins themselves.
+                                </p>
+                                <Flow
+                                    label="From submit to inbox"
+                                    steps={[
+                                        { t: "Client submits", s: "the form saves first" },
+                                        { t: "Find the AM", s: "Client List → AM name → team-emails.mts" },
+                                        { t: "Resend sends", s: "from notifications@hgmportal.com", accent: true },
+                                    ]}
+                                />
+                                <div>
+                                    {EMAIL_SETUP.map((f) => (
+                                        <Row key={f.name} left={f.name} right={f.what} />
+                                    ))}
+                                </div>
+                                <ul className="mt-4 flex flex-col gap-2 text-md text-tertiary">
+                                    <li>
+                                        <strong className="text-secondary">Adding an AM:</strong> put their name, spelled exactly as on the Client List, and
+                                        their email in <span className="font-mono text-sm">netlify/lib/team-emails.mts</span>, then push. Until then their
+                                        clients' submits send nothing.
+                                    </li>
+                                    <li>
+                                        <strong className="text-secondary">An AM says no email came:</strong> check Resend → Logs first. Nothing there means the
+                                        function stopped early; its Netlify function log says why, e.g. "no AM email" for a missing name. A 403 in Resend means
+                                        the domain isn't verified.
+                                    </li>
+                                    <li>
+                                        <strong className="text-secondary">A failed email never blocks the client.</strong> Their answers are already saved, and
+                                        a failed send frees the form so the next submit tries again.
+                                    </li>
+                                </ul>
+                            </DocSection>
+
                             <DocSection id="infra" label="Deploy & infrastructure" number={num("infra")}>
                                 <ul className="flex flex-col gap-2 text-md text-tertiary">
                                     <li>
@@ -1174,41 +1447,6 @@ export const ManualScreen = () => {
                                         { t: "Verify live", s: "the new bundle is confirmed on the domain", accent: true },
                                     ]}
                                 />
-                            </DocSection>
-
-                            <DocSection
-                                id="rules"
-                                label="Rules that never break"
-                                number={num("rules")}
-                                badge={
-                                    <Badge color="error" size="sm">
-                                        Non-negotiable
-                                    </Badge>
-                                }
-                            >
-                                <ol className="flex flex-col gap-2 text-md text-tertiary">
-                                    <li>
-                                        <strong className="text-secondary">1. Submitted guides are immutable.</strong> Once a client submits/locks their guide,
-                                        nothing about it may ever change again — including by the team.
-                                    </li>
-                                    <li>
-                                        <strong className="text-secondary">2. No deploys without saying so.</strong> Nothing goes to production unless you
-                                        explicitly ask to ship/deploy.
-                                    </li>
-                                    <li>
-                                        <strong className="text-secondary">3. Supabase is the only store.</strong> Editable content never lives only in the
-                                        browser — if it isn't saved to Supabase, it doesn't exist.
-                                    </li>
-                                    <li>
-                                        <strong className="text-secondary">4. Test dashboard first.</strong> Dashboard experiments go to /hgm-test-dashboard
-                                        before any real client sees them.
-                                    </li>
-                                    <li>
-                                        <strong className="text-secondary">5. Clients never write documents directly.</strong> A client's edit is a suggestion
-                                        until an AM accepts it — and their browser can't write the database at all; the few client actions there are go through
-                                        validated server functions.
-                                    </li>
-                                </ol>
                             </DocSection>
                         </div>
                     </div>

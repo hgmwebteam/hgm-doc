@@ -305,7 +305,7 @@ export const JOURNEY_STEPS: {
         label: "Marketing Launch",
         detail: "It's go time! Ads running, content posting, emails sending. Now we let the data come in and optimize from there.",
         icon: Rocket02,
-        eta: "Week 4",
+        eta: "Week 3",
     },
 ];
 

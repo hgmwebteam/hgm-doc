@@ -93,23 +93,23 @@ const pdf = FILE_TYPES.find((t) => t.ext === "pdf")!;
 assert.equal(storedFileName("../../etc/passwd.pdf", pdf), "....etcpasswd.pdf", "no slash survives");
 assert.equal(storedFileName("a\\b.pdf", pdf), "ab.pdf");
 assert.equal(storedFileName("  Q3   report \n final.pdf", pdf), "Q3 report final.pdf");
-assert.equal(storedFileName("‮fdp.exe.pdf", pdf), "fdp.exe.pdf", "a right-to-left override is removed");
+assert.equal(storedFileName("\u202Efdp.exe.pdf", pdf), "fdp.exe.pdf", "a right-to-left override is removed");
 assert.equal(storedFileName(".pdf", pdf), ".pdf.pdf", "a leading dot is part of the stem");
-assert.equal(storedFileName("​.pdf", pdf), "file.pdf", "nothing left is 'file'");
+assert.equal(storedFileName("\u200B.pdf", pdf), "file.pdf", "nothing left is 'file'");
 assert.equal(storedFileName(`${"x".repeat(200)}.pdf`, pdf), `${"x".repeat(80)}.pdf`);
 assert.equal(Array.from(storedFileName(`${"😀".repeat(100)}.pdf`, pdf)).length, 84, "cut by character, never inside one");
 
 /* 5. Invisible characters. */
-assert.equal(stripInvisible("a‮b⁦c‍d"), "abc‍d", "overrides and isolates go; the emoji joiner stays");
+assert.equal(stripInvisible("a\u202Eb\u2066c\u200Dd"), "abc\u200Dd", "overrides and isolates go; the emoji joiner stays");
 assert.equal(stripInvisible("a\r\nb\tc\u0000d\u0085e"), "abcde", "C0 and C1 controls go");
-assert.equal(stripInvisible("a‌b"), "a‌b", "the non-joiner stays");
-assert.equal(stripInvisible("﻿a؜b​c‎d‏e⁠f⁤g⁩h"), "abcdefgh");
+assert.equal(stripInvisible("a\u200Cb"), "a\u200Cb", "the non-joiner stays");
+assert.equal(stripInvisible("\uFEFFa\u061Cb\u200Bc\u200Ed\u200Fe\u2060f\u2064g\u2069h"), "abcdefgh");
 
 /* 6. File sentences name the file, and never carry an override. */
 assert.equal(fileTypeError("x.html"), "x.html is not a file the team can open. Use an image, PDF, Word, Excel, CSV or text file.");
 assert.equal(fileSizeError("big.pdf"), "big.pdf is over 25 MB.");
 assert.equal(fileCountError("eleven.png"), "Up to 10 files. Remove one to add eleven.png.");
-assert.ok(!fileTypeError("‮gnp.exe").includes("‮"));
+assert.ok(!fileTypeError("\u202Egnp.exe").includes("\u202E"));
 assert.equal(FILES_UNAVAILABLE, "Files cannot be attached right now. Send the request without them and send the files to your account manager.");
 assert.equal(DAILY_FILES_REACHED, "That is more files than a day allows. Send the rest to your account manager.");
 
@@ -153,6 +153,10 @@ assert.equal(cleanNotifyEmail(42).ok, false);
 assert.equal(isEmailShape("marcus@example.com"), true);
 assert.equal(isEmailShape("leshan@hiddengem.media (HiddenGem Media)"), false);
 assert.equal(isEmailShape(""), false);
+assert.equal(cleanNotifyEmail("a\u0000b@example.com").ok, false, "a NUL is refused here, not left to fail the insert with a 500");
+assert.equal(cleanNotifyEmail("a\u202Eb@example.com").ok, false, "a bidi override is never part of an address");
+assert.equal(cleanNotifyEmail("ab@exa\u200Bmple.com").ok, false, "nor a zero-width space");
+assert.equal(isEmailShape("a\u0001b@example.com"), false, "the prefill uses the same test");
 
 /* 9. The switch. */
 assert.equal(completionEmailMode(" ON "), "on");
@@ -168,5 +172,6 @@ assert.equal(completionEmailOpen("off", true), false);
 /* 10. House style: no en or em dash in the rules or their sentences. */
 const dashes = new RegExp(`[${String.fromCharCode(0x2013)}${String.fromCharCode(0x2014)}]`);
 assert.ok(!dashes.test(readFileSync(new URL("./request-rules.ts", import.meta.url), "utf8")), "no en or em dash in request-rules.ts");
+assert.ok(!/[\p{Cc}\p{Cf}]/u.test(readFileSync(new URL("./request-rules.ts", import.meta.url), "utf8").replace(/[\n\t]/g, "")), "no invisible character written as itself in request-rules.ts (stripInvisible spells them as escapes)");
 
 console.log("request-rules: all checks passed");

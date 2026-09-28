@@ -191,7 +191,9 @@ export async function mintUploads(
     const plan = planMint(input.files);
     if (!plan.ok) return plan;
     if (input.uploadId !== null && !isUuid(input.uploadId)) return refuse(400, "Bad request.");
-    const uploadId = input.uploadId ?? deps.uuid();
+    // Lowercased, as verifyUploads reads it: the id is part of every object key, so an id sent
+    // in capitals would mint paths the submit-time listing (a lowercase prefix) never finds.
+    const uploadId = (input.uploadId ?? deps.uuid()).toLowerCase();
     const email = input.caller.email;
     const db = deps.reporting();
 

@@ -529,7 +529,9 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                         if (!uploadTypeFor(file.name, blob.type)) throw new HelpApiError(0, fileTypeError(file.name));
                         const grant = await grantFor({ name: file.name, mime: blob.type, bytes: blob.size });
                         if (!liveIdsRef.current.has(att.id)) return;
-                        await uploadTicketFile(grant, blob, (sent, total) => {
+                        // A failure names the file as its row does (the picked name), not the
+                        // stored one: "photo.png did not upload", never "photo.webp".
+                        await uploadTicketFile({ ...grant, name: att.name }, blob, (sent, total) => {
                             if (total > 0) progressStore.set(att.id, sent / total);
                         });
                         if (!mountedRef.current) return;

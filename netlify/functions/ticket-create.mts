@@ -442,9 +442,13 @@ export default async (req: Request) => {
                 patch.notify_email_listed = notify ? isStaffEmail(notify) || (await isListedOn(caller.slug, notify)) : null;
             }
             if (Object.keys(patch).length && existing.status === "received") {
-                const { error: patchErr } = await db.from("tickets").update(patch).eq("id", existing.id).eq("status", "received").is("routed_at", null);
+                // The answer shows the new values only when the guarded update matched the row:
+                // routing can claim the ticket between the read above and this write, and the
+                // success card must not say an email goes to an address that was never stored.
+                const { data: patched, error: patchErr } = await db.from("tickets").update(patch).eq("id", existing.id).eq("status", "received").is("routed_at", null).select("id");
                 if (patchErr) console.warn("[ticket-create] could not carry the retry's values onto the existing ticket", existing.reference, patchErr.message);
-                else Object.assign(existing, patch);
+                else if ((patched ?? []).length) Object.assign(existing, patch);
+                else console.warn("[ticket-create] the existing ticket was routed before the retry's values could be carried onto it", existing.reference);
             }
 
             // THE FILES THE FIRST ATTEMPT LOST. The attempt most likely to have died is the

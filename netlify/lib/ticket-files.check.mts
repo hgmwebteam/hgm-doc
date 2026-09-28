@@ -257,6 +257,20 @@ if (planned.ok) {
     db.missing.add("ticket_uploads");
     assert.deepEqual(await mintUploads({ caller: MARCUS, via: "allowlist", slug: null, uploadId: null, files: [pdf()] }, deps), { ok: false, status: 503, error: FILES_UNAVAILABLE }, "no ledger yet: the 503 sentence");
 }
+{
+    // An upload id sent in capitals is the same upload, and its keys sit under the lowercase
+    // prefix verifyUploads lists, so the file can still be proved at submit.
+    const { storage, deps } = world();
+    const first = await mintUploads({ caller: MARCUS, via: "allowlist", slug: MARCUS.slug, uploadId: "abcdef01-2345-4abc-8def-abcdefabcdef", files: [pdf()] }, deps);
+    if (!first.ok) throw new Error("unreachable");
+    const caps = await mintUploads({ caller: MARCUS, via: "allowlist", slug: MARCUS.slug, uploadId: first.upload_id.toUpperCase(), files: [pdf("caps.pdf")] }, deps);
+    if (!caps.ok) throw new Error("a capitalised upload id is refused");
+    assert.equal(caps.upload_id, first.upload_id);
+    assert.ok(caps.files[0].path.startsWith(`${uploadPrefix(callerKey(MARCUS.email), first.upload_id)}/`), caps.files[0].path);
+    storage.objects.set(caps.files[0].path, { size: 1000, mimetype: "application/pdf" });
+    const proved = await verifyUploads({ caller: MARCUS, via: "allowlist", uploadId: first.upload_id.toUpperCase(), fileIds: [caps.files[0].file_id] }, deps);
+    assert.ok(proved.ok, "and proved at submit");
+}
 
 /* 4. Verifying at submit. */
 const seed = async () => {

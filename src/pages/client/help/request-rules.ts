@@ -131,6 +131,10 @@ export function uploadTypeFor(name: string, uploadMime: string): FileType | null
     return mime === picked.mime ? picked : null;
 }
 
+/** stripInvisible's characters, written as escapes: the characters themselves are invisible in
+ *  an editor, and a bidi override in source is what code review tools warn about. */
+const INVISIBLE = /[\p{Cc}\u061C\u200B\u200E\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/gu;
+
 /**
  * Removes every character that must never reach a subject, a file name or an email: \p{Cc}
  * (C0 and C1 controls, CR and LF included) and the invisible format characters U+061C,
@@ -140,7 +144,7 @@ export function uploadTypeFor(name: string, uploadMime: string): FileType | null
  * completion email proof.
  */
 export function stripInvisible(s: string): string {
-    return String(s ?? "").replace(/[\p{Cc}؜​‎‏‪-‮⁠-⁤⁦-⁩﻿]/gu, "");
+    return String(s ?? "").replace(INVISIBLE, "");
 }
 
 /**
@@ -215,19 +219,23 @@ export function cleanUrls(raw: unknown): { ok: true; urls: string[] } | { ok: fa
 
 const EMAIL_SHAPE = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[a-z0-9-]{2,}$/i;
 
+/** A control or invisible character (stripInvisible's list) anywhere in an address: never part of
+ *  a real one, and a NUL would fail the insert (Postgres text refuses it) with a 500. */
+const hasInvisible = (s: string): boolean => stripInvisible(s) !== s;
+
 /** Whether a string, as given, is one address and nothing else. */
 export function isEmailShape(s: string): boolean {
     const v = String(s ?? "");
-    return v.length > 0 && v.length <= MAX_EMAIL_CHARS && EMAIL_SHAPE.test(v);
+    return v.length > 0 && v.length <= MAX_EMAIL_CHARS && !hasInvisible(v) && EMAIL_SHAPE.test(v);
 }
 
-/** Trimmed and lowercased; empty is null; at most MAX_EMAIL_CHARS; no whitespace, CR or LF; the shape above. */
+/** Trimmed and lowercased; empty is null; at most MAX_EMAIL_CHARS; no whitespace, CR or LF, and no control or invisible character; the shape above. */
 export function cleanNotifyEmail(raw: unknown): { ok: true; email: string | null } | { ok: false; error: string } {
     if (raw === undefined || raw === null) return { ok: true, email: null };
     if (typeof raw !== "string") return { ok: false, error: EMAIL_ERROR };
     const email = raw.trim().toLowerCase();
     if (!email) return { ok: true, email: null };
-    if (email.length > MAX_EMAIL_CHARS || /[\s\r\n]/.test(email) || !EMAIL_SHAPE.test(email)) return { ok: false, error: EMAIL_ERROR };
+    if (email.length > MAX_EMAIL_CHARS || /[\s\r\n]/.test(email) || hasInvisible(email) || !EMAIL_SHAPE.test(email)) return { ok: false, error: EMAIL_ERROR };
     return { ok: true, email };
 }
 

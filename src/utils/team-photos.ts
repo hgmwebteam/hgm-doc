@@ -34,3 +34,14 @@ const PHOTOS = new Map(TEAM_PHOTO_FILES.map((f) => [f.replace(/\.(webp|avif)$/, 
 /** Photo URL for a team member, or undefined when we don't have one.
     Case-insensitive so Google's casing of a name (account avatars) still hits. */
 export const teamPhoto = (name?: string | null): string | undefined => PHOTOS.get((name ?? "").trim().toLowerCase());
+
+/** Like `teamPhoto`, but also accepts a bare first name ("Nicole") when exactly one team member
+    has it — for rosters that store first names only, like the Landing Page Directory. */
+export const teamPhotoByName = (name?: string | null): string | undefined => {
+    const key = (name ?? "").trim().toLowerCase();
+    if (!key) return undefined;
+    const full = PHOTOS.get(key);
+    if (full || key.includes(" ")) return full;
+    const hits = [...PHOTOS].filter(([n]) => n.split(" ")[0] === key);
+    return hits.length === 1 ? hits[0][1] : undefined;
+};

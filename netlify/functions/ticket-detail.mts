@@ -1,5 +1,5 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
-import { CLIENT_HIDDEN_EVENTS, CLIENT_TICKET_COLUMNS, clientView, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { CLIENT_HIDDEN_EVENTS, CLIENT_TICKET_COLUMNS, clientEvents, clientView, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
 import { ticketFiles } from "../lib/ticket-files.mts";
 
 /**
@@ -19,8 +19,9 @@ import { ticketFiles } from "../lib/ticket-files.mts";
  * assignee and `promised_date_set` the promised date, and a client is shown neither (owner,
  * 28 Sep 2026). A screen filtering a row it was sent is one refactor away from showing it, so
  * all three (CLIENT_HIDDEN_EVENTS) are filtered here and are never in the browser at all, and
- * the row goes out without its promised date and assignee (clientView). The ticket simply
- * reads as its status for the client, which is true.
+ * the row goes out without its promised date, its assignee and who closed the task
+ * (clientView); a completion goes without its "Completed by" line (clientEvents). The ticket
+ * simply reads as its status for the client, which is true.
  *
  * `team_update` IS sent: it is an update written for them, and actorName() in help-model.ts
  * puts the name of whoever wrote it on the byline.
@@ -34,7 +35,7 @@ import { ticketFiles } from "../lib/ticket-files.mts";
  *
  * POST application/json { slug, reference } + Authorization: Bearer <session token>
  *   -> { viewer, ticket: { ...columns, urls, completion_email_set }, events: [...], files: [{ name, mime, bytes }] }
- *   (a client's ticket without promised_date, assignee_name or assignee_email)
+ *   (a client's ticket without promised_date, assignee_name, assignee_email or completed_by)
  */
 
 /** `mirrored_to_asana` is deliberately not among them: whether we managed to copy an update
@@ -110,7 +111,7 @@ export default async (req: Request) => {
         }
         const files = await ticketFiles(ticketId);
 
-        return Response.json({ viewer: viewerOf(gate), ticket: { ...clientView(ticket as unknown as Record<string, unknown>, gate.via), completion_email_set: completionEmailSet }, events: events ?? [], files });
+        return Response.json({ viewer: viewerOf(gate), ticket: { ...clientView(ticket as unknown as Record<string, unknown>, gate.via), completion_email_set: completionEmailSet }, events: clientEvents((events ?? []) as unknown as Record<string, unknown>[], gate.via), files });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-detail] not configured", err.message);

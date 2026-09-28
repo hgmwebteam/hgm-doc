@@ -24,7 +24,7 @@ import { CLIENT_TICKET_COLUMNS, clientView, isMissingColumn, withPages } from ".
  * closed again as withdrawn.
  *
  * POST application/json { slug, reference, confirm: true } + Authorization: Bearer <session token> -> { ticket }
- * (for a client, without promised_date, assignee_name or assignee_email: ticket-columns.mts)
+ * (for a client, without promised_date, assignee_name, assignee_email or completed_by: ticket-columns.mts)
  */
 
 

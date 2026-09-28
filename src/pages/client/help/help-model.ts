@@ -122,8 +122,10 @@ export interface Ticket {
     assignee_email?: string | null;
     account_manager_email?: string | null;
     account_manager_name?: string | null;
+    /** The team's views only, like the assignee (ticket-columns.mts, clientView). */
     promised_date?: string | null;
     completed_at?: string | null;
+    /** Who closed the task, nearly always the assignee: the team's views only. */
     completed_by?: string | null;
     withdrawn_at?: string | null;
     withdrawn_by?: string | null;

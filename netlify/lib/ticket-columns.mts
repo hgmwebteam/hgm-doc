@@ -60,9 +60,12 @@ import { type CompletionEmailMode, completionEmailMode } from "../../src/pages/c
  * ── WHAT A CLIENT IS NOT HANDED (owner, 28 Sep 2026) ────────────────────────
  * A client never sees a promised or estimated date or who a request is assigned to, so the
  * answers a client's own call gets carry neither: clientView() drops promised_date,
- * assignee_name and assignee_email from the row, and ticket-detail leaves the events that
- * name them (CLIENT_HIDDEN_EVENTS) off the timeline. Staff keep them: the team's success card
- * polls ticket-detail for the assignee, and the team's list reads its own columns.
+ * assignee_name and assignee_email from the row, and completed_by too (the address of whoever
+ * closed the Asana task, which is nearly always the assignee). ticket-detail leaves the events
+ * that name them (CLIENT_HIDDEN_EVENTS) off the timeline, and clientEvents() sends a completion
+ * without its "Completed by <name>" line and its actor: the page draws only its time. Staff keep
+ * all of it: the team's success card polls ticket-detail for the assignee, and the team's list
+ * reads its own columns.
  *
  * House style: no em or en dashes anywhere.
  */
@@ -78,7 +81,7 @@ export const withPages = (cols: string): string => `${cols}, urls`;
 export const NOTIFY_COLUMNS = "notify_email, notify_email_listed";
 
 /** Kept from a client's answers (see the header); still read for staff. */
-export const CLIENT_HIDDEN_COLUMNS = ["promised_date", "assignee_name", "assignee_email"] as const;
+export const CLIENT_HIDDEN_COLUMNS = ["promised_date", "assignee_name", "assignee_email", "completed_by"] as const;
 
 /** Events a client's timeline never receives: routing's internals, the assignee, the promised date. */
 export const CLIENT_HIDDEN_EVENTS = ["route_failed", "assigned", "promised_date_set"] as const;
@@ -90,6 +93,15 @@ export const clientView = <T extends Record<string, unknown>>(row: T, via: "allo
     for (const col of CLIENT_HIDDEN_COLUMNS) delete out[col];
     return out as T;
 };
+
+/**
+ * A timeline as a caller may see it: unchanged for staff; for a client, a completion keeps its
+ * kind and its time but not its body ("Completed by <name>") or who closed the task, which is
+ * nearly always the assignee. Every other kind a client receives is theirs or signed for them:
+ * received and withdrawn are their own, and a team update carries its writer's name on purpose.
+ */
+export const clientEvents = <T extends Record<string, unknown>>(events: T[], via: "allowlist" | "staff"): T[] =>
+    via === "staff" ? events : events.map((e) => (e.kind === "completed" ? ({ ...e, body: null, actor_name: null, actor_email: null } as T) : e));
 
 type DbError = { code?: string | null; message?: string | null } | null | undefined;
 

@@ -1099,15 +1099,17 @@ export const FileThumbnail = ({
 export type PriorityLevel = "low" | "medium" | "high" | "urgent";
 
 export const PRIORITY_LEVELS: ReadonlyArray<{ value: PriorityLevel; label: string; estimate: string; meaning: string }> = [
-    // The estimate per urgency is Brandon's note on the file (13 Sep 2026). The owner set
-    // Urgent at 24 hours (13 Sep) and Low at 7 days (14 Sep, "in the pills"); Medium and
-    // High carry the numbers the legend already gave. `estimate` is the pill's words and
-    // the legend's, from this one table. The legend lines keep their line count at the
-    // 544 and 342 columns, so the form does not reflow (measured in Inter, 14 Sep).
-    { value: "low", label: "Low", estimate: "7 days", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked. Scheduled after the higher priorities: within 7 days." },
-    { value: "medium", label: "Medium", estimate: "5 days", meaning: "Medium: Something is wrong but there is a workaround. Fix this week: within 5 days of raising it." },
-    { value: "high", label: "High", estimate: "1 day", meaning: "High: A client-facing feature is broken or a client is asking. Fix today: within 1 day of raising it." },
-    { value: "urgent", label: "Urgent", estimate: "24 hours", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down. Drop everything: within 24 hours." },
+    // `meaning` is the legend's line under the chips: what the level means, and nothing about
+    // when. Since 28 Sep 2026 no form shows a day, an hour or a turnaround (owner: "Remove the
+    // days estimates from the pills"), on the team's form or the client's. `estimate` is shown on
+    // neither: it is the team's due-date rule for the level (Brandon's note, 13 Sep 2026; Urgent 24
+    // hours and Low 7 days from the owner, 13 and 14 Sep), stated here beside the level it belongs
+    // to, and the platform's PRIORITY_ESTIMATES, which sets the Asana due dates, is held to it by
+    // ticket-due-proof. The four lines each fit one line of the 544 column.
+    { value: "low", label: "Low", estimate: "7 days", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked." },
+    { value: "medium", label: "Medium", estimate: "5 days", meaning: "Medium: Something is wrong but there is a workaround." },
+    { value: "high", label: "High", estimate: "1 day", meaning: "High: A client-facing feature is broken or a client is asking." },
+    { value: "urgent", label: "Urgent", estimate: "24 hours", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down." },
 ];
 
 /** The dot and the selected chip, per level: utility blue, success, warning, error. */
@@ -1127,11 +1129,14 @@ export const PriorityDot = ({ level, className }: { level: PriorityLevel; classN
 );
 
 /**
- * Priority/Chip: 40 tall, radius full, padding 0 16, gap 8, the dot then the label in
- * label/field, then 4 and the level's estimate in body/helper text/tertiary. Unselected: bg/primary, 1px border/primary, text/secondary. Selected:
- * the level's utility tint, a 1.5px border in the level's utility colour, text/primary.
- * A radio: `role="radio"` with aria-checked, inside a PriorityChipGroup radiogroup.
- * Hugs its label on desktop; the group stretches it to half the row at 390.
+ * Priority/Chip: 40 tall, radius full, padding 0 16, gap 8, the dot then the level's name in
+ * label/field, and nothing else (owner, 28 Sep 2026: no estimate in the pills). Unselected:
+ * bg/primary, 1px border/primary, text/secondary. Selected: the level's utility tint, a 1.5px
+ * border in the level's utility colour, text/primary. A radio: `role="radio"` with aria-checked,
+ * named by its words, inside a radiogroup. Hugs its label on desktop; the group stretches it to
+ * half the row at 390. It draws at 40, as the file does, and its target is 44: the
+ * pseudo-element reaches 2 above and below, inside the 16 between the rows at 390 and clear of
+ * the neighbours beside it.
  */
 export const PriorityChip = ({
     level,
@@ -1147,13 +1152,12 @@ export const PriorityChip = ({
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={`${meta.label}, within ${meta.estimate}`}
             data-level={level}
             tabIndex={tabIndex}
             onClick={() => onSelect(level)}
             {...rest}
             className={cx(
-                "hc-focus-border hc-hover hc-t-label-field inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-(--hc-radius-full) border whitespace-nowrap",
+                "hc-focus-border hc-hover hc-t-label-field relative inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-(--hc-radius-full) border whitespace-nowrap after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-['']",
                 selected ? cx("border-[1.5px] px-[14.5px] text-(--hc-text-primary)", PRIORITY_TONE[level].selected) : "border-(--hc-border-primary) bg-(--hc-bg-primary) px-[15px] text-(--hc-text-secondary) hover:bg-(--hc-bg-primary_hover)",
                 "focus-visible:border-2 focus-visible:border-(--hc-border-brand) focus-visible:px-[14px]",
                 className,
@@ -1161,11 +1165,6 @@ export const PriorityChip = ({
         >
             <PriorityDot level={level} />
             <span>{meta.label}</span>
-            {/* The estimate, in body/helper text/tertiary, 4 after the label (owner, 14 Sep
-                2026: "these need date estimations in the pills"). The gap-2 row would put 8
-                between them; -ml-1 takes it to 4, which keeps the four chips on one row of
-                the 560 column. */}
-            <span className="hc-t-body-helper -ml-1 text-(--hc-text-tertiary)">{meta.estimate}</span>
         </button>
     );
 };

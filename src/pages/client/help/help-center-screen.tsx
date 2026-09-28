@@ -24,6 +24,7 @@
  * on any of these screens. Jarvis never messages a client and a client never messages
  * Jarvis; the only channel here is a request, which becomes a ticket with a named owner.
  * If a box for typing at an assistant ever appears on this page, it is a bug.
+ * Jarvis never messages a client in Chat; HiddenGem Media sends one fixed-template completion email to the address entered on the request.
  *
  * ── BOTH THEMES ─────────────────────────────────────────────────────────────
  * Every colour on the home is a --hc-* token, so the page flips with the portal's
@@ -35,11 +36,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ArrowNarrowLeft } from "@untitledui-pro/icons/line";
-import { Link, Navigate, useParams, useSearchParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
 import { Button, Card, Chevron, type Crumb, Eyebrow, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
 import { HELP_GUIDES, HelpGuidePage, findHelpGuide } from "@/pages/client/help/help-center-guides";
-import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
+import { RequestForm, RequestSent, type SentExtras, sentExtrasFrom } from "@/pages/client/help/help-form";
 import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
 import {
     type CallerProof,
@@ -538,7 +539,7 @@ const Composer = ({
     /** Staff raise through the same form; the difference is on the server and in the lede. */
     isStaff: boolean;
     onCancel: () => void;
-    onCreated: (reference: string, title: string, priority: Priority | null) => void;
+    onCreated: (sent: CreatedRequest) => void;
 }) => (
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
         <button
@@ -559,20 +560,27 @@ const Composer = ({
             fixedTopic={topic ?? undefined}
             clientName={clientName}
             email={isStaff ? `${proof.email} (HiddenGem Media)` : proof.email}
+            viewerIsStaff={isStaff}
             onSubmit={async (input) => {
                 const res = await createTicket(proof, input);
-                return { reference: res.ticket.reference };
+                return { reference: res.ticket.reference, stored: sentExtrasFrom(res) };
             }}
-            onCreated={(reference, _slug, sent) => onCreated(reference, sent.title, sent.priority)}
+            onCreated={(reference, _slug, sent) =>
+                onCreated({ reference, title: sent.title, priority: sent.priority, urls: sent.urls ?? [], notifyEmail: sent.notifyEmail ?? null, files: sent.files ?? [] })
+            }
         />
     </div>
 );
+
+/** A request that just landed, as the success card shows it: what was sent, and what the server kept. */
+type CreatedRequest = { reference: string; title: string; priority: Priority | null } & SentExtras;
 
 /**
  * What a client sees the moment a request lands: the frame's success card. "Back to
  * portal" returns to the help home; "Report another ticket" reopens the composer.
  */
-const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { reference: string; title: string; priority: Priority | null }; clientName: string; onBack: () => void; onRaiseAnother: () => void }) => {
+const CreatedNote = ({ sent, clientName, slug, onRaiseAnother }: { sent: CreatedRequest; clientName: string; slug: string; onRaiseAnother: () => void }) => {
+    const navigate = useNavigate();
     const headingRef = useRef<HTMLDivElement>(null);
     // Focus moves to the confirmation so the outcome is announced. Submitting a form and
     // being dropped back at its top with no announcement is the classic silent success.
@@ -586,9 +594,15 @@ const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { ref
                 title={sent.title}
                 clientName={clientName}
                 priority={sent.priority}
+                files={sent.files}
+                urls={sent.urls}
+                completionEmail={sent.notifyEmail}
                 team={false}
                 primary={{ label: "Raise another request", onClick: onRaiseAnother }}
-                secondary={{ label: "Back to help centre", onClick: onBack }}
+                // The request's own page is where its owner and the team's updates appear, so it
+                // is the next step; the help centre is one crumb up in the top bar.
+                secondary={{ label: "See this request", onClick: () => navigate(`/${slug}/help/requests/${sent.reference}`) }}
+                slug={slug}
             />
         </div>
     );
@@ -635,7 +649,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const setFilter = (next: RequestFilter) => setFilterParams(next === "all" ? {} : { filter: next }, { replace: true });
     // After "Raise another request" the fresh composer puts focus on its first field.
     const [raiseAgain, setRaiseAgain] = useState(false);
-    const [created, setCreated] = useState<{ reference: string; title: string; priority: Priority | null } | null>(null);
+    const [created, setCreated] = useState<CreatedRequest | null>(null);
 
     /**
      * The composer is a URL, not a flag: /help?raise=website opens it with that category,
@@ -799,7 +813,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 <CreatedNote
                     sent={created}
                     clientName={viewer?.clientName || clientName}
-                    onBack={() => setCreated(null)}
+                    slug={slug}
                     onRaiseAnother={() => {
                         setCreated(null);
                         setRaiseAgain(true);
@@ -819,8 +833,8 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                     clientName={viewer?.clientName || clientName}
                     isStaff={isStaff}
                     onCancel={() => closeComposer()}
-                    onCreated={(ref, sentTitle, sentPriority) => {
-                        setCreated({ reference: ref, title: sentTitle, priority: sentPriority });
+                    onCreated={(sent) => {
+                        setCreated(sent);
                         // Replace, so the back button from the confirmation does not land
                         // on the emptied form as though nothing had been sent.
                         closeComposer(true);

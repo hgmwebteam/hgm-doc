@@ -14,7 +14,13 @@ if (import.meta.env.DEV && (!supabaseUrl || !supabaseAnonKey)) {
 const FALLBACK_URL = "https://placeholder.supabase.co";
 const FALLBACK_KEY = "placeholder-anon-key";
 
-export const supabase = createClient(supabaseUrl || FALLBACK_URL, supabaseAnonKey || FALLBACK_KEY, {
+/** The project URL and public key the client is built with. Exported for the one caller that
+ *  needs a storage client of its own (help-api.ts uploadTicketFile, which reports upload
+ *  progress); everything else uses `supabase`. */
+export const SUPABASE_URL = supabaseUrl || FALLBACK_URL;
+export const SUPABASE_ANON_KEY = supabaseAnonKey || FALLBACK_KEY;
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     // persistSession + detectSessionInUrl are required for the dashboard Google OAuth
     // gate so the session survives the redirect back from Google.
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },

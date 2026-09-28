@@ -34,7 +34,7 @@ import { useAuthUser } from "@/hooks/use-auth-user";
 import { supabase } from "@/lib/supabase";
 import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics, signOutHere } from "@/pages/client/help/help-api";
 import { Banner, Button, Card, ChevronDownIcon, FilterChip, GemIcon, HelpFrame, MonoRef, PRIORITY_LEVELS, type PillTone, PriorityDot, type PriorityLevel, StatusPill, TopBar, firstNameOf, initialOf } from "@/pages/client/help/help-atoms";
-import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
+import { RequestForm, RequestSent, type SentExtras, sentExtrasFrom } from "@/pages/client/help/help-form";
 import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatDueDay, formatRaisedDay, requestDueLine, topicLabel } from "@/pages/client/help/help-model";
 import "@/pages/client/help/help-requests-screen.css";
 import { cx } from "@/utils/cx";
@@ -315,7 +315,7 @@ export const TeamReportScreen = () => {
     const { email, name, isTeam, loading: authLoading } = useTeam();
     const navigate = useNavigate();
     const [clients, setClients] = useState<ClientOption[]>([]);
-    const [done, setDone] = useState<{ reference: string; slug: string; title: string; clientName: string; priority: Priority | null } | null>(null);
+    const [done, setDone] = useState<({ reference: string; slug: string; title: string; clientName: string; priority: Priority | null } & SentExtras) | null>(null);
     // Set after "Report another ticket", so the fresh form puts focus on its first field.
     const [again, setAgain] = useState(false);
 
@@ -335,6 +335,9 @@ export const TeamReportScreen = () => {
                         title={done.title}
                         clientName={done.clientName}
                         priority={done.priority}
+                        files={done.files}
+                        urls={done.urls}
+                        completionEmail={done.notifyEmail}
                         team
                         slug={done.slug}
                         primary={{
@@ -354,9 +357,10 @@ export const TeamReportScreen = () => {
                         topics={[]}
                         clientName=""
                         email={email}
+                        viewerIsStaff
                         onSubmit={async (input) => {
                             const res = await createTicket({ slug: input.slug, email }, input);
-                            return { reference: res.ticket.reference };
+                            return { reference: res.ticket.reference, stored: sentExtrasFrom(res) };
                         }}
                         onCreated={(reference, slug, sent) =>
                             setDone({
@@ -365,6 +369,9 @@ export const TeamReportScreen = () => {
                                 title: sent.title,
                                 clientName: clients.find((c) => c.slug === slug)?.name ?? shortSlug(slug),
                                 priority: sent.priority,
+                                urls: sent.urls ?? [],
+                                notifyEmail: sent.notifyEmail ?? null,
+                                files: sent.files ?? [],
                             })
                         }
                     />

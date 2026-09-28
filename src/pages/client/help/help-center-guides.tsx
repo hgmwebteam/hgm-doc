@@ -10,13 +10,22 @@
  * anywhere here, because the system does not promise any: a date appears on a
  * request only when its category carries a turnaround, and today none does.
  *
+ * The completion email is promised here ONLY when the switch is "on"
+ * (completion-email-mode.ts): these guides are what clients read, and in "staff" mode no
+ * client can enter an address, so the sentence would be a promise about a field they
+ * cannot see. The file sentences hold whatever the switch says.
+ *
  * The guides are rendered INSIDE HelpCenterScreen (view="guide"), so they sit behind
  * the same gate and under the same top bar as the rest of the help centre.
  *
  * House style: no em or en dashes anywhere.
  */
 import { Link } from "react-router";
+import { COMPLETION_EMAIL_MODE } from "@/pages/client/help/completion-email-mode";
 import { Button, Card, Eyebrow } from "@/pages/client/help/help-atoms";
+
+/** Added to each guide's "when it is done" paragraph only while clients can enter an address. */
+const EMAIL_TOO = COMPLETION_EMAIL_MODE === "on" ? " If you entered an email address on the request, a completion email goes to it as well." : "";
 
 export interface HelpGuide {
     /** The path segment after /help/guides/. */
@@ -42,7 +51,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Website and pages. Put the property's name in the first line, so the request is easy to find in your list. In the description, say what the property needs: a new page, photos, the booking link, a listing to copy from. Attach screenshots or images if you have them.",
+                    "Raise a request under Website and pages. Put the property's name in the first line, so the request is easy to find in your list. In the description, say what the property needs: a new page, photos, the booking link, a listing to copy from. Attach screenshots, photos, PDFs or spreadsheets if you have them.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
@@ -56,7 +65,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "When it is done",
                 paragraphs: [
-                    "The request moves to Completed when the task is closed, and your account manager confirms the finished property with you. The request stays on your list afterwards for your records.",
+                    `The request moves to Completed when the task is closed, and your account manager confirms the finished property with you.${EMAIL_TOO} The request stays on your list afterwards for your records.`,
                 ],
             },
         ],
@@ -70,7 +79,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Other. Say which report or dashboard you mean and what you are asking for: a number that looks wrong, a metric you want added, a walkthrough of the month. A screenshot of the figure you are looking at helps.",
+                    "Raise a request under Other. Say which report or dashboard you mean and what you are asking for: a number that looks wrong, a metric you want added, a walkthrough of the month. A screenshot of the figure you are looking at helps, and you can attach the report itself as a PDF or spreadsheet.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
@@ -82,7 +91,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             },
             {
                 heading: "When it is done",
-                paragraphs: ["The request moves to Completed when the task is closed, and your account manager confirms the answer or the change with you."],
+                paragraphs: [`The request moves to Completed when the task is closed, and your account manager confirms the answer or the change with you.${EMAIL_TOO}`],
             },
         ],
     },
@@ -95,7 +104,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Website and pages when the change is on your own site, and under Other for your property management system or a channel (Airbnb, Vrbo). Name the property and the channel and describe the change or the fault: a rate, a minimum stay, dates that show as available when they are not, a listing that needs new photos. Screenshots of what a guest sees are the most useful thing you can attach.",
+                    "Raise a request under Website and pages when the change is on your own site, and under Other for your property management system or a channel (Airbnb, Vrbo). Name the property and the channel and describe the change or the fault: a rate, a minimum stay, dates that show as available when they are not, a listing that needs new photos. Screenshots of what a guest sees are the most useful thing you can attach, alongside any PDF or spreadsheet that shows the change.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
@@ -108,7 +117,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "When it is done",
                 paragraphs: [
-                    "The request moves to Completed when the task is closed, and your account manager confirms the change with you. If you no longer need it before then, you can withdraw the request from its page and the task is closed.",
+                    `The request moves to Completed when the task is closed, and your account manager confirms the change with you.${EMAIL_TOO} If you no longer need it before then, you can withdraw the request from its page and the task is closed.`,
                 ],
             },
         ],
@@ -135,7 +144,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "Your account manager",
                 paragraphs: [
-                    "Your account manager's name appears on a request once it has an owner. They are asked to step in whenever a request cannot be routed automatically, and they are told the moment a task is closed so they can confirm completion with you. They are also who to ask if a request needs to change hands.",
+                    `Your account manager's name appears on a request once it has an owner. They are asked to step in whenever a request cannot be routed automatically, and they are told the moment a task is closed so they can confirm completion with you.${EMAIL_TOO} They are also who to ask if a request needs to change hands.`,
                 ],
             },
         ],

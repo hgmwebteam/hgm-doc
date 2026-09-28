@@ -36,8 +36,9 @@
  *
  * House style: no em or en dashes anywhere.
  */
-import { type ButtonHTMLAttributes, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref, type SelectHTMLAttributes, type TextareaHTMLAttributes, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { FILE_ACCEPT, FILE_RULES_LINE } from "@/pages/client/help/request-rules";
 import { cx } from "@/utils/cx";
 
 /* ── Icons ───────────────────────────────────────────────────────────────── */
@@ -633,26 +634,119 @@ export const Chevron = ({ className }: { className?: string }) => <span aria-hid
 /* ── Fields ──────────────────────────────────────────────────────────────── */
 
 /** The label row every field starts with: the label in label/field text/secondary, "Required" or "Optional" in caption/meta text/tertiary on the right, baseline-aligned. */
-const LabelRow = ({ htmlFor, label, requirement }: { htmlFor: string; label: string; requirement?: "Required" | "Optional" }) => (
+export const LabelRow = ({ htmlFor, id, label, requirement }: { htmlFor: string; id?: string; label: string; requirement?: "Required" | "Optional" }) => (
     <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={htmlFor} className="hc-t-label-field text-(--hc-text-secondary)">
+        <label id={id} htmlFor={htmlFor} className="hc-t-label-field text-(--hc-text-secondary)">
             {label}
         </label>
         {requirement && <span className="hc-t-caption-meta text-(--hc-text-tertiary)">{requirement}</span>}
     </div>
 );
 
-/** The line under a control: the error in text/error-primary when there is one, else the helper in text/tertiary. Both body/helper. */
-const FieldNote = ({ id, helper, error }: { id: string; helper?: string; error?: string }) =>
-    error ? (
-        <p id={id} className="hc-t-body-helper text-(--hc-text-error-primary)">
-            {error}
-        </p>
-    ) : helper ? (
-        <p id={id} className="hc-t-body-helper text-(--hc-text-tertiary)">
-            {helper}
-        </p>
-    ) : null;
+/**
+ * The line under a control: the error in text/error-primary when there is one, else the
+ * helper in text/tertiary. Both body/helper. `live` makes the line a polite live region in
+ * both states, for a field checked when it is left (not on submit, where the banner speaks),
+ * so the error is announced the moment it replaces the helper.
+ */
+export const FieldNote = ({ id, helper, error, live }: { id: string; helper?: string; error?: string; live?: boolean }) => (
+    <>
+        {error || helper ? (
+            <p id={id} className={cx("hc-t-body-helper", error ? "text-(--hc-text-error-primary)" : "text-(--hc-text-tertiary)")}>
+                {error || helper}
+            </p>
+        ) : null}
+        {/* Only the error is spoken, the moment it appears; the helper returning is not news. */}
+        {live && (
+            <span className="sr-only" aria-live="polite">
+                {error ?? ""}
+            </span>
+        )}
+    </>
+);
+
+/**
+ * The single-line control on its own: Field/Select's box without the chevron. 48 tall,
+ * bg/primary, 1px border/primary, radius/md, padding 0 16, body/input (16px, so a phone does
+ * not zoom on focus), the placeholder in text/tertiary. Focus is the 2px border/brand the
+ * select draws (the padding gives up the extra pixel); an error is border/error. A native
+ * input, like the other help atoms, so type, inputMode and autoComplete reach the keyboard.
+ */
+export const TextInput = ({ invalid, className, inputRef, ...rest }: { invalid?: boolean; className?: string; inputRef?: Ref<HTMLInputElement> } & Omit<InputHTMLAttributes<HTMLInputElement>, "className">) => (
+    <input
+        ref={inputRef}
+        {...rest}
+        aria-invalid={invalid ? true : undefined}
+        className={cx(
+            "hc-focus-border hc-t-body-input hc-hover block h-12 w-full min-w-0 rounded-(--hc-radius-md) border px-[15px]",
+            "focus:border-2 focus:border-(--hc-border-brand) focus:px-[14px]",
+            invalid ? "border-(--hc-border-error)" : "border-(--hc-border-primary)",
+            rest.disabled ? "cursor-not-allowed bg-(--hc-bg-tertiary) text-(--hc-text-tertiary)" : "bg-(--hc-bg-primary) text-(--hc-text-primary) placeholder:text-(--hc-text-tertiary)",
+            className,
+        )}
+    />
+);
+
+export type FieldInputProps = {
+    id?: string;
+    label: string;
+    requirement?: "Required" | "Optional";
+    value: string;
+    onChange: (value: string) => void;
+    placeholder: string;
+    helper?: string;
+    error?: string;
+    disabled?: boolean;
+    className?: string;
+    /** The note is a live region: for a field checked when it is left. */
+    liveNote?: boolean;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "value" | "onChange" | "disabled" | "className" | "children" | "placeholder">;
+
+/**
+ * Field/Input: the Field/Select shell (label row, control, helper or error, gap 8) around a
+ * TextInput. Props mirror FieldSelect's, plus the native input attributes (type, inputMode,
+ * autoComplete, onBlur).
+ */
+export const FieldInput = ({ id: givenId, label, requirement, value, onChange, placeholder, helper, error, disabled, className, liveNote, ...rest }: FieldInputProps) => {
+    const autoId = useId();
+    const id = givenId ?? autoId;
+    const noteId = `${id}-note`;
+    return (
+        <div className={cx("flex flex-col gap-2", className)}>
+            <LabelRow htmlFor={id} label={label} requirement={requirement} />
+            <TextInput
+                id={id}
+                {...rest}
+                value={value}
+                disabled={disabled}
+                placeholder={placeholder}
+                invalid={!!error}
+                aria-describedby={helper || error ? noteId : undefined}
+                onChange={(e) => onChange(e.target.value)}
+            />
+            <FieldNote id={noteId} helper={helper} error={error} live={liveNote} />
+        </div>
+    );
+};
+
+/**
+ * The 40px remove button a File/Thumbnail ends with (the x icon in text/secondary), on its
+ * own so a list of page addresses can end each row with the same control. The target is 44
+ * even though the button draws at 40 (build notes: nothing under 44).
+ */
+export const RemoveButton = ({ label, onClick, className }: { label: string; onClick: () => void; className?: string }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={cx(
+            "hc-hover relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-(--hc-radius-sm) text-(--hc-text-secondary) after:absolute after:-inset-0.5 after:content-[''] hover:text-(--hc-text-primary)",
+            className,
+        )}
+    >
+        <XIcon />
+    </button>
+);
 
 export type FieldSelectProps = {
     id?: string;
@@ -794,11 +888,11 @@ export type FieldUploadProps = {
     id?: string;
     label: string;
     requirement?: "Required" | "Optional";
-    /** How many files are attached already: past zero the title reads "Add another screenshot". */
+    /** How many files are attached already: past zero the title reads "Add another file". */
     attachedCount: number;
     /** Called with the files picked or dropped. The caller validates type, size and count. */
     onFiles: (files: File[]) => void;
-    /** The rules line under the title. Default: the frame's. */
+    /** The rules line under the title. Default: the request rules' (images, PDF, Word, Excel, CSV or text). */
     rules?: string;
     /** Replaces the rules line in text/error-primary and paints border/error. */
     error?: string;
@@ -825,16 +919,16 @@ export const FieldUpload = ({
     requirement,
     attachedCount,
     onFiles,
-    rules = "PNG, JPG or WEBP · up to 10 MB each · up to 5 files",
+    rules = FILE_RULES_LINE,
     error,
-    accept = "image/*",
+    accept = FILE_ACCEPT,
     disabled,
     className,
 }: FieldUploadProps) => {
     const autoId = useId();
     const id = givenId ?? autoId;
     const [over, setOver] = useState(false);
-    const title = attachedCount > 0 ? "Add another screenshot" : "Drop screenshots here, or browse";
+    const title = attachedCount > 0 ? "Add another file" : "Drop files here, or browse";
     const take = useCallback(
         (list: FileList | null) => {
             const files = Array.from(list ?? []);
@@ -844,7 +938,7 @@ export const FieldUpload = ({
     );
     return (
         <div className={cx("flex flex-col gap-2", className)}>
-            <LabelRow htmlFor={id} label={label} requirement={requirement} />
+            <LabelRow htmlFor={id} id={`${id}-label`} label={label} requirement={requirement} />
             <label
                 htmlFor={id}
                 onDragEnter={(e) => {
@@ -880,7 +974,10 @@ export const FieldUpload = ({
                     multiple
                     disabled={disabled}
                     aria-invalid={error ? true : undefined}
-                    aria-describedby={`${id}-rules`}
+                    // Named once, by the field's label; the zone's title and rules describe it
+                    // (the zone is a label too, which would otherwise join its words to the name).
+                    aria-labelledby={`${id}-label`}
+                    aria-describedby={`${id}-title ${id}-rules`}
                     className="sr-only"
                     onChange={(e) => {
                         take(e.target.files);
@@ -889,15 +986,17 @@ export const FieldUpload = ({
                     }}
                 />
                 <UploadIcon className={error ? "text-(--hc-text-error-primary)" : "text-(--hc-fg-brand-primary)"} />
-                <span className="hc-t-label-field text-center whitespace-nowrap text-(--hc-text-primary)">{title}</span>
-                {/* The rules line doubles as the error line, announced when it changes; a
-                    60-character file name in an error must wrap, not widen the page. */}
-                <span
-                    id={`${id}-rules`}
-                    aria-live="polite"
-                    className={cx("hc-t-body-helper w-full min-w-0 text-center break-words", error ? "text-(--hc-text-error-primary)" : over ? "text-(--hc-text-secondary)" : "text-(--hc-text-tertiary)")}
-                >
+                <span id={`${id}-title`} className="hc-t-label-field text-center whitespace-nowrap text-(--hc-text-primary)">
+                    {title}
+                </span>
+                {/* The rules line doubles as the error line; a 60-character file name in an
+                    error must wrap, not widen the page. */}
+                <span id={`${id}-rules`} className={cx("hc-t-body-helper w-full min-w-0 text-center break-words", error ? "text-(--hc-text-error-primary)" : over ? "text-(--hc-text-secondary)" : "text-(--hc-text-tertiary)")}>
                     {error ?? rules}
+                </span>
+                {/* The error is spoken once, here; the line above is the input's description. */}
+                <span className="sr-only" aria-live="polite">
+                    {error ?? ""}
                 </span>
             </label>
         </div>
@@ -908,16 +1007,34 @@ export const FieldUpload = ({
 export const formatFileSize = (bytes: number): string => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`);
 
 /**
+ * The type of a file that has no picture, in the 40px square a preview would fill: its
+ * label (PDF, DOCX, XLSX, CSV, TXT) in caption/meta text/brand-secondary on
+ * bg/brand-primary. A word rather than an icon set: it needs no asset, reads the same in
+ * both themes on the existing tokens, and says exactly which kind of file it is.
+ */
+export const FileBadge = ({ label, className }: { label: string; className?: string }) => (
+    <span aria-hidden="true" className={cx("hc-t-caption-meta flex size-10 shrink-0 items-center justify-center rounded-(--hc-radius-sm) bg-(--hc-bg-brand-primary) tracking-normal text-(--hc-text-brand-secondary)", className)}>
+        {label}
+    </span>
+);
+
+/**
  * File/Thumbnail: one attached file. 56 tall, bg/tertiary, 1px border/primary,
  * radius/md, padding 0 8, gap 16: the 40px preview (bg/brand-primary, radius/sm), the
  * name in body/helper text/primary over the meta in mono/id text/tertiary (gap 4), and
  * the 40px remove button with the x icon in text/secondary. The remove target is 44
  * even though the button draws at 40 (build notes: nothing under 44).
+ *
+ * An image shows its preview, or an empty square when it cannot be drawn. A file with no
+ * picture (a PDF, a spreadsheet) passes `badge` and the square carries its type instead.
  */
 export const FileThumbnail = ({
     name,
     meta,
     previewUrl,
+    badge,
+    busy,
+    progress,
     onRemove,
     className,
     as: Tag = "li",
@@ -927,28 +1044,52 @@ export const FileThumbnail = ({
     /** "1.2 MB · uploaded" */
     meta: string;
     previewUrl?: string | null;
+    /** The type label shown in place of a preview, for a file that is not an image. */
+    badge?: string;
+    /** Still uploading: a small turning arc before the meta, so the state is seen as well as read. */
+    busy?: boolean;
+    /** How much of the upload has gone, 0 to 1, drawn as a 2px bar along the bottom edge; null while unknown. */
+    progress?: number | null;
     onRemove: () => void;
     className?: string;
     as?: "li" | "div";
     /** Lets a caller find the row again (a remove moves focus to the next one). */
     "data-file-id"?: number | string;
 }) => (
-    <Tag {...rest} className={cx("flex h-14 items-center gap-4 rounded-(--hc-radius-md) border border-(--hc-border-primary) bg-(--hc-bg-tertiary) px-[7px]", className)}>
-        <span className="size-10 shrink-0 overflow-hidden rounded-(--hc-radius-sm) bg-(--hc-bg-brand-primary)">
-            {previewUrl && <img src={previewUrl} alt="" className="size-full object-cover" draggable={false} />}
-        </span>
+    <Tag {...rest} className={cx("relative flex h-14 items-center gap-4 overflow-hidden rounded-(--hc-radius-md) border border-(--hc-border-primary) bg-(--hc-bg-tertiary) px-[7px]", className)}>
+        {!previewUrl && badge ? (
+            <FileBadge label={badge} />
+        ) : (
+            <span className="size-10 shrink-0 overflow-hidden rounded-(--hc-radius-sm) bg-(--hc-bg-brand-primary)">
+                {previewUrl && <img src={previewUrl} alt="" className="size-full object-cover" draggable={false} />}
+            </span>
+        )}
         <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="hc-t-body-helper truncate text-(--hc-text-primary)">{name}</span>
-            <span className="hc-t-mono-id truncate text-(--hc-text-tertiary)">{meta}</span>
+            <span className="flex min-w-0 items-center gap-1.5">
+                {busy && <SpinnerIcon className="size-3.5 text-(--hc-fg-brand-primary)" />}
+                {/* Keyed by the words, so a change of state fades in over 200ms (the house
+                    state duration); nothing moves under prefers-reduced-motion. */}
+                <span key={meta} className="hc-t-mono-id truncate text-(--hc-text-tertiary) motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
+                    {meta}
+                </span>
+            </span>
         </span>
-        <button
-            type="button"
-            onClick={onRemove}
-            aria-label={`Remove ${name}`}
-            className="hc-hover relative flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-(--hc-radius-sm) text-(--hc-text-secondary) after:absolute after:-inset-0.5 after:content-[''] hover:text-(--hc-text-primary)"
-        >
-            <XIcon />
-        </button>
+        <RemoveButton label={`Remove ${name}`} onClick={onRemove} />
+        {busy && typeof progress === "number" && (
+            // Determinate once the browser reports bytes sent: a 25 MB file shows how far it
+            // has got. Scaled, not resized, so it never reflows; still under reduced motion.
+            <span
+                role="progressbar"
+                aria-label={`Uploading ${name}`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progress * 100)}
+                className="absolute inset-x-0 bottom-0 h-0.5 bg-(--hc-border-secondary)"
+            >
+                <span className="block h-full origin-left bg-(--hc-fg-brand-primary) transition-transform duration-200 ease-out motion-reduce:transition-none" style={{ transform: `scaleX(${Math.min(1, Math.max(0, progress))})` }} />
+            </span>
+        )}
     </Tag>
 );
 

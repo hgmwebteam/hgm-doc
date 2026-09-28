@@ -72,6 +72,23 @@ export const isTeamAddress = (email: string | null | undefined): boolean => {
     return at > 0 && e.slice(at + 1) === "hiddengem.media";
 };
 
+/**
+ * A page address as a person reads it: without "https://" or "http://" and without a
+ * trailing slash ("staysaluda.com/book"). Only for showing; the link keeps the full address.
+ */
+export const displayUrl = (url: string): string => url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+
+/** Whether a stored page address may be rendered as a link: http or https, checked again at render. */
+export const isWebLink = (url: unknown): url is string => {
+    if (typeof url !== "string") return false;
+    try {
+        const u = new URL(url);
+        return u.protocol === "https:" || u.protocol === "http:";
+    } catch {
+        return false;
+    }
+};
+
 export interface Ticket {
     id: string;
     reference: string;
@@ -83,13 +100,20 @@ export interface Ticket {
     detail?: string | null;
     property?: string | null;
     needed_by?: string | null;
+    /** How many files are attached: every file, not only images (the name predates PDFs). */
     image_count?: number | null;
     drive_folder_url?: string | null;
     client_name?: string | null;
     submitted_by?: string | null;
     submitted_by_name?: string | null;
-    /** Set by the team on their own form; null when a client raised it. */
+    /** Everyone sets one since 13 Sep 2026; null on a request raised before that. */
     priority?: Priority | null;
+    /** The pages the request is about: absolute http or https addresses. Absent until the column exists. */
+    urls?: string[] | null;
+    /** The completion email address. Only ever in ticket-create's own answer, and only when it was stored. */
+    notify_email?: string | null;
+    /** ticket-detail: an address is stored and the completion email is switched on. Never the address itself. */
+    completion_email_set?: boolean;
     /** On the team's cross-client list. */
     client_slug?: string | null;
     assignee_name?: string | null;
@@ -110,6 +134,13 @@ export interface TicketEvent {
     actor_email: string | null;
     actor_name: string | null;
     created_at: string;
+}
+
+/** One attached file as the success card and the request page list it. Where it is kept is never sent. */
+export interface TicketFile {
+    name: string;
+    mime: string;
+    bytes: number | null;
 }
 
 export interface TicketCounts {
@@ -544,7 +575,7 @@ export const requestMetaLine = (topics: TicketTopic[], t: Ticket): string => {
 // detail screen
 
 /**
- * Small counts as words, the way the detail frame writes "Three screenshots attached."
+ * Small counts as words, the way the detail frame writes "Three files attached."
  * Past twelve a numeral reads better than "thirteen", so the word list stops there.
  */
 export const countWord = (n: number): string => {
@@ -553,11 +584,11 @@ export const countWord = (n: number): string => {
     return w ? w.charAt(0).toUpperCase() + w.slice(1) : String(n);
 };
 
-/** "Three screenshots attached." or "One screenshot attached."; empty when there are none, so nothing claims an attachment that does not exist. */
-export const screenshotsSentence = (count: number | null | undefined): string => {
+/** "Three files attached." or "One file attached."; empty when there are none, so nothing claims an attachment that does not exist. */
+export const filesSentence = (count: number | null | undefined): string => {
     const n = count ?? 0;
     if (n <= 0) return "";
-    return `${countWord(n)} ${n === 1 ? "screenshot" : "screenshots"} attached.`;
+    return `${countWord(n)} ${n === 1 ? "file" : "files"} attached.`;
 };
 
 export type StepState = "done" | "now" | "todo";
@@ -585,7 +616,7 @@ const eventAt = (events: TicketEvent[], kind: TicketEventKind): TicketEvent | un
  * the last step's "Expected {day}", which repeats the promised date already on the
  * page. No promised date, no expectation: the step says what completion means instead.
  */
-export const timelineSteps = (ticket: Ticket, events: TicketEvent[]): TimelineStep[] => {
+export const timelineSteps = (ticket: Ticket, events: TicketEvent[], files: TicketFile[] = []): TimelineStep[] => {
     const received = eventAt(events, "received");
     const assigned = eventAt(events, "assigned");
     const started = eventAt(events, "in_progress");
@@ -599,7 +630,9 @@ export const timelineSteps = (ticket: Ticket, events: TicketEvent[]): TimelineSt
 
     const receivedAt = received?.created_at ?? ticket.created_at;
     const receivedTime = formatDayMonthTime(receivedAt);
-    const shots = screenshotsSentence(ticket.image_count);
+    // The listed files are the truth when the page has them; the count covers an older
+    // detail answer that carried none.
+    const shots = filesSentence(Math.max(files.length, ticket.image_count ?? 0));
 
     // "Within the minute" is only said when it is true of the two stamps.
     const withinMinute = !!assigned && new Date(assigned.created_at).getTime() - new Date(receivedAt).getTime() <= 60_000;

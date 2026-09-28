@@ -48,7 +48,8 @@ assert.equal(MAX_URLS, 10);
 assert.equal(MAX_URL_CHARS, 2048);
 assert.equal(MAX_EMAIL_CHARS, 254);
 assert.equal(FILE_TYPES.length, 14, "the bucket SQL allows exactly these 14 types");
-assert.equal(FILE_RULES_LINE, "Images, PDF, Word, Excel, CSV or text · 25 MB each · up to 10 files");
+assert.equal(FILE_RULES_LINE, "Images, PDF, Word, Excel, CSV or text · 25\u00a0MB each · up to 10\u00a0files");
+assert.equal(FILE_RULES_LINE.replace(/\s+/g, " "), "Images, PDF, Word, Excel, CSV or text · 25 MB each · up to 10 files", "the words the Figma frame is held to");
 for (const t of FILE_TYPES) {
     assert.ok(FILE_ACCEPT.split(",").includes(`.${t.ext}`), `accept carries .${t.ext}`);
     assert.ok(FILE_ACCEPT.split(",").includes(t.mime), `accept carries ${t.mime}`);

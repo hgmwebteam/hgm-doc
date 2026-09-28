@@ -53,8 +53,9 @@ export const MAX_URLS = 10;
 export const MAX_URL_CHARS = 2048;
 export const MAX_EMAIL_CHARS = 254;
 
-/** The drop zone's rules line. Must stay ONE line at 512px and TWO at 310px (Inter 13/20). */
-export const FILE_RULES_LINE = "Images, PDF, Word, Excel, CSV or text · 25 MB each · up to 10 files";
+/** The drop zone's rules line. Must stay ONE line at 512px and TWO at 310px (Inter 13/20). The
+ *  number and its unit are joined by no-break spaces, so a narrow phone never splits "25 MB". */
+export const FILE_RULES_LINE = "Images, PDF, Word, Excel, CSV or text · 25\u00a0MB each · up to 10\u00a0files";
 
 /** The picker's accept attribute: every extension (with its dot, "also" included) and every mime above, comma-joined. */
 export const FILE_ACCEPT: string = [...FILE_TYPES.flatMap((t) => [t.ext, ...(t.also ?? [])].map((e) => `.${e}`)), ...FILE_TYPES.map((t) => t.mime)].join(",");

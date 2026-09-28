@@ -1,5 +1,5 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
-import { CLIENT_TICKET_COLUMNS, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { CLIENT_HIDDEN_EVENTS, CLIENT_TICKET_COLUMNS, clientView, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
 import { ticketFiles } from "../lib/ticket-files.mts";
 
 /**
@@ -12,13 +12,15 @@ import { ticketFiles } from "../lib/ticket-files.mts";
  * not exist at all: a different answer for the two would turn this into a way to count how
  * many requests every other client has raised.
  *
- * ── WHY route_failed EVENTS ARE NOT SENT ────────────────────────────────────
+ * ── WHY SOME EVENTS ARE NOT SENT TO A CLIENT ────────────────────────────────
  * `route_failed` means the topic had no Asana board or no default assignee, so the brain
  * refused to open a task with nobody's name on it and told the account manager instead. That
- * is our problem being handled, and its body carries our internals. help-model.ts already
- * leaves the kind out of CLIENT_VISIBLE_EVENTS, but a screen filtering a row it was sent is
- * one refactor away from showing it. It is filtered here so it is never in the browser at
- * all. The ticket simply stays at "Received" for the client, which is true.
+ * is our problem being handled, and its body carries our internals. `assigned` names the
+ * assignee and `promised_date_set` the promised date, and a client is shown neither (owner,
+ * 28 Sep 2026). A screen filtering a row it was sent is one refactor away from showing it, so
+ * all three (CLIENT_HIDDEN_EVENTS) are filtered here and are never in the browser at all, and
+ * the row goes out without its promised date and assignee (clientView). The ticket simply
+ * reads as its status for the client, which is true.
  *
  * `team_update` IS sent: it is an update written for them, and actorName() in help-model.ts
  * puts the name of whoever wrote it on the byline.
@@ -32,6 +34,7 @@ import { ticketFiles } from "../lib/ticket-files.mts";
  *
  * POST application/json { slug, reference } + Authorization: Bearer <session token>
  *   -> { viewer, ticket: { ...columns, urls, completion_email_set }, events: [...], files: [{ name, mime, bytes }] }
+ *   (a client's ticket without promised_date, assignee_name or assignee_email)
  */
 
 /** `mirrored_to_asana` is deliberately not among them: whether we managed to copy an update
@@ -73,16 +76,16 @@ export default async (req: Request) => {
         }
         if (!ticket) return jsonError(404, "We could not find a request with that reference.");
 
-        // Staff see route_failed: the Report a ticket success card polls this to say
+        // Staff see every kind: the Report a ticket success card polls this to say
         // "Needs a person" when the brain refused to open an unowned task. A client
-        // still never receives it (the note above stands for them).
+        // never receives the hidden three (the note above stands for them).
         let query = db
             .from("ticket_events")
             .select(EVENT_COLUMNS)
             .eq("ticket_id", (ticket as unknown as { id: string }).id)
             .order("created_at", { ascending: true })
             .limit(MAX_EVENTS);
-        if (gate.via !== "staff") query = query.neq("kind", "route_failed");
+        if (gate.via !== "staff") query = query.not("kind", "in", `(${CLIENT_HIDDEN_EVENTS.join(",")})`);
         const { data: events, error: eventsErr } = await query;
 
         if (eventsErr) {
@@ -107,7 +110,7 @@ export default async (req: Request) => {
         }
         const files = await ticketFiles(ticketId);
 
-        return Response.json({ viewer: viewerOf(gate), ticket: { ...(ticket as unknown as Record<string, unknown>), completion_email_set: completionEmailSet }, events: events ?? [], files });
+        return Response.json({ viewer: viewerOf(gate), ticket: { ...clientView(ticket as unknown as Record<string, unknown>, gate.via), completion_email_set: completionEmailSet }, events: events ?? [], files });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-detail] not configured", err.message);

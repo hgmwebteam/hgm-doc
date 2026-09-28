@@ -1,5 +1,5 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller } from "../lib/reporting.mts";
-import { CLIENT_TICKET_COLUMNS, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { CLIENT_TICKET_COLUMNS, clientView, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
 
 /**
  * A client withdraws their own request.
@@ -24,6 +24,7 @@ import { CLIENT_TICKET_COLUMNS, isMissingColumn, withPages } from "../lib/ticket
  * closed again as withdrawn.
  *
  * POST application/json { slug, reference, confirm: true } + Authorization: Bearer <session token> -> { ticket }
+ * (for a client, without promised_date, assignee_name or assignee_email: ticket-columns.mts)
  */
 
 
@@ -116,7 +117,8 @@ export default async (req: Request) => {
         // that would leave the client pressing the button again on a closed request.
         if (eventErr) console.error("[ticket-withdraw] withdrawn event failed", eventErr.message, reference);
 
-        return Response.json({ ticket: updated });
+        // A client's answer, like ticket-detail's: no promised date and no assignee.
+        return Response.json({ ticket: clientView(updated as unknown as Record<string, unknown>, gate.via) });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-withdraw] not configured", err.message);

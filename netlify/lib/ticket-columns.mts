@@ -42,6 +42,28 @@ import { type CompletionEmailMode, completionEmailMode } from "../../src/pages/c
  * column is read on the platform too, and renaming it in two repositories for a word was
  * not worth a second hand-applied change.
  *
+ * ── SUBMITTED BY (owner, 28 Sep 2026) ───────────────────────────────────────
+ * The name the person typed in the form's required Submitted by field is stored in
+ * tickets.submitted_by_name. The column is not new: it has held the signed-in account's
+ * name since the first request (verified on the live project 28 Sep 2026: present, and set
+ * on every row), so nothing has to be applied before this deploy and no order is imposed.
+ * What changes is its meaning, recorded by hand in the same SQL editor (safe to run twice;
+ * the first line does nothing where the column exists):
+ *
+ *   alter table public.tickets add column if not exists submitted_by_name text;
+ *   comment on column public.tickets.submitted_by_name is 'The Submitted by name the person typed on the form (required since 28 Sep 2026: trimmed, 2 to 120 characters, no control or invisible character), prefilled with the account''s name. Before 28 Sep 2026 it was the signed-in account''s name. submitted_by (the address) stays the account of record.';
+ *   notify pgrst, 'reload schema';
+ *
+ * Read-back (expect 1 row): select column_name from information_schema.columns
+ *   where table_schema = 'public' and table_name = 'tickets' and column_name = 'submitted_by_name';
+ *
+ * ── WHAT A CLIENT IS NOT HANDED (owner, 28 Sep 2026) ────────────────────────
+ * A client never sees a promised or estimated date or who a request is assigned to, so the
+ * answers a client's own call gets carry neither: clientView() drops promised_date,
+ * assignee_name and assignee_email from the row, and ticket-detail leaves the events that
+ * name them (CLIENT_HIDDEN_EVENTS) off the timeline. Staff keep them: the team's success card
+ * polls ticket-detail for the assignee, and the team's list reads its own columns.
+ *
  * House style: no em or en dashes anywhere.
  */
 
@@ -54,6 +76,20 @@ export const withPages = (cols: string): string => `${cols}, urls`;
 
 /** Read only inside ticket-create (whose answer strips notify_email_listed) and ticket-detail's own read (which answers a boolean). Never in a list. */
 export const NOTIFY_COLUMNS = "notify_email, notify_email_listed";
+
+/** Kept from a client's answers (see the header); still read for staff. */
+export const CLIENT_HIDDEN_COLUMNS = ["promised_date", "assignee_name", "assignee_email"] as const;
+
+/** Events a client's timeline never receives: routing's internals, the assignee, the promised date. */
+export const CLIENT_HIDDEN_EVENTS = ["route_failed", "assigned", "promised_date_set"] as const;
+
+/** A row as a caller may see it: unchanged for staff, without CLIENT_HIDDEN_COLUMNS for a client. */
+export const clientView = <T extends Record<string, unknown>>(row: T, via: "allowlist" | "staff"): T => {
+    if (via === "staff") return row;
+    const out: Record<string, unknown> = { ...row };
+    for (const col of CLIENT_HIDDEN_COLUMNS) delete out[col];
+    return out as T;
+};
 
 type DbError = { code?: string | null; message?: string | null } | null | undefined;
 

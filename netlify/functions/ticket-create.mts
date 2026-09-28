@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { cleanNotifyEmail, cleanUrls, completionEmailOpen } from "../../src/pages/client/help/request-rules.ts";
+import { cleanNotifyEmail, cleanSubmitterName, cleanUrls, completionEmailOpen } from "../../src/pages/client/help/request-rules.ts";
 import {
     BRAIN_API_KEY,
     BRAIN_TICKET_URL,
@@ -14,7 +14,7 @@ import {
     accessTokenFrom, verifyCaller,
 } from "../lib/reporting.mts";
 import { isStaffEmail } from "../lib/staff.mts";
-import { CLIENT_TICKET_COLUMNS, NOTIFY_COLUMNS, asNote, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { CLIENT_TICKET_COLUMNS, NOTIFY_COLUMNS, asNote, clientView, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
 import { type VerifiedFile, claimUploads, recordAttachments, ticketFiles, verifyUploads } from "../lib/ticket-files.mts";
 
 /**
@@ -60,10 +60,16 @@ import { type VerifiedFile, claimUploads, recordAttachments, ticketFiles, verify
  * refused with a sentence that asks for a reload: only a tab opened before this change
  * sends it. See netlify/lib/ticket-files.mts.
  *
+ * ── WHO SUBMITTED IT ────────────────────────────────────────────────────────
+ * `submitted_by_name` is the required Submitted by field (owner, 28 Sep 2026): the person
+ * raising the request, cleaned by request-rules.ts (2 to 120 characters, no control or
+ * invisible character) and stored in tickets.submitted_by_name. The signed-in address stays
+ * the account of record in submitted_by, and decides who may withdraw.
+ *
  * ── PAGES AND THE COMPLETION EMAIL ADDRESS ──────────────────────────────────
  * `urls` are the pages the request is about (request-rules.ts cleans them). `notify_email` is
- * the one address HiddenGem Media emails when the request is completed; it is validated and
- * stored ONLY while the completion email switch lets this caller store one
+ * the one address HiddenGem Media emails when the request is completed; it is REQUIRED,
+ * validated and stored while the completion email switch lets this caller store one
  * (VITE_TICKET_COMPLETION_EMAIL: off by default, staff, on), and otherwise ignored entirely:
  * not validated, not stored, not returned, only counted in the log. The address is never
  * logged, never an Asana follower, and never returned by any other endpoint.
@@ -73,9 +79,11 @@ import { type VerifiedFile, claimUploads, recordAttachments, ticketFiles, verify
  * them and notes that they were not stored, and the request still goes.
  *
  * POST application/json + Authorization: Bearer <session token>
- *   { slug, topic, title, detail, priority?, property?, needed_by?, urls?, notify_email?,
- *     upload_id?, files?: [{ file_id }] }
+ *   { slug, topic, submitted_by_name, title, detail, priority?, property?, needed_by?, urls?,
+ *     notify_email? (required while the switch is open for the caller), upload_id?,
+ *     files?: [{ file_id }] }
  *   -> 201 { ticket, files: [{ name, mime, bytes }] }   (the insert path and the duplicate path)
+ *   A client's answer carries no promised date and no assignee (ticket-columns.mts, clientView).
  */
 
 /* ── caps ────────────────────────────────────────────────────────────────── */
@@ -95,6 +103,9 @@ const DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
 
 /** A tab opened before files moved to direct uploads still posts base64 `images`. */
 const RELOAD_FOR_FILES = "This page was updated while it was open. Copy your description, reload the page, and attach the files again.";
+
+/** A tab opened before the form asked for Submitted by (or the completion email) sends neither field at all. */
+const RELOAD_FOR_FORM = "This page was updated while it was open. Copy your description, reload the page, and send it again.";
 
 /** The note a request carries when the three columns are not in the database yet. */
 const COLUMNS_MISSING_NOTE = "The request carried page addresses and/or a completion email address, but the reporting database has no columns for them yet, so they were not stored.";
@@ -292,6 +303,8 @@ interface CreateBody {
     slug?: unknown;
     accessToken?: unknown;
     topic?: unknown;
+    /** The required Submitted by name (since 28 Sep 2026). */
+    submitted_by_name?: unknown;
     title?: unknown;
     detail?: unknown;
     property?: unknown;
@@ -318,9 +331,9 @@ const sameList = (a: unknown, b: string[]): boolean => {
     return x.length === b.length && x.every((v, i) => v === b[i]);
 };
 
-/** The row as the caller may see it: the internal note and the listed flag never leave. */
-const forCaller = (row: Record<string, unknown>, showAddress: boolean): Record<string, unknown> => {
-    const { intake_notes: _notes, notify_email_listed: _listed, notify_email, ...rest } = row;
+/** The row as the caller may see it: the internal note and the listed flag never leave, and a client gets no promised date or assignee. */
+const forCaller = (row: Record<string, unknown>, showAddress: boolean, via: "allowlist" | "staff"): Record<string, unknown> => {
+    const { intake_notes: _notes, notify_email_listed: _listed, notify_email, ...rest } = clientView(row, via);
     void _notes;
     void _listed;
     return showAddress && typeof notify_email === "string" && notify_email ? { ...rest, notify_email } : rest;
@@ -361,6 +374,14 @@ export default async (req: Request) => {
         if (!title) return jsonError(422, "Give the request a short title so it can be found again.");
         if (!detail) return jsonError(422, "Tell us what you need, in your own words. That text goes to whoever picks the request up.");
 
+        // WHO IS SUBMITTING, required. A body with no such field at all is a tab from before
+        // the form asked, told to reload rather than refused as though the person had left it
+        // empty.
+        if (body.submitted_by_name === undefined) return jsonError(422, RELOAD_FOR_FORM);
+        const named = cleanSubmitterName(body.submitted_by_name);
+        if (!named.ok) return jsonError(422, named.error);
+        const submitter = named.name;
+
         // A `date` column takes null, not "". An unparseable date is treated as none given
         // rather than guessed at: needed_by is the client's own wish and inventing one would
         // be the first invented date in a system built not to have any.
@@ -377,12 +398,14 @@ export default async (req: Request) => {
         if (!pages.ok) return jsonError(422, pages.error);
         const urls = pages.urls;
 
-        // THE SWITCH DECIDES WHETHER AN ADDRESS EXISTS AT ALL. Until the platform can send,
-        // nobody may be promised an email, so an address sent anyway (an old tab, a hand-made
-        // call) is not validated, not stored and not returned. Counted, never logged.
+        // THE SWITCH DECIDES WHETHER AN ADDRESS EXISTS AT ALL. With it closed for this caller
+        // an address sent anyway (an old tab, a hand-made call) is not validated, not stored and
+        // not returned: counted, never logged. With it open the address is REQUIRED (owner,
+        // 28 Sep 2026); a body without the field is a tab from before it was shown.
         const emailOpen = completionEmailOpen(completionEmailModeNow(), gate.via === "staff");
         let notify: string | null = null;
         if (emailOpen) {
+            if (body.notify_email === undefined) return jsonError(422, RELOAD_FOR_FORM);
             const cleaned = cleanNotifyEmail(body.notify_email);
             if (!cleaned.ok) return jsonError(422, cleaned.error);
             notify = cleaned.email;
@@ -430,12 +453,13 @@ export default async (req: Request) => {
             const priorNotes = typeof existing.intake_notes === "string" && existing.intake_notes ? [existing.intake_notes.replace(/^Unresolved on receipt: /, "")] : [];
 
             // WHAT THE RETRY CARRIES. Between the attempt that died and this one the
-            // person may have changed the chip, the pages or the address; the row keeps the
+            // person may have changed the chip, the name, the pages or the address; the row keeps the
             // first values and the task would be filed under them. Reconciled only while the
             // ticket is still received: once routed, the Asana task holds the values and a
             // silent change here would leave the two disagreeing.
             const patch: Record<string, unknown> = {};
             if (priority && existing.priority !== priority) patch.priority = priority;
+            if (existing.submitted_by_name !== submitter) patch.submitted_by_name = submitter;
             if (!columnsMissing && !sameList(existing.urls, urls)) patch.urls = urls.length ? urls : null;
             if (!columnsMissing && emailOpen && (existing.notify_email ?? null) !== notify) {
                 patch.notify_email = notify;
@@ -466,7 +490,7 @@ export default async (req: Request) => {
                 if (recorded > 0) await tellTheBrain(existing.id);
             }
             const files = await ticketFiles(existing.id);
-            return Response.json({ ticket: forCaller(existing, emailOpen), files }, { status: 201 });
+            return Response.json({ ticket: forCaller(existing, emailOpen, gate.via), files }, { status: 201 });
         }
 
         /* ── the files, proved before the row exists ─────────────────────── */
@@ -496,7 +520,7 @@ export default async (req: Request) => {
             tenant_id: identity.tenantId,
             client_name: identity.clientName,
             submitted_by: caller.email,
-            submitted_by_name: caller.name,
+            submitted_by_name: submitter,
             topic: topicRow.key,
             title,
             detail,
@@ -549,7 +573,7 @@ export default async (req: Request) => {
             ticket_id: row.id,
             kind: "received",
             actor_email: caller.email,
-            actor_name: caller.name,
+            actor_name: submitter,
         });
         if (eventErr) console.error("[ticket-create] received event failed", eventErr.message, row.reference);
 
@@ -565,7 +589,7 @@ export default async (req: Request) => {
 
         await tellTheBrain(row.id);
 
-        return Response.json({ ticket: forCaller(row, emailOpen), files }, { status: 201 });
+        return Response.json({ ticket: forCaller(row, emailOpen, gate.via), files }, { status: 201 });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-create] not configured", err.message);

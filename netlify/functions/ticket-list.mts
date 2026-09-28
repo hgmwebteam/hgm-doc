@@ -18,13 +18,13 @@ import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyC
  * POST application/json { slug } + Authorization: Bearer <session token> -> { tickets: [...], counts: { total, open } }
  */
 
-/** Narrower than ticket-detail.mts on purpose, and exactly what the list screen reads:
- *  isOpen, matchesFilter, elapsedLabel, promiseBlock, completedThisMonth, inProgressCount
- *  and topicLabel in help-model.ts, and nothing else. `detail` in particular is absent -
- *  sending every client's full request bodies to render a list of titles is a page of
- *  payload nobody looks at. */
-const LIST_COLUMNS =
-    "id, reference, topic, title, status, created_at, property, needed_by, priority, image_count, submitted_by, assignee_name, promised_date, completed_at, withdrawn_at";
+/** Narrower than ticket-detail.mts on purpose, and exactly what the list and the help home
+ *  read (help-model.ts: isOpen, matchesFilter, requestOutcomeLine, requestMetaLine, the home's
+ *  counts and topicLabel), and nothing else. `detail` in particular is absent - sending every
+ *  client's full request bodies to render a list of titles is a page of payload nobody looks
+ *  at. So are promised_date and assignee_name: a client is shown no promised date and no
+ *  assignee (owner, 28 Sep 2026), so the list never carries them. */
+const LIST_COLUMNS = "id, reference, topic, title, status, created_at, property, needed_by, priority, image_count, submitted_by, completed_at, withdrawn_at";
 
 /** Matches OPEN_STATUSES in src/pages/client/help/help-model.ts. Two copies, because one is
  *  a Postgres filter and the other is a browser predicate; they must be changed together. */

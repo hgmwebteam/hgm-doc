@@ -58,6 +58,7 @@ const SECTIONS: { id: string; label: string; icon: IconType }[] = [
     { id: "editing", label: "Editing & saving", icon: Edit03 },
     { id: "data", label: "Database & storage", icon: Database01 },
     { id: "ai", label: "AI features", icon: Zap },
+    { id: "email", label: "Email notifications (Resend)", icon: Mail01 },
     { id: "infra", label: "Deploy & infrastructure", icon: Server01 },
     { id: "rules", label: "Rules that never break", icon: AlertTriangle },
 ];
@@ -355,6 +356,30 @@ const TABLES: { group: string; rows: { name: string; what: string }[] }[] = [
             { name: "recordings", what: "Call recordings for /log-script (private bucket)." },
             { name: "stories", what: "Pinned Stories pages (JPG/WebP per page, MP4 for video slides) — team-only uploads, public read." },
         ],
+    },
+];
+
+/** The email setup, one row per system it touches, in the order it was set up (2026-09-28). */
+const EMAIL_SETUP: { name: string; what: string }[] = [
+    {
+        name: "Resend",
+        what: "Sends the email. The account belongs to anhtuan@hiddengem.media. API keys → the key Netlify uses has Sending access. Domains → hgmportal.com must read Verified, or every send is refused.",
+    },
+    {
+        name: "GoDaddy (DNS)",
+        what: "hgmportal.com's DNS lives at GoDaddy. Resend's records are added there: TXT resend._domainkey (DKIM), MX and TXT on send (bounces + SPF), and TXT _dmarc. Copy them from Resend's Domains page exactly; the Name field takes only the part before .hgmportal.com.",
+    },
+    {
+        name: "Netlify env vars",
+        what: "RESEND_API_KEY (secret) and RESEND_FROM = HGM Portal <notifications@hgmportal.com>. A change applies to the next deploy, not the running one.",
+    },
+    {
+        name: "Supabase",
+        what: "Migration 20260928120000_client_onboarding_am_notified adds client_onboarding_pages.am_notified_at. The function stamps it before sending, so each form emails once, even on a resubmit or double-click.",
+    },
+    {
+        name: "Code",
+        what: "netlify/functions/form-submitted.mts sends the email. netlify/lib/team-emails.mts maps each AM's name to their address.",
     },
 ];
 
@@ -1148,6 +1173,43 @@ export const ManualScreen = () => {
                                         { t: "Does one thing", s: "with keys the browser never sees", accent: true },
                                     ]}
                                 />
+                            </DocSection>
+
+                            <DocSection id="email" label="Email notifications (Resend)" number={num("email")}>
+                                <p className="mb-2 text-md text-tertiary">
+                                    When a client submits their <strong className="text-secondary">Onboarding Form</strong> or their{" "}
+                                    <strong className="text-secondary">Account Access Form</strong>, their Account Manager gets one email for that form, with
+                                    links to the answers and the dashboard. The access email says which logins were shared, never the logins themselves.
+                                </p>
+                                <Flow
+                                    label="From submit to inbox"
+                                    steps={[
+                                        { t: "Client submits", s: "the form saves first" },
+                                        { t: "Find the AM", s: "Client List → AM name → team-emails.mts" },
+                                        { t: "Resend sends", s: "from notifications@hgmportal.com", accent: true },
+                                    ]}
+                                />
+                                <div>
+                                    {EMAIL_SETUP.map((f) => (
+                                        <Row key={f.name} left={f.name} right={f.what} />
+                                    ))}
+                                </div>
+                                <ul className="mt-4 flex flex-col gap-2 text-md text-tertiary">
+                                    <li>
+                                        <strong className="text-secondary">Adding an AM:</strong> put their name, spelled exactly as on the Client List, and
+                                        their email in <span className="font-mono text-sm">netlify/lib/team-emails.mts</span>, then push. Until then their
+                                        clients' submits send nothing.
+                                    </li>
+                                    <li>
+                                        <strong className="text-secondary">An AM says no email came:</strong> check Resend → Logs first. Nothing there means
+                                        the function stopped early; its Netlify function log says why, e.g. "no AM email" for a missing name. A 403 in Resend
+                                        means the domain isn't verified.
+                                    </li>
+                                    <li>
+                                        <strong className="text-secondary">A failed email never blocks the client.</strong> Their answers are already saved,
+                                        and a failed send frees the form so the next submit tries again.
+                                    </li>
+                                </ul>
                             </DocSection>
 
                             <DocSection id="infra" label="Deploy & infrastructure" number={num("infra")}>

@@ -7,13 +7,14 @@
  * (and checked) without standing a page up.
  *
  * ── THE RULE THIS FILE EXISTS TO ENFORCE ────────────────────────────────────
- * `ticket_topics.turnaround_days` is NULL on both seeded topics, by the owner's decision
- * on the day this was built, so `tickets.promised_date` is NULL on every ticket. Every
- * screen therefore has to say "received, owner assigned" and NO date. Not "soon", not
- * "usually a few days", not a date computed from the topic. promiseBlock() below is the
- * single place that decision is expressed: it reads promised_date first, so the day a
- * turnaround is set and the brain starts writing the column, the date appears on every
- * screen with no code change here or anywhere else.
+ * A client never sees a planned, promised, expected or estimated date, and never sees who a
+ * request is assigned to (owner, 28 Sep 2026: "Do not give a date estimate, only show when the
+ * date is complete", and "Remove the assigned to"). While a request is open it reads as its
+ * status and its account manager; once it is done it carries the day it was completed. How
+ * long it has been open (ELAPSED) is not an estimate and stays. `promised_date` and
+ * `assignee_name` still exist, because routing writes them and the team's
+ * own list and the Asana task use them, but the portal functions do not hand them to a client
+ * (ticket-columns.mts, clientView) and nothing in this file turns one into words.
  */
 
 /* ── The reporting schema, as the browser sees it ────────────────────────────
@@ -37,8 +38,6 @@ export interface TicketTopic {
     key: string;
     label: string;
     description: string | null;
-    /** NULL today on every topic. See the header: a number here is a promise we can keep. */
-    turnaround_days: number | null;
 }
 
 /**
@@ -104,7 +103,9 @@ export interface Ticket {
     image_count?: number | null;
     drive_folder_url?: string | null;
     client_name?: string | null;
+    /** The signed-in address that raised it: the account of record. */
     submitted_by?: string | null;
+    /** The Submitted by name the person typed (since 28 Sep 2026; the account's name before). */
     submitted_by_name?: string | null;
     /** Everyone sets one since 13 Sep 2026; null on a request raised before that. */
     priority?: Priority | null;
@@ -116,6 +117,7 @@ export interface Ticket {
     completion_email_set?: boolean;
     /** On the team's cross-client list. */
     client_slug?: string | null;
+    /** The team's views only: a client's answer never carries these two or promised_date. */
     assignee_name?: string | null;
     assignee_email?: string | null;
     account_manager_email?: string | null;
@@ -168,43 +170,6 @@ export const STATUS_META: Record<TicketStatus, { label: string; tone: "neutral" 
     withdrawn: { label: "Withdrawn", tone: "muted" },
 };
 
-/**
- * Status changes a client sees on the timeline.
- *
- * `route_failed` is deliberately absent. It means the topic had no Asana board or no
- * default assignee, so the brain refused to open an orphan task and told the account
- * manager instead. That is our problem being handled, not news for the client, and
- * "route failed" on their screen would read as their request being lost. The ticket
- * simply stays at "Received" for them, which is true.
- */
-export const CLIENT_VISIBLE_EVENTS: TicketEventKind[] = [
-    "received",
-    "assigned",
-    "in_progress",
-    "promised_date_set",
-    "completed",
-    "withdrawn",
-];
-
-export const EVENT_LABEL: Record<TicketEventKind, string> = {
-    received: "Received",
-    assigned: "Assigned",
-    in_progress: "In progress",
-    team_update: "Update from the team",
-    completed: "Completed",
-    withdrawn: "Withdrawn",
-    route_failed: "Routing held",
-    promised_date_set: "Completion date set",
-};
-
-/** The lifecycle steps, in order, for the reference list on the help home. */
-export const LIFECYCLE: { status: TicketStatus; label: string; detail: string }[] = [
-    { status: "received", label: "Received", detail: "We have it. It gets a reference you can quote." },
-    { status: "assigned", label: "Assigned", detail: "A named person on the team has it." },
-    { status: "in_progress", label: "In progress", detail: "Work has started. Updates from the team appear on the request." },
-    { status: "completed", label: "Completed", detail: "Done. The request stays here for your records." },
-];
-
 /* ── Dates ───────────────────────────────────────────────────────────────────
    Two kinds of value arrive from the database and they must not be parsed the same way.
 
@@ -213,9 +178,9 @@ export const LIFECYCLE: { status: TicketStatus; label: string; detail: string }[
 
    `needed_by` and `promised_date` are plain `date` columns, "2026-09-11" with no zone.
    `new Date("2026-09-11")` is specified to parse a bare date as UTC midnight, which in
-   any negative-offset timezone renders as the 10th. A client in Los Angeles being shown
-   a promised date one day earlier than the one we agreed is exactly the class of quiet
-   wrongness this feature exists to remove, so date-only strings get their own parser. */
+   any negative-offset timezone renders as the 10th. The team's list showing a date one day
+   earlier than the one on the task is exactly the class of quiet wrongness this feature
+   exists to remove, so date-only strings get their own parser. */
 
 export const parseDayLocal = (isoDay: string): Date | null => {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDay.trim());
@@ -224,21 +189,7 @@ export const parseDayLocal = (isoDay: string): Date | null => {
     return Number.isNaN(d.getTime()) ? null : d;
 };
 
-const DAY_LONG = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" });
-const DAY_SHORT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const DAY_TIME = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-
-/** "11 September 2026" from a plain `date` column. Empty string when there is nothing to show. */
-export const formatDayLong = (isoDay: string | null | undefined): string => {
-    const d = isoDay ? parseDayLocal(isoDay) : null;
-    return d ? DAY_LONG.format(d) : "";
-};
-
-/** "11 Sep 2026" from a plain `date` column. */
-export const formatDayShort = (isoDay: string | null | undefined): string => {
-    const d = isoDay ? parseDayLocal(isoDay) : null;
-    return d ? DAY_SHORT.format(d) : "";
-};
 
 /** "12 September", the way the Figma writes a due date: day and full month, no year. */
 export const formatDayMonth = (iso: string | null | undefined): string => {
@@ -254,7 +205,7 @@ export const formatDayMonthShort = (iso: string | null | undefined): string => {
     return !d || Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 };
 
-/** "Friday 12 September", the COMMITTED block's date. */
+/** "Friday 4 September": the day a closed request was completed or withdrawn, in the status block. */
 export const formatWeekdayDayMonth = (iso: string | null | undefined): string => {
     if (!iso) return "";
     const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? parseDayLocal(iso) : new Date(iso);
@@ -267,13 +218,6 @@ export const formatDayMonthTime = (iso: string | null | undefined): string => {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "";
     return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
-};
-
-/** "11 Sep 2026" from a timestamptz. */
-export const formatStampShort = (iso: string | null | undefined): string => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? "" : DAY_SHORT.format(d);
 };
 
 /** "11 Sep 2026, 14:32" from a timestamptz, for the timeline where order matters. */
@@ -307,6 +251,11 @@ export const elapsedDays = (fromIso: string, toIso?: string | null): number | nu
     return days < 0 ? 0 : days;
 };
 
+/**
+ * The ELAPSED fact on the request page: time since the request was raised (to the day it
+ * closed, once it has), never an estimate of what is left. The owner kept it (28 Sep 2026:
+ * "Actually, leave time elapsed").
+ */
 export const elapsedLabel = (t: Ticket): string => {
     const end = t.completed_at ?? t.withdrawn_at ?? null;
     // A closed request with no closing stamp has no span to count; a growing
@@ -316,83 +265,6 @@ export const elapsedLabel = (t: Ticket): string => {
     if (days === null) return "";
     const word = days === 0 ? "Today" : days === 1 ? "1 day" : `${days} days`;
     return end ? (days === 0 ? "Same day" : word) : word;
-};
-
-/* ── The promise block ───────────────────────────────────────────────────────
-   The single source for what a client is told about timing, on every screen and at every
-   width. Read the file header before changing it. */
-
-export type PromiseTone = "pending" | "dated" | "done" | "closed";
-
-export interface PromiseBlock {
-    tone: PromiseTone;
-    /** The one line set in large type. */
-    headline: string;
-    /** The line under it. Always a statement of fact, never an estimate. */
-    sub: string;
-}
-
-export const promiseBlock = (t: Ticket): PromiseBlock => {
-    const owner = (t.assignee_name ?? "").trim();
-
-    if (t.status === "withdrawn") {
-        const on = formatStampShort(t.withdrawn_at);
-        return {
-            tone: "closed",
-            headline: "Withdrawn",
-            sub: on ? `Withdrawn on ${on}. Nothing more will happen on it.` : "Nothing more will happen on it.",
-        };
-    }
-
-    if (t.status === "completed") {
-        const on = formatStampShort(t.completed_at);
-        return {
-            tone: "done",
-            headline: on ? `Completed ${on}` : "Completed",
-            sub: owner ? `Finished by ${owner}.` : "This request is finished.",
-        };
-    }
-
-    // Checked before anything else below it, so the day a turnaround is configured and the
-    // brain starts writing promised_date, every screen shows the date with no code change.
-    if (t.promised_date) {
-        const on = formatDayLong(t.promised_date);
-        return {
-            tone: "dated",
-            headline: `Promised by ${on}`,
-            sub: owner ? `${owner} has this request.` : "We are confirming who has this request.",
-        };
-    }
-
-    // No promised date exists, and we do not invent one. Both branches name what IS true
-    // and say plainly that a date is not set, rather than reaching for "soon".
-    if (owner) {
-        return {
-            tone: "pending",
-            headline: "Assigned",
-            sub: `${owner} has this request. No completion date has been set yet.`,
-        };
-    }
-
-    return {
-        tone: "pending",
-        headline: "Received",
-        sub: "We have it and are deciding who will take it. No completion date has been set yet.",
-    };
-};
-
-/**
- * What a topic tells a client about turnaround, before they raise anything.
- *
- * Separate from promiseBlock on purpose: this is a property of the TOPIC, read straight
- * from the row, not a prediction about one request. NULL turnaround_days returns null and
- * the chooser renders no timing line at all, so nothing has to be edited when a real
- * number is set.
- */
-export const topicTurnaroundLabel = (topic: TicketTopic): string | null => {
-    const n = topic.turnaround_days;
-    if (n === null || n === undefined || !Number.isFinite(n) || n <= 0) return null;
-    return n === 1 ? "1 working day" : `${n} working days`;
 };
 
 /* ── List filtering and counting ─────────────────────────────────────────────
@@ -470,24 +342,14 @@ export const initialOf = (name: string): string => (name.trim()[0] ?? "?").toUpp
 // home screen
 
 /**
- * The "In progress" count on the help home: requests an owner has. Received is
- * excluded on purpose, because nobody has picked it up yet, and the card's
- * second line ("Next due ...") is only ever about work somebody is doing.
+ * The "In progress" count on the help home: requests the team has taken on (assigned or in
+ * progress). Received is left out, so the count agrees with the pills on the list, where a
+ * received request reads "Received".
  */
-export const ticketsWithOwner = (tickets: Ticket[]): Ticket[] => tickets.filter((t) => t.status === "assigned" || t.status === "in_progress");
+export const underwayTickets = (tickets: Ticket[]): Ticket[] => tickets.filter((t) => t.status === "assigned" || t.status === "in_progress");
 
-/**
- * "Next due 12 September": the earliest promised date among the requests an owner
- * has, or "No date set yet" when none of them carries one. Never an estimate.
- */
-export const nextDueLabel = (tickets: Ticket[]): string => {
-    const dates = ticketsWithOwner(tickets)
-        .map((t) => t.promised_date)
-        .filter((d): d is string => !!d)
-        .sort();
-    const day = dates[0] ? formatDayMonth(dates[0]) : "";
-    return day ? `Next due ${day}` : "No date set yet";
-};
+/** The "In progress" stat's second line. A state, never a date and never a name. */
+export const underwayLine = (tickets: Ticket[]): string => (underwayTickets(tickets).length ? "With the team now" : "Nothing in progress right now");
 
 /** The requests completed inside the current calendar month, for the second stat. */
 export const completedThisMonthTickets = (tickets: Ticket[]): Ticket[] => {
@@ -500,18 +362,17 @@ export const completedThisMonthTickets = (tickets: Ticket[]): Ticket[] => {
 };
 
 /**
- * "3.2 day average": the mean of whole days from raised to completed over this
- * month's completions, to one decimal ("1.0 day average", not "1 day"). Under half
- * a day it reads "Same-day average". With nothing completed this month there is no
- * mean, and the line says so rather than showing a zero that looks like a speed.
+ * "Last completed 4 September": the latest completion this month, the one kind of date a
+ * client is shown (a completed one). It replaced "3.2 day average", which a client reads as the
+ * time their next request will take. With nothing completed this month it says so.
  */
-export const averageDaysLabel = (tickets: Ticket[]): string => {
-    const spans = completedThisMonthTickets(tickets)
-        .map((t) => elapsedDays(t.created_at, t.completed_at))
-        .filter((d): d is number => d !== null);
-    if (!spans.length) return "None yet this month";
-    const mean = spans.reduce((a, b) => a + b, 0) / spans.length;
-    return mean < 0.5 ? "Same-day average" : `${mean.toFixed(1)} day average`;
+export const lastCompletedLine = (tickets: Ticket[]): string => {
+    const latest = completedThisMonthTickets(tickets)
+        .map((t) => t.completed_at!)
+        .sort()
+        .at(-1);
+    const day = latest ? formatDayMonth(latest) : "";
+    return day ? `Last completed ${day}` : "None yet this month";
 };
 
 // requests screen
@@ -531,7 +392,7 @@ const dateOf = (iso: string | null | undefined): Date | null => {
     return !d || Number.isNaN(d.getTime()) ? null : d;
 };
 
-/** "12 September": the requests list's due date, day and full month, no year. */
+/** "12 September": a due date on the team's list, day and full month, no year. */
 export const formatDueDay = (iso: string | null | undefined): string => {
     const d = dateOf(iso);
     return d ? `${d.getDate()} ${MONTHS_LONG[d.getMonth()]}` : "";
@@ -544,20 +405,18 @@ export const formatRaisedDay = (iso: string | null | undefined): string => {
 };
 
 /**
- * The list row's right-hand line. "Due 12 September" while the request is open and a
- * date has been promised; "Completed in 3 days" (or "Completed same day") counted from
- * the day it was raised to the day it was finished; "Withdrawn" when it was; and
- * nothing at all for an open request with no promised date, because there is no date
- * to show and the row does not invent one.
+ * The client list row's right-hand line, only once the request has closed: "Completed in 3
+ * days" (or "Completed same day"), counted from the day it was raised to the day it was
+ * finished, and "Withdrawn". Nothing while it is open: the status pill beside it says where it
+ * is, and a client is never shown a due date. The team's list adds its own due dates to this.
  */
-export const requestDueLine = (t: Ticket): string => {
+export const requestOutcomeLine = (t: Ticket): string => {
     if (t.status === "withdrawn") return "Withdrawn";
     if (t.status === "completed") {
         const days = t.completed_at ? elapsedDays(t.created_at, t.completed_at) : null;
         if (days === null) return "Completed";
         return days === 0 ? "Completed same day" : `Completed in ${days} ${days === 1 ? "day" : "days"}`;
     }
-    if (isOpen(t) && t.promised_date) return `Due ${formatDueDay(t.promised_date)}`;
     return "";
 };
 
@@ -609,24 +468,25 @@ export interface TimelineStep {
 const eventAt = (events: TicketEvent[], kind: TicketEventKind): TicketEvent | undefined =>
     [...events].filter((e) => e.kind === kind).sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
 
+/** The last step's line while the request is open: what will appear there, never when. One line in the 290 column at 390. */
+export const COMPLETION_TO_COME = "The date appears here once it is done.";
+
 /**
- * The four lifecycle steps the detail frame draws, with the ones that happened ticked,
- * the current one marked and the rest numbered, plus a fifth "Withdrawn" step when the
- * client withdrew it. Every date is an event's own stamp; nothing is estimated except
- * the last step's "Expected {day}", which repeats the promised date already on the
- * page. No promised date, no expectation: the step says what completion means instead.
+ * The lifecycle steps a client is shown: Received, In progress and Completed and verified,
+ * with the ones that happened ticked, the current one marked and the rest numbered, plus a
+ * "Withdrawn" step when the client withdrew it. Every date is an event's own stamp or the
+ * completion itself. The frame's "Assigned to {name}" step is gone (owner, 28 Sep 2026: no
+ * assignee and no promised date for clients), and so is the last step's "Expected {day}": until
+ * the request is done that step says where its date will appear.
  */
 export const timelineSteps = (ticket: Ticket, events: TicketEvent[], files: TicketFile[] = []): TimelineStep[] => {
     const received = eventAt(events, "received");
-    const assigned = eventAt(events, "assigned");
     const started = eventAt(events, "in_progress");
     const completed = eventAt(events, "completed");
     const withdrawn = eventAt(events, "withdrawn");
     const rank: Record<TicketStatus, number> = { received: 0, assigned: 1, in_progress: 2, completed: 3, withdrawn: -1 };
     const reached = rank[ticket.status];
     const open = ticket.status !== "completed" && ticket.status !== "withdrawn";
-    const promised = !!ticket.promised_date;
-    const owner = (ticket.assignee_name ?? "").trim();
 
     const receivedAt = received?.created_at ?? ticket.created_at;
     const receivedTime = formatDayMonthTime(receivedAt);
@@ -634,18 +494,11 @@ export const timelineSteps = (ticket: Ticket, events: TicketEvent[], files: Tick
     // detail answer that carried none.
     const shots = filesSentence(Math.max(files.length, ticket.image_count ?? 0));
 
-    // "Within the minute" is only said when it is true of the two stamps.
-    const withinMinute = !!assigned && new Date(assigned.created_at).getTime() - new Date(receivedAt).getTime() <= 60_000;
-    const assignedTime = assigned ? formatDayMonthTime(assigned.created_at) : "";
-    const setWhat = promised ? "Owner and date set" : "Owner set";
-    const assignedWide = assignedTime ? `${assignedTime}. ${setWhat}${withinMinute ? " within the minute" : ""}.` : `${setWhat}.`;
-
     const startedBody = (started?.body ?? "").trim() || (started ? formatDayMonthTime(started.created_at) : "");
     // The ticket's completed_at is the moment the task was closed; the event's
     // created_at is when the sweep noticed, up to half an hour later.
     const completedTime = ticket.completed_at ? formatDayMonthTime(ticket.completed_at) : completed ? formatDayMonthTime(completed.created_at) : "";
-    const expectedWide = promised ? `Expected ${formatWeekdayDayMonth(ticket.promised_date)}.` : "Done. The request stays here for your records.";
-    const expectedNarrow = promised ? `Expected ${formatWeekdayDayMonth(ticket.promised_date)}` : expectedWide;
+    const startedLine = started || reached >= 2 ? startedBody || "Work has started." : "Work starts. Updates from the team appear here.";
 
     const steps: TimelineStep[] = [
         {
@@ -656,25 +509,18 @@ export const timelineSteps = (ticket: Ticket, events: TicketEvent[], files: Tick
             narrow: receivedTime,
         },
         {
-            key: "assigned",
-            label: owner ? `Assigned to ${owner}` : "Assigned",
-            state: assigned || reached >= 1 ? "done" : "todo",
-            wide: assigned || reached >= 1 ? assignedWide : "A named person on the team takes it.",
-            narrow: assigned || reached >= 1 ? assignedTime || assignedWide : "A named person on the team takes it.",
-        },
-        {
             key: "in_progress",
             label: "In progress",
             state: started || reached >= 2 ? "done" : "todo",
-            wide: started || reached >= 2 ? startedBody || "Work has started." : "Work starts. Updates from the team appear here.",
-            narrow: started || reached >= 2 ? startedBody || "Work has started." : "Work starts. Updates from the team appear here.",
+            wide: startedLine,
+            narrow: startedLine,
         },
         {
             key: "completed",
             label: "Completed and verified",
             state: reached >= 3 ? "done" : "todo",
-            wide: reached >= 3 ? completedTime || "Done." : expectedWide,
-            narrow: reached >= 3 ? completedTime || "Done." : expectedNarrow,
+            wide: reached >= 3 ? completedTime || "Done." : COMPLETION_TO_COME,
+            narrow: reached >= 3 ? completedTime || "Done." : COMPLETION_TO_COME,
         },
     ];
 

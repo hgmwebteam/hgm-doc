@@ -213,6 +213,8 @@ export const withdrawTicket = (proof: CallerProof, reference: string): Promise<{
 
 export interface NewTicketInput {
     topic: string;
+    /** The Submitted by name, cleaned by request-rules.ts. Required: the server refuses a request without one. */
+    submitted_by_name: string;
     title: string;
     detail: string;
     property?: string;
@@ -221,7 +223,7 @@ export interface NewTicketInput {
     priority?: Priority;
     /** The pages the request is about, already cleaned by request-rules.ts. */
     urls?: string[];
-    /** The one completion email address; sent only while the field is shown. */
+    /** The completion email address; sent only while the field is shown, and required then. */
     notify_email?: string;
     /** The form session's upload id and the files uploaded under it (ticket-upload-url). */
     upload_id?: string;
@@ -232,6 +234,7 @@ export const createTicket = async (proof: CallerProof, input: NewTicketInput): P
     const res = await callFunction<{ ticket: Ticket; files?: TicketFile[] }>("ticket-create", {
         slug: proof.slug,
         topic: input.topic,
+        submitted_by_name: input.submitted_by_name,
         title: input.title,
         detail: input.detail,
         // Omitted rather than sent empty: a `date` column takes null, not "", and an empty

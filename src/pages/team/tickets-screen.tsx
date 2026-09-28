@@ -35,7 +35,8 @@ import { supabase } from "@/lib/supabase";
 import { type ClientOption, HelpApiError, createTicket, fetchAllTickets, fetchClientOptions, fetchTopics, signOutHere } from "@/pages/client/help/help-api";
 import { Banner, Button, Card, ChevronDownIcon, FilterChip, GemIcon, HelpFrame, MonoRef, PRIORITY_LEVELS, type PillTone, PriorityDot, type PriorityLevel, StatusPill, TopBar, firstNameOf, initialOf } from "@/pages/client/help/help-atoms";
 import { RequestForm, RequestSent, type SentExtras, sentExtrasFrom } from "@/pages/client/help/help-form";
-import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatDueDay, formatRaisedDay, requestDueLine, topicLabel } from "@/pages/client/help/help-model";
+import { type Priority, type Ticket, type TicketStatus, type TicketTopic, formatDueDay, formatRaisedDay, isOpen, requestOutcomeLine, topicLabel } from "@/pages/client/help/help-model";
+import { submitterNamePrefill } from "@/pages/client/help/request-rules";
 import "@/pages/client/help/help-requests-screen.css";
 import { cx } from "@/utils/cx";
 
@@ -128,14 +129,16 @@ const PILL: Record<TicketStatus, { label: string; tone: PillTone }> = {
 /**
  * The row's right-hand fact, the way the requests frame words it: "Due 12 September",
  * "Completed in 3 days", "Withdrawn"; "Asked for by 29 September" when the client gave
- * a date and nothing is promised yet. promised_date and needed_by are plain DATE
+ * a date and nothing is promised yet. The due date is the team's alone: a client's own
+ * list shows none (owner, 28 Sep 2026). promised_date and needed_by are plain DATE
  * columns, so they go through the day parser, never new Date().
  */
 const dueLine = (t: Ticket): string => {
-    // The client list's line first (Withdrawn, Completed in n days, Due d Month), from
-    // the same helper, so the two lists never word a date two ways.
-    const shared = requestDueLine(t);
-    if (shared) return shared;
+    // A closed request reads as the client's list does, from the same helper, so the two
+    // lists never word an outcome two ways.
+    const outcome = requestOutcomeLine(t);
+    if (outcome) return outcome;
+    if (isOpen(t) && t.promised_date) return `Due ${formatDueDay(t.promised_date)}`;
     return t.needed_by ? `Asked for by ${formatDueDay(t.needed_by)}` : "";
 };
 
@@ -316,6 +319,9 @@ export const TeamReportScreen = () => {
     const navigate = useNavigate();
     const [clients, setClients] = useState<ClientOption[]>([]);
     const [done, setDone] = useState<({ reference: string; slug: string; title: string; clientName: string; priority: Priority | null } & SentExtras) | null>(null);
+    // The Google account's name; the mailbox fallback useAuthUser gives when there is none is
+    // not a name, so the field then starts empty.
+    const submitterName = submitterNamePrefill([name], email);
     // Set after "Report another ticket", so the fresh form puts focus on its first field.
     const [again, setAgain] = useState(false);
 
@@ -338,6 +344,7 @@ export const TeamReportScreen = () => {
                         files={done.files}
                         urls={done.urls}
                         completionEmail={done.notifyEmail}
+                        submittedByName={done.submittedByName}
                         team
                         slug={done.slug}
                         primary={{
@@ -356,6 +363,7 @@ export const TeamReportScreen = () => {
                         clients={clients}
                         topics={[]}
                         clientName=""
+                        submitterName={submitterName}
                         email={email}
                         viewerIsStaff
                         onSubmit={async (input) => {
@@ -372,6 +380,7 @@ export const TeamReportScreen = () => {
                                 urls: sent.urls ?? [],
                                 notifyEmail: sent.notifyEmail ?? null,
                                 files: sent.files ?? [],
+                                submittedByName: sent.submittedByName ?? "",
                             })
                         }
                     />

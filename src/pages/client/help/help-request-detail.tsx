@@ -1,27 +1,31 @@
 /**
- * 03 REQUEST DETAIL - one request, its timing, who owns it, and everything that has
- * happened to it. Built to the Figma file's "3 Request detail" frames (118:26 at 1440,
- * 122:60 at 390) node for node; an automated proof holds the page against them.
+ * 03 REQUEST DETAIL - one request, where it stands, and everything that has happened to
+ * it. Built to the Figma file's "3 Request detail" frames (118:26 at 1440, 122:60 at 390)
+ * node for node, with the owner's changes of 28 Sep 2026 on top (the parity proof carries
+ * them as owner changes); an automated proof holds the page against them.
  *
- * Reading order is the same at both widths: the title and its meta line, the promise
- * block, the four facts, the timeline, the team's updates. On the desktop all of that
- * sits in one card with 24 of padding and 24 between blocks; at 390 the card falls away
- * and the promise, the timeline and each update stand as their own cards in the 16
- * rhythm of the mobile frame, with the facts as bordered tiles two to a row.
+ * Reading order is the same at both widths: the title and its meta line, the status block,
+ * the four facts, the timeline, the team's updates. On the desktop all of that sits in one
+ * card with 24 of padding and 24 between blocks; at 390 the card falls away and the status,
+ * the timeline and each update stand as their own cards in the 16 rhythm of the mobile
+ * frame, with the facts as bordered tiles two to a row.
  *
- * ── NO INVENTED DATES ───────────────────────────────────────────────────────
- * The promise block is drawn only when `promised_date` is set (or the request is
- * closed, when it shows the day it closed). No date, no block: a page that implied a
- * date would be doing exactly what this feature exists to stop. The timeline's stamps
- * are the events' own, and its one forward-looking line ("Expected Friday 12
- * September.") repeats the promised date already on the page.
+ * ── NO ESTIMATED DATES, NO ASSIGNEE ─────────────────────────────────────────
+ * Owner, 28 Sep 2026: "Do not give a date estimate, only show when the date is complete",
+ * then "Remove the assigned to" (and "Actually, leave time elapsed"). So while a request is
+ * open the status block names its status and who confirms completion (the account manager),
+ * with no date; once it is completed or withdrawn it carries that day. The facts are
+ * PROPERTY, SUBMITTED BY, ACCOUNT MANAGER and ELAPSED: SUBMITTED BY stands where the Assigned
+ * to tile was, and the timeline's "Assigned to" step is gone. ELAPSED is time since the
+ * request was raised, never time left. The functions do not send a client the promised date
+ * or the assignee at all (ticket-columns.mts, clientView).
  *
  * ── WHAT IS DELIBERATELY NOT SHOWN ──────────────────────────────────────────
- * `route_failed` and `promised_date_set` never reach the timeline. The first means the
- * topic had no Asana board or no default assignee, so the brain refused to open an
- * unowned task and told the account manager instead: that is us handling it, and to
- * the client the request is simply still "Received", which is the truth. The second is
- * already on the page as the promise block.
+ * `route_failed`, `assigned` and `promised_date_set` never reach a client's timeline; the
+ * function leaves them out (ticket-detail.mts). The first means the topic had no Asana board
+ * or no default assignee, so the brain refused to open an unowned task and told the account
+ * manager instead: that is us handling it, and to the client the request is simply still
+ * "Received", which is the truth. The other two name the assignee and the promised date.
  *
  * ── PAGES AND FILES ─────────────────────────────────────────────────────────
  * What the request is about and what came with it, as two tiles under the four facts:
@@ -114,41 +118,47 @@ const ErrorNote = ({ message, onRetry }: { message: string; onRetry?: () => void
     </Card>
 );
 
-/* ── The promise block ───────────────────────────────────────────────────── */
+/* ── The status block ────────────────────────────────────────────────────── */
 
 /**
- * The frame's "Promise" (129:94 / 122:80): bg/brand-primary with a 1px border/brand.
- * On the desktop a row, radius/2xl, padding 20 by 24, the date column then the pill,
- * centred; at 390 a column, radius/xl, padding 16, gap 6, with the card shadow, and no
- * line under the date. "COMMITTED" in caption/meta, the date in display/hero
- * (display/title at 390), the line in body/helper text/secondary.
+ * The frame's "Promise" (129:94 / 122:80), now the request's status: bg/brand-primary with a
+ * 1px border/brand. On the desktop a row, radius/2xl, padding 20 by 24; at 390 a column,
+ * radius/xl, padding 16, gap 6, with the card shadow. The eyebrow in caption/meta, the big
+ * line in display/hero (display/title at 390), the sentence in body/helper text/secondary.
  *
- * Only when there is a date. A closed request shows the day it closed instead, under
- * the matching word, so the biggest type on the page is always a day that is true.
+ *   open        STATUS, then the status itself ("In progress"), then who confirms
+ *               completion. No date and no pill: the big line is the status, and a request
+ *               that is not done has no date a client is shown (owner, 28 Sep 2026)
+ *   completed   COMPLETED, the day it was completed, and the status pill
+ *   withdrawn   WITHDRAWN, the day it was withdrawn, and the status pill
  *
- * The line under an open request's date says who confirms completion: the completion email
- * when one is set (ticket-detail says so only while the switch is on), else the account
- * manager.
+ * The sentence under an open request names the account manager, and, when an address is on
+ * the request and the switch is on, says where its completion notice goes. It is true before
+ * the platform can send: it names the address's purpose, never that an email was or will be
+ * sent. The 390 frame draws no sentence; the one exception is that completion notice.
  */
-const PromiseBlock = ({ ticket }: { ticket: Ticket }) => {
-    const am = (ticket.account_manager_name ?? "").trim() || "Your account manager";
-    let eyebrow = "";
-    let day = "";
+const StatusBlock = ({ ticket }: { ticket: Ticket }) => {
+    const am = (ticket.account_manager_name ?? "").trim();
+    let eyebrow = "STATUS";
+    let headline: string = STATUS_META[ticket.status].label;
     let line = "";
+    let closed = false;
     if (ticket.status === "completed" && ticket.completed_at) {
         eyebrow = "COMPLETED";
-        day = formatWeekdayDayMonth(ticket.completed_at);
+        headline = formatWeekdayDayMonth(ticket.completed_at);
         line = "Done. Nothing more is needed from you.";
+        closed = true;
     } else if (ticket.status === "withdrawn" && ticket.withdrawn_at) {
         eyebrow = "WITHDRAWN";
-        day = formatWeekdayDayMonth(ticket.withdrawn_at);
+        headline = formatWeekdayDayMonth(ticket.withdrawn_at);
         line = "Nothing more will happen on it. It stays on your list.";
-    } else if (ticket.status !== "completed" && ticket.status !== "withdrawn" && ticket.promised_date) {
-        eyebrow = "COMMITTED";
-        day = formatWeekdayDayMonth(ticket.promised_date);
-        line = ticket.completion_email_set ? "A completion email goes to the address on this request. No action is required from you." : `${am} will confirm on completion. No action is required from you.`;
+        closed = true;
+    } else if (canWithdraw(ticket)) {
+        line = ticket.completion_email_set
+            ? `${am || "Your account manager"} will confirm on completion, and the address on this request is where its completion notice goes. No action is required from you.`
+            : `${am || "Your account manager"} will confirm on completion. No action is required from you.`;
     }
-    if (!day) return null;
+    if (!headline) return null;
 
     return (
         <div
@@ -159,12 +169,10 @@ const PromiseBlock = ({ ticket }: { ticket: Ticket }) => {
         >
             <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-1">
                 <Eyebrow>{eyebrow}</Eyebrow>
-                <p className="hc-t-display-title sm:hc-t-display-hero text-(--hc-text-primary)">{day}</p>
-                {/* The 390 frame draws no line; the one exception is the completion email, a
-                    promise a phone should see as well (a request without one is exactly as drawn). */}
-                <p className={cx("hc-t-body-helper text-(--hc-text-secondary)", ticket.completion_email_set && eyebrow === "COMMITTED" ? "block" : "hidden sm:block")}>{line}</p>
+                <p className="hc-t-display-title sm:hc-t-display-hero text-(--hc-text-primary)">{headline}</p>
+                {line && <p className={cx("hc-t-body-helper text-(--hc-text-secondary)", ticket.completion_email_set && !closed ? "block" : "hidden sm:block")}>{line}</p>}
             </div>
-            <StatusPill label={STATUS_META[ticket.status].label} tone={PILL_TONE[ticket.status]} className="self-start sm:self-center" />
+            {closed && <StatusPill label={STATUS_META[ticket.status].label} tone={PILL_TONE[ticket.status]} className="self-start sm:self-center" />}
         </div>
     );
 };
@@ -187,26 +195,28 @@ const Fact = ({ label, value }: { label: string; value: string }) => (
 );
 
 /**
- * PROPERTY / ASSIGNED TO / ACCOUNT MANAGER / ELAPSED: one row of four on the desktop
- * (gap 8), two rows of two at 390 (8 across, 16 down, the body's rhythm). Every cell
- * renders even when its value is empty: a missing "Assigned to" is information
- * ("nobody yet"), and collapsing the cell would reflow the grid per request.
+ * PROPERTY / SUBMITTED BY / ACCOUNT MANAGER / ELAPSED: one row of four on the desktop (gap
+ * 8), two rows of two at 390 (8 across, 16 down, the body's rhythm), in the frame's cells.
+ * SUBMITTED BY, the name typed in the form's Submitted by field, stands where ASSIGNED TO was
+ * (owner, 28 Sep 2026), so the grid stays whole at both widths and a phone, whose meta line
+ * stops at the category, sees who raised it too. Every cell renders even when its value is
+ * empty, so the grid never reflows per request.
  */
 const FactRow = ({ ticket }: { ticket: Ticket }) => {
-    const owner = (ticket.assignee_name ?? "").trim();
     // The manager's full name is on the ticket; the mailbox name, capitalised, is the
     // fallback when it is missing ("chiara@hiddengem.media" reads as "Chiara").
     const amName = (ticket.account_manager_name ?? "").trim();
     const amLocal = (ticket.account_manager_email ?? "").trim().split("@")[0] ?? "";
     const am = amName || (amLocal ? amLocal.charAt(0).toUpperCase() + amLocal.slice(1) : "");
     const property = (ticket.property ?? "").trim();
+    const by = (ticket.submitted_by_name ?? "").trim();
     const elapsed = elapsedLabel(ticket);
     // "Not yet" promises something on an open request; a closed one gets a plain "None".
     const none = canWithdraw(ticket) ? "Not yet" : "None";
     return (
         <div className="grid grid-cols-2 gap-x-2 gap-y-4 sm:grid-cols-4 sm:gap-2">
             <Fact label="PROPERTY" value={property || "Not given"} />
-            <Fact label="ASSIGNED TO" value={owner || none} />
+            <Fact label="SUBMITTED BY" value={by || "Not given"} />
             <Fact label="ACCOUNT MANAGER" value={am || none} />
             <Fact label="ELAPSED" value={elapsed || "Today"} />
         </div>
@@ -605,7 +615,7 @@ export const HelpRequestDetail = ({
                     </p>
                 </header>
 
-                <PromiseBlock ticket={ticket} />
+                <StatusBlock ticket={ticket} />
                 <FactRow ticket={ticket} />
                 <RequestLinks urls={Array.isArray(ticket.urls) ? ticket.urls : []} files={files} />
                 <Timeline ticket={ticket} events={events} files={files} />

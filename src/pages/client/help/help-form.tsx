@@ -14,9 +14,12 @@
  *   Client         Field/Select. The team chooses; a client's is the disabled state,
  *                  prefilled with their own name
  *   Category       Field/Select, client only, preselected from the topic tile they
- *                  clicked
+ *                  clicked. Not drawn while only one category is active (owner, 28 Sep
+ *                  2026: "there will only be Website and pages"): the request goes under
+ *                  that one, and a second active category brings the select back
  *   Priority       the label row, four Priority/Chips, the Priority/Legend. Everyone
- *                  sets one (owner, 13 Sep 2026)
+ *                  sets one (owner, 13 Sep 2026). The chips name the level and the legend
+ *                  says what it means; neither gives a day or an hour (owner, 28 Sep 2026)
  *   Files          Field/Upload, then the attached File/Thumbnails as a block of their
  *                  own under it. Images, PDF, Word, Excel, CSV or text, 25 MB each, up to
  *                  10 (request-rules.ts). Each file uploads the moment it is picked,
@@ -25,8 +28,13 @@
  *                  Asana task title, everything after it the description
  *   Pages          the pages the request is about: up to 10 address rows, "Add another
  *                  URL" under them (owner, 28 Sep 2026)
- *   Completion     one address that gets the completion email, only while the switch
- *     email        (completion-email-mode.ts) lets this person be offered one
+ *   Submitted by   the name of the person raising it, required on both forms (owner, 28 Sep
+ *                  2026), prefilled with the name known for the signed-in account and
+ *                  editable; the address stays the account of record
+ *   Completion     one address for the completion notice, only while the switch
+ *     email        (completion-email-mode.ts) lets this person be offered one, and then
+ *                  required (owner, 28 Sep 2026). A client's is prefilled with their own
+ *                  address; the team's starts empty
  *   Actions        one primary Button "Submit ticket" (176 wide, full width at 390)
  *                  and the trust line under it
  *   Validation     the Banner (error) above the fields, composed from what is missing,
@@ -34,13 +42,13 @@
  *   Submitting     the Button in its loading state and the trust line saying so (and
  *                  that it is waiting for files still uploading)
  *   Success        the frame's "Ticket sent" screen: the Banner (success), the summary
- *                  card (with the files, pages and completion email it carried), and the
- *                  two Buttons. No delivery estimate on it (owner, 28 Sep 2026); the
- *                  pills and the legend keep theirs
+ *                  card (who submitted it, and the files, pages and completion email it
+ *                  carried), and the two Buttons. No estimate and, for a client, no owner:
+ *                  a client is never shown who a request is assigned to (owner, 28 Sep 2026)
  *
- * Pages and Completion email sit after Description so the only thing that moves in the
- * Figma frames is Actions. Nothing here decides who may submit; the server does. This is
- * the picture. House style: no em or en dashes anywhere.
+ * Pages, Submitted by and Completion email sit after Description so the only thing that
+ * moves in the Figma frames is Actions. Nothing here decides who may submit; the server
+ * does. This is the picture. House style: no em or en dashes anywhere.
  */
 import { type ComponentProps, type FormEvent, type KeyboardEvent, type Ref, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Link } from "react-router";
@@ -48,7 +56,25 @@ import { COMPLETION_EMAIL_MODE } from "@/pages/client/help/completion-email-mode
 import { type ClientOption, HelpApiError, MAX_DETAIL, MAX_TITLE, type NewTicketInput, fetchTicket, prepareUploadBlob, requestUploadUrls, uploadTicketFile } from "@/pages/client/help/help-api";
 import { Banner, Button, FieldInput, FieldNote, FieldSelect, FieldTextarea, FieldUpload, FileThumbnail, LabelRow, MonoRef, PRIORITY_LEVELS, PriorityChip, PriorityDot, PriorityLegend, type PriorityLevel, RemoveButton, TextInput, formatFileSize } from "@/pages/client/help/help-atoms";
 import { type Priority, type Ticket, type TicketFile, type TicketTopic, displayUrl, isTeamAddress } from "@/pages/client/help/help-model";
-import { MAX_FILES, MAX_FILE_BYTES, MAX_URLS, cleanNotifyEmail, cleanUrl, cleanUrls, completionEmailOpen, fileCountError, fileSizeError, fileTypeError, fileTypeFor, fileUploadFailed, isEmailShape, uploadTypeFor } from "@/pages/client/help/request-rules";
+import {
+    EMAIL_MISSING,
+    MAX_FILES,
+    MAX_FILE_BYTES,
+    MAX_URLS,
+    NAME_MISSING,
+    cleanNotifyEmail,
+    cleanSubmitterName,
+    cleanUrl,
+    cleanUrls,
+    completionEmailOpen,
+    fileCountError,
+    fileSizeError,
+    fileTypeError,
+    fileTypeFor,
+    fileUploadFailed,
+    isEmailShape,
+    uploadTypeFor,
+} from "@/pages/client/help/request-rules";
 import { cx } from "@/utils/cx";
 
 /* ── The frame's words ───────────────────────────────────────────────────── */
@@ -60,12 +86,15 @@ const CLIENT_LEDE = "Tell us what is wrong and where. It goes straight to the te
 const CLIENT_DESCRIPTION_HELPER = "Start with one line that says what is wrong. That line becomes the request's title; everything after it is the detail.";
 const CLIENT_TRUST_LINE = "You will get a confirmation here, and the request appears in your list straight away.";
 const CLIENT_SENDING_LINE = "Sending your request. This usually takes a second or two.";
-/** With an address the success card says where the completion email goes; without, today's promise. The address is the one the SERVER stored, so the promise only appears when the switch let it be stored. */
+/**
+ * The client's success banner. No owner and no date (owner, 28 Sep 2026). The account manager
+ * confirms completion either way; with an address the banner also names it as the one for the
+ * completion notice, which is true before the platform can send one (it never says an email
+ * was or will be sent). The address is the one the SERVER stored, never what was typed.
+ */
+const CLIENT_SUCCESS_BODY = "It is on its way to the team responsible, and you can follow it on its page. Your account manager will confirm when it is done.";
 const clientSuccessBody = (completionEmail: string | null | undefined): string =>
-    completionEmail
-        ? `It is on its way to the team responsible. You will see who has it here, and a completion email goes to ${completionEmail} when it is done.`
-        : "It is on its way to the team responsible. You will see who has it here, and your account manager will confirm when it is done.";
-const CLIENT_OWNER_PENDING = "Assigning…";
+    completionEmail ? `${CLIENT_SUCCESS_BODY.slice(0, -1)}, and ${completionEmail} is the address for its completion notice.` : CLIENT_SUCCESS_BODY;
 const TITLE_TOO_LONG = "Keep the first line under 140 characters; the rest can go on the next line.";
 const CLIENT_HELPER = "The client this ticket is for. Jarvis uses it to file the task in the right place.";
 const OWN_CLIENT_HELPER = "Your account. Requests you raise here go on your own list.";
@@ -81,7 +110,9 @@ const ASANA_PENDING = "Creating task and assigning…";
 const ASANA_UNROUTED = "Needs a person. Your account manager has been asked.";
 const WAITING_FOR_FILES = "Waiting for your files to finish uploading.";
 const PAGES_HELPER = "The pages this is about. Up to 10.";
-const EMAIL_HELPER = "One email goes here when the work is completed.";
+const NAME_HELPER = "The name of the person raising this request.";
+/** Where the notice goes, not that one is sent: the field is on before the platform can send (completion-email-mode.ts). */
+const EMAIL_HELPER = "The address for this request's completion notice.";
 
 /** A select opens on click, so it shows the pointer (the disabled one keeps the atom's not-allowed). */
 const SELECT_CURSOR = "[&_select:not(:disabled)]:cursor-pointer";
@@ -242,7 +273,7 @@ const UPLOAD_WAIT_MS = 10 * 60_000;
 
 /* ── The validation banner ───────────────────────────────────────────────── */
 
-const COUNT_WORDS = ["", "One", "Two", "Three", "Four", "Five", "Six"];
+const COUNT_WORDS = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];
 
 /**
  * "Two things need fixing before this can go" over "Choose a client, and describe what
@@ -256,8 +287,8 @@ const composeBanner = (missing: string[]): { title: string; body: string } => {
     const sentence = list.charAt(0).toUpperCase() + list.slice(1);
     // Three or more missing: the shorter form, no Oxford comma, and "below" closes it.
     // Three fit the banner's one line (492px at 13px), which the validation frame pins;
-    // four to six (a page address or the email address wrong as well) wrap, which the frame
-    // never draws.
+    // four to seven (a page address, the name or the email address as well) wrap, and the
+    // parity proof carries the extra line as an owner change.
     if (n >= 3) return { title, body: `${missing.slice(0, -1).map((m, i) => (i === 0 ? m.charAt(0).toUpperCase() + m.slice(1) : m)).join(", ")} and ${missing[n - 1]} below.` };
     const marked = n === 1 ? "The field is marked below." : "Both fields are marked below.";
     return { title, body: `${sentence}. ${marked}` };
@@ -272,6 +303,8 @@ export interface SentExtras {
     notifyEmail: string | null;
     /** The stored file names, oldest first. */
     files: string[];
+    /** The Submitted by name as stored. */
+    submittedByName: string;
 }
 
 /** ticket-create's answer as the success card reads it. `files` may be missing from an older function. */
@@ -279,6 +312,7 @@ export const sentExtrasFrom = (res: { ticket: Ticket; files?: TicketFile[] }): S
     urls: Array.isArray(res.ticket.urls) ? res.ticket.urls : [],
     notifyEmail: res.ticket.notify_email ?? null,
     files: (res.files ?? []).map((f) => f.name),
+    submittedByName: (res.ticket.submitted_by_name ?? "").trim(),
 });
 
 export interface RequestFormProps {
@@ -286,12 +320,14 @@ export interface RequestFormProps {
     mode: "client" | "team";
     /** The team's client list. */
     clients?: ClientOption[];
-    /** The categories a client may choose from (client mode). Unused by the team form, which has no category. */
+    /** The active categories (client mode). With one, the field is not drawn and the request goes under it. Unused by the team form, which has no category. */
     topics: TicketTopic[];
     /** The topic tile the client arrived from: preselects the category. */
     fixedTopic?: TicketTopic;
     /** The client's own name, shown in the disabled Client field (client mode). */
     clientName: string;
+    /** What the Submitted by field starts with (request-rules.ts submitterNamePrefill); empty when no name is known. */
+    submitterName: string;
     /** The signed-in address. A client's prefills the Completion email field; the staff composer's carries " (HiddenGem Media)", which is not an address, so staff start empty. */
     email: string;
     /** Whether the person at the screen is staff: the team form always is; in a client's help centre, a staff member viewing it. Decides whether the completion email field exists while the switch is "staff". */
@@ -317,11 +353,23 @@ const sentSlugs = new Map<string, string>();
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, email, viewerIsStaff, onSubmit, onCreated, onClientChange, slug, focusFirstField }: RequestFormProps) => {
+export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, submitterName, email, viewerIsStaff, onSubmit, onCreated, onClientChange, slug, focusFirstField }: RequestFormProps) => {
     const team = mode === "team";
     const emailOpen = completionEmailOpen(COMPLETION_EMAIL_MODE, team || !!viewerIsStaff);
+    // One active category: no field to choose it in, and the request goes under it.
+    const onlyTopic = !team && topics.length === 1 ? topics[0] : null;
     const [client, setClient] = useState(team ? "" : (slug ?? ""));
     const [category, setCategory] = useState(fixedTopic?.key ?? "");
+    const [name, setName] = useState(submitterName);
+    const [nameBlurred, setNameBlurred] = useState(false);
+    // The known name can arrive after the form does (the account's own name loads on its own).
+    // It fills the field only while the field still holds the previous prefill, so nothing
+    // somebody typed is ever replaced.
+    const prefillRef = useRef(submitterName);
+    useEffect(() => {
+        setName((current) => (current === prefillRef.current ? submitterName : current));
+        prefillRef.current = submitterName;
+    }, [submitterName]);
     const [priority, setPriority] = useState<PriorityLevel | null>(null);
     const [text, setText] = useState("");
     const [files, setFiles] = useState<Attachment[]>([]);
@@ -369,7 +417,10 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     // user is not left at the control that has just gone. The team's form is a page of
     // its own and loads like one.
     useEffect(() => {
-        if (!team) document.getElementById("category")?.focus();
+        if (team) return;
+        // The category when there is one to choose; otherwise the heading, from which the
+        // next Tab reaches the priority chips.
+        (document.getElementById("category") ?? formTitleRef.current)?.focus();
     }, [team]);
 
     // Object URLs are released when the form goes, and nothing still uploading may write
@@ -403,6 +454,11 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     }, [pages]);
     // Shown once the row has been left, or the form has been sent: never while typing.
     const pagesError = pageProblem && (touched || pagesBlurred.has(pageProblem.id)) ? pageProblem.error : undefined;
+    // Both required: the name always, the address wherever it is shown. An error shows once
+    // something typed has been left, or the form sent, never while typing.
+    const nameChecked = cleanSubmitterName(name);
+    const nameProblem = nameChecked.ok ? "" : nameChecked.error;
+    const nameError = nameProblem && (touched || nameBlurred) ? nameProblem : undefined;
     const notifyChecked = cleanNotifyEmail(notify);
     const emailProblem = emailOpen && !notifyChecked.ok ? notifyChecked.error : "";
     const emailError = emailProblem && (touched || notifyBlurred) ? emailProblem : undefined;
@@ -410,21 +466,23 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     const clientMissing = team && !client;
     // Everyone picks a priority now (owner, 13 Sep 2026); the legend says what each means.
     const priorityMissing = !priority;
-    const categoryMissing = !team && !category;
+    const topicKey = team ? TEAM_TOPIC : (onlyTopic?.key ?? category);
+    const categoryMissing = !team && !topicKey;
     const descriptionMissing = firstLine.length < 3;
     // The server keeps 140 characters of the first line as the title; rather than cut a
     // sentence mid-word on the way out, the form says so and waits.
     const titleTooLong = firstLine.length > MAX_TITLE;
     // In the order the fields sit on the form: the team's has no category, the client's
-    // has category above priority, so the banner reads down the page either way. Pages and
-    // the email address are optional: they are only named when what was typed is wrong.
+    // has category above priority, so the banner reads down the page either way. Pages are
+    // optional and only named when what was typed is wrong.
     const missing = [
         clientMissing && "choose a client",
         categoryMissing && "choose a category",
         priorityMissing && "pick a priority",
         (descriptionMissing || titleTooLong) && "describe what is happening",
         pageProblem && "check the page address",
-        emailProblem && "check the email address",
+        nameProblem && (nameProblem === NAME_MISSING ? "add your name" : "check the name"),
+        emailProblem && (emailProblem === EMAIL_MISSING ? "add an email address" : "check the email address"),
     ].filter((m): m is string => !!m);
     const banner = touched && missing.length ? composeBanner(missing) : null;
 
@@ -612,7 +670,8 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
             const address = emailOpen && notifyChecked.ok ? notifyChecked.email : null;
             const res = await onSubmit({
                 slug: client,
-                topic: team ? TEAM_TOPIC : category,
+                topic: topicKey,
+                submitted_by_name: nameChecked.ok ? nameChecked.name : "",
                 title: firstLine.slice(0, MAX_TITLE),
                 // A one-line request is its own description; the server requires one.
                 detail: (rest || firstLine).slice(0, MAX_DETAIL),
@@ -661,7 +720,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                     className={SELECT_CURSOR}
                 />
 
-                {!team && (
+                {!team && !onlyTopic && (
                     <FieldSelect
                         id="category"
                         label="Category"
@@ -773,11 +832,30 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                     )}
                 </div>
 
+                <FieldInput
+                    id="submitted-by"
+                    label="Submitted by"
+                    requirement="Required"
+                    aria-required
+                    autoComplete="name"
+                    spellCheck={false}
+                    placeholder="Your name"
+                    value={name}
+                    onChange={setName}
+                    // Checked on leaving only when something is in it: an empty required
+                    // field is named by the banner on sending, not the moment focus passes.
+                    onBlur={() => setNameBlurred(!!name.trim())}
+                    helper={NAME_HELPER}
+                    error={nameError}
+                    liveNote
+                />
+
                 {emailOpen && (
                     <FieldInput
                         id="notify-email"
                         label="Completion email"
-                        requirement="Optional"
+                        requirement="Required"
+                        aria-required
                         type="email"
                         inputMode="email"
                         autoComplete="email"
@@ -838,31 +916,35 @@ export interface RequestSentProps {
     files?: string[];
     /** The pages the request is about, as the server stored them. */
     urls?: string[];
-    /** The address the completion email goes to, when the server stored one. */
+    /** The address for the completion notice, when the server stored one. */
     completionEmail?: string | null;
+    /** The Submitted by name as the server stored it. */
+    submittedByName?: string;
 }
 
 /**
  * "Desktop / 5 Success": the eyebrow and "Ticket sent", the Banner (success) "Jarvis has
  * it", then the summary card (bg/secondary, border/secondary, radius/xl, padding 16, gap
  * 16): the first line of the description in body/input, then the rows Ticket (mono/id),
- * Client (label/field), Priority (the selected chip, team only) and Asana, each a
- * body/helper caption on the left and the value on the right. Two Buttons under it, the
- * secondary first.
+ * Client (label/field), Submitted by, Priority (the selected chip) and, on the team's card,
+ * Asana, each a body/helper caption on the left and the value on the right. Two Buttons
+ * under it, the secondary first.
  *
- * The Asana row starts as the frame has it, "Creating task and assigning…", and from
+ * The team's Asana row starts as the frame has it, "Creating task and assigning…", and from
  * four seconds in polls ticket-detail every four seconds: "Assigned to {name}" once the
  * ticket has an assignee, or "Needs a person. Your account manager has been asked." when
- * a route_failed event is on it. Stops after two minutes either way.
+ * a route_failed event is on it. Stops after two minutes either way. A client's card has no
+ * such row and polls nothing: a client is never shown who a request is assigned to (owner,
+ * 28 Sep 2026), and their request's page is where its status is.
  *
  * Then what the request carried, each row only when there is something in it: Pages (one
  * address a line), Completion email, Files (one stored name a line). They echo the
  * SERVER's answer rather than the form, so a row can only say what was actually kept. The
- * priority chip carries no delivery estimate here (owner, 28 Sep 2026).
+ * priority chip carries no estimate.
  */
-export const RequestSent = ({ reference, title, clientName, priority, team, primary, secondary, slug, files = [], urls = [], completionEmail }: RequestSentProps) => {
+export const RequestSent = ({ reference, title, clientName, priority, team, primary, secondary, slug, files = [], urls = [], completionEmail, submittedByName = "" }: RequestSentProps) => {
     const pollSlug = slug ?? sentSlugs.get(reference) ?? "";
-    const [asana, setAsana] = useState(team ? ASANA_PENDING : CLIENT_OWNER_PENDING);
+    const [asana, setAsana] = useState(ASANA_PENDING);
     // Focus lands on the outcome's title so a reader hears it (build notes).
     const sentTitleRef = useRef<HTMLHeadingElement>(null);
     useEffect(() => {
@@ -870,7 +952,7 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
     }, []);
 
     useEffect(() => {
-        if (!pollSlug) return;
+        if (!team || !pollSlug) return;
         let stopped = false;
         let timer: ReturnType<typeof setTimeout> | undefined;
         const started = Date.now();
@@ -898,14 +980,14 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
             if (Date.now() - started < 120_000) timer = setTimeout(() => void tick(), 4000);
             // Two minutes without an owner: stop pretending the task is being made this
             // second. The account manager is the person who resolves it either way.
-            else setAsana((current) => (current === ASANA_PENDING || current === CLIENT_OWNER_PENDING ? "Your account manager will confirm the owner." : current));
+            else setAsana((current) => (current === ASANA_PENDING ? "Your account manager will confirm the owner." : current));
         };
         timer = setTimeout(() => void tick(), 4000);
         return () => {
             stopped = true;
             if (timer) clearTimeout(timer);
         };
-    }, [pollSlug, reference]);
+    }, [team, pollSlug, reference]);
 
     const level = priority && PRIORITY_LEVELS.some((p) => p.value === priority) ? (priority as PriorityLevel) : null;
 
@@ -921,7 +1003,7 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
                     <div className="flex items-center justify-between gap-4">
                         <dt className="hc-t-body-helper text-(--hc-text-tertiary)">{team ? "Ticket" : "Reference"}</dt>
                         <dd className="flex">
-                            {/* A client's reference opens the request's own page, where its owner and
+                            {/* A client's reference opens the request's own page, where its status and
                                 the team's updates will appear. The team's frame pins plain text. */}
                             {!team && pollSlug ? (
                                 <Link
@@ -940,6 +1022,12 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
                         <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Client</dt>
                         <dd className="hc-t-label-field text-right text-(--hc-text-primary)">{clientName}</dd>
                     </div>
+                    {submittedByName && (
+                        <div className="flex items-center justify-between gap-4">
+                            <dt className="hc-t-body-helper shrink-0 text-(--hc-text-tertiary)">Submitted by</dt>
+                            <dd className="hc-t-label-field min-w-0 text-right [overflow-wrap:anywhere] text-(--hc-text-primary)">{submittedByName}</dd>
+                        </div>
+                    )}
                     {level && (
                         <div className="flex items-center justify-between gap-4">
                             <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Priority</dt>
@@ -948,18 +1036,20 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
                             </dd>
                         </div>
                     )}
-                    <div className="flex items-center justify-between gap-4">
-                        <dt className="hc-t-body-helper text-(--hc-text-tertiary)">{team ? "Asana" : "Owner"}</dt>
-                        <dd className="hc-t-label-field text-right text-(--hc-text-secondary)">
-                            {/* The live region is the span, so the dd keeps its definition role. Keyed,
-                                so the owner's arrival fades in (200ms, not under reduced motion). */}
-                            <span role="status">
-                                <span key={asana} className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
-                                    {asana}
+                    {team && (
+                        <div className="flex items-center justify-between gap-4">
+                            <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Asana</dt>
+                            <dd className="hc-t-label-field text-right text-(--hc-text-secondary)">
+                                {/* The live region is the span, so the dd keeps its definition role. Keyed,
+                                    so the owner's arrival fades in (200ms, not under reduced motion). */}
+                                <span role="status">
+                                    <span key={asana} className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
+                                        {asana}
+                                    </span>
                                 </span>
-                            </span>
-                        </dd>
-                    </div>
+                            </dd>
+                        </div>
+                    )}
                     {urls.length > 0 && (
                         <div className="flex items-start justify-between gap-4">
                             <dt className="hc-t-body-helper shrink-0 text-(--hc-text-tertiary)">Pages</dt>

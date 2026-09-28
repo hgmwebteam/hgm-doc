@@ -1,8 +1,9 @@
 /**
  * THE REQUEST RULES, one copy for the browser and the portal functions.
  *
- * What a request may carry besides its words: the pages it is about, the one address that
- * gets the completion email, and the files attached to it. The form checks these before it
+ * What a request may carry besides its words: the name of the person submitting it, the pages
+ * it is about, the one address that gets the completion email, and the files attached to it. The
+ * form checks these before it
  * sends anything (so a person is told at once, beside the field), and the functions check
  * them again (the browser's copy is advice; the server's is the rule). Both import THIS
  * file, so the two can never disagree about which file or address was the one over the line.
@@ -65,7 +66,12 @@ export const FILE_ACCEPT: string = [...FILE_TYPES.flatMap((t) => [t.ext, ...(t.a
 /** The server answers these with 422 and the form shows the same words, so a refusal reads the same wherever it is caught. */
 export const urlError = (input: string): string => `"${Array.from(stripInvisible(String(input)).trim()).slice(0, 60).join("")}" is not a web address. Use one that starts with https://.`;
 export const TOO_MANY_URLS = "Up to 10 pages. Remove one.";
-export const EMAIL_ERROR = "That email address does not look right. Check it, or leave the field empty.";
+export const EMAIL_ERROR = "That email address does not look right. Check it.";
+/** The field is required wherever it is shown (owner, 28 Sep 2026), so an empty one is refused with this. */
+export const EMAIL_MISSING = "Add the email address for the completion notice.";
+export const NAME_MISSING = "Add the name of the person raising this request.";
+export const NAME_TOO_SHORT = "Write the name in full: at least 2 characters.";
+export const NAME_TOO_LONG = "Keep the name to 120 characters or fewer.";
 export const fileTypeError = (name: string): string => `${displayName(name)} is not a file the team can open. Use an image, PDF, Word, Excel, CSV or text file.`;
 export const fileSizeError = (name: string): string => `${displayName(name)} is over 25 MB.`;
 export const fileCountError = (name: string): string => `Up to 10 files. Remove one to add ${displayName(name)}.`;
@@ -229,22 +235,70 @@ export function isEmailShape(s: string): boolean {
     return v.length > 0 && v.length <= MAX_EMAIL_CHARS && !hasInvisible(v) && EMAIL_SHAPE.test(v);
 }
 
-/** Trimmed and lowercased; empty is null; at most MAX_EMAIL_CHARS; no whitespace, CR or LF, and no control or invisible character; the shape above. */
-export function cleanNotifyEmail(raw: unknown): { ok: true; email: string | null } | { ok: false; error: string } {
-    if (raw === undefined || raw === null) return { ok: true, email: null };
+/**
+ * The completion email address, required wherever the field is shown: trimmed and lowercased;
+ * missing or empty is EMAIL_MISSING; at most MAX_EMAIL_CHARS; no whitespace, CR or LF, and no
+ * control or invisible character; the shape above. Called only while the switch is open for this
+ * person (completionEmailOpen); with it closed an address is never read at all.
+ */
+export function cleanNotifyEmail(raw: unknown): { ok: true; email: string } | { ok: false; error: string } {
+    if (raw === undefined || raw === null) return { ok: false, error: EMAIL_MISSING };
     if (typeof raw !== "string") return { ok: false, error: EMAIL_ERROR };
     const email = raw.trim().toLowerCase();
-    if (!email) return { ok: true, email: null };
+    if (!email) return { ok: false, error: EMAIL_MISSING };
     if (email.length > MAX_EMAIL_CHARS || /[\s\r\n]/.test(email) || hasInvisible(email) || !EMAIL_SHAPE.test(email)) return { ok: false, error: EMAIL_ERROR };
     return { ok: true, email };
+}
+
+/* ── Who is submitting ───────────────────────────────────────────────────── */
+
+/**
+ * The Submitted by field (owner, 28 Sep 2026): the name of the person raising the request,
+ * required on both forms. The signed-in address stays the account of record (submitted_by); this
+ * is the person, which matters when one login is shared by a front desk.
+ */
+export const MIN_NAME_CHARS = 2;
+export const MAX_NAME_CHARS = 120;
+
+/**
+ * Whitespace of every kind (tabs and line breaks included) becomes one space, stripInvisible
+ * removes every other control and invisible character, and the ends are trimmed; then 2 to 120
+ * characters, counted by character so an accent or an emoji is one. Missing, not a string, or
+ * nothing left is NAME_MISSING. Stripped rather than refused: a name pasted with a stray
+ * zero-width space is still the name, and the person cannot see what to delete.
+ */
+export function cleanSubmitterName(raw: unknown): { ok: true; name: string } | { ok: false; error: string } {
+    if (typeof raw !== "string") return { ok: false, error: NAME_MISSING };
+    const name = stripInvisible(raw.replace(/\s+/g, " ")).replace(/\s+/g, " ").trim();
+    if (!name) return { ok: false, error: NAME_MISSING };
+    const length = Array.from(name).length;
+    if (length < MIN_NAME_CHARS) return { ok: false, error: NAME_TOO_SHORT };
+    if (length > MAX_NAME_CHARS) return { ok: false, error: NAME_TOO_LONG };
+    return { ok: true, name };
+}
+
+/**
+ * What the Submitted by field starts with: the first candidate that is a clean name and is not
+ * just the mailbox of `email`, else empty. The servers fall back to the mailbox ("marcus") when
+ * they hold no name, and a field prefilled with that would read as a name somebody chose.
+ */
+export function submitterNamePrefill(candidates: ReadonlyArray<string | null | undefined>, email: string): string {
+    const mailbox = (String(email ?? "").trim().toLowerCase().split("@")[0] ?? "").trim();
+    for (const candidate of candidates) {
+        const checked = cleanSubmitterName(candidate);
+        if (checked.ok && checked.name.toLowerCase() !== mailbox) return checked.name;
+    }
+    return "";
 }
 
 /* ── The completion email switch ─────────────────────────────────────────── */
 
 /**
  * VITE_TICKET_COMPLETION_EMAIL, parsed from whichever place the caller reads it: "staff" and
- * "on" exactly (trimmed, lowercased); anything else, unset included, is "off". Off until
- * the platform can actually send (Resend set up), staff for the owner's own test, then on.
+ * "on" exactly (trimmed, lowercased); anything else, unset included, is "off". The owner turns it
+ * on before the platform can send (28 Sep 2026: "I do not see the email field, and make it
+ * required"), so every sentence about the address says where the completion notice goes and
+ * never that one was sent; whether one went is the account manager's DM's to say.
  */
 export type CompletionEmailMode = "off" | "staff" | "on";
 
@@ -253,7 +307,7 @@ export function completionEmailMode(raw: string | null | undefined): CompletionE
     return v === "staff" || v === "on" ? v : "off";
 }
 
-/** Whether the completion email field is shown to, and its value stored for, this person: "on" for everyone, "staff" for staff only, "off" for nobody. */
+/** Whether the completion email field is shown to, required of, and stored for this person: "on" for everyone, "staff" for staff only, "off" for nobody. */
 export function completionEmailOpen(mode: CompletionEmailMode, isStaff: boolean): boolean {
     return mode === "on" || (mode === "staff" && isStaff);
 }

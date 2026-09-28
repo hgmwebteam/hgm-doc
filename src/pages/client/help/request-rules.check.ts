@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import {
     DAILY_FILES_REACHED,
     EMAIL_ERROR,
+    EMAIL_MISSING,
     FILES_UNAVAILABLE,
     FILE_ACCEPT,
     FILE_RULES_LINE,
@@ -19,10 +20,16 @@ import {
     MAX_EMAIL_CHARS,
     MAX_FILES,
     MAX_FILE_BYTES,
+    MAX_NAME_CHARS,
     MAX_URLS,
     MAX_URL_CHARS,
+    MIN_NAME_CHARS,
+    NAME_MISSING,
+    NAME_TOO_LONG,
+    NAME_TOO_SHORT,
     TOO_MANY_URLS,
     cleanNotifyEmail,
+    cleanSubmitterName,
     cleanUrl,
     cleanUrls,
     completionEmailMode,
@@ -34,6 +41,7 @@ import {
     isEmailShape,
     storedFileName,
     stripInvisible,
+    submitterNamePrefill,
     uploadTypeFor,
     urlError,
 } from "./request-rules.ts";
@@ -143,8 +151,11 @@ assert.equal(cleanUrls("https://x.com").ok, false, "a list, not a string");
 
 /* 8. The completion email address. */
 assert.deepEqual(cleanNotifyEmail(" Marcus@Example.COM "), { ok: true, email: "marcus@example.com" });
-assert.deepEqual(cleanNotifyEmail(""), { ok: true, email: null });
-assert.deepEqual(cleanNotifyEmail(undefined), { ok: true, email: null });
+assert.deepEqual(cleanNotifyEmail(""), { ok: false, error: EMAIL_MISSING }, "required wherever it is shown (owner, 28 Sep 2026)");
+assert.deepEqual(cleanNotifyEmail("   "), { ok: false, error: EMAIL_MISSING });
+assert.deepEqual(cleanNotifyEmail(undefined), { ok: false, error: EMAIL_MISSING }, "an old tab that never had the field");
+assert.deepEqual(cleanNotifyEmail(null), { ok: false, error: EMAIL_MISSING });
+assert.equal(EMAIL_ERROR, "That email address does not look right. Check it.", "no 'or leave the field empty': it cannot be left empty");
 assert.deepEqual(cleanNotifyEmail("a@b"), { ok: false, error: EMAIL_ERROR });
 assert.deepEqual(cleanNotifyEmail("x@hiddengem.media (HiddenGem Media)"), { ok: false, error: EMAIL_ERROR }, "the staff composer's display string");
 assert.equal(cleanNotifyEmail("a@b.com\r\nBcc: x@y.com").ok, false, "no header injection");
@@ -158,7 +169,28 @@ assert.equal(cleanNotifyEmail("a\u202Eb@example.com").ok, false, "a bidi overrid
 assert.equal(cleanNotifyEmail("ab@exa\u200Bmple.com").ok, false, "nor a zero-width space");
 assert.equal(isEmailShape("a\u0001b@example.com"), false, "the prefill uses the same test");
 
-/* 9. The switch. */
+/* 9. Who is submitting. */
+assert.equal(MIN_NAME_CHARS, 2);
+assert.equal(MAX_NAME_CHARS, 120);
+assert.deepEqual(cleanSubmitterName("  Marcus   Webb "), { ok: true, name: "Marcus Webb" });
+assert.deepEqual(cleanSubmitterName("Marcus\tWebb\r\n"), { ok: true, name: "Marcus Webb" }, "a tab or a line break is a space, not glue");
+assert.deepEqual(cleanSubmitterName("Mar\u200Bcus \u202EWebb"), { ok: true, name: "Marcus Webb" }, "invisible characters are stripped, not refused");
+assert.deepEqual(cleanSubmitterName("A\u0000n"), { ok: true, name: "An" }, "a NUL never reaches the insert");
+assert.deepEqual(cleanSubmitterName("Zoë"), { ok: true, name: "Zoë" });
+assert.deepEqual(cleanSubmitterName(""), { ok: false, error: NAME_MISSING });
+assert.deepEqual(cleanSubmitterName("  \u200B "), { ok: false, error: NAME_MISSING }, "nothing left is missing");
+assert.deepEqual(cleanSubmitterName(undefined), { ok: false, error: NAME_MISSING });
+assert.deepEqual(cleanSubmitterName(42), { ok: false, error: NAME_MISSING });
+assert.deepEqual(cleanSubmitterName("J"), { ok: false, error: NAME_TOO_SHORT });
+assert.deepEqual(cleanSubmitterName("x".repeat(120)), { ok: true, name: "x".repeat(120) });
+assert.deepEqual(cleanSubmitterName("x".repeat(121)), { ok: false, error: NAME_TOO_LONG });
+assert.equal(cleanSubmitterName("😀".repeat(120)).ok, true, "counted by character, not by UTF-16 unit");
+assert.equal(submitterNamePrefill(["Marcus Webb"], "marcus@staysaluda.com"), "Marcus Webb");
+assert.equal(submitterNamePrefill(["marcus", "Marcus Webb"], "marcus@staysaluda.com"), "Marcus Webb", "the mailbox fallback is not a name");
+assert.equal(submitterNamePrefill(["Leshan"], "leshan@hiddengem.media (HiddenGem Media)"), "", "nor its capitalised form");
+assert.equal(submitterNamePrefill([null, undefined, " "], "marcus@staysaluda.com"), "", "nothing known: the field starts empty");
+
+/* 10. The switch. */
 assert.equal(completionEmailMode(" ON "), "on");
 assert.equal(completionEmailMode("staff"), "staff");
 assert.equal(completionEmailMode("yes"), "off");
@@ -169,7 +201,7 @@ assert.equal(completionEmailOpen("staff", true), true);
 assert.equal(completionEmailOpen("on", false), true);
 assert.equal(completionEmailOpen("off", true), false);
 
-/* 10. House style: no en or em dash in the rules or their sentences. */
+/* 11. House style: no en or em dash in the rules or their sentences. */
 const dashes = new RegExp(`[${String.fromCharCode(0x2013)}${String.fromCharCode(0x2014)}]`);
 assert.ok(!dashes.test(readFileSync(new URL("./request-rules.ts", import.meta.url), "utf8")), "no en or em dash in request-rules.ts");
 assert.ok(!/[\p{Cc}\p{Cf}]/u.test(readFileSync(new URL("./request-rules.ts", import.meta.url), "utf8").replace(/[\n\t]/g, "")), "no invisible character written as itself in request-rules.ts (stripInvisible spells them as escapes)");

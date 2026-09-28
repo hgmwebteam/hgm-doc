@@ -220,6 +220,13 @@ twice), and every write is best-effort and never thrown — an audit line that f
 an AM as a dashboard that wouldn't save. Landing Page and Pinned Stories keep their own tables and
 persist on every keystroke, so only their **publish** is logged, not each save.
 
+**AM emails on form submit:** submitting the Onboarding Form (`/{base}-onboarding`) or the Account
+Access Form (`/{base}-access`) calls `netlify/functions/form-submitted.mts`, which sends the client's
+AM one email per form through Resend (`RESEND_API_KEY`, `RESEND_FROM`, set in the Netlify UI). The AM
+is resolved as `clients.link` → `clients.am` (a name) → `netlify/lib/team-emails.mts`; keep that map
+in step with `ACCOUNT_MANAGERS`. Each form row sends once (`client_onboarding_pages.am_notified_at`),
+and the access email names which logins were shared, never their values.
+
 > Firebase Firestore was a dual-write fallback here until 2026-08-06. It was removed because Firestore's rules denied the anon client both reads and writes — every fallback read failed and every backup write was silently swallowed, so it could not have survived an outage. Don't reintroduce a second database without rules that actually permit the client.
 
 **Local offline dev:** Run `supabase start` (Docker) to spin up a local Supabase stack on ports 54321 (API) / 54322 (DB). Update `.env.local` to point `VITE_SUPABASE_URL` to `http://127.0.0.1:54321`.

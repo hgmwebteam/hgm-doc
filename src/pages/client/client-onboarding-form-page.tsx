@@ -1703,6 +1703,13 @@ export const ClientOnboardingFormPage = ({
                 setSubmitState("error");
                 return;
             }
+            // Email the assigned AM — one email per form. Fire-and-forget: the function re-checks
+            // the row, sends at most once, and a failed email must never read as a failed submit.
+            fetch("/.netlify/functions/form-submitted", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slug }),
+            }).catch((e) => console.error("[client onboarding notify]", e));
         }
         setSubmitState("idle");
         setError(null);

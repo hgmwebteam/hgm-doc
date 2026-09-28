@@ -373,15 +373,17 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     }, [team]);
 
     // Object URLs are released when the form goes, and nothing still uploading may write
-    // to a form that is no longer there.
-    useEffect(
-        () => () => {
+    // to a form that is no longer there. Set on every mount, not only at creation: React's
+    // StrictMode (main.tsx) mounts, unmounts and mounts again in development, and a flag set
+    // false by that first cleanup left every file "uploading" for good under `npm run dev`.
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
             mountedRef.current = false;
             progressStore.stop();
             for (const f of filesRef.current) if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
-        },
-        [],
-    );
+        };
+    }, [progressStore]);
 
     // "Start with one line that says what is wrong. That line becomes the Asana task
     // title; everything after it becomes the task description."

@@ -4,16 +4,15 @@
  * /booking-flow-changes and /team-responsibilities.
  *
  * Each is a short factual page in the help centre's frame and type system. The copy
- * describes only what the system actually does today: which category a request goes
- * under, who it is assigned to, what the request's timeline shows, and that the
- * account manager confirms completion with the client. No dates are promised
- * anywhere here, because the system does not promise any: a date appears on a
- * request only when its category carries a turnaround, and today none does.
+ * describes only what the system actually does today: what goes through a request (Website
+ * and pages, the one category since 28 Sep 2026) and what goes to the account manager
+ * instead, what a request shows as it moves, and that the account manager confirms
+ * completion. No date, turnaround or named owner is promised anywhere here: a client is
+ * shown none of them (owner, 28 Sep 2026), and "Other" is gone with its category.
  *
- * The completion email is promised here ONLY when the switch is "on"
- * (completion-email-mode.ts): these guides are what clients read, and in "staff" mode no
- * client can enter an address, so the sentence would be a promise about a field they
- * cannot see. The file sentences hold whatever the switch says.
+ * The completion email is mentioned ONLY when the switch is "on" (completion-email-mode.ts):
+ * in "staff" mode no client can enter an address. The sentence says where the notice goes,
+ * never that one is sent, because the switch is on before the platform can send.
  *
  * The guides are rendered INSIDE HelpCenterScreen (view="guide"), so they sit behind
  * the same gate and under the same top bar as the rest of the help centre.
@@ -25,7 +24,7 @@ import { COMPLETION_EMAIL_MODE } from "@/pages/client/help/completion-email-mode
 import { Button, Card, Eyebrow } from "@/pages/client/help/help-atoms";
 
 /** Added to each guide's "when it is done" paragraph only while clients can enter an address. */
-const EMAIL_TOO = COMPLETION_EMAIL_MODE === "on" ? " If you entered an email address on the request, a completion email goes to it as well." : "";
+const EMAIL_TOO = COMPLETION_EMAIL_MODE === "on" ? " The email address you gave on the request is where its completion notice goes." : "";
 
 export interface HelpGuide {
     /** The path segment after /help/guides/. */
@@ -36,8 +35,8 @@ export interface HelpGuide {
     lede: string;
     /** The sections, each a heading and its paragraphs. */
     sections: Array<{ heading: string; paragraphs: string[] }>;
-    /** The category the guide's request goes under; "any" opens the composer with the selector. */
-    topicKey: string;
+    /** The category the guide's Raise a request opens ("any": the composer decides). Absent: the guide sends people to their account manager, so it offers no request. */
+    raise?: string;
 }
 
 /** In the order the help home's Reference row lists them. */
@@ -46,7 +45,7 @@ export const HELP_GUIDES: HelpGuide[] = [
         slug: "property-onboarding",
         title: "Property onboarding",
         lede: "Adding a property to your site, and what happens after you ask.",
-        topicKey: "website",
+        raise: "website",
         sections: [
             {
                 heading: "What you do",
@@ -58,7 +57,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "The request is turned into one task on the web team's board with a named owner. Once that has happened, the request shows as Assigned and the owner's name appears on it, with your account manager's name beside it.",
+                    "The request is turned into one task on the web team's board, and the team takes it on. Once that has happened, the request shows as Assigned, with your account manager's name on it.",
                     "If the request cannot be routed at that moment, it stays at Received and your account manager is asked to pick it up by hand. Nothing is lost.",
                 ],
             },
@@ -74,24 +73,18 @@ export const HELP_GUIDES: HelpGuide[] = [
         slug: "monthly-reporting",
         title: "Monthly reporting",
         lede: "Questions about your report, your dashboard, or the tracking behind them.",
-        topicKey: "other",
         sections: [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Other. Say which report or dashboard you mean and what you are asking for: a number that looks wrong, a metric you want added, a walkthrough of the month. A screenshot of the figure you are looking at helps, and you can attach the report itself as a PDF or spreadsheet.",
-                    "You get a reference straight away, and the request appears on your list as Received.",
+                    "Ask your account manager: questions about reporting go to them directly rather than through a request. Say which report or dashboard you mean and what you are asking for: a number that looks wrong, a metric you want added, a walkthrough of the month. A screenshot of the figure you are looking at helps.",
                 ],
             },
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "Requests under Other are given out by hand: the request stays at Received and your account manager is asked to pick it up; once they have given it to someone, the request shows as Assigned with that name on it.",
+                    "Your account manager answers it, or brings in the person who can. If the answer turns out to be a change on your website, such as a tracking tag on a page or a form that does not send, they may ask you to raise it here under Website and pages so the web team can take it on.",
                 ],
-            },
-            {
-                heading: "When it is done",
-                paragraphs: [`The request moves to Completed when the task is closed, and your account manager confirms the answer or the change with you.${EMAIL_TOO}`],
             },
         ],
     },
@@ -99,19 +92,20 @@ export const HELP_GUIDES: HelpGuide[] = [
         slug: "booking-flow-changes",
         title: "Booking flow changes",
         lede: "Changes to how guests book: your property system, your channels, and the booking pages between them.",
-        topicKey: "any",
+        raise: "website",
         sections: [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Website and pages when the change is on your own site, and under Other for your property management system or a channel (Airbnb, Vrbo). Name the property and the channel and describe the change or the fault: a rate, a minimum stay, dates that show as available when they are not, a listing that needs new photos. Screenshots of what a guest sees are the most useful thing you can attach, alongside any PDF or spreadsheet that shows the change.",
+                    "Raise a request under Website and pages when the change is on your own site: a booking page, a booking button, dates that show as available on the site when they are not. Name the property and describe the change or the fault. Screenshots of what a guest sees are the most useful thing you can attach, alongside any PDF or spreadsheet that shows the change.",
+                    "For your property management system or a channel (Airbnb, Vrbo), such as a rate, a minimum stay or a listing that needs new photos, ask your account manager instead.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "A website change goes straight to the web team with a named owner. Anything under Other is given out by hand: it stays at Received while your account manager is asked to pick it up, and shows as Assigned once they have.",
+                    "A website change goes straight to the web team, and the request shows as Assigned once the team has taken it on. Your account manager looks after the property system and channel changes with you directly.",
                 ],
             },
             {
@@ -125,26 +119,26 @@ export const HELP_GUIDES: HelpGuide[] = [
     {
         slug: "team-responsibilities",
         title: "Team responsibilities",
-        lede: "Who picks up each kind of request, and what each person does with it.",
-        topicKey: "any",
+        lede: "What goes through a request, who looks after the rest, and what each request shows.",
+        raise: "any",
         sections: [
             {
-                heading: "The category decides the owner",
+                heading: "Where a request goes",
                 paragraphs: [
-                    "Every request goes under one of two categories: Website and pages, or Other. Website and pages goes straight to the web team: one task on their board, given to whichever of the team has the lightest load that minute, and that person's name appears on your request.",
-                    "Other is for everything else. A request under it stays at Received while your account manager is asked to give it to the right person by hand; once they have, the request shows as Assigned with that name on it.",
+                    "Requests are for your website and its pages, and each goes straight to the web team: one task on their board, given to whoever on the team has the lightest load.",
+                    "Questions about your reporting, your property system or your channels go to your account manager directly rather than through a request.",
                 ],
             },
             {
-                heading: "The owner",
+                heading: "What a request shows",
                 paragraphs: [
-                    "The owner does the work. Your request's timeline records each change of status: Received when you raise it, Assigned when it has an owner, Completed when the work is closed, or Withdrawn if you take it back. When the person working on it has news for you, it appears on the request under Team updates, with their name and the time they wrote it.",
+                    "Each request shows where it stands: Received when you raise it, Assigned once the team has taken it on, In progress when work starts, and Completed when the work is closed, or Withdrawn if you take it back. When the team has news for you, it appears on the request under Team updates, with the name of the person who wrote it and the time.",
                 ],
             },
             {
                 heading: "Your account manager",
                 paragraphs: [
-                    `Your account manager's name appears on a request once it has an owner. They are asked to step in whenever a request cannot be routed automatically, and they are told the moment a task is closed so they can confirm completion with you.${EMAIL_TOO} They are also who to ask if a request needs to change hands.`,
+                    `Your account manager's name appears on each request once the team has it. They are asked to step in whenever a request cannot be routed automatically, and they are told the moment a task is closed so they can confirm completion with you.${EMAIL_TOO}`,
                 ],
             },
         ],
@@ -156,12 +150,12 @@ export const findHelpGuide = (slug: string): HelpGuide | null => HELP_GUIDES.fin
 /**
  * One guide, in the help centre's column: the eyebrow, the title in display/title,
  * the lede in body/input, a card of sections (heading/section over body/input), then
- * the primary button that opens the composer under the guide's category and a link
- * back to the help home. Body copy is 16px throughout (build notes: 13px is for meta
+ * the primary button that opens the composer under the guide's category (none on a guide
+ * that sends people to their account manager) and a link back to the help home. Body copy is 16px throughout (build notes: 13px is for meta
  * lines only).
  */
 export const HelpGuidePage = ({ guide, slug }: { guide: HelpGuide; slug: string }) => {
-    const raise = guide.topicKey === "any" ? `/${slug}/help?raise=any` : `/${slug}/help?raise=${encodeURIComponent(guide.topicKey)}`;
+    const raise = guide.raise ? `/${slug}/help?raise=${encodeURIComponent(guide.raise)}` : null;
     return (
         <article className="mx-auto flex w-full max-w-[680px] flex-col gap-6 sm:gap-10">
             <header className="flex flex-col gap-2">
@@ -182,9 +176,11 @@ export const HelpGuidePage = ({ guide, slug }: { guide: HelpGuide; slug: string 
                 ))}
             </Card>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-                <Button to={raise} fill className="sm:w-[176px]">
-                    Raise a request
-                </Button>
+                {raise && (
+                    <Button to={raise} fill className="sm:w-[176px]">
+                        Raise a request
+                    </Button>
+                )}
                 <Link
                     to={`/${slug}/help`}
                     className="inline-flex min-h-11 items-center rounded-(--hc-radius-sm) hc-t-body-helper text-(--hc-text-brand-secondary) underline"

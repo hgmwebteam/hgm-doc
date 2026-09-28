@@ -285,9 +285,9 @@ export const JOURNEY_STEPS: {
             // Ordered by eta, so the client reads them in the order they will arrive.
             { id: "landing", label: "Landing Page", to: "landing", eta: "Week 2" },
             { id: "pinnedstories", label: "Pinned Stories", to: "pinnedstories", eta: "Week 2" },
-            { id: "flow", label: "Welcome Flow", to: "flow", eta: "Week 3" },
-            { id: "pinnedposts", label: "Pinned Posts", to: "pinnedposts", eta: "Week 3" },
-            { id: "reels", label: "Example Reels", to: "reels", eta: "Week 3" },
+            { id: "flow", label: "Welcome Flow", to: "flow", eta: "Week 2" },
+            { id: "pinnedposts", label: "Pinned Posts", to: "pinnedposts", eta: "Week 2" },
+            { id: "reels", label: "Example Reels", to: "reels", eta: "Week 2" },
         ],
     },
     {

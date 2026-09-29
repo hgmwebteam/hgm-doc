@@ -1,7 +1,7 @@
 import { type CompletionEmailMode, completionEmailMode } from "../../src/pages/client/help/request-rules.ts";
 
 /**
- * The columns of a request a CLIENT may be handed, and the three that are new.
+ * The columns of a request a CLIENT may be handed, and the ones added by hand since.
  *
  * ticket-create, ticket-detail and ticket-withdraw hand back the same row, and until
  * 28 Sep 2026 each carried its own copy of the list; withdraw's had drifted (no priority, no
@@ -57,6 +57,27 @@ import { type CompletionEmailMode, completionEmailMode } from "../../src/pages/c
  * Read-back (expect 1 row): select column_name from information_schema.columns
  *   where table_schema = 'public' and table_name = 'tickets' and column_name = 'submitted_by_name';
  *
+ * ── WEBSITES (Enjoy Unique Stays, 29 Sep 2026) ──────────────────────────────
+ * A multi-site client's request carries which of its brand websites it is for, copied by
+ * ticket-create from the dashboard row's data.websites (request-rules.ts chooseWebsites).
+ * Applied by the orchestrator BEFORE the portal deploy; safe to run twice:
+ *
+ *   alter table public.tickets add column if not exists websites jsonb;
+ *   comment on column public.tickets.websites is 'The websites of a multi-site client that the request is for, chosen on the form: {"offered": n, "chosen": [{"name": text, "url": https URL, "tenant_slug": text}]}. The chosen entries are copied by ticket-create from the dashboard row''s data.websites at the time of the request, in the row''s order, never from what the browser sent; offered is how many the row offered (2 or more), so chosen = offered means every website. Null when the dashboard offers no choice.';
+ *   notify pgrst, 'reload schema';
+ *
+ * Read-back (expect exactly 1 row: websites | jsonb | YES):
+ *   select column_name, data_type, is_nullable from information_schema.columns
+ *    where table_schema = 'public' and table_name = 'tickets' and column_name = 'websites';
+ *
+ * No CHECK constraint on purpose: a shape bug in our own writer must not make every such
+ * request fail its insert and cost a client their words, so every reader validates instead
+ * (storedWebsitesOf here, readWebsites on the platform). Every reader and writer walks a
+ * ladder (readDownLadder below) that drops ONE column per "column does not exist", newest
+ * first: with urls present and websites absent, the old two-step fallback would have dropped
+ * the pages as well. A client may see the websites (they are theirs), so the column is not in
+ * CLIENT_HIDDEN_COLUMNS; tenant_slug goes with it, the same value the anon-readable row holds.
+ *
  * ── WHAT A CLIENT IS NOT HANDED (owner, 28 Sep 2026) ────────────────────────
  * A client never sees a promised or estimated date or who a request is assigned to, so the
  * answers a client's own call gets carry neither: clientView() drops promised_date,
@@ -76,6 +97,12 @@ export const CLIENT_TICKET_COLUMNS =
 
 /** The list plus the pages the request is about. */
 export const withPages = (cols: string): string => `${cols}, urls`;
+
+/** The list plus the websites a multi-site client chose (the WEBSITES block above). */
+export const withWebsites = (cols: string): string => `${cols}, websites`;
+
+/** What create, detail and withdraw read, widest first: each step drops only the newest column. */
+export const CLIENT_COLUMN_LADDER = [withWebsites(withPages(CLIENT_TICKET_COLUMNS)), withPages(CLIENT_TICKET_COLUMNS), CLIENT_TICKET_COLUMNS] as const;
 
 /** Read only inside ticket-create (whose answer strips notify_email_listed) and ticket-detail's own read (which answers a boolean). Never in a list. */
 export const NOTIFY_COLUMNS = "notify_email, notify_email_listed";
@@ -111,6 +138,23 @@ export const isMissingColumn = (error: DbError): boolean => {
     if (error.code === "42703" || error.code === "PGRST204") return true;
     return /column .* does not exist|could not find the '.*' column/i.test(error.message ?? "");
 };
+
+/**
+ * Reads with the first list of `ladder` the database can answer, widest first. A step whose
+ * error says a named column does not exist (isMissingColumn: 42703, PGRST204) moves to the
+ * next; the first answer that is not that, success or any other error, is returned as it is,
+ * with `columns` naming the list it used (a later write selects the same list back). Any
+ * other error is never retried: it is not about a column, and a second read would only hide
+ * it. The last step's answer is returned whatever it says.
+ */
+export async function readDownLadder<T extends { error: DbError }>(ladder: readonly string[], read: (cols: string) => PromiseLike<T>): Promise<T & { columns: string }> {
+    if (ladder.length === 0) throw new Error("readDownLadder needs at least one column list");
+    for (let at = 0; ; at++) {
+        const columns = ladder[at];
+        const result = await read(columns);
+        if (at === ladder.length - 1 || !isMissingColumn(result.error)) return { ...result, columns };
+    }
+}
 
 /** A table the query names does not exist yet. */
 export const isMissingTable = (error: DbError): boolean => {

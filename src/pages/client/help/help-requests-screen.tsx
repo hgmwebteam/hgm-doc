@@ -217,6 +217,8 @@ export const EmptyNote = ({ title, detail, action }: { title: string; detail: st
 const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: TicketTopic[]; slug: string; index: number }) => {
     const outcome = requestOutcomeLine(ticket);
     const tinted = index % 2 === 1;
+    // "  ·  All 6 websites" or the names, for a multi-site client's request; "" otherwise.
+    const sites = websitesSuffix(ticket);
     return (
         <li>
             <Link
@@ -233,9 +235,12 @@ const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: T
             >
                 <div className="flex min-w-0 flex-col gap-2.5 sm:flex-1 sm:gap-1">
                     <p className="hc-t-body-input text-(--hc-text-primary) sm:hc-t-label-field">{ticket.title}</p>
-                    <div className="flex min-w-0 items-center gap-2">
+                    {/* A phone line that names websites may wrap (two names do not fit 390 beside the
+                        reference, and a cut name is a lost fact); it then sits on the reference's
+                        baseline. Every other row keeps the frame's one centred, truncating line. */}
+                    <div className={cx("flex min-w-0 gap-2", sites ? "items-baseline sm:items-center" : "items-center")}>
                         <MonoRef>{ticket.reference}</MonoRef>
-                        <span className="hc-t-body-helper min-w-0 flex-1 truncate text-(--hc-text-tertiary) sm:hidden">{`${topicLabel(topics, ticket.topic)}${websitesSuffix(ticket)}`}</span>
+                        <span className={cx("hc-t-body-helper min-w-0 flex-1 text-(--hc-text-tertiary) sm:hidden", sites ? "break-words" : "truncate")}>{`${topicLabel(topics, ticket.topic)}${sites}`}</span>
                         <span className="hc-t-body-helper hidden min-w-0 truncate text-(--hc-text-tertiary) sm:inline">{requestMetaLine(topics, ticket)}</span>
                     </div>
                 </div>

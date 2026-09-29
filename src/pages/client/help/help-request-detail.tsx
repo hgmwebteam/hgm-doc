@@ -313,8 +313,11 @@ const RequestLinks = ({ websites, urls, files }: { websites: StoredWebsites | nu
                 <h2 id="hc-websites" className="hc-t-caption-meta text-(--hc-text-tertiary)">
                     WEBSITES
                 </h2>
-                {allOf > 0 && <p className="hc-t-label-field text-(--hc-text-secondary)">{`All ${allOf} websites`}</p>}
-                {/* The PAGES list's rhythm: a 44px row on a phone, a 28px pitch on the desktop. */}
+                {/* The summary stands 4 further from the list than from the heading, so the tile reads heading, summary, list. */}
+                {allOf > 0 && <p className="hc-t-label-field pb-1 text-(--hc-text-secondary)">{`All ${allOf} websites`}</p>}
+                {/* The PAGES list's rhythm: a 44px row on a phone, a 28px pitch on the desktop. Each
+                    link's target fills its row (12 above and below its 20px line on a phone, 4 on the
+                    desktop), so the row, not only the name, is what a thumb has to hit. */}
                 <ul className="flex flex-col">
                     {sites.map((w) => (
                         <li key={w.url} className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-2 sm:min-h-7">
@@ -322,7 +325,7 @@ const RequestLinks = ({ websites, urls, files }: { websites: StoredWebsites | nu
                                 href={w.url}
                                 target="_blank"
                                 rel="noopener noreferrer nofollow"
-                                className="hc-t-label-field hc-hover min-w-0 break-words rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline underline-offset-2 hover:decoration-2"
+                                className="hc-t-label-field hc-hover relative min-w-0 break-words rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline underline-offset-2 after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:decoration-2 sm:after:-inset-y-1"
                             >
                                 {w.name}
                                 <span className="sr-only"> (opens in a new tab)</span>

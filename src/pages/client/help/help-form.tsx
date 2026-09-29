@@ -53,8 +53,9 @@
  *                  that it is waiting for files still uploading)
  *   Success        the frame's "Ticket sent" screen: the Banner (success), the summary
  *                  card (who submitted it, the websites it is for, and the files, pages and
- *                  completion email it carried), and the two Buttons. No estimate and, for a client, no owner:
- *                  a client is never shown who a request is assigned to (owner, 28 Sep 2026)
+ *                  completion email it carried), and the two Buttons. No estimate and, for
+ *                  a client, no owner: a client is never shown who a request is assigned to
+ *                  (owner, 28 Sep 2026)
  *
  * Pages, Submitted by and Completion email sit after Description so the only thing that
  * moves in the Figma frames is Actions. Nothing here decides who may submit; the server
@@ -316,8 +317,8 @@ const composeBanner = (missing: string[]): { title: string; body: string } => {
     const sentence = list.charAt(0).toUpperCase() + list.slice(1);
     // Three or more missing: the shorter form, no Oxford comma, and "below" closes it.
     // Three fit the banner's one line (492px at 13px), which the validation frame pins;
-    // four to eight (the websites, a page address, the name or the email address as well) wrap, and the
-    // parity proof carries the extra line as an owner change.
+    // four to eight (the websites, a page address, the name or the email address as well)
+    // wrap, and the parity proof carries the extra line as an owner change.
     if (n >= 3) return { title, body: `${missing.slice(0, -1).map((m, i) => (i === 0 ? m.charAt(0).toUpperCase() + m.slice(1) : m)).join(", ")} and ${missing[n - 1]} below.` };
     const marked = n === 1 ? "The field is marked below." : "Both fields are marked below.";
     return { title, body: `${sentence}. ${marked}` };

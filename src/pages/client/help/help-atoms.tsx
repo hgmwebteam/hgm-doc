@@ -729,6 +729,117 @@ export const FieldInput = ({ id: givenId, label, requirement, value, onChange, p
     );
 };
 
+export type FieldCheckboxGroupProps = {
+    /** Every box's `name`; also names the legend's label (`${name}-label`) and the note (`${name}-note`). */
+    name: string;
+    /** Each box's id is `${idPrefix}-${index}`. */
+    idPrefix: string;
+    label: string;
+    requirement?: "Required" | "Optional";
+    /** In the order they are drawn: `label` on the first line, `detail` under it. */
+    options: ReadonlyArray<{ value: string; label: string; detail?: string }>;
+    checked: ReadonlySet<string>;
+    onChange: (value: string, checked: boolean) => void;
+    /** The text button at the end of the note row ("Untick all" / "Tick all"). */
+    toggle?: { label: string; onClick: () => void };
+    helper: string;
+    error?: string;
+    /** Focus moved from inside the group to somewhere outside it. */
+    onLeave?: () => void;
+};
+
+/**
+ * A group of checkboxes with the fields' anatomy: the label row (label/field text/secondary,
+ * "Required" in caption/meta text/tertiary, baseline-aligned, as Priority's), the options,
+ * then one row holding the note on the left and a text button on the right. It has no frame
+ * in the file; it is drawn from the file's own pieces so it sits calmly beside them.
+ *
+ *   group     a native fieldset and legend (the legend names the group), described by the note
+ *   options   one column below 640, two from 640 (row-major, so reading order is the list's),
+ *             8 between rows, 16 between columns. The grid is pulled out by the options'
+ *             8px padding, so each box lines up with the label above it
+ *   option    a label row at least 44 tall, padding 8, radius/md, bg/primary_hover on hover,
+ *             wrapping a NATIVE checkbox (keyboard, forms and assistive technology for free):
+ *             a 20px box, radius/sm, 1.5px border/primary on bg/primary, filled bg/brand-solid
+ *             with the tick in text/primary_on-brand once checked; focus is the page's 2px
+ *             border/brand ring, 2px out, on the box itself. Then 12, then the label in
+ *             label/field text/primary over the detail in caption/meta text/tertiary.
+ *             Under forced colours the box is the system's own checkbox
+ *   note      FieldNote (live), so an error is spoken the moment it replaces the helper
+ *   toggle    body/helper text/brand-secondary, its 20px line given a 44px target by a
+ *             pseudo-element, the idiom of the help centre's other text links
+ *
+ * Nothing moves: a form that shifts mid-answer is hostile.
+ */
+export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options, checked, onChange, toggle, helper, error, onLeave }: FieldCheckboxGroupProps) => (
+    <fieldset
+        aria-describedby={`${name}-note`}
+        onBlur={(e) => {
+            if (onLeave && !e.currentTarget.contains(e.relatedTarget as Node | null)) onLeave();
+        }}
+        className="m-0 min-w-0 border-0 p-0"
+    >
+        {/* A rendered legend sits outside the fieldset's content box, so its 8 below is a margin. */}
+        <legend className="mb-2 w-full p-0">
+            <span className="flex items-baseline justify-between gap-2">
+                <span id={`${name}-label`} className="hc-t-label-field text-(--hc-text-secondary)">
+                    {label}
+                </span>
+                {requirement && <span className="hc-t-caption-meta text-(--hc-text-tertiary)">{requirement}</span>}
+            </span>
+        </legend>
+        <div className="flex flex-col gap-2">
+            <div className="-mx-2 grid grid-cols-1 gap-y-2 sm:grid-cols-2 sm:gap-x-4">
+                {options.map((o, i) => {
+                    const id = `${idPrefix}-${i}`;
+                    const on = checked.has(o.value);
+                    return (
+                        <label key={o.value} htmlFor={id} className="hc-hover flex min-h-11 min-w-0 cursor-pointer items-center gap-3 rounded-(--hc-radius-md) p-2 hover:bg-(--hc-bg-primary_hover)">
+                            <span className="relative flex size-5 shrink-0">
+                                <input
+                                    id={id}
+                                    type="checkbox"
+                                    name={name}
+                                    value={o.value}
+                                    checked={on}
+                                    onChange={(e) => onChange(o.value, e.target.checked)}
+                                    className="hc-hover peer size-5 shrink-0 cursor-pointer appearance-none rounded-(--hc-radius-sm) border-[1.5px] border-(--hc-border-primary) bg-(--hc-bg-primary) checked:border-(--hc-bg-brand-solid) checked:bg-(--hc-bg-brand-solid) forced-colors:appearance-auto"
+                                />
+                                <svg
+                                    aria-hidden="true"
+                                    viewBox="0 0 20 20"
+                                    fill="none"
+                                    className="pointer-events-none absolute inset-0 hidden size-5 text-(--hc-text-primary_on-brand) peer-checked:block forced-colors:hidden"
+                                >
+                                    <path d="M5.5 10.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </span>
+                            <span className="flex min-w-0 flex-col">
+                                <span className="hc-t-label-field break-words text-(--hc-text-primary)">{o.label}</span>
+                                {o.detail && <span className="hc-t-caption-meta break-words text-(--hc-text-tertiary)">{o.detail}</span>}
+                            </span>
+                        </label>
+                    );
+                })}
+            </div>
+            <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                    <FieldNote id={`${name}-note`} helper={helper} error={error} live />
+                </div>
+                {toggle && (
+                    <button
+                        type="button"
+                        onClick={toggle.onClick}
+                        className="hc-t-body-helper hc-hover relative shrink-0 cursor-pointer rounded-(--hc-radius-sm) whitespace-nowrap text-(--hc-text-brand-secondary) after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline"
+                    >
+                        {toggle.label}
+                    </button>
+                )}
+            </div>
+        </div>
+    </fieldset>
+);
+
 /**
  * The 40px remove button a File/Thumbnail ends with (the x icon in text/secondary), on its
  * own so a list of page addresses can end each row with the same control. The target is 44

@@ -17,6 +17,16 @@
  *                  clicked. Not drawn while only one category is active (owner, 28 Sep
  *                  2026: "there will only be Website and pages"): the request goes under
  *                  that one, and a second active category brings the select back
+ *   Websites       a group of checkboxes (FieldCheckboxGroup), drawn ONLY when the chosen
+ *                  dashboard offers 2 or more websites (data.websites; Enjoy Unique Stays,
+ *                  29 Sep 2026): which of the client's brand sites the request is for. All
+ *                  ticked to start ("most of the time every website, sometimes one or two"),
+ *                  at least one required, "Untick all" for the rare one-or-two case. Next to
+ *                  Client because the client is what reveals it: the team sees it appear the
+ *                  moment they pick the client, and it moves none of the frames, whose
+ *                  fixtures offer no list. The team's list comes with the client select, a
+ *                  client's from the gate (viewer.websites); the server checks the names
+ *                  against the same row
  *   Priority       the label row, four Priority/Chips, the Priority/Legend. Everyone
  *                  sets one (owner, 13 Sep 2026). The chips name the level and the legend
  *                  says what it means; neither gives a day or an hour (owner, 28 Sep 2026)
@@ -42,8 +52,8 @@
  *   Submitting     the Button in its loading state and the trust line saying so (and
  *                  that it is waiting for files still uploading)
  *   Success        the frame's "Ticket sent" screen: the Banner (success), the summary
- *                  card (who submitted it, and the files, pages and completion email it
- *                  carried), and the two Buttons. No estimate and, for a client, no owner:
+ *                  card (who submitted it, the websites it is for, and the files, pages and
+ *                  completion email it carried), and the two Buttons. No estimate and, for a client, no owner:
  *                  a client is never shown who a request is assigned to (owner, 28 Sep 2026)
  *
  * Pages, Submitted by and Completion email sit after Description so the only thing that
@@ -54,7 +64,7 @@ import { type ComponentProps, type FormEvent, type KeyboardEvent, type Ref, useC
 import { Link } from "react-router";
 import { COMPLETION_EMAIL_MODE } from "@/pages/client/help/completion-email-mode";
 import { type ClientOption, HelpApiError, MAX_DETAIL, MAX_TITLE, type NewTicketInput, fetchTicket, prepareUploadBlob, requestUploadUrls, uploadTicketFile } from "@/pages/client/help/help-api";
-import { Banner, Button, FieldInput, FieldNote, FieldSelect, FieldTextarea, FieldUpload, FileThumbnail, LabelRow, MonoRef, PRIORITY_LEVELS, PriorityChip, PriorityDot, PriorityLegend, type PriorityLevel, RemoveButton, TextInput, formatFileSize } from "@/pages/client/help/help-atoms";
+import { Banner, Button, FieldCheckboxGroup, FieldInput, FieldNote, FieldSelect, FieldTextarea, FieldUpload, FileThumbnail, LabelRow, MonoRef, PRIORITY_LEVELS, PriorityChip, PriorityDot, PriorityLegend, type PriorityLevel, RemoveButton, TextInput, formatFileSize } from "@/pages/client/help/help-atoms";
 import { type Priority, type Ticket, type TicketFile, type TicketTopic, displayUrl, isTeamAddress } from "@/pages/client/help/help-model";
 import {
     EMAIL_MISSING,
@@ -62,6 +72,9 @@ import {
     MAX_FILE_BYTES,
     MAX_URLS,
     NAME_MISSING,
+    type StoredWebsites,
+    WEBSITES_NONE,
+    type Website,
     cleanNotifyEmail,
     cleanSubmitterName,
     cleanUrl,
@@ -73,6 +86,8 @@ import {
     fileTypeFor,
     fileUploadFailed,
     isEmailShape,
+    offersChoice,
+    storedWebsitesOf,
     uploadTypeFor,
 } from "@/pages/client/help/request-rules";
 import { cx } from "@/utils/cx";
@@ -113,6 +128,9 @@ const PAGES_HELPER = "The pages this is about. Up to 10.";
 const NAME_HELPER = "The name of the person raising this request.";
 /** Where the notice goes, not that one is sent: the field is on before the platform can send (completion-email-mode.ts). */
 const EMAIL_HELPER = "The address for this request's completion notice.";
+/** The Websites group's note, by how many of the offered are ticked; its error is WEBSITES_NONE. */
+const websitesNote = (ticked: number, offered: number): string =>
+    ticked === offered ? `All ${offered} are ticked. Untick any this request is not about.` : ticked === 0 ? "None ticked." : `${ticked} of ${offered} ticked.`;
 
 /** A select opens on click, so it shows the pointer (the disabled one keeps the atom's not-allowed). */
 const SELECT_CURSOR = "[&_select:not(:disabled)]:cursor-pointer";
@@ -284,7 +302,7 @@ const UPLOAD_WAIT_MS = 10 * 60_000;
 
 /* ── The validation banner ───────────────────────────────────────────────── */
 
-const COUNT_WORDS = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];
+const COUNT_WORDS = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"];
 
 /**
  * "Two things need fixing before this can go" over "Choose a client, and describe what
@@ -298,7 +316,7 @@ const composeBanner = (missing: string[]): { title: string; body: string } => {
     const sentence = list.charAt(0).toUpperCase() + list.slice(1);
     // Three or more missing: the shorter form, no Oxford comma, and "below" closes it.
     // Three fit the banner's one line (492px at 13px), which the validation frame pins;
-    // four to seven (a page address, the name or the email address as well) wrap, and the
+    // four to eight (the websites, a page address, the name or the email address as well) wrap, and the
     // parity proof carries the extra line as an owner change.
     if (n >= 3) return { title, body: `${missing.slice(0, -1).map((m, i) => (i === 0 ? m.charAt(0).toUpperCase() + m.slice(1) : m)).join(", ")} and ${missing[n - 1]} below.` };
     const marked = n === 1 ? "The field is marked below." : "Both fields are marked below.";
@@ -309,6 +327,8 @@ const composeBanner = (missing: string[]): { title: string; body: string } => {
 
 /** What the server says it stored besides the words: the success card shows exactly this, never what was typed. */
 export interface SentExtras {
+    /** The websites the request is for, as the server stored them (null: the dashboard offered no choice). */
+    websites: StoredWebsites | null;
     urls: string[];
     /** The completion email address, when the server stored one (the switch decides). */
     notifyEmail: string | null;
@@ -320,6 +340,7 @@ export interface SentExtras {
 
 /** ticket-create's answer as the success card reads it. `files` may be missing from an older function. */
 export const sentExtrasFrom = (res: { ticket: Ticket; files?: TicketFile[] }): SentExtras => ({
+    websites: storedWebsitesOf(res.ticket.websites),
     urls: Array.isArray(res.ticket.urls) ? res.ticket.urls : [],
     notifyEmail: res.ticket.notify_email ?? null,
     files: (res.files ?? []).map((f) => f.name),
@@ -337,6 +358,8 @@ export interface RequestFormProps {
     fixedTopic?: TicketTopic;
     /** The client's own name, shown in the disabled Client field (client mode). */
     clientName: string;
+    /** The websites the client's dashboard offers (client mode: viewer.websites). The team's come with each client option. */
+    websites?: Website[];
     /** What the Submitted by field starts with (request-rules.ts submitterNamePrefill); empty when no name is known. */
     submitterName: string;
     /** The signed-in address. A client's prefills the Completion email field; the staff composer's carries " (HiddenGem Media)", which is not an address, so staff start empty. */
@@ -364,13 +387,32 @@ const sentSlugs = new Map<string, string>();
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, submitterName, email, viewerIsStaff, onSubmit, onCreated, onClientChange, slug, focusFirstField }: RequestFormProps) => {
+/** A stable empty list, so a missing prop does not make a new array (and a new key) every render. */
+const NO_WEBSITES: Website[] = [];
+
+export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, websites = NO_WEBSITES, submitterName, email, viewerIsStaff, onSubmit, onCreated, onClientChange, slug, focusFirstField }: RequestFormProps) => {
     const team = mode === "team";
     const emailOpen = completionEmailOpen(COMPLETION_EMAIL_MODE, team || !!viewerIsStaff);
     // One active category: no field to choose it in, and the request goes under it.
     const onlyTopic = !team && topics.length === 1 ? topics[0] : null;
     const [client, setClient] = useState(team ? "" : (slug ?? ""));
     const [category, setCategory] = useState(fixedTopic?.key ?? "");
+    // WEBSITES. The list the chosen dashboard offers: the team's comes with the client they
+    // pick, a client's from the gate. A group only when it is a choice (2 or more).
+    const offered = team ? (clients.find((c) => c.slug === client)?.websites ?? NO_WEBSITES) : websites;
+    const showWebsites = offersChoice(offered);
+    // Every box ticked whenever the offered list changes (another client picked, or the list
+    // arriving), set while rendering so the group never draws a frame with the old ticks.
+    const offeredKey = offered.map((w) => w.name).join("\n");
+    const [ticks, setTicks] = useState(() => ({ key: offeredKey, names: new Set(offered.map((w) => w.name)) as ReadonlySet<string> }));
+    // Set when focus leaves the group with nothing ticked; cleared by the next tick, so the
+    // error never shows while somebody is still clicking.
+    const [websitesLeftEmpty, setWebsitesLeftEmpty] = useState(false);
+    if (ticks.key !== offeredKey) {
+        setTicks({ key: offeredKey, names: new Set(offered.map((w) => w.name)) });
+        setWebsitesLeftEmpty(false);
+    }
+    const picked = ticks.names;
     const [name, setName] = useState(submitterName);
     const [nameBlurred, setNameBlurred] = useState(false);
     // The known name can arrive after the form does (the account's own name loads on its own).
@@ -475,6 +517,8 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     const emailError = emailProblem && (touched || notifyBlurred) ? emailProblem : undefined;
 
     const clientMissing = team && !client;
+    const websitesMissing = showWebsites && picked.size === 0;
+    const websitesError = websitesMissing && (touched || websitesLeftEmpty) ? WEBSITES_NONE : undefined;
     // Everyone picks a priority now (owner, 13 Sep 2026); the legend says what each means.
     const priorityMissing = !priority;
     const topicKey = team ? TEAM_TOPIC : (onlyTopic?.key ?? category);
@@ -484,11 +528,13 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     // sentence mid-word on the way out, the form says so and waits.
     const titleTooLong = firstLine.length > MAX_TITLE;
     // In the order the fields sit on the form: the team's has no category, the client's
-    // has category above priority, so the banner reads down the page either way. Pages are
-    // optional and only named when what was typed is wrong.
+    // has category above priority, so the banner reads down the page either way; the
+    // websites sit between them. Pages are optional and only named when what was typed is
+    // wrong.
     const missing = [
         clientMissing && "choose a client",
         categoryMissing && "choose a category",
+        websitesMissing && "tick a website",
         priorityMissing && "pick a priority",
         (descriptionMissing || titleTooLong) && "describe what is happening",
         pageProblem && "check the page address",
@@ -689,6 +735,8 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                 ...(priority ? { priority } : {}),
                 ...(cleaned.ok && cleaned.urls.length ? { urls: cleaned.urls } : {}),
                 ...(address ? { notify_email: address } : {}),
+                // The names ticked, in the ROW's order; the server stores the row's entries for them.
+                ...(showWebsites ? { websites: offered.filter((w) => picked.has(w.name)).map((w) => w.name) } : {}),
                 ...(uploaded.length && uploadIdRef.current ? { upload_id: uploadIdRef.current, files: uploaded.map((f) => ({ file_id: f.fileId! })) } : {}),
             });
             sentSlugs.set(res.reference, client);
@@ -743,6 +791,35 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                         placeholder="Choose a category"
                         error={touched && categoryMissing ? CATEGORY_ERROR : undefined}
                         className={SELECT_CURSOR}
+                    />
+                )}
+
+                {showWebsites && (
+                    <FieldCheckboxGroup
+                        name="websites"
+                        idPrefix="website"
+                        label="Websites"
+                        requirement="Required"
+                        options={offered.map((w) => ({ value: w.name, label: w.name, detail: displayUrl(w.url) }))}
+                        checked={picked}
+                        onChange={(name, on) => {
+                            const next = new Set(picked);
+                            if (on) next.add(name);
+                            else next.delete(name);
+                            setTicks({ key: offeredKey, names: next });
+                            if (next.size) setWebsitesLeftEmpty(false);
+                        }}
+                        toggle={{
+                            label: picked.size === offered.length ? "Untick all" : "Tick all",
+                            onClick: () => {
+                                const all = picked.size === offered.length;
+                                setTicks({ key: offeredKey, names: all ? new Set<string>() : new Set(offered.map((w) => w.name)) });
+                                if (!all) setWebsitesLeftEmpty(false);
+                            },
+                        }}
+                        helper={websitesNote(picked.size, offered.length)}
+                        error={websitesError}
+                        onLeave={() => setWebsitesLeftEmpty(picked.size === 0)}
                     />
                 )}
                 {/* Priority, for the team and the client alike (owner, 13 Sep 2026: "I do not see
@@ -931,6 +1008,8 @@ export interface RequestSentProps {
     completionEmail?: string | null;
     /** The Submitted by name as the server stored it. */
     submittedByName?: string;
+    /** The websites the request is for, as the server stored them. */
+    websites?: StoredWebsites | null;
 }
 
 /**
@@ -948,12 +1027,13 @@ export interface RequestSentProps {
  * such row and polls nothing: a client is never shown who a request is assigned to (owner,
  * 28 Sep 2026), and their request's page is where its status is.
  *
- * Then what the request carried, each row only when there is something in it: Pages (one
- * address a line), Completion email, Files (one stored name a line). They echo the
+ * Then what the request carried, each row only when there is something in it: Websites
+ * (right after Client, which it narrows: "All 6 websites" when every one was ticked, else one
+ * name a line), Pages (one address a line), Completion email, Files (one stored name a line). They echo the
  * SERVER's answer rather than the form, so a row can only say what was actually kept. The
  * priority chip carries no estimate.
  */
-export const RequestSent = ({ reference, title, clientName, priority, team, primary, secondary, slug, files = [], urls = [], completionEmail, submittedByName = "" }: RequestSentProps) => {
+export const RequestSent = ({ reference, title, clientName, priority, team, primary, secondary, slug, files = [], urls = [], completionEmail, submittedByName = "", websites = null }: RequestSentProps) => {
     const pollSlug = slug ?? sentSlugs.get(reference) ?? "";
     const [asana, setAsana] = useState(ASANA_PENDING);
     // Focus lands on the outcome's title so a reader hears it (build notes).
@@ -1033,6 +1113,22 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
                         <dt className="hc-t-body-helper text-(--hc-text-tertiary)">Client</dt>
                         <dd className="hc-t-label-field text-right text-(--hc-text-primary)">{clientName}</dd>
                     </div>
+                    {websites && (
+                        <div className="flex items-start justify-between gap-4">
+                            <dt className="hc-t-body-helper shrink-0 text-(--hc-text-tertiary)">Websites</dt>
+                            <dd className="flex min-w-0 flex-col items-end gap-1">
+                                {websites.chosen.length === websites.offered ? (
+                                    <span className="hc-t-label-field text-right text-(--hc-text-primary)">{`All ${websites.offered} websites`}</span>
+                                ) : (
+                                    websites.chosen.map((w) => (
+                                        <span key={w.url} className="hc-t-label-field max-w-full text-right break-words text-(--hc-text-primary)">
+                                            {w.name}
+                                        </span>
+                                    ))
+                                )}
+                            </dd>
+                        </div>
+                    )}
                     {submittedByName && (
                         <div className="flex items-center justify-between gap-4">
                             <dt className="hc-t-body-helper shrink-0 text-(--hc-text-tertiary)">Submitted by</dt>

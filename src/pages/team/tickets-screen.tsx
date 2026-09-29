@@ -345,6 +345,7 @@ export const TeamReportScreen = () => {
                         urls={done.urls}
                         completionEmail={done.notifyEmail}
                         submittedByName={done.submittedByName}
+                        websites={done.websites}
                         team
                         slug={done.slug}
                         primary={{
@@ -377,6 +378,7 @@ export const TeamReportScreen = () => {
                                 title: sent.title,
                                 clientName: clients.find((c) => c.slug === slug)?.name ?? shortSlug(slug),
                                 priority: sent.priority,
+                                websites: sent.websites ?? null,
                                 urls: sent.urls ?? [],
                                 notifyEmail: sent.notifyEmail ?? null,
                                 files: sent.files ?? [],

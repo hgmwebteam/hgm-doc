@@ -71,7 +71,7 @@ import {
     underwayTickets,
     type Priority,
 } from "@/pages/client/help/help-model";
-import { submitterNamePrefill } from "@/pages/client/help/request-rules";
+import { type Website, submitterNamePrefill } from "@/pages/client/help/request-rules";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
 import { ErrorNote, HelpRequestsScreen, HelpSpinner } from "@/pages/client/help/help-requests-screen";
@@ -544,6 +544,7 @@ const Composer = ({
     topics,
     proof,
     clientName,
+    websites,
     submitterName,
     isStaff,
     focusFirstField,
@@ -555,6 +556,8 @@ const Composer = ({
     focusFirstField?: boolean;
     proof: CallerProof;
     clientName: string;
+    /** The websites this dashboard offers (viewer.websites): the form's checkboxes when there are 2 or more. */
+    websites: Website[];
     /** What the Submitted by field starts with: the name known for this person, else empty. */
     submitterName: string;
     /** Staff raise through the same form; the difference is on the server and in the lede. */
@@ -580,6 +583,7 @@ const Composer = ({
             topics={topics}
             fixedTopic={topic ?? undefined}
             clientName={clientName}
+            websites={websites}
             submitterName={submitterName}
             email={isStaff ? `${proof.email} (HiddenGem Media)` : proof.email}
             viewerIsStaff={isStaff}
@@ -588,7 +592,16 @@ const Composer = ({
                 return { reference: res.ticket.reference, stored: sentExtrasFrom(res) };
             }}
             onCreated={(reference, _slug, sent) =>
-                onCreated({ reference, title: sent.title, priority: sent.priority, urls: sent.urls ?? [], notifyEmail: sent.notifyEmail ?? null, files: sent.files ?? [], submittedByName: sent.submittedByName ?? "" })
+                onCreated({
+                    reference,
+                    title: sent.title,
+                    priority: sent.priority,
+                    websites: sent.websites ?? null,
+                    urls: sent.urls ?? [],
+                    notifyEmail: sent.notifyEmail ?? null,
+                    files: sent.files ?? [],
+                    submittedByName: sent.submittedByName ?? "",
+                })
             }
         />
     </div>
@@ -620,6 +633,7 @@ const CreatedNote = ({ sent, clientName, slug, onRaiseAnother }: { sent: Created
                 urls={sent.urls}
                 completionEmail={sent.notifyEmail}
                 submittedByName={sent.submittedByName}
+                websites={sent.websites}
                 team={false}
                 primary={{ label: "Raise another request", onClick: onRaiseAnother }}
                 // The request's own page is where its status and the team's updates appear, so
@@ -857,6 +871,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                     focusFirstField={raiseAgain}
                     proof={proof}
                     clientName={viewer?.clientName || clientName}
+                    websites={viewer?.websites ?? []}
                     submitterName={submitterNamePrefill([viewer?.name, authUser?.name], proof.email)}
                     isStaff={isStaff}
                     onCancel={() => closeComposer()}

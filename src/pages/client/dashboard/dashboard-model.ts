@@ -368,6 +368,33 @@ export const createDefaultContent = (base: string): DashboardContent => ({
     client_visible: [...DEFAULT_CLIENT_VISIBLE],
 });
 
+/**
+ * The row the team's Clients page creates for a new client ("Create dashboard" in
+ * ClientModal): the template's content under the client's own base, and the first person on
+ * the access list when an email is given. One function so the modal and the scripts that
+ * print a dashboard's SQL (the Enjoy Unique Stays pilot, 29 Sep 2026) cannot drift apart.
+ *
+ * `sections: null` puts that person on the dashboard-wide default, which an AM narrows per
+ * person later in the dashboard's access panel. `allowed_emails` is the derived mirror the
+ * Netlify suggestion function reads, written here too so a brand-new row never has the two
+ * out of step. `share_password` stays the fallback for anyone added later without a password
+ * of their own. No `websites`: a list of brand websites is set on purpose, never by a template.
+ */
+export const newDashboardRow = ({ name, email, password }: { name: string; email: string; password: string }) => {
+    const who = email.trim();
+    return {
+        slug: `${slugify(name)}-dashboard`,
+        client_name: name.trim(),
+        client_website: "",
+        data: {
+            ...createDefaultContent(slugify(name)),
+            dashboard_users: who ? [{ email: who, password: password.trim(), sections: null }] : [],
+            allowed_emails: who ? [who] : [],
+            share_password: password.trim(),
+        },
+    };
+};
+
 /** Merge a partial jsonb blob from the DB over the defaults so old rows never crash new sections. */
 export const mergeContent = (partial?: Partial<DashboardContent> | null): DashboardContent => ({
     ...TEMPLATE_CONTENT,

@@ -383,6 +383,16 @@ export interface DashboardContent {
      * may live here.
      */
     website_setup?: WebsiteSetup;
+    /**
+     * The brand websites of a client that runs several (Enjoy Unique Stays, 29 Sep 2026), in
+     * the order the help centre's request forms offer them as checkboxes: which of them a
+     * request is for. Set by hand SQL for the pilot; the dashboard has no editor for it and
+     * never writes it, and mergeContent carries it through a Save untouched. Read by one rule
+     * everywhere (request-rules.ts websitesOnRow): a list of fewer than 2 offers no choice,
+     * and a malformed one offers none. Public site names, public URLs and platform tenant
+     * slugs only, so nothing in it is secret on this anon-readable row.
+     */
+    websites?: { name: string; url: string; tenant_slug: string }[];
 }
 
 /**

@@ -6,20 +6,21 @@
  * feature, so this is a plain assert script with no framework. Nothing imports it, so it
  * costs nothing at runtime; `tsc -b` still type-checks it because it lives under src/.
  *
- * Run it (no test runner and no new dependency — tsc is already here):
- *   npx tsc src/pages/client/dashboard/dashboard-model.check.ts \
- *     src/pages/client/dashboard/dashboard-model.ts \
- *     --outDir /tmp/hgm-check --module commonjs --moduleResolution node \
- *     --target es2022 --skipLibCheck --esModuleInterop --types node \
- *   ; node /tmp/hgm-check/dashboard-model.check.js
+ * Run it (no test runner and no new dependency: npx fetches tsx, and the app's tsconfig
+ * resolves the `@/` imports, the runtime one to website-setup included):
+ *   npx --yes tsx --tsconfig tsconfig.app.json src/pages/client/dashboard/dashboard-model.check.ts
  *
- * The compile prints one TS2307 for the aliased `@/lib/supabase` type import, which tsc
- * can't resolve without the project's paths config. It is type-only and erased, so the
- * emitted JavaScript is complete and runs — ignore that one line.
+ * The tsc-to-commonjs command this header used to give stopped running when
+ * dashboard-model.ts gained a runtime `@/` import (website-setup), which a plain `node`
+ * cannot resolve.
+ *
+ * It also pins newDashboardRow, the row the team's Clients page creates for a new client,
+ * and that a dashboard Save carries data.websites through mergeContent untouched (Enjoy
+ * Unique Stays, 29 Sep 2026).
  */
 import assert from "node:assert/strict";
 
-import { DEFAULT_FOUNDATION, type Foundation, mergeFoundationDraft } from "./dashboard-model";
+import { DEFAULT_CLIENT_VISIBLE, DEFAULT_FOUNDATION, type Foundation, createDefaultContent, mergeContent, mergeFoundationDraft, newDashboardRow } from "./dashboard-model";
 
 const base = (over: Partial<Foundation> = {}): Foundation => ({ ...DEFAULT_FOUNDATION, ...over });
 
@@ -138,3 +139,44 @@ const base = (over: Partial<Foundation> = {}): Foundation => ({ ...DEFAULT_FOUND
 }
 
 console.log("mergeFoundationDraft: all checks passed");
+
+/* newDashboardRow: the Clients page's "Create dashboard", as one function. */
+{
+    const row = newDashboardRow({ name: "Enjoy Unique Stays", email: "", password: " ABC-DEF-HGMS " });
+    assert.equal(row.slug, "enjoy-unique-stays-dashboard");
+    assert.equal(row.client_name, "Enjoy Unique Stays");
+    assert.equal(row.client_website, "");
+    assert.ok(!("websites" in row.data), "a template row never carries a website list: it is set on purpose");
+    assert.deepEqual(row.data.client_visible, DEFAULT_CLIENT_VISIBLE);
+    assert.equal(row.data.status, "Onboarding");
+    assert.deepEqual(row.data.revenue, { currency: "USD", months: [] }, "no sample figures on a new client, the umbrella's least of all");
+    assert.deepEqual(row.data.dashboard_users, [], "no email: nobody on the list");
+    assert.deepEqual(row.data.allowed_emails, []);
+    assert.equal(row.data.share_password, "ABC-DEF-HGMS");
+    const { dashboard_users: _u, allowed_emails: _a, share_password: _p, ...template } = row.data;
+    void _u;
+    void _a;
+    void _p;
+    // Every call mints fresh ids for the scaffolding rows, so ids are left out of the comparison.
+    const withoutIds = (v: unknown) => JSON.parse(JSON.stringify(v, (k, x) => (k === "id" ? undefined : x)));
+    assert.deepEqual(withoutIds(template), withoutIds(createDefaultContent("enjoy-unique-stays")), "otherwise exactly the template under the client's base");
+}
+{
+    const row = newDashboardRow({ name: "  FLOHOM ", email: " fred@example.com ", password: "ABC-DEF-HGMS" });
+    assert.equal(row.slug, "flohom-dashboard");
+    assert.equal(row.client_name, "FLOHOM");
+    assert.deepEqual(row.data.dashboard_users, [{ email: "fred@example.com", password: "ABC-DEF-HGMS", sections: null }], "one email: one person, on the dashboard default");
+    assert.deepEqual(row.data.allowed_emails, ["fred@example.com"], "and the mirror in step");
+}
+
+/* A dashboard Save keeps data.websites: mergeContent spreads the row. */
+{
+    const websites = [
+        { name: "Paradise Pointe", url: "https://stayparadisepointe.com/", tenant_slug: "paradise-pointe" },
+        { name: "Stay Saluda", url: "https://staysaluda.com/", tenant_slug: "stay-saluda" },
+    ];
+    assert.deepEqual(mergeContent({ websites }).websites, websites);
+    assert.equal(mergeContent({}).websites, undefined, "absent stays absent");
+}
+
+console.log("newDashboardRow and websites: all checks passed");

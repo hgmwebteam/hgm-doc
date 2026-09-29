@@ -55,7 +55,7 @@ import {
 } from "@/lib/supabase";
 // Aliased rather than reusing the slugify above: this must match the slug the dashboard's
 // own "+ New Page" wizard produces, so it uses the same function that wizard does.
-import { createDefaultContent, slugify as dashboardSlugify, genSharePassword } from "@/pages/client/dashboard/dashboard-model";
+import { slugify as dashboardSlugify, genSharePassword, newDashboardRow } from "@/pages/client/dashboard/dashboard-model";
 import { LandingPageDirectoryContent } from "@/pages/team/landing-page-directory/landing-page-directory";
 import { SOP_DEPARTMENTS, sopDeptTabId } from "@/pages/team/sops/sop-departments";
 import { SopsContent } from "@/pages/team/sops/sops-content";
@@ -2551,23 +2551,9 @@ const ClientModal = ({
         }
         setPageBusy(true);
         setPageError("");
-        const { error: insErr } = await supabase.from("dashboard_pages").insert({
-            slug: `${base}-dashboard`,
-            client_name: name.trim(),
-            client_website: "",
-            data: {
-                ...createDefaultContent(base),
-                // The first person on the dashboard, with the password generated above as
-                // their own. `sections: null` puts them on the dashboard-wide default, which
-                // is what an AM narrows per person later in the dashboard's access panel.
-                // allowed_emails is the derived mirror the Netlify suggestion function reads
-                // — written here too so a brand-new row never has the two out of step.
-                dashboard_users: pageEmail.trim() ? [{ email: pageEmail.trim(), password: pagePassword.trim(), sections: null }] : [],
-                allowed_emails: pageEmail.trim() ? [pageEmail.trim()] : [],
-                // Kept as the fallback for anyone added later without a password of their own.
-                share_password: pagePassword.trim(),
-            },
-        });
+        // The template row with the first person (and the password generated above as their
+        // own) on its access list: dashboard-model.ts newDashboardRow says what goes in it.
+        const { error: insErr } = await supabase.from("dashboard_pages").insert(newDashboardRow({ name, email: pageEmail, password: pagePassword }));
         setPageBusy(false);
         if (insErr) {
             // 23505 = unique violation (slug taken); 42501 = RLS denied — dashboard_pages

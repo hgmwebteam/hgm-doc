@@ -23,11 +23,17 @@ import {
     MAX_NAME_CHARS,
     MAX_URLS,
     MAX_URL_CHARS,
+    MAX_WEBSITES,
+    MAX_WEBSITE_NAME,
     MIN_NAME_CHARS,
     NAME_MISSING,
     NAME_TOO_LONG,
     NAME_TOO_SHORT,
+    RELOAD_FOR_FORM,
     TOO_MANY_URLS,
+    WEBSITES_CHANGED,
+    WEBSITES_NONE,
+    chooseWebsites,
     cleanNotifyEmail,
     cleanSubmitterName,
     cleanUrl,
@@ -39,11 +45,14 @@ import {
     fileTypeError,
     fileTypeFor,
     isEmailShape,
+    offersChoice,
     storedFileName,
+    storedWebsitesOf,
     stripInvisible,
     submitterNamePrefill,
     uploadTypeFor,
     urlError,
+    websitesOnRow,
 } from "./request-rules.ts";
 
 const type = (name: string, mime: string) => fileTypeFor(name, mime)?.ext ?? null;
@@ -201,9 +210,112 @@ assert.equal(completionEmailOpen("staff", true), true);
 assert.equal(completionEmailOpen("on", false), true);
 assert.equal(completionEmailOpen("off", true), false);
 
-/* 11. House style: no en or em dash in the rules or their sentences. */
+/* 11. Websites (Enjoy Unique Stays, 29 Sep 2026): the row's list, the choice, the stored value. */
+assert.equal(MAX_WEBSITES, 12);
+assert.equal(MAX_WEBSITE_NAME, 60);
+assert.equal(WEBSITES_NONE, "Tick at least one website.");
+assert.equal(WEBSITES_CHANGED, "The list of websites changed while this page was open. Copy your description, reload the page, and choose again.");
+assert.equal(RELOAD_FOR_FORM, "This page was updated while it was open. Copy your description, reload the page, and send it again.", "ticket-create's words, moved here unchanged");
+
+// The owner's six, as the hand SQL writes them, and as a person might type them (no slash).
+const EUS = [
+    { name: "Paradise Pointe", url: "https://stayparadisepointe.com/", tenant_slug: "paradise-pointe" },
+    { name: "Ridge & Falls", url: "https://ridgeandfalls.com/", tenant_slug: "ridge-falls" },
+    { name: "Treetop Escapes", url: "https://staytreetopescapes.com/", tenant_slug: "treetop-escapes" },
+    { name: "Little River Landing", url: "https://staylittleriver.com/", tenant_slug: "little-river-landing" },
+    { name: "Stay Saluda", url: "https://staysaluda.com/", tenant_slug: "stay-saluda" },
+    { name: "Inspired Retreats", url: "https://stayinspiredretreats.com/", tenant_slug: "inspired-retreats" },
+];
+const bare = EUS.map((w) => ({ ...w, url: w.url.replace(/\/$/, "") }));
+assert.deepEqual(websitesOnRow(EUS), { ok: true, websites: EUS }, "the six real entries pass as written");
+assert.deepEqual(websitesOnRow(bare), { ok: true, websites: EUS }, "and come back as hrefs, so the row equals what a request stores");
+assert.deepEqual(websitesOnRow(undefined), { ok: true, websites: [] }, "absent: no list");
+assert.deepEqual(websitesOnRow(null), { ok: true, websites: [] }, "null: no list");
+assert.deepEqual(websitesOnRow([]), { ok: true, websites: [] });
+assert.deepEqual(websitesOnRow("Paradise Pointe"), { ok: false, problem: "data.websites is not a list" });
+assert.deepEqual(websitesOnRow({ 0: EUS[0] }), { ok: false, problem: "data.websites is not a list" });
+const thirteen = Array.from({ length: 13 }, (_, i) => ({ name: `Site ${i}`, url: `https://site${i}.com/`, tenant_slug: `site-${i}` }));
+assert.deepEqual(websitesOnRow(thirteen), { ok: false, problem: "data.websites has 13 entries, more than 12" }, "13 entries are refused");
+assert.equal(websitesOnRow(thirteen.slice(0, 12)).ok, true, "12 are fine");
+const withEntry = (i: number, entry: unknown) => EUS.map((w, j) => (j === i ? entry : w));
+const problemOf = (raw: unknown) => {
+    const r = websitesOnRow(raw);
+    return r.ok ? null : r.problem;
+};
+assert.equal(problemOf(withEntry(2, "Treetop Escapes")), "entry 3 is not an object", "an entry that is not an object, named by its position");
+assert.equal(problemOf(withEntry(2, null)), "entry 3 is not an object");
+assert.equal(problemOf(withEntry(2, [EUS[2]])), "entry 3 is not an object");
+assert.equal(problemOf(withEntry(0, { ...EUS[0], name: 42 })), "entry 1 has no name");
+assert.equal(problemOf(withEntry(0, { ...EUS[0], name: " \u200B\t" })), "entry 1 has no name", "empty after cleaning");
+assert.equal(problemOf(withEntry(0, { ...EUS[0], name: "x".repeat(61) })), `the name of entry 1 (${"x".repeat(60)}) is longer than 60 characters`);
+assert.equal(websitesOnRow(withEntry(0, { ...EUS[0], name: "😀".repeat(60) })).ok, true, "60 characters counted by character");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], name: "Ridge | Falls" })), "the name of entry 2 (Ridge | Falls) contains <, > or |", "a name with | is refused: it forms a link in Chat");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], name: "<b>Ridge</b>" })), "the name of entry 2 (<b>Ridge</b>) contains <, > or |");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], url: "http://ridgeandfalls.com/" })), "the url of entry 2 (Ridge & Falls) is not an https web address", "http: is refused");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], url: "javascript:alert(1)" })), "the url of entry 2 (Ridge & Falls) is not an https web address");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], url: 42 })), "the url of entry 2 (Ridge & Falls) is not an https web address");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], url: "https://ridgeandfalls.com/a|b" })), "the url of entry 2 (Ridge & Falls) is not an https web address", "a | survives URL.href and the platform refuses it, so the portal does too");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], tenant_slug: "Ridge-Falls" })), "the tenant_slug of entry 2 (Ridge & Falls) is not a platform tenant slug");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], tenant_slug: "ridge--falls" })), "the tenant_slug of entry 2 (Ridge & Falls) is not a platform tenant slug");
+assert.equal(problemOf(withEntry(1, { ...EUS[1], tenant_slug: "a".repeat(81) })), "the tenant_slug of entry 2 (Ridge & Falls) is not a platform tenant slug");
+assert.equal(problemOf(withEntry(1, { name: EUS[1].name, url: EUS[1].url })), "the tenant_slug of entry 2 (Ridge & Falls) is not a platform tenant slug", "a missing slug");
+assert.equal(problemOf([...EUS.slice(0, 5), { ...EUS[5], name: "PARADISE POINTE" }]), "two entries are named PARADISE POINTE", "a duplicate name in another case is refused");
+assert.equal(problemOf([...EUS.slice(0, 5), { ...EUS[5], url: "stayparadisepointe.com" }]), "two entries have the url https://stayparadisepointe.com/", "one href twice, however it was written");
+assert.deepEqual(websitesOnRow([{ name: "  Paradise\u200B   Pointe ", url: " stayparadisepointe.com ", tenant_slug: "paradise-pointe" }]), { ok: true, websites: [EUS[0]] }, "cleaned: invisible characters out, spaces folded");
+assert.equal(offersChoice(EUS), true);
+assert.equal(offersChoice(EUS.slice(0, 2)), true, "two is a choice");
+assert.equal(offersChoice(EUS.slice(0, 1)), false, "one website (FLOHOM) is not");
+assert.equal(offersChoice([]), false);
+
+// The choice: the server's rule.
+const names = EUS.map((w) => w.name);
+assert.deepEqual(chooseWebsites([], undefined), { ok: true, stored: null, ignored: false }, "no list, no field: nothing to do");
+assert.deepEqual(chooseWebsites([], names), { ok: true, stored: null, ignored: true }, "no list, a field anyway: ignored and counted");
+assert.deepEqual(chooseWebsites(EUS.slice(0, 1), ["Paradise Pointe"]), { ok: true, stored: null, ignored: true }, "one website offers no choice");
+assert.deepEqual(chooseWebsites(EUS.slice(0, 1), []), { ok: true, stored: null, ignored: false }, "an empty list is not a value");
+assert.deepEqual(chooseWebsites([], null), { ok: true, stored: null, ignored: false });
+assert.deepEqual(chooseWebsites([], ""), { ok: true, stored: null, ignored: false });
+assert.deepEqual(chooseWebsites([], "Paradise Pointe"), { ok: true, stored: null, ignored: true }, "not validated when there is no choice");
+assert.deepEqual(chooseWebsites(EUS, undefined), { ok: false, kind: "missing", error: RELOAD_FOR_FORM }, "a tab from before the list existed");
+const changedAnswer = { ok: false, kind: "changed", error: WEBSITES_CHANGED };
+assert.deepEqual(chooseWebsites(EUS, null), changedAnswer, "not a list");
+assert.deepEqual(chooseWebsites(EUS, "Paradise Pointe"), changedAnswer, "a string is not a list");
+assert.deepEqual(chooseWebsites(EUS, [42]), changedAnswer, "an entry that is not a string");
+assert.deepEqual(chooseWebsites(EUS, [{ name: "Paradise Pointe", url: "https://evil.example/" }]), changedAnswer, "objects: a url from the browser never reaches the task");
+assert.deepEqual(chooseWebsites(EUS, Array.from({ length: 13 }, () => "Paradise Pointe")), changedAnswer, "more than twice the offer");
+assert.equal(chooseWebsites(EUS, Array.from({ length: 12 }, () => "Paradise Pointe")).ok, true, "twice the offer is still read");
+assert.deepEqual(chooseWebsites(EUS, ["Paradise Pointe", "Enjoy Unique Stays"]), changedAnswer, "a name that is not on the row");
+assert.deepEqual(chooseWebsites(EUS, ["paradise pointe"]), changedAnswer, "names are the row's own, exactly");
+assert.deepEqual(chooseWebsites(EUS, [""]), changedAnswer, "an empty name is not on the row");
+assert.deepEqual(chooseWebsites(EUS, []), { ok: false, kind: "none", error: WEBSITES_NONE }, "nothing ticked");
+assert.deepEqual(chooseWebsites(EUS, names), { ok: true, stored: { offered: 6, chosen: EUS }, ignored: false }, "all six");
+assert.deepEqual(chooseWebsites(EUS, ["Stay Saluda", "Paradise Pointe"]), { ok: true, stored: { offered: 6, chosen: [EUS[0], EUS[4]] }, ignored: false }, "row order wins over click order");
+assert.deepEqual(chooseWebsites(EUS, ["Stay Saluda", " Stay\u200B  Saluda ", "Stay Saluda"]), { ok: true, stored: { offered: 6, chosen: [EUS[4]] }, ignored: false }, "cleaned, then de-duplicated");
+const tampered = chooseWebsites(EUS, ["Ridge & Falls"]);
+assert.ok(tampered.ok && tampered.stored?.chosen[0] === EUS[1], "the stored entry is the row's own entry, never built from what was sent");
+
+// The stored value, as a screen reads it.
+assert.deepEqual(storedWebsitesOf({ offered: 6, chosen: EUS }), { offered: 6, chosen: EUS });
+assert.deepEqual(storedWebsitesOf({ offered: 6, chosen: [EUS[0], EUS[4]] }), { offered: 6, chosen: [EUS[0], EUS[4]] });
+assert.equal(storedWebsitesOf(null), null, "no choice was offered");
+assert.equal(storedWebsitesOf(undefined), null, "the column is not there yet");
+assert.equal(storedWebsitesOf(EUS), null, "a bare list is not the stored shape");
+assert.equal(storedWebsitesOf({ offered: 1, chosen: [EUS[0]] }), null, "offered 1 is no choice");
+assert.equal(storedWebsitesOf({ offered: 13, chosen: [EUS[0]] }), null);
+assert.equal(storedWebsitesOf({ offered: 6.5, chosen: [EUS[0]] }), null);
+assert.equal(storedWebsitesOf({ offered: "6", chosen: [EUS[0]] }), null);
+assert.equal(storedWebsitesOf({ offered: 6, chosen: [] }), null, "chosen is never empty");
+assert.equal(storedWebsitesOf({ offered: 2, chosen: EUS.slice(0, 3) }), null, "chosen never exceeds offered");
+assert.equal(storedWebsitesOf({ offered: 6, chosen: [{ ...EUS[0], url: "http://stayparadisepointe.com/" }] }), null);
+assert.equal(storedWebsitesOf({ offered: 6, chosen: [{ ...EUS[0], name: "A|B" }] }), null);
+assert.equal(storedWebsitesOf({ offered: 6, chosen: [EUS[0], { ...EUS[1], name: "paradise pointe" }] }), null, "no duplicate names");
+assert.equal(storedWebsitesOf({ offered: 6, chosen: [EUS[0], { ...EUS[0], name: "Other" }] }), null, "no duplicate hrefs");
+assert.equal(storedWebsitesOf({ offered: 6, chosen: [{ ...EUS[0], tenant_slug: "Bad Slug" }] }), null);
+
+/* 12. House style: no en or em dash in the rules or their sentences. */
 const dashes = new RegExp(`[${String.fromCharCode(0x2013)}${String.fromCharCode(0x2014)}]`);
 assert.ok(!dashes.test(readFileSync(new URL("./request-rules.ts", import.meta.url), "utf8")), "no en or em dash in request-rules.ts");
+for (const sentence of [WEBSITES_NONE, WEBSITES_CHANGED, RELOAD_FOR_FORM]) assert.ok(!dashes.test(sentence), `no en or em dash in "${sentence}"`);
 assert.ok(!/[\p{Cc}\p{Cf}]/u.test(readFileSync(new URL("./request-rules.ts", import.meta.url), "utf8").replace(/[\n\t]/g, "")), "no invisible character written as itself in request-rules.ts (stripInvisible spells them as escapes)");
 
 console.log("request-rules: all checks passed");

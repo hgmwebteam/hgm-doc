@@ -2,9 +2,9 @@
  * THE REQUEST RULES, one copy for the browser and the portal functions.
  *
  * What a request may carry besides its words: the name of the person submitting it, the pages
- * it is about, the one address that gets the completion email, and the files attached to it. The
- * form checks these before it
- * sends anything (so a person is told at once, beside the field), and the functions check
+ * it is about, the one address that gets the completion email, the files attached to it, and,
+ * for a client with several brand websites, which of them it is for. The form checks these
+ * before it sends anything (so a person is told at once, beside the field), and the functions check
  * them again (the browser's copy is advice; the server's is the rule). Both import THIS
  * file, so the two can never disagree about which file or address was the one over the line.
  *
@@ -15,6 +15,10 @@
  * and reads no environment. The switch that turns the completion email on is PARSED here
  * and READ elsewhere: completion-email-mode.ts in the browser, ticket-columns.mts in the
  * functions.
+ *
+ * The dashboard row's website list is parsed here as well (websitesOnRow), so the gate that
+ * lets a caller in, the form that draws the checkboxes and ticket-create that stores the choice
+ * all read the row by one rule.
  *
  * ── FILES ───────────────────────────────────────────────────────────────────
  * A picked file is recognised by its NAME first (fileTypeFor), because the declared type
@@ -310,4 +314,150 @@ export function completionEmailMode(raw: string | null | undefined): CompletionE
 /** Whether the completion email field is shown to, required of, and stored for this person: "on" for everyone, "staff" for staff only, "off" for nobody. */
 export function completionEmailOpen(mode: CompletionEmailMode, isStaff: boolean): boolean {
     return mode === "on" || (mode === "staff" && isStaff);
+}
+
+/* ── A tab from before the form changed ──────────────────────────────────── */
+
+/**
+ * The answer to a body that lacks a field the form now always sends (the Submitted by name, the
+ * completion email while it is shown, the websites while the dashboard offers them): a tab
+ * opened before the change. Told to reload rather than refused as though the person had left
+ * the field empty. One copy, so ticket-create and the websites rule say the same words.
+ */
+export const RELOAD_FOR_FORM = "This page was updated while it was open. Copy your description, reload the page, and send it again.";
+
+/* ── Websites (Enjoy Unique Stays, 29 Sep 2026) ──────────────────────────── */
+
+/**
+ * A client with several brand websites raises one request and says which of them it is for
+ * (the web ticket meeting, 28 Sep 2026: "most of the time every website, sometimes one or
+ * two"). The list lives on the dashboard row as `data.websites`, ordered, set by hand for the
+ * pilot: [{ name, url, tenant_slug }]. The order is the order the form, the task and the email
+ * use. Each url is kept as its URL.href, so the row equals what a request stores.
+ *
+ * The browser sends NAMES and nothing else. ticket-create copies the chosen entries FROM THE
+ * ROW (chooseWebsites), so a url a browser sends can never reach the task, and stores them in
+ * tickets.websites as { offered, chosen }: `offered` is how many the row offered when the
+ * request was raised, so "all" is chosen = offered, the list the person saw.
+ *
+ * The rule for a row is ALL OR NOTHING: one bad entry and the dashboard offers no choice at
+ * all, with the reason, rather than silently dropping a brand out of "all". The platform holds
+ * a copy of the entry rule (src/lib/tickets/ticket-websites.ts), held to MAX_WEBSITES and
+ * MAX_WEBSITE_NAME here by its proof.
+ */
+export type Website = { name: string; url: string; tenant_slug: string };
+export type StoredWebsites = { offered: number; chosen: Website[] };
+
+export const MAX_WEBSITES = 12;
+export const MAX_WEBSITE_NAME = 60;
+const MAX_TENANT_SLUG = 80;
+
+export const WEBSITES_NONE = "Tick at least one website.";
+export const WEBSITES_CHANGED = "The list of websites changed while this page was open. Copy your description, reload the page, and choose again.";
+
+/** A platform tenant slug: lowercase words joined by single hyphens. */
+const TENANT_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** The https form of the platform's page rule (pagesOf): the href must also pass it, so a list the
+ *  portal accepts is never one routing has to refuse. `|` survives URL.href and breaks a Chat link. */
+const PLATFORM_URL = /^https:\/\/[^\s<>|]+$/;
+/** Refused in a name because a name reaches Chat messages, where these form links. */
+const NAME_REFUSED = /[<>|]/;
+
+/** A name as the rule reads it: whitespace of every kind folded to one space, stripInvisible, trimmed. */
+const cleanWebsiteName = (raw: string): string => stripInvisible(raw.replace(/\s+/g, " ")).replace(/\s+/g, " ").trim();
+
+/** How a problem names an entry: its position, and its name when it has a readable one. */
+const entryLabel = (at: number, name: string): string => (name ? `entry ${at + 1} (${Array.from(name).slice(0, MAX_WEBSITE_NAME).join("")})` : `entry ${at + 1}`);
+
+/** One entry, cleaned, or the problem with it. `at` is its position, for the sentence. */
+function websiteEntry(raw: unknown, at: number): { ok: true; website: Website } | { ok: false; problem: string } {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, problem: `entry ${at + 1} is not an object` };
+    const { name, url, tenant_slug } = raw as { name?: unknown; url?: unknown; tenant_slug?: unknown };
+    if (typeof name !== "string") return { ok: false, problem: `entry ${at + 1} has no name` };
+    const clean = cleanWebsiteName(name);
+    if (!clean) return { ok: false, problem: `entry ${at + 1} has no name` };
+    const label = entryLabel(at, clean);
+    if (Array.from(clean).length > MAX_WEBSITE_NAME) return { ok: false, problem: `the name of ${label} is longer than ${MAX_WEBSITE_NAME} characters` };
+    if (NAME_REFUSED.test(clean)) return { ok: false, problem: `the name of ${label} contains <, > or |` };
+    const checked = typeof url === "string" ? cleanUrl(url) : null;
+    if (!checked || !checked.ok || !checked.url.startsWith("https:") || !PLATFORM_URL.test(checked.url)) return { ok: false, problem: `the url of ${label} is not an https web address` };
+    if (typeof tenant_slug !== "string" || tenant_slug.length > MAX_TENANT_SLUG || !TENANT_SLUG.test(tenant_slug)) return { ok: false, problem: `the tenant_slug of ${label} is not a platform tenant slug` };
+    return { ok: true, website: { name: clean, url: checked.url, tenant_slug } };
+}
+
+/** Every entry, cleaned, with no two named alike (case-insensitive) and no two at one href. */
+function websiteList(entries: readonly unknown[]): { ok: true; websites: Website[] } | { ok: false; problem: string } {
+    const websites: Website[] = [];
+    for (let at = 0; at < entries.length; at++) {
+        const one = websiteEntry(entries[at], at);
+        if (!one.ok) return one;
+        const { name, url } = one.website;
+        if (websites.some((w) => w.name.toLowerCase() === name.toLowerCase())) return { ok: false, problem: `two entries are named ${name}` };
+        if (websites.some((w) => w.url === url)) return { ok: false, problem: `two entries have the url ${url}` };
+        websites.push(one.website);
+    }
+    return { ok: true, websites };
+}
+
+/**
+ * The website list a dashboard row offers, from `data.websites`. Absent or null: none (every
+ * dashboard but a multi-site client's). Not a list, more than MAX_WEBSITES, or ANY entry that
+ * fails the rule: `{ ok: false, problem }`, and the form offers no choice. Otherwise the
+ * entries cleaned, in the row's order.
+ */
+export function websitesOnRow(raw: unknown): { ok: true; websites: Website[] } | { ok: false; problem: string } {
+    if (raw === undefined || raw === null) return { ok: true, websites: [] };
+    if (!Array.isArray(raw)) return { ok: false, problem: "data.websites is not a list" };
+    if (raw.length > MAX_WEBSITES) return { ok: false, problem: `data.websites has ${raw.length} entries, more than ${MAX_WEBSITES}` };
+    return websiteList(raw);
+}
+
+/** Whether a list is a choice at all: one website (FLOHOM) or none is not. */
+export const offersChoice = (websites: readonly Website[]): boolean => websites.length >= 2;
+
+const isNonEmptyValue = (v: unknown): boolean => v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && v.length === 0);
+
+/**
+ * The server's rule for the body's `websites` (the form applies the same before sending).
+ *  - The row offers fewer than 2: nothing is validated or stored; `ignored` says the body
+ *    carried a list anyway (an old tab, a hand-made call), for a count in the log.
+ *  - The row offers 2 or more: the field is required. Absent is a tab from before it existed
+ *    (RELOAD_FOR_FORM). Not a list of strings, more than twice the offer, or a name that is
+ *    not on the row is WEBSITES_CHANGED (a browser that sends objects lands here too, so a url
+ *    from the browser never reaches the task). Nothing left after de-duplication is
+ *    WEBSITES_NONE. Otherwise the ROW's entries for the names picked, in ROW order.
+ */
+export function chooseWebsites(
+    offered: readonly Website[],
+    picked: unknown,
+): { ok: true; stored: StoredWebsites | null; ignored: boolean } | { ok: false; kind: "missing" | "none" | "changed"; error: string } {
+    if (!offersChoice(offered)) return { ok: true, stored: null, ignored: isNonEmptyValue(picked) };
+    if (picked === undefined) return { ok: false, kind: "missing", error: RELOAD_FOR_FORM };
+    const changed = { ok: false as const, kind: "changed" as const, error: WEBSITES_CHANGED };
+    if (!Array.isArray(picked) || picked.length > offered.length * 2) return changed;
+    const names = new Set<string>();
+    for (const entry of picked) {
+        if (typeof entry !== "string") return changed;
+        const name = cleanWebsiteName(entry);
+        if (!offered.some((w) => w.name === name)) return changed;
+        names.add(name);
+    }
+    if (names.size === 0) return { ok: false, kind: "none", error: WEBSITES_NONE };
+    return { ok: true, stored: { offered: offered.length, chosen: offered.filter((w) => names.has(w.name)) }, ignored: false };
+}
+
+/**
+ * A stored tickets.websites value, as a screen may draw it, or null. Null (or absent) is a
+ * request whose dashboard offered no choice; anything that is not the shape ticket-create
+ * writes is null too, so a screen draws nothing rather than something wrong: an object;
+ * `offered` an integer 2 to MAX_WEBSITES; `chosen` 1 to `offered` entries, each passing the
+ * row's entry rule, no two alike.
+ */
+export function storedWebsitesOf(raw: unknown): StoredWebsites | null {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const { offered, chosen } = raw as { offered?: unknown; chosen?: unknown };
+    if (typeof offered !== "number" || !Number.isInteger(offered) || offered < 2 || offered > MAX_WEBSITES) return null;
+    if (!Array.isArray(chosen) || chosen.length < 1 || chosen.length > offered) return null;
+    const list = websiteList(chosen);
+    return list.ok ? { offered, chosen: list.websites } : null;
 }

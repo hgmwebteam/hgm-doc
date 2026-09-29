@@ -740,7 +740,12 @@ export type FieldCheckboxGroupProps = {
     options: ReadonlyArray<{ value: string; label: string; detail?: string }>;
     checked: ReadonlySet<string>;
     onChange: (value: string, checked: boolean) => void;
-    /** The text button at the end of the note row ("Untick all" / "Tick all"); `context` is read after the label ("Untick all websites"). */
+    /**
+     * The text button at the end of the note row ("Untick all" / "Tick all"). `context` is added
+     * to its accessible name only ("Untick all websites"), by aria-label, so the name still
+     * starts with the words on screen (a voice command says what it sees) and the button's
+     * text is exactly `label`, which is what the live proofs read and click.
+     */
     toggle?: { label: string; context?: string; onClick: () => void };
     /** Spoken politely when set: the result of a change the boxes do not announce themselves (the toggle's). */
     announce?: string;
@@ -844,10 +849,10 @@ export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options
                     <button
                         type="button"
                         onClick={toggle.onClick}
+                        aria-label={toggle.context ? `${toggle.label} ${toggle.context}` : undefined}
                         className="hc-t-body-helper hc-hover relative shrink-0 cursor-pointer rounded-(--hc-radius-sm) whitespace-nowrap text-(--hc-text-brand-secondary) after:absolute after:inset-x-0 after:-top-2 after:-bottom-4 after:content-[''] hover:underline"
                     >
                         {toggle.label}
-                        {toggle.context && <span className="sr-only"> {toggle.context}</span>}
                     </button>
                 )}
             </div>

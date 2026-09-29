@@ -1,5 +1,5 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
-import { CLIENT_HIDDEN_EVENTS, CLIENT_TICKET_COLUMNS, clientEvents, clientView, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { CLIENT_COLUMN_LADDER, CLIENT_HIDDEN_EVENTS, clientEvents, clientView, completionEmailModeNow, isMissingColumn, readDownLadder } from "../lib/ticket-columns.mts";
 import { ticketFiles } from "../lib/ticket-files.mts";
 
 /**
@@ -33,8 +33,11 @@ import { ticketFiles } from "../lib/ticket-files.mts";
  * takes the promise off every request page at once. The files are listed by name, type and
  * size, never by where they are kept.
  *
+ * The websites a multi-site client's request is for go out as stored (tickets.websites, raw):
+ * the screen validates them (request-rules.ts storedWebsitesOf) before drawing anything.
+ *
  * POST application/json { slug, reference } + Authorization: Bearer <session token>
- *   -> { viewer, ticket: { ...columns, urls, completion_email_set }, events: [...], files: [{ name, mime, bytes }] }
+ *   -> { viewer, ticket: { ...columns, urls, websites, completion_email_set }, events: [...], files: [{ name, mime, bytes }] }
  *   (a client's ticket without promised_date, assignee_name, assignee_email or completed_by)
  */
 
@@ -65,11 +68,10 @@ export default async (req: Request) => {
 
         const db = reportingDb();
 
-        // The shared list (ticket-columns.mts) plus the pages; the base list alone while the
-        // pages column is not in the database yet.
+        // The shared list (ticket-columns.mts) plus the pages and the websites, stepping down
+        // one hand-applied column at a time while one is not in the database yet.
         const read = (cols: string) => db.from("tickets").select(cols).eq("reference", reference).eq("client_slug", gate.caller.slug).maybeSingle();
-        let { data: ticket, error } = await read(withPages(CLIENT_TICKET_COLUMNS));
-        if (error && isMissingColumn(error)) ({ data: ticket, error } = await read(CLIENT_TICKET_COLUMNS));
+        const { data: ticket, error } = await readDownLadder(CLIENT_COLUMN_LADDER, read);
 
         if (error) {
             console.error("[ticket-detail] read failed", error.message);

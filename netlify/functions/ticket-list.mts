@@ -1,4 +1,5 @@
 import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
+import { readDownLadder, withWebsites } from "../lib/ticket-columns.mts";
 
 /**
  * Every request one client has raised, newest first.
@@ -25,6 +26,10 @@ import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyC
  *  at. So are promised_date and assignee_name: a client is shown no promised date and no
  *  assignee (owner, 28 Sep 2026), so the list never carries them. */
 const LIST_COLUMNS = "id, reference, topic, title, status, created_at, property, needed_by, priority, image_count, submitted_by, completed_at, withdrawn_at";
+
+/** The rows are read with the websites a multi-site client chose (the list row says "All 6
+ *  websites" or names them), and without while that hand-applied column is not there yet. */
+const LIST_LADDER = [withWebsites(LIST_COLUMNS), LIST_COLUMNS] as const;
 
 /** Matches OPEN_STATUSES in src/pages/client/help/help-model.ts. Two copies, because one is
  *  a Postgres filter and the other is a browser predicate; they must be changed together. */
@@ -54,12 +59,14 @@ export default async (req: Request) => {
         await recordAccess(gate, "ticket-list");
 
         const [{ data, error, count }, openResult] = await Promise.all([
-            db
-                .from("tickets")
-                .select(LIST_COLUMNS, { count: "exact" })
-                .eq("client_slug", gate.caller.slug)
-                .order("created_at", { ascending: false })
-                .range(0, MAX_ROWS - 1),
+            readDownLadder(LIST_LADDER, (cols) =>
+                db
+                    .from("tickets")
+                    .select(cols, { count: "exact" })
+                    .eq("client_slug", gate.caller.slug)
+                    .order("created_at", { ascending: false })
+                    .range(0, MAX_ROWS - 1),
+            ),
             db.from("tickets").select("id", { count: "exact", head: true }).eq("client_slug", gate.caller.slug).in("status", OPEN_STATUSES),
         ]);
 
@@ -68,7 +75,8 @@ export default async (req: Request) => {
             return jsonError(500, "Could not load your requests.");
         }
 
-        const tickets = data ?? [];
+        // The list is dynamic (the ladder), so the client cannot type the rows: they are the columns above.
+        const tickets = (data ?? []) as unknown as Array<{ status: string }>;
 
         return Response.json({
             viewer: viewerOf(gate),
@@ -78,7 +86,7 @@ export default async (req: Request) => {
                 // summary stays right past MAX_ROWS. It is null only when the database
                 // declined to count, and then the rows in hand are the honest answer.
                 total: count ?? tickets.length,
-                open: openResult.count ?? tickets.filter((t) => OPEN_STATUSES.includes((t as { status: string }).status)).length,
+                open: openResult.count ?? tickets.filter((t) => OPEN_STATUSES.includes(t.status)).length,
             },
         });
     } catch (err) {

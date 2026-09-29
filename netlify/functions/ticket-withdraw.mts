@@ -1,5 +1,5 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller } from "../lib/reporting.mts";
-import { CLIENT_TICKET_COLUMNS, clientView, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { CLIENT_COLUMN_LADDER, clientView, readDownLadder } from "../lib/ticket-columns.mts";
 
 /**
  * A client withdraws their own request.
@@ -61,15 +61,12 @@ export default async (req: Request) => {
         // Scoped by the verified slug, so a reference belonging to another client is a 404
         // and not a way to find out that it exists.
         // The same row ticket-create and ticket-detail hand back (ticket-columns.mts), plus
-        // the pages; the base list while the pages column is not in the database yet. This
-        // list used to be its own copy and had drifted (no priority, no client_slug).
-        let columns = withPages(CLIENT_TICKET_COLUMNS);
-        const read = () => db.from("tickets").select(columns).eq("reference", reference).eq("client_slug", gate.caller.slug).maybeSingle();
-        let { data: ticket, error } = await read();
-        if (error && isMissingColumn(error) && columns !== CLIENT_TICKET_COLUMNS) {
-            columns = CLIENT_TICKET_COLUMNS;
-            ({ data: ticket, error } = await read());
-        }
+        // the pages and the websites, stepping down one hand-applied column at a time while
+        // one is not in the database yet; the update below selects back the list the read
+        // settled on. This list used to be its own copy and had drifted (no priority, no
+        // client_slug).
+        const read = (cols: string) => db.from("tickets").select(cols).eq("reference", reference).eq("client_slug", gate.caller.slug).maybeSingle();
+        const { data: ticket, error, columns } = await readDownLadder(CLIENT_COLUMN_LADDER, read);
 
         if (error) {
             console.error("[ticket-withdraw] read failed", error.message);

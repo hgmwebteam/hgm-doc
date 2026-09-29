@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type Website, websitesOnRow } from "../../src/pages/client/help/request-rules.ts";
 import { isStaffUser } from "./staff.mts";
 
 /**
@@ -157,6 +158,14 @@ export type Via = "allowlist" | "staff";
  */
 export type RefusalReason = "not_listed";
 
+/**
+ * The website list the caller's dashboard offers (request-rules.ts websitesOnRow), parsed once
+ * from the row the gate already read, so the screen is handed the SAME list ticket-create will
+ * validate against, and no endpoint reads the row a second time for it. A malformed list is
+ * `ok: false` with the reason: the form offers no choice, and ticket-create notes why.
+ */
+export type WebsiteList = { ok: true; websites: Website[] } | { ok: false; problem: string };
+
 export type GateResult =
     | {
           ok: true;
@@ -166,6 +175,8 @@ export type GateResult =
            *  client can use this help centre until somebody is. The staff view
            *  says so, and says where to fix it. Always false for a client. */
           accessListEmpty: boolean;
+          /** The dashboard's websites (data.websites). None for verifyStaff, which has no dashboard. */
+          websites: WebsiteList;
       }
     | { ok: false; status: number; error: string; reason?: RefusalReason };
 
@@ -254,6 +265,8 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     // marketing content; inheriting that here would publish every request a
     // client has ever raised to anyone who guesses the slug.
     const listed = listedUsers(row.data);
+    // The websites, from the same read: whoever gets in below is handed this list.
+    const websites = websitesOnRow((row.data as { websites?: unknown } | null)?.websites);
 
     // STAFF, decided before the list is consulted, because staff are on no
     // client's list and should not be. The three tests are in staff.mts. They
@@ -266,6 +279,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
             ok: true,
             via: "staff",
             accessListEmpty: listed.length === 0,
+            websites,
             // The person's name as Google gave it (user_metadata.full_name), or the
             // mailbox capitalised: "raised by Leshan Patterson", not "by leshan".
             caller: { slug, clientName, email: who, name: staffName(authData?.user, who) },
@@ -280,6 +294,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
         ok: true,
         via: "allowlist",
         accessListEmpty: false,
+        websites,
         caller: {
             slug,
             clientName,
@@ -311,6 +326,7 @@ export const verifyStaff = async (accessToken: string): Promise<GateResult> => {
         ok: true,
         via: "staff",
         accessListEmpty: false,
+        websites: { ok: true, websites: [] },
         caller: { slug: "all", clientName: "", email: who, name: staffName(authData?.user, who) },
     };
 };
@@ -345,6 +361,9 @@ export const viewerOf = (gate: Extract<GateResult, { ok: true }>) => ({
     name: gate.caller.name,
     clientName: gate.caller.clientName,
     accessListEmpty: gate.accessListEmpty,
+    /** The websites the form offers as checkboxes: the list ticket-create validates against,
+     *  from the same read. Empty when the row has none, or one that is malformed. */
+    websites: gate.websites.ok ? gate.websites.websites : [],
 });
 
 /**

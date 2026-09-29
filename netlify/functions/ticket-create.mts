@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { cleanNotifyEmail, cleanSubmitterName, cleanUrls, completionEmailOpen } from "../../src/pages/client/help/request-rules.ts";
+import { RELOAD_FOR_FORM, type StoredWebsites, chooseWebsites, cleanNotifyEmail, cleanSubmitterName, cleanUrls, completionEmailOpen, storedWebsitesOf } from "../../src/pages/client/help/request-rules.ts";
 import {
     BRAIN_API_KEY,
     BRAIN_TICKET_URL,
@@ -14,7 +14,7 @@ import {
     accessTokenFrom, verifyCaller,
 } from "../lib/reporting.mts";
 import { isStaffEmail } from "../lib/staff.mts";
-import { CLIENT_TICKET_COLUMNS, NOTIFY_COLUMNS, asNote, clientView, completionEmailModeNow, isMissingColumn, withPages } from "../lib/ticket-columns.mts";
+import { CLIENT_TICKET_COLUMNS, NOTIFY_COLUMNS, asNote, clientView, completionEmailModeNow, isMissingColumn, readDownLadder, withPages, withWebsites } from "../lib/ticket-columns.mts";
 import { type VerifiedFile, claimUploads, recordAttachments, ticketFiles, verifyUploads } from "../lib/ticket-files.mts";
 
 /**
@@ -78,9 +78,21 @@ import { type VerifiedFile, claimUploads, recordAttachments, ticketFiles, verify
  * Either column set may be missing (the SQL is applied by hand): the insert retries without
  * them and notes that they were not stored, and the request still goes.
  *
+ * ── WEBSITES (Enjoy Unique Stays, 29 Sep 2026) ──────────────────────────────
+ * A dashboard whose row lists 2 or more websites (data.websites) asks which of them the
+ * request is for. The body carries NAMES; what is stored in tickets.websites is the ROW's
+ * entry for each, in the row's order, with how many the row offered (request-rules.ts
+ * chooseWebsites), so a url from the browser never reaches the task. The list is the one the
+ * gate read (verifyCaller), the same the form was handed. It is checked with the other
+ * fields, before the topic read, so a refusal writes nothing. A dashboard with no list, or
+ * one, stores null and ignores a list sent anyway; a malformed list offers no choice and the
+ * request says so in its intake notes. The column may be missing too: the insert steps down
+ * one column at a time (websites, then the pages and address), noting what was not kept.
+ *
  * POST application/json + Authorization: Bearer <session token>
  *   { slug, topic, submitted_by_name, title, detail, priority?, property?, needed_by?, urls?,
- *     notify_email? (required while the switch is open for the caller), upload_id?,
+ *     notify_email? (required while the switch is open for the caller),
+ *     websites?: string[] (names; required while the dashboard offers 2 or more), upload_id?,
  *     files?: [{ file_id }] }
  *   -> 201 { ticket, files: [{ name, mime, bytes }] }   (the insert path and the duplicate path)
  *   A client's answer carries no promised date and no assignee (ticket-columns.mts, clientView).
@@ -104,11 +116,21 @@ const DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
 /** A tab opened before files moved to direct uploads still posts base64 `images`. */
 const RELOAD_FOR_FILES = "This page was updated while it was open. Copy your description, reload the page, and attach the files again.";
 
-/** A tab opened before the form asked for Submitted by (or the completion email) sends neither field at all. */
-const RELOAD_FOR_FORM = "This page was updated while it was open. Copy your description, reload the page, and send it again.";
-
 /** The note a request carries when the three columns are not in the database yet. */
 const COLUMNS_MISSING_NOTE = "The request carried page addresses and/or a completion email address, but the reporting database has no columns for them yet, so they were not stored.";
+
+/** The note a request carries when its websites could not be stored (the column is not there yet). */
+const websitesNotStoredNote = (stored: StoredWebsites): string =>
+    `The request was for these websites: ${stored.chosen.map((w) => w.name).join(", ")}, but the reporting database has no websites column yet, so they were not stored.`;
+
+/** The note a request carries when its dashboard's list could not be read, so no choice was offered. */
+const websitesMalformedNote = (problem: string): string => `The dashboard's website list (data.websites) is malformed (${problem}), so the request carries no websites.`;
+
+/** Whether a stored value (read back from jsonb, whose key order is its own) is the same choice. */
+const sameWebsites = (row: unknown, stored: StoredWebsites | null): boolean => {
+    const key = (w: StoredWebsites | null) => (w ? JSON.stringify([w.offered, w.chosen.map((c) => [c.name, c.url, c.tenant_slug])]) : "null");
+    return key(storedWebsitesOf(row)) === key(stored);
+};
 
 /* ── cleaning what a person typed ────────────────────────────────────────── */
 
@@ -313,6 +335,8 @@ interface CreateBody {
     priority?: unknown;
     urls?: unknown;
     notify_email?: unknown;
+    /** The names of the websites ticked (since 29 Sep 2026); required while the dashboard offers 2 or more. */
+    websites?: unknown;
     upload_id?: unknown;
     files?: unknown;
     /** The retired base64 path. Only a tab opened before 28 Sep 2026 sends it. */
@@ -413,6 +437,14 @@ export default async (req: Request) => {
             console.log("[ticket-create] completion email address ignored: the switch is off for this caller", 1);
         }
 
+        // WHICH WEBSITES, while the dashboard offers a choice. The list is the gate's (the row it
+        // just read); what is kept is the row's entries for the names ticked, never what was sent.
+        const offered = gate.websites.ok ? gate.websites.websites : [];
+        const sites = chooseWebsites(offered, body.websites);
+        if (!sites.ok) return jsonError(422, sites.error);
+        if (sites.ignored) console.log("[ticket-create] websites ignored: this dashboard offers no choice", 1);
+        const stored = sites.stored;
+
         // The files, as ids. Both or neither: a file id means nothing without its upload.
         const fileIds = Array.isArray(body.files) ? body.files.map((f) => (f && typeof f === "object" ? (f as { file_id?: unknown }).file_id : undefined)) : [];
         if (body.files !== undefined && !Array.isArray(body.files)) return jsonError(400, "Bad request.");
@@ -431,17 +463,20 @@ export default async (req: Request) => {
         /* ── the same request, a minute ago ──────────────────────────────── */
 
         // intake_notes as well, for the writes this path can make below; the new columns so
-        // a retry can be reconciled. Both are stripped from the answer (forCaller). Without
-        // the new columns in the database yet, the base list, and nothing new is written.
+        // a retry can be reconciled. Both are stripped from the answer (forCaller). The read
+        // steps down one hand-applied column at a time (websites, then the pages and address),
+        // and nothing is written to a column it could not read.
         const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
         const recentQuery = (cols: string) =>
             db.from("tickets").select(cols).eq("client_slug", caller.slug).eq("submitted_by", caller.email).eq("title", title).eq("detail", detail).gte("created_at", since).order("created_at", { ascending: false }).limit(1);
-        let columnsMissing = false;
-        let recentRes = await recentQuery(`${withPages(CLIENT_TICKET_COLUMNS)}, ${NOTIFY_COLUMNS}, intake_notes`);
-        if (recentRes.error && isMissingColumn(recentRes.error)) {
-            columnsMissing = true;
-            recentRes = await recentQuery(`${CLIENT_TICKET_COLUMNS}, intake_notes`);
-        }
+        const RECENT_LADDER = [
+            `${withWebsites(withPages(CLIENT_TICKET_COLUMNS))}, ${NOTIFY_COLUMNS}, intake_notes`,
+            `${withPages(CLIENT_TICKET_COLUMNS)}, ${NOTIFY_COLUMNS}, intake_notes`,
+            `${CLIENT_TICKET_COLUMNS}, intake_notes`,
+        ];
+        const recentRes = await readDownLadder(RECENT_LADDER, recentQuery);
+        const websitesRead = recentRes.columns === RECENT_LADDER[0];
+        const columnsMissing = recentRes.columns === RECENT_LADDER[2];
         if (recentRes.error) console.error("[ticket-create] duplicate lookup failed, treating the request as new", recentRes.error.message);
         const recent = (recentRes.data ?? []) as unknown as Array<Record<string, unknown>>;
 
@@ -465,6 +500,8 @@ export default async (req: Request) => {
                 patch.notify_email = notify;
                 patch.notify_email_listed = notify ? isStaffEmail(notify) || (await isListedOn(caller.slug, notify)) : null;
             }
+            // The websites ticked this time, compared by value (jsonb hands keys back in its own order).
+            if (websitesRead && !sameWebsites(existing.websites, stored)) patch.websites = stored;
             if (Object.keys(patch).length && existing.status === "received") {
                 // The answer shows the new values only when the guarded update matched the row:
                 // routing can claim the ticket between the read above and this write, and the
@@ -529,32 +566,46 @@ export default async (req: Request) => {
             priority,
             image_count: 0,
         };
-        // Only named when there is something to store, so a request with no pages and no
-        // address inserts exactly as it did before the columns existed.
-        const carriesNew = urls.length > 0 || notify !== null;
-        const extra = carriesNew ? { urls: urls.length ? urls : null, ...(notify ? { notify_email: notify, notify_email_listed: notifyListed } : {}) } : {};
-        const insert = (withNew: boolean, notes: string[]) =>
+        // Only named when there is something to store, so a request with no pages, no address
+        // and no websites inserts exactly as it did before the columns existed.
+        const carriesPages = urls.length > 0 || notify !== null;
+        const extra = carriesPages ? { urls: urls.length ? urls : null, ...(notify ? { notify_email: notify, notify_email_listed: notifyListed } : {}) } : {};
+        // Three steps, widest first; each selects back the columns it wrote. "websites": the
+        // pages, the address and the websites. "pages": without the websites. "base": neither.
+        type Step = "websites" | "pages" | "base";
+        const pagesColumns = carriesPages ? `${withPages(CLIENT_TICKET_COLUMNS)}, ${NOTIFY_COLUMNS}` : CLIENT_TICKET_COLUMNS;
+        const insert = (step: Step, notes: string[]) =>
             db
                 .from("tickets")
                 .insert({
                     ...base,
-                    ...(withNew ? extra : {}),
+                    ...(step !== "base" ? extra : {}),
+                    ...(step === "websites" ? { websites: stored } : {}),
                     // Intake observations, NOT a routing failure. route_error belongs to the
                     // brain, and its sweep finds new arrivals with route_error IS NULL, so a
                     // note written there put every ticket in the wrong half of that triage.
                     intake_notes: asNote(notes),
                 })
-                .select(withNew && carriesNew ? `${withPages(CLIENT_TICKET_COLUMNS)}, ${NOTIFY_COLUMNS}` : CLIENT_TICKET_COLUMNS)
+                .select(step === "websites" ? withWebsites(pagesColumns) : step === "pages" ? pagesColumns : CLIENT_TICKET_COLUMNS)
                 .single();
 
-        let notes = identity.notes;
-        let { data: ticket, error: insertErr } = await insert(true, notes);
-        if (insertErr && carriesNew && isMissingColumn(insertErr)) {
+        // A list on the row that could not be read offered no choice; the team is told why.
+        let notes = gate.websites.ok ? identity.notes : [...identity.notes, websitesMalformedNote(gate.websites.problem)];
+        const first: Step = stored !== null ? "websites" : "pages";
+        let { data: ticket, error: insertErr } = await insert(first, notes);
+        if (insertErr && stored !== null && isMissingColumn(insertErr)) {
+            // The websites column has not been added yet. The request still goes, with its pages
+            // and address; the team is told which websites it was for.
+            console.warn("[ticket-create] the websites column is missing, storing the request without it");
+            notes = [...notes, websitesNotStoredNote(stored)];
+            ({ data: ticket, error: insertErr } = await insert("pages", notes));
+        }
+        if (insertErr && carriesPages && isMissingColumn(insertErr)) {
             // The SQL has not been pasted yet. The request still goes; the team is told what
             // it carried that could not be kept, and the client is promised nothing about it.
             console.warn("[ticket-create] the pages / completion email columns are missing, storing the request without them");
-            notes = [...identity.notes, COLUMNS_MISSING_NOTE];
-            ({ data: ticket, error: insertErr } = await insert(false, notes));
+            notes = [...notes, COLUMNS_MISSING_NOTE];
+            ({ data: ticket, error: insertErr } = await insert("base", notes));
         }
 
         if (insertErr || !ticket) {

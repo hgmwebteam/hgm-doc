@@ -27,13 +27,15 @@
  * manager instead: that is us handling it, and to the client the request is simply still
  * "Received", which is the truth. The other two name the assignee and the promised date.
  *
- * ── PAGES AND FILES ─────────────────────────────────────────────────────────
- * What the request is about and what came with it, as two tiles under the four facts:
- * PAGES (each address a link, re-checked for http or https as it is drawn) and FILES
- * (each file's type, name and size). Tiles rather than a fifth fact: the fact row is a
- * fixed grid of four 64px cells the frame pins, and ten addresses do not fit a cell. They
- * render only when there is something in them, so a request with neither looks exactly as
- * the frame draws it.
+ * ── WEBSITES, PAGES AND FILES ───────────────────────────────────────────────
+ * What the request is about and what came with it, as tiles under the four facts: WEBSITES
+ * for a client with several brand sites (Enjoy Unique Stays, 29 Sep 2026: which of them the
+ * request is for, "All 6 websites" first when every one was ticked, each name a link to its
+ * site with the domain after it), full width, then PAGES (each address a link, re-checked
+ * for http or https as it is drawn) and FILES (each file's type, name and size) side by
+ * side. Tiles rather than a fifth fact: the fact row is a fixed grid of four 64px cells the
+ * frame pins, and ten addresses do not fit a cell. They render only when there is something
+ * in them, so a request with none of them looks exactly as the frame draws it.
  *
  * ── TIMES ───────────────────────────────────────────────────────────────────
  * Stamps are shown in the client's own time zone, as the browser renders them, with a
@@ -65,7 +67,7 @@ import {
     timelineSteps,
     topicLabel,
 } from "@/pages/client/help/help-model";
-import { FILE_TYPES } from "@/pages/client/help/request-rules";
+import { FILE_TYPES, type StoredWebsites, storedWebsitesOf } from "@/pages/client/help/request-rules";
 import { cx } from "@/utils/cx";
 import { Linkified } from "@/utils/linkify";
 
@@ -196,7 +198,7 @@ const StatusBlock = ({ ticket }: { ticket: Ticket }) => {
  * bg/secondary tile with 12 by 16 padding on the desktop; at 390 a bg/primary tile
  * with a 1px border/secondary and 12 by 14 padding (13 plus the border).
  */
-/** The tile every fact sits in, shared with the PAGES and FILES tiles below the row. */
+/** The tile every fact sits in, shared with the WEBSITES, PAGES and FILES tiles below the row. */
 const FACT_TILE = "rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-primary) px-[13px] py-[11px] sm:border-0 sm:bg-(--hc-bg-secondary) sm:px-4 sm:py-3";
 
 const Fact = ({ label, value }: { label: string; value: string }) => (
@@ -231,69 +233,106 @@ const FactRow = ({ ticket }: { ticket: Ticket }) => {
     );
 };
 
-/* ── Pages and files ─────────────────────────────────────────────────────── */
+/* ── Websites, pages and files ───────────────────────────────────────────── */
 
 /** The type label a stored file carries (PDF, DOCX), from its mime; "FILE" for anything older. */
 const badgeFor = (mime: string): string => FILE_TYPES.find((t) => t.mime === mime)?.label ?? "FILE";
 
 /**
- * PAGES and FILES under the facts, in Fact's tile (bg/secondary on the desktop; a bordered
- * bg/primary tile at 390). Side by side on the desktop when both are there, one full width
- * when alone; stacked at 390. PAGES: each address a link in label/field
- * text/brand-secondary, underlined, opening in a new tab. FILES: the type
- * badge, the name in label/field, the size in caption/meta. Names and addresses wrap rather
- * than truncate, so everything that arrived can be read on a phone. Nothing when neither exists.
+ * WEBSITES, PAGES and FILES under the facts, in Fact's tile (bg/secondary on the desktop; a
+ * bordered bg/primary tile at 390). WEBSITES full width above the other two; PAGES and FILES
+ * side by side on the desktop when both are there, one full width when alone; all stacked at
+ * 390. WEBSITES: "All 6 websites" in label/field text/secondary when every one offered was
+ * ticked, then each site's name as a link (label/field text/brand-secondary, underlined, a new
+ * tab) with its domain after it in caption/meta text/tertiary. PAGES: each address a link in
+ * label/field text/brand-secondary, underlined, opening in a new tab. FILES: the type badge,
+ * the name in label/field, the size in caption/meta. Names and addresses wrap rather than
+ * truncate, so everything that arrived can be read on a phone. Nothing when none exists.
  */
-const RequestLinks = ({ urls, files }: { urls: string[]; files: TicketFile[] }) => {
+const RequestLinks = ({ websites, urls, files }: { websites: StoredWebsites | null; urls: string[]; files: TicketFile[] }) => {
     // Stored addresses were cleaned on the way in; checked again here because this is
     // where one becomes a link.
     const links = urls.filter(isWebLink);
-    if (!links.length && !files.length) return null;
+    const sites = (websites?.chosen ?? []).filter((w) => isWebLink(w.url));
+    if (!sites.length && !links.length && !files.length) return null;
     const tile = cx("flex min-w-0 flex-col gap-2", FACT_TILE);
+    // Every website offered was ticked: said once, above the list, as the success card says it.
+    const allOf = websites && websites.chosen.length === websites.offered ? websites.offered : 0;
+    // PAGES and FILES as they always were: a request with no websites renders exactly this.
+    const pagesAndFiles =
+        links.length > 0 || files.length > 0 ? (
+            <div className={cx("grid grid-cols-1 gap-4 sm:gap-2", links.length && files.length ? "sm:grid-cols-2" : "")}>
+                {links.length > 0 && (
+                    <section aria-labelledby="hc-pages" className={tile}>
+                        <h2 id="hc-pages" className="hc-t-caption-meta text-(--hc-text-tertiary)">
+                            PAGES
+                        </h2>
+                        {/* Each link a 44px row on a phone (targets never overlap); on the desktop both
+                            lists run at a 28px pitch so the two tiles' lines align. */}
+                        <ul className="flex flex-col">
+                            {links.map((u) => (
+                                <li key={u} className="flex min-h-11 min-w-0 items-center sm:min-h-7">
+                                    <a
+                                        href={u}
+                                        target="_blank"
+                                        rel="noopener noreferrer nofollow"
+                                        className="hc-t-label-field hc-hover min-w-0 break-words rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline underline-offset-2 hover:decoration-2"
+                                    >
+                                        {displayUrl(u)}
+                                        <span className="sr-only"> (opens in a new tab)</span>
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
+                {files.length > 0 && (
+                    <section aria-labelledby="hc-files" className={tile}>
+                        <h2 id="hc-files" className="hc-t-caption-meta text-(--hc-text-tertiary)">
+                            FILES
+                        </h2>
+                        <ul className="flex flex-col">
+                            {files.map((f, i) => (
+                                <li key={`${i}-${f.name}`} className="flex min-h-7 min-w-0 items-start gap-3 py-1">
+                                    <span aria-hidden="true" className="hc-t-caption-meta w-12 shrink-0 rounded-(--hc-radius-sm) bg-(--hc-bg-brand-primary) py-0.5 text-center tracking-normal text-(--hc-text-brand-secondary)">
+                                        {badgeFor(f.mime)}
+                                    </span>
+                                    <span className="hc-t-label-field min-w-0 flex-1 break-words text-(--hc-text-primary)">{f.name}</span>
+                                    {typeof f.bytes === "number" && <span className="hc-t-caption-meta shrink-0 text-(--hc-text-tertiary)">{formatFileSize(f.bytes)}</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
+            </div>
+        ) : null;
+    if (!sites.length) return pagesAndFiles;
     return (
-        <div className={cx("grid grid-cols-1 gap-4 sm:gap-2", links.length && files.length ? "sm:grid-cols-2" : "")}>
-            {links.length > 0 && (
-                <section aria-labelledby="hc-pages" className={tile}>
-                    <h2 id="hc-pages" className="hc-t-caption-meta text-(--hc-text-tertiary)">
-                        PAGES
-                    </h2>
-                    {/* Each link a 44px row on a phone (targets never overlap); on the desktop both
-                        lists run at a 28px pitch so the two tiles' lines align. */}
-                    <ul className="flex flex-col">
-                        {links.map((u) => (
-                            <li key={u} className="flex min-h-11 min-w-0 items-center sm:min-h-7">
-                                <a
-                                    href={u}
-                                    target="_blank"
-                                    rel="noopener noreferrer nofollow"
-                                    className="hc-t-label-field hc-hover min-w-0 break-words rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline underline-offset-2 hover:decoration-2"
-                                >
-                                    {displayUrl(u)}
-                                    <span className="sr-only"> (opens in a new tab)</span>
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            )}
-            {files.length > 0 && (
-                <section aria-labelledby="hc-files" className={tile}>
-                    <h2 id="hc-files" className="hc-t-caption-meta text-(--hc-text-tertiary)">
-                        FILES
-                    </h2>
-                    <ul className="flex flex-col">
-                        {files.map((f, i) => (
-                            <li key={`${i}-${f.name}`} className="flex min-h-7 min-w-0 items-start gap-3 py-1">
-                                <span aria-hidden="true" className="hc-t-caption-meta w-12 shrink-0 rounded-(--hc-radius-sm) bg-(--hc-bg-brand-primary) py-0.5 text-center tracking-normal text-(--hc-text-brand-secondary)">
-                                    {badgeFor(f.mime)}
-                                </span>
-                                <span className="hc-t-label-field min-w-0 flex-1 break-words text-(--hc-text-primary)">{f.name}</span>
-                                {typeof f.bytes === "number" && <span className="hc-t-caption-meta shrink-0 text-(--hc-text-tertiary)">{formatFileSize(f.bytes)}</span>}
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            )}
+        <div className="flex flex-col gap-4 sm:gap-2">
+            <section aria-labelledby="hc-websites" className={tile}>
+                <h2 id="hc-websites" className="hc-t-caption-meta text-(--hc-text-tertiary)">
+                    WEBSITES
+                </h2>
+                {allOf > 0 && <p className="hc-t-label-field text-(--hc-text-secondary)">{`All ${allOf} websites`}</p>}
+                {/* The PAGES list's rhythm: a 44px row on a phone, a 28px pitch on the desktop. */}
+                <ul className="flex flex-col">
+                    {sites.map((w) => (
+                        <li key={w.url} className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-2 sm:min-h-7">
+                            <a
+                                href={w.url}
+                                target="_blank"
+                                rel="noopener noreferrer nofollow"
+                                className="hc-t-label-field hc-hover min-w-0 break-words rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline underline-offset-2 hover:decoration-2"
+                            >
+                                {w.name}
+                                <span className="sr-only"> (opens in a new tab)</span>
+                            </a>
+                            <span className="hc-t-caption-meta min-w-0 break-words text-(--hc-text-tertiary)">{displayUrl(w.url)}</span>
+                        </li>
+                    ))}
+                </ul>
+            </section>
+            {pagesAndFiles}
         </div>
     );
 };
@@ -625,7 +664,7 @@ export const HelpRequestDetail = ({
 
                 <StatusBlock ticket={ticket} />
                 <FactRow ticket={ticket} />
-                <RequestLinks urls={Array.isArray(ticket.urls) ? ticket.urls : []} files={files} />
+                <RequestLinks websites={storedWebsitesOf(ticket.websites)} urls={Array.isArray(ticket.urls) ? ticket.urls : []} files={files} />
                 <Timeline ticket={ticket} events={events} files={files} />
                 <TeamUpdates events={events} />
             </article>

@@ -34,6 +34,7 @@ import {
     type TicketTopic,
     matchesFilter,
     requestMetaLine,
+    websitesSuffix,
     requestOutcomeLine,
     requestsSummary,
     topicLabel,
@@ -234,7 +235,7 @@ const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: T
                     <p className="hc-t-body-input text-(--hc-text-primary) sm:hc-t-label-field">{ticket.title}</p>
                     <div className="flex min-w-0 items-center gap-2">
                         <MonoRef>{ticket.reference}</MonoRef>
-                        <span className="hc-t-body-helper min-w-0 flex-1 truncate text-(--hc-text-tertiary) sm:hidden">{topicLabel(topics, ticket.topic)}</span>
+                        <span className="hc-t-body-helper min-w-0 flex-1 truncate text-(--hc-text-tertiary) sm:hidden">{`${topicLabel(topics, ticket.topic)}${websitesSuffix(ticket)}`}</span>
                         <span className="hc-t-body-helper hidden min-w-0 truncate text-(--hc-text-tertiary) sm:inline">{requestMetaLine(topics, ticket)}</span>
                     </div>
                 </div>

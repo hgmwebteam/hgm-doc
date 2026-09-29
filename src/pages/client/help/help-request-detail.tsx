@@ -244,7 +244,7 @@ const badgeFor = (mime: string): string => FILE_TYPES.find((t) => t.mime === mim
  * side by side on the desktop when both are there, one full width when alone; all stacked at
  * 390. WEBSITES: "All 6 websites" in label/field text/secondary when every one offered was
  * ticked, then each site's name as a link (label/field text/brand-secondary, underlined, a new
- * tab) with its domain after it in caption/meta text/tertiary. PAGES: each address a link in
+ * tab) with its domain after it in body/helper text/tertiary, as the form's options show it. PAGES: each address a link in
  * label/field text/brand-secondary, underlined, opening in a new tab. FILES: the type badge,
  * the name in label/field, the size in caption/meta. Names and addresses wrap rather than
  * truncate, so everything that arrived can be read on a phone. Nothing when none exists.
@@ -327,7 +327,7 @@ const RequestLinks = ({ websites, urls, files }: { websites: StoredWebsites | nu
                                 {w.name}
                                 <span className="sr-only"> (opens in a new tab)</span>
                             </a>
-                            <span className="hc-t-caption-meta min-w-0 break-words text-(--hc-text-tertiary)">{displayUrl(w.url)}</span>
+                            <span className="hc-t-body-helper min-w-0 break-words text-(--hc-text-tertiary)">{displayUrl(w.url)}</span>
                         </li>
                     ))}
                 </ul>

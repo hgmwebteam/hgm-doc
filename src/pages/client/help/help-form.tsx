@@ -408,9 +408,12 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     // Set when focus leaves the group with nothing ticked; cleared by the next tick, so the
     // error never shows while somebody is still clicking.
     const [websitesLeftEmpty, setWebsitesLeftEmpty] = useState(false);
+    // What "Untick all" / "Tick all" did, spoken once: six boxes change and none announces it.
+    const [websitesNews, setWebsitesNews] = useState("");
     if (ticks.key !== offeredKey) {
         setTicks({ key: offeredKey, names: new Set(offered.map((w) => w.name)) });
         setWebsitesLeftEmpty(false);
+        setWebsitesNews("");
     }
     const picked = ticks.names;
     const [name, setName] = useState(submitterName);
@@ -803,6 +806,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                         options={offered.map((w) => ({ value: w.name, label: w.name, detail: displayUrl(w.url) }))}
                         checked={picked}
                         onChange={(name, on) => {
+                            setWebsitesNews("");
                             const next = new Set(picked);
                             if (on) next.add(name);
                             else next.delete(name);
@@ -811,12 +815,15 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                         }}
                         toggle={{
                             label: picked.size === offered.length ? "Untick all" : "Tick all",
+                            context: "websites",
                             onClick: () => {
                                 const all = picked.size === offered.length;
                                 setTicks({ key: offeredKey, names: all ? new Set<string>() : new Set(offered.map((w) => w.name)) });
+                                setWebsitesNews(websitesNote(all ? 0 : offered.length, offered.length));
                                 if (!all) setWebsitesLeftEmpty(false);
                             },
                         }}
+                        announce={websitesNews}
                         helper={websitesNote(picked.size, offered.length)}
                         error={websitesError}
                         onLeave={() => setWebsitesLeftEmpty(picked.size === 0)}

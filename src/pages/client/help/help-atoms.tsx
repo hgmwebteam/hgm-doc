@@ -740,8 +740,10 @@ export type FieldCheckboxGroupProps = {
     options: ReadonlyArray<{ value: string; label: string; detail?: string }>;
     checked: ReadonlySet<string>;
     onChange: (value: string, checked: boolean) => void;
-    /** The text button at the end of the note row ("Untick all" / "Tick all"). */
-    toggle?: { label: string; onClick: () => void };
+    /** The text button at the end of the note row ("Untick all" / "Tick all"); `context` is read after the label ("Untick all websites"). */
+    toggle?: { label: string; context?: string; onClick: () => void };
+    /** Spoken politely when set: the result of a change the boxes do not announce themselves (the toggle's). */
+    announce?: string;
     helper: string;
     error?: string;
     /** Focus moved from inside the group to somewhere outside it. */
@@ -755,23 +757,34 @@ export type FieldCheckboxGroupProps = {
  * in the file; it is drawn from the file's own pieces so it sits calmly beside them.
  *
  *   group     a native fieldset and legend (the legend names the group), described by the note
- *   options   one column below 640, two from 640 (row-major, so reading order is the list's),
- *             8 between rows, 16 between columns. The grid is pulled out by the options'
- *             8px padding, so each box lines up with the label above it
- *   option    a label row at least 44 tall, padding 8, radius/md, bg/primary_hover on hover,
+ *   options   one column, two once the group itself is 32rem wide or more (a container query,
+ *             so the atom decides by its own column: two in the 560 form column, one on a
+ *             phone), row-major so reading order is the list's, 8 between rows, 16 between
+ *             columns. The grid is pulled out by the options' 8px padding, so each box lines
+ *             up with the label above it
+ *   option    a label row at least 44 tall, padding 8, radius/md, bg/tertiary on hover (the
+ *             group sits on bg/page, which bg/primary_hover equals in Light, so that token
+ *             would show nothing; bg/tertiary is what the list's rows on the same ground use),
  *             wrapping a NATIVE checkbox (keyboard, forms and assistive technology for free):
  *             a 20px box, radius/sm, 1.5px border/primary on bg/primary, filled bg/brand-solid
- *             with the tick in text/primary_on-brand once checked; focus is the page's 2px
- *             border/brand ring, 2px out, on the box itself. Then 12, then the label in
- *             label/field text/primary over the detail in caption/meta text/tertiary.
- *             Under forced colours the box is the system's own checkbox
- *   note      FieldNote (live), so an error is spoken the moment it replaces the helper
+ *             with the tick in text/primary_on-brand once checked, the fill and the tick
+ *             changing together (one 120ms token transition, opacity for the tick); focus is
+ *             the page's 2px border/brand ring, 2px out, on the box itself. Then 12, then the
+ *             label in label/field text/primary over the detail in body/helper
+ *             text/tertiary (a data line, as the list rows' meta lines are, not a caption).
+ *             The box sits on the label's first line (both 20), so it belongs to the name
+ *             it controls. While the group shows its error every box is aria-invalid, so it
+ *             is heard on the box as well as in the group's description. Under forced
+ *             colours the box is the system's own checkbox
+ *   note      FieldNote (live), so an error is spoken the moment it replaces the helper;
+ *             `announce` speaks what a bulk change did, which no single box announces
  *   toggle    body/helper text/brand-secondary, its 20px line given a 44px target by a
- *             pseudo-element, the idiom of the help centre's other text links
+ *             pseudo-element, the idiom of the help centre's other text links: 8 above (the
+ *             gap to the last option, so the two targets never overlap) and 16 below
  *
  * Nothing moves: a form that shifts mid-answer is hostile.
  */
-export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options, checked, onChange, toggle, helper, error, onLeave }: FieldCheckboxGroupProps) => (
+export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options, checked, onChange, toggle, announce, helper, error, onLeave }: FieldCheckboxGroupProps) => (
     <fieldset
         aria-describedby={`${name}-note`}
         onBlur={(e) => {
@@ -788,13 +801,13 @@ export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options
                 {requirement && <span className="hc-t-caption-meta text-(--hc-text-tertiary)">{requirement}</span>}
             </span>
         </legend>
-        <div className="flex flex-col gap-2">
-            <div className="-mx-2 grid grid-cols-1 gap-y-2 sm:grid-cols-2 sm:gap-x-4">
+        <div className="@container flex flex-col gap-2">
+            <div className="-mx-2 grid grid-cols-1 gap-y-2 @lg:grid-cols-2 @lg:gap-x-4">
                 {options.map((o, i) => {
                     const id = `${idPrefix}-${i}`;
                     const on = checked.has(o.value);
                     return (
-                        <label key={o.value} htmlFor={id} className="hc-hover flex min-h-11 min-w-0 cursor-pointer items-center gap-3 rounded-(--hc-radius-md) p-2 hover:bg-(--hc-bg-primary_hover)">
+                        <label key={o.value} htmlFor={id} className="hc-hover flex min-h-11 min-w-0 cursor-pointer items-start gap-3 rounded-(--hc-radius-md) p-2 hover:bg-(--hc-bg-tertiary)">
                             <span className="relative flex size-5 shrink-0">
                                 <input
                                     id={id}
@@ -802,6 +815,7 @@ export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options
                                     name={name}
                                     value={o.value}
                                     checked={on}
+                                    aria-invalid={error ? true : undefined}
                                     onChange={(e) => onChange(o.value, e.target.checked)}
                                     className="hc-hover peer size-5 shrink-0 cursor-pointer appearance-none rounded-(--hc-radius-sm) border-[1.5px] border-(--hc-border-primary) bg-(--hc-bg-primary) checked:border-(--hc-bg-brand-solid) checked:bg-(--hc-bg-brand-solid) forced-colors:appearance-auto"
                                 />
@@ -809,14 +823,14 @@ export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options
                                     aria-hidden="true"
                                     viewBox="0 0 20 20"
                                     fill="none"
-                                    className="pointer-events-none absolute inset-0 hidden size-5 text-(--hc-text-primary_on-brand) peer-checked:block forced-colors:hidden"
+                                    className="hc-hover pointer-events-none absolute inset-0 size-5 text-(--hc-text-primary_on-brand) opacity-0 peer-checked:opacity-100 forced-colors:hidden"
                                 >
                                     <path d="M5.5 10.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                             </span>
                             <span className="flex min-w-0 flex-col">
                                 <span className="hc-t-label-field break-words text-(--hc-text-primary)">{o.label}</span>
-                                {o.detail && <span className="hc-t-caption-meta break-words text-(--hc-text-tertiary)">{o.detail}</span>}
+                                {o.detail && <span className="hc-t-body-helper break-words text-(--hc-text-tertiary)">{o.detail}</span>}
                             </span>
                         </label>
                     );
@@ -830,12 +844,16 @@ export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options
                     <button
                         type="button"
                         onClick={toggle.onClick}
-                        className="hc-t-body-helper hc-hover relative shrink-0 cursor-pointer rounded-(--hc-radius-sm) whitespace-nowrap text-(--hc-text-brand-secondary) after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline"
+                        className="hc-t-body-helper hc-hover relative shrink-0 cursor-pointer rounded-(--hc-radius-sm) whitespace-nowrap text-(--hc-text-brand-secondary) after:absolute after:inset-x-0 after:-top-2 after:-bottom-4 after:content-[''] hover:underline"
                     >
                         {toggle.label}
+                        {toggle.context && <span className="sr-only"> {toggle.context}</span>}
                     </button>
                 )}
             </div>
+            <span className="sr-only" aria-live="polite">
+                {announce ?? ""}
+            </span>
         </div>
     </fieldset>
 );

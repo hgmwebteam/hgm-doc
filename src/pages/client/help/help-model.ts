@@ -15,7 +15,12 @@
  * `assignee_name` still exist, because routing writes them and the team's
  * own list and the Asana task use them, but the portal functions do not hand them to a client
  * (ticket-columns.mts, clientView) and nothing in this file turns one into words.
+ *
+ * The one import is the request rules, by a relative path with its extension: the same
+ * module the browser and the functions share, and the path Node can follow when
+ * help-model.check.ts runs without the bundler's alias.
  */
+import { type StoredWebsites, storedWebsitesOf } from "./request-rules.ts";
 
 /* ── The reporting schema, as the browser sees it ────────────────────────────
    Mirrors the live tables in the HGM Reporting project (verified against the live
@@ -113,6 +118,13 @@ export interface Ticket {
     urls?: string[] | null;
     /** The completion email address. Only ever in ticket-create's own answer, and only when it was stored. */
     notify_email?: string | null;
+    /**
+     * Which of a multi-site client's websites the request is for (tickets.websites: { offered,
+     * chosen }), as stored; null when the dashboard offered no choice, absent until the column
+     * exists. Unknown on purpose: read it through storedWebsitesOf, which draws nothing for a
+     * value that is not the shape ticket-create writes.
+     */
+    websites?: unknown;
     /** ticket-detail: an address is stored and the completion email is switched on. Never the address itself. */
     completion_email_set?: boolean;
     /** On the team's cross-client list. */
@@ -423,14 +435,42 @@ export const requestOutcomeLine = (t: Ticket): string => {
 };
 
 /**
+ * Which websites a request is for, in one short phrase for a line that has no room for a
+ * list: every one offered is "All 6 websites"; one is its name; two are "Paradise Pointe and
+ * Stay Saluda"; three or more, not all, are "3 websites". The request page lists them in full.
+ */
+export const websitesShort = (w: StoredWebsites): string => {
+    const n = w.chosen.length;
+    if (n === w.offered) return `All ${w.offered} websites`;
+    if (n === 1) return w.chosen[0].name;
+    if (n === 2) return `${w.chosen[0].name} and ${w.chosen[1].name}`;
+    return `${n} websites`;
+};
+
+/** The dot the meta lines join their parts with: two spaces either side, kept from collapsing by non-breaking spaces. */
+const META_DOT = "\u00a0\u00a0·\u00a0\u00a0";
+
+/**
+ * What a list row's meta line ends with when the request carries websites: the dot and
+ * websitesShort. Empty when it carries none, or a value that is not the stored shape, so the
+ * line is then exactly what it always was.
+ */
+export const websitesSuffix = (t: Ticket): string => {
+    const w = storedWebsitesOf(t.websites);
+    return w ? `${META_DOT}${websitesShort(w)}` : "";
+};
+
+/**
  * The meta line under a row title, ONE text node as the frame draws it:
  * "{topic label}  ·  raised {d Mon}" with two spaces either side of the dot, kept from
- * collapsing by non-breaking spaces. Without a raise date it is the topic label alone.
+ * collapsing by non-breaking spaces. Without a raise date it is the topic label alone. A
+ * request for some of a client's websites ends "  ·  All 6 websites" or names them
+ * (websitesSuffix).
  */
 export const requestMetaLine = (topics: TicketTopic[], t: Ticket): string => {
     const raised = formatRaisedDay(t.created_at);
     const label = topicLabel(topics, t.topic);
-    return raised ? `${label}\u00a0\u00a0·\u00a0\u00a0raised ${raised}` : label;
+    return `${raised ? `${label}${META_DOT}raised ${raised}` : label}${websitesSuffix(t)}`;
 };
 
 // detail screen

@@ -29,7 +29,7 @@
  */
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
 import type { Priority, Ticket, TicketCounts, TicketEvent, TicketFile, TicketTopic } from "@/pages/client/help/help-model";
-import { FILE_TYPES, type FileType, fileUploadFailed } from "@/pages/client/help/request-rules";
+import { FILE_TYPES, type FileType, type Website, fileUploadFailed, websitesOnRow } from "@/pages/client/help/request-rules";
 import { compressImageFile } from "@/utils/compress-image";
 
 /* ── Slugs ───────────────────────────────────────────────────────────────── */
@@ -116,6 +116,12 @@ export interface Viewer {
     name: string;
     clientName: string;
     accessListEmpty: boolean;
+    /**
+     * The websites this dashboard offers as the form's checkboxes (data.websites, parsed by the
+     * gate): the list ticket-create validates against. Absent from a function deployed before
+     * 29 Sep 2026, so read it as `viewer.websites ?? []`.
+     */
+    websites?: Website[];
 }
 
 const FUNCTIONS_BASE = "/.netlify/functions";
@@ -225,6 +231,8 @@ export interface NewTicketInput {
     urls?: string[];
     /** The completion email address; sent only while the field is shown, and required then. */
     notify_email?: string;
+    /** The NAMES of the websites ticked, in the row's order; sent only while the dashboard offers a choice, and required then. */
+    websites?: string[];
     /** The form session's upload id and the files uploaded under it (ticket-upload-url). */
     upload_id?: string;
     files?: Array<{ file_id: string }>;
@@ -244,6 +252,9 @@ export const createTicket = async (proof: CallerProof, input: NewTicketInput): P
         ...(input.priority ? { priority: input.priority } : {}),
         ...(input.urls?.length ? { urls: input.urls } : {}),
         ...(input.notify_email ? { notify_email: input.notify_email } : {}),
+        // Sent whenever the form set it, an empty list included: the server's answer to
+        // "none ticked" is the one the person reads.
+        ...(input.websites !== undefined ? { websites: input.websites } : {}),
         ...(input.upload_id && input.files?.length ? { upload_id: input.upload_id, files: input.files } : {}),
     });
     // An older function answered without `files`; the success card must not throw on it.
@@ -264,16 +275,27 @@ export const fetchAllTickets = (opts: { before?: string | null; status?: string;
         ...(opts.client_slug ? { client_slug: opts.client_slug } : {}),
     });
 
-/** The clients a team member may raise a request for: every dashboard, by name. */
+/** The clients a team member may raise a request for: every dashboard, by name, with the websites it offers. */
 export interface ClientOption {
     slug: string;
     name: string;
+    /** data.websites by the same rule the gate reads it with; a malformed list offers nothing, as the server will. */
+    websites: Website[];
 }
+
+/**
+ * Two keys out of `data`, not the whole column: the row's data carries every base64 image an
+ * AM uploaded (58 rows of them), and the team's Client select needs a name fallback and the
+ * website list. PostgREST reads a jsonb path server side, so only those two travel.
+ */
 export const fetchClientOptions = async (): Promise<ClientOption[]> => {
-    const { data } = await supabase.from("dashboard_pages").select("slug, client_name, data").order("client_name", { ascending: true });
-    return ((data ?? []) as Array<{ slug: string; client_name: string | null; data: { client_name?: string } | null }>)
+    const { data } = await supabase.from("dashboard_pages").select("slug, client_name, data_client_name:data->>client_name, websites:data->websites").order("client_name", { ascending: true });
+    return ((data ?? []) as unknown as Array<{ slug: string; client_name: string | null; data_client_name: string | null; websites: unknown }>)
         .filter((r) => /-dashboard$/.test(r.slug))
-        .map((r) => ({ slug: r.slug, name: (r.client_name ?? r.data?.client_name ?? "").trim() || r.slug.replace(/-dashboard$/, "") }))
+        .map((r) => {
+            const sites = websitesOnRow(r.websites);
+            return { slug: r.slug, name: (r.client_name ?? r.data_client_name ?? "").trim() || r.slug.replace(/-dashboard$/, ""), websites: sites.ok ? sites.websites : [] };
+        })
         .sort((a, b) => a.name.localeCompare(b.name));
 };
 

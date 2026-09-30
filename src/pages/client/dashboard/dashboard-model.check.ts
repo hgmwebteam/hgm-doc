@@ -19,8 +19,17 @@
  * Unique Stays, 29 Sep 2026).
  */
 import assert from "node:assert/strict";
-
-import { DEFAULT_CLIENT_VISIBLE, DEFAULT_FOUNDATION, type Foundation, createDefaultContent, mergeContent, mergeFoundationDraft, newDashboardRow } from "./dashboard-model";
+import {
+    DEFAULT_CLIENT_VISIBLE,
+    DEFAULT_FOUNDATION,
+    type Foundation,
+    createDefaultContent,
+    emptyFocusProperty,
+    fillFocusProperty,
+    mergeContent,
+    mergeFoundationDraft,
+    newDashboardRow,
+} from "./dashboard-model";
 
 const base = (over: Partial<Foundation> = {}): Foundation => ({ ...DEFAULT_FOUNDATION, ...over });
 
@@ -165,7 +174,11 @@ console.log("mergeFoundationDraft: all checks passed");
     const row = newDashboardRow({ name: "  FLOHOM ", email: " fred@example.com ", password: "ABC-DEF-HGMS" });
     assert.equal(row.slug, "flohom-dashboard");
     assert.equal(row.client_name, "FLOHOM");
-    assert.deepEqual(row.data.dashboard_users, [{ email: "fred@example.com", password: "ABC-DEF-HGMS", sections: null }], "one email: one person, on the dashboard default");
+    assert.deepEqual(
+        row.data.dashboard_users,
+        [{ email: "fred@example.com", password: "ABC-DEF-HGMS", sections: null }],
+        "one email: one person, on the dashboard default",
+    );
     assert.deepEqual(row.data.allowed_emails, ["fred@example.com"], "and the mirror in step");
 }
 
@@ -179,4 +192,48 @@ console.log("mergeFoundationDraft: all checks passed");
     assert.equal(mergeContent({}).websites, undefined, "absent stays absent");
 }
 
-console.log("newDashboardRow and websites: all checks passed");
+/* ── Filling ONE focus property from its own listing page ──────────────────
+   The row button hands a drafted property straight back to the row the AM is looking at,
+   so this is where "a draft never overwrites" has to hold for a single row. */
+{
+    const drafted = {
+        name: "Coach House",
+        link: "https://cabins.com/properties/coach-house",
+        location: "Hochatown, OK",
+        guests: "6",
+        bedrooms: "2",
+        beds: "3",
+        bathrooms: "2",
+        description: "A cozy cabin among the trees.",
+        features: "Hot tub\nFire pit",
+        terms: "No pets. Two-night minimum.",
+        reviews: ["Perfect for our family of 5.", "Hosts were always in touch."],
+    };
+
+    /* An empty row, apart from the link the AM pasted: everything lands. */
+    const empty = { ...emptyFocusProperty(), link: "https://cabins.com/properties/coach-house" };
+    const done = fillFocusProperty(empty, drafted);
+    assert.equal(done.id, empty.id, "the row keeps its identity");
+    assert.equal(done.name, "Coach House");
+    assert.equal(done.guests, "6");
+    assert.equal(done.terms, "No pets. Two-night minimum.");
+    assert.deepEqual(done.reviews, ["Perfect for our family of 5.", "Hosts were always in touch."]);
+
+    /* Anything the AM typed wins, field by field — the rest still fills in around it. */
+    const partly = { ...empty, name: "The Coach House", description: "Our own words for this one." };
+    const mixed = fillFocusProperty(partly, drafted);
+    assert.equal(mixed.name, "The Coach House");
+    assert.equal(mixed.description, "Our own words for this one.");
+    assert.equal(mixed.link, "https://cabins.com/properties/coach-house", "the pasted link is not replaced");
+    assert.equal(mixed.bedrooms, "2", "and the empty boxes still fill");
+
+    /* One quote typed means the list is the AM's; drafted quotes don't interleave. */
+    const started = { ...empty, reviews: ["", "A quote they pasted", ""] };
+    assert.deepEqual(fillFocusProperty(started, drafted).reviews, ["", "A quote they pasted", ""]);
+
+    /* A page that yielded nothing changes nothing. */
+    assert.deepEqual(fillFocusProperty(empty, {}), empty);
+    assert.deepEqual(fillFocusProperty(empty, { name: "   ", guests: "" }), empty, "blank strings are not values");
+}
+
+console.log("newDashboardRow, websites and fillFocusProperty: all checks passed");

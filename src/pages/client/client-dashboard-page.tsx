@@ -116,6 +116,7 @@ import {
     emptyFocusProperty,
     emptyPersona,
     emptyWebsiteLink,
+    fillFocusProperty,
     filled,
     findDashboardUser,
     handleFromProfileUrl,
@@ -2164,6 +2165,56 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             }
         }
         return { drafted, failed };
+    };
+
+    /* ── Fill ONE property row from the listing link pasted into it ──
+       The section button works down section 11; this works from the box in front of the
+       AM, for the property that isn't in the sitemap, or the row they'd rather finish than
+       redraft. Same request, same server-side guard — the page has to be on the client's
+       own website — and the reply lands in this row instead of appending another. */
+    const [rowFillId, setRowFillId] = useState("");
+    const [rowFillNote, setRowFillNote] = useState<{ id: string; text: string; failed: boolean } | null>(null);
+
+    const fillFocusFromLink = async (id: string) => {
+        if (!slug || isTemplate || rowFillId) return;
+        const row = foundation.focusProperties.find((p) => p.id === id);
+        const link = row?.link.trim();
+        if (!row || !link) return;
+        setRowFillNote(null);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+            setRowFillNote({ id, text: "Your sign-in has expired — reload the page and sign in again.", failed: true });
+            return;
+        }
+        setRowFillId(id);
+        try {
+            const out = await callMasterSection(token, "property", { propertyUrl: link });
+            const fields = (out?.fields as Record<string, unknown> | undefined) ?? {};
+            const drafted = (fields.focusProperties as Record<string, unknown>[] | undefined)?.[0];
+            if (!drafted) {
+                setRowFillNote({ id, text: "That page didn't describe a single property — check the link, or fill this one in by hand.", failed: true });
+                return;
+            }
+            // Read from state rather than the `row` captured above: the AM may have carried
+            // on typing while the page was being read, and what they typed wins.
+            setContent((c) => {
+                const current = { ...DEFAULT_FOUNDATION, ...c.foundation };
+                return {
+                    ...c,
+                    foundation: { ...current, focusProperties: current.focusProperties.map((p) => (p.id === id ? fillFocusProperty(p, drafted) : p)) },
+                };
+            });
+            setRowFillNote({
+                id,
+                text: "Filled from the listing. Anything you'd already typed was left alone — check it, then press Save changes.",
+                failed: false,
+            });
+        } catch (err) {
+            setRowFillNote({ id, text: err instanceof Error ? err.message : "Couldn't read that page — try again.", failed: true });
+        } finally {
+            setRowFillId("");
+        }
     };
 
     /** The button on section 8 — the same walk, run on its own, over whatever section 11
@@ -5611,6 +5662,51 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                                 onChange={(v) => patchFocus(p.id, { location: v })}
                                                                                             />
                                                                                         </div>
+
+                                                                                        {/* Read that one listing page and fill the boxes below it. Shown only
+                                                                                            once there is a link to read — an empty box with a button under it
+                                                                                            reads as something you can press. */}
+                                                                                        {isTeam && !isTemplate && !isLocked && !!p.link.trim() && (
+                                                                                            <div className="mt-3">
+                                                                                                <Button
+                                                                                                    size="sm"
+                                                                                                    color="secondary"
+                                                                                                    iconLeading={Stars02}
+                                                                                                    isDisabled={!!rowFillId && rowFillId !== p.id}
+                                                                                                    isLoading={rowFillId === p.id}
+                                                                                                    showTextWhileLoading
+                                                                                                    onClick={() => void fillFocusFromLink(p.id)}
+                                                                                                >
+                                                                                                    {rowFillId === p.id
+                                                                                                        ? "Reading the listing…"
+                                                                                                        : "Fill from this link"}
+                                                                                                </Button>
+                                                                                                {rowFillNote?.id === p.id && (
+                                                                                                    <p
+                                                                                                        role={rowFillNote.failed ? "alert" : undefined}
+                                                                                                        className={cx(
+                                                                                                            "mt-2 flex items-start gap-1.5 text-sm",
+                                                                                                            rowFillNote.failed
+                                                                                                                ? "text-error-primary"
+                                                                                                                : "text-success-primary",
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {rowFillNote.failed ? (
+                                                                                                            <AlertTriangle
+                                                                                                                className="mt-0.5 size-4 shrink-0"
+                                                                                                                aria-hidden="true"
+                                                                                                            />
+                                                                                                        ) : (
+                                                                                                            <Check
+                                                                                                                className="mt-0.5 size-4 shrink-0"
+                                                                                                                aria-hidden="true"
+                                                                                                            />
+                                                                                                        )}
+                                                                                                        {rowFillNote.text}
+                                                                                                    </p>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        )}
 
                                                                                         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                                                                                             <DocStat

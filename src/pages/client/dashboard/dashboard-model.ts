@@ -557,6 +557,31 @@ const mergeRows = <T>(current: T[], drafted: T[], isFilled: (r: T) => boolean, k
  * Unknown keys are ignored: the drafting function's schema and this document can drift, and
  * when they do the extra keys should vanish here rather than be saved into a client's row.
  */
+/**
+ * One focus property, filled in from a draft of that same property.
+ *
+ * mergeFoundationDraft is the wrong tool for this: it merges row LISTS, so a draft handed
+ * to it while the AM is sitting on a half-filled row appends a second row for the same
+ * cabin instead of finishing the one in front of them. This fills that row in place.
+ *
+ * Same one rule as its sibling — a draft never changes or erases what a person wrote — so
+ * every field is skipped when it already has something, and the row keeps its id. The
+ * reviews list is all-or-nothing: three boxes where one has a quote in it is a list the AM
+ * has started, and dropping drafted quotes between their lines would read as theirs.
+ */
+export const fillFocusProperty = (current: FocusProperty, draft: Record<string, unknown>): FocusProperty => {
+    const next = { ...current };
+    for (const k of ["name", "link", "location", "guests", "bedrooms", "beds", "bathrooms", "description", "features", "terms"] as const) {
+        const v = str(draft[k]);
+        if (v && !filled(next[k])) next[k] = v;
+    }
+    if (!next.reviews.some(filled)) {
+        const reviews = strList(draft.reviews);
+        if (reviews.length) next.reviews = reviews;
+    }
+    return next;
+};
+
 export const mergeFoundationDraft = (current: Foundation, draft: Record<string, unknown>): Partial<Foundation> => {
     const patch: Record<string, unknown> = {};
 

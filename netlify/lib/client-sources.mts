@@ -226,6 +226,12 @@ export const blankIfPlaceholder = (v: unknown): string => {
 
 const UA = "Mozilla/5.0 (compatible; HiddenGemBrandKit/1.0; +https://hgmportal.com)";
 export const PAGE_CAP = 1_500_000; // bytes of HTML/CSS we will read
+/* One page read on its own gets a bigger allowance than a page read as part of a crawl. A
+   Wix or Squarespace listing page ships its whole editor payload inline and routinely lands
+   between 1.5 and 2.5 MB — cabincollectivebb.com serves 1.70 MB per cabin, of which 8,000
+   characters are the listing. Under the crawl cap every one of those pages simply refused
+   to load, which read as "the page didn't answer" rather than "it was too big". */
+export const SINGLE_PAGE_CAP = 4_000_000;
 export const ASSET_CAP = 600_000; // bytes for a logo file
 const FETCH_MS = 7000;
 
@@ -436,6 +442,27 @@ export async function sitemapLinks(site: URL, max = 40): Promise<{ page: string;
     }
     // Home first; the rest keep the sitemap's own order.
     return out.sort((a, b) => Number(b.page === "Home") - Number(a.page === "Home")).slice(0, max);
+}
+
+/**
+ * One page of a client's site, read on its own.
+ *
+ * Section 8 of the Master Brand Document is drafted a property at a time — one entry per
+ * stay page listed in section 11 — because the whole-site read only carries three inner
+ * pages, which on a thirteen-cabin portfolio is ten cabins short. Each of those drafts
+ * gets its own request and its own page fetch, so each fits the synchronous budget.
+ *
+ * Throws with a reason an account manager can read, same as readWebsite: a page that came
+ * back empty is a page the model would otherwise fill from imagination.
+ */
+export async function readPage(raw: string, cap = 12_000): Promise<{ url: string; title: string; text: string }> {
+    const url = await assertPublicUrl(raw);
+    const r = await grab(url.href, SINGLE_PAGE_CAP, 4500);
+    if (!r) throw new Error(`Couldn't load ${url.href} — the page didn't answer.`);
+    const html = asText(r.body);
+    const text = stripHtml(html, cap);
+    if (text.length < 200) throw new Error(`${url.href} returned almost no readable text — it likely builds its page in JavaScript.`);
+    return { url: url.href, title: pageTitle(html), text };
 }
 
 export interface SiteRead {

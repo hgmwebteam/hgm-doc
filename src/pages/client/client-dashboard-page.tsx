@@ -173,6 +173,7 @@ import {
     overviewSectionNumber,
 } from "@/pages/client/dashboard/overview-doc";
 import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pages/client/dashboard/pinned-posts";
+import { stayPageLinks } from "@/pages/client/dashboard/stay-pages";
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
     LANDING_FEEDBACK_KEY,
@@ -1471,8 +1472,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                         body: JSON.stringify({ slug, ...body }),
                     });
                     const text = await res.text();
-                    let json: { error?: string; siteText?: string; links?: { page: string; url: string }[]; properties?: { name: string; link: string }[] } | null =
-                        null;
+                    let json: {
+                        error?: string;
+                        siteText?: string;
+                        links?: { page: string; url: string }[];
+                        properties?: { name: string; link: string }[];
+                    } | null = null;
                     try {
                         json = text ? JSON.parse(text) : null;
                     } catch {
@@ -2120,6 +2125,82 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
     };
 
+    /* ── Draft section 8 one property at a time, from section 11's links ──
+       A portfolio site keeps each stay on its own page, and the whole-site read carries
+       only three inner pages — ten cabins short on a thirteen-cabin site. So each stay
+       listed in Website links gets its own request: its page read at full length, its own
+       set of fields. Sequential for the same reason the group loop is, and because the AM
+       watches the property names tick past. */
+    const [focusDraftState, setFocusDraftState] = useState<"idle" | "drafting" | "done" | "error">("idle");
+    const [focusDraftNote, setFocusDraftNote] = useState("");
+    const [focusDraftStep, setFocusDraftStep] = useState("");
+
+    /** Which rows in section 11 are individual property pages — what the button offers.
+        `total` is the uncapped count, so a sixty-cabin portfolio can be told it is getting
+        the first twelve rather than silently getting twelve. */
+    const stayPages = useMemo(() => {
+        const rows = foundation.websiteLinks.map((l) => ({ page: l.page, url: l.url }));
+        return { picked: stayPageLinks(rows), total: stayPageLinks(rows, rows.length || 1).length };
+    }, [foundation.websiteLinks]);
+
+    /** One drafted entry per stay page, merged as each lands. Never throws — a page that
+        fails is named in the result rather than losing the properties already drafted. */
+    const runPropertyWalk = async (token: string, links: { page: string; url: string }[], onStep: (step: string) => void) => {
+        let drafted = 0;
+        const failed: string[] = [];
+        for (const [i, l] of links.entries()) {
+            onStep(`${l.page || "Property"} — ${i + 1} of ${links.length}`);
+            try {
+                const out = await callMasterSection(token, "property", { propertyUrl: l.url });
+                const fields = (out?.fields as Record<string, unknown> | undefined) ?? {};
+                setContent((c) => {
+                    const current = { ...DEFAULT_FOUNDATION, ...c.foundation };
+                    return { ...c, foundation: { ...current, ...mergeFoundationDraft(current, fields) } };
+                });
+                if (Array.isArray(fields.focusProperties) && fields.focusProperties.length) drafted += 1;
+            } catch (err) {
+                console.error("[master draft] property page failed", l.url, err);
+                failed.push(l.page || l.url);
+            }
+        }
+        return { drafted, failed };
+    };
+
+    /** The button on section 8 — the same walk, run on its own, over whatever section 11
+        currently lists. That is the point of it: an AM who pastes the sitemap in by hand
+        can fill the focus properties from it without re-drafting the whole document. */
+    const draftFocusProperties = async () => {
+        if (!slug || isTemplate || focusDraftState === "drafting") return;
+        const links = stayPages.picked;
+        if (!links.length) {
+            setFocusDraftState("error");
+            setFocusDraftNote(
+                "None of the rows in Website links look like an individual property page. They need to sit under a folder of their own — /properties/coach-house, /cabins/wild-blue — which is how a listing is told apart from the rest of the site. Add them to section 11 first, or fill this section in by hand.",
+            );
+            return;
+        }
+        setFocusDraftState("drafting");
+        setFocusDraftNote("");
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+            setFocusDraftState("error");
+            setFocusDraftNote("Your sign-in has expired — reload the page and sign in again.");
+            return;
+        }
+        try {
+            const { drafted, failed } = await runPropertyWalk(token, links, setFocusDraftStep);
+            setFocusDraftState(drafted ? "done" : "error");
+            setFocusDraftNote(
+                drafted
+                    ? `Read ${drafted} of ${links.length} property pages.${failed.length ? ` Couldn't read: ${failed.join(", ")}.` : ""} Properties already listed here were left alone. Check what landed, then press Save changes — nothing is saved yet.`
+                    : `Couldn't read any of the ${links.length} property pages${failed.length ? `: ${failed.join(", ")}` : ""}. A site that builds its pages in the browser can't be read this way — those need filling in by hand.`,
+            );
+        } finally {
+            setFocusDraftStep("");
+        }
+    };
+
     /**
      * Draft the whole Master Brand Document from the client's own material.
      *
@@ -2171,6 +2252,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 setMasterDraftError(err instanceof Error ? `${err.message} Drafting continued without the website.` : "");
             }
 
+            /* Section 8 is drafted from section 11 — the stay pages the crawl just listed,
+               one request each. Where a site keeps no such folder the old whole-site
+               `focus` group still runs, so a single-property client is unaffected. */
+            const stayLinks = stayPageLinks(siteLinks);
+
             const groups: { group: string; label: string; extra?: Record<string, unknown> }[] = [
                 // Also optional website: the brief already tells it to lean on their own
                 // About Us story, which only exists on the site.
@@ -2197,6 +2283,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 // ordinary states, not errors.
                 if (g.group === "reviews" && !reviewsPaste.trim()) continue;
                 if ((g.group === "properties" || g.group === "focus") && !siteText) continue;
+
+                if (g.group === "focus" && stayLinks.length) {
+                    const { drafted, failed: pages } = await runPropertyWalk(token, stayLinks, (step) => setMasterDraftStep(`Focus properties · ${step}`));
+                    if (drafted) setMasterDraftDone((d) => [...d, `${g.label} (${drafted} of ${stayLinks.length})`]);
+                    // Named, not just logged: eleven cabins drafted and two missed is a
+                    // different thing to check than eleven drafted and nothing missed.
+                    if (pages.length) failed.push(`${g.label} — ${pages.join(", ")}`);
+                    else if (!drafted) failed.push(g.label);
+                    continue;
+                }
 
                 setMasterDraftStep(g.label);
                 try {
@@ -5667,6 +5763,73 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 </div>
                                                                             ))}
                                                                         </div>
+
+                                                                        {/* Fill this section from section 11 — one entry per property page. The
+                                                                            whole-document draft does this too; the button is here for the case it
+                                                                            was written for, an AM who has just pasted the sitemap into Website
+                                                                            links and wants these filled without re-drafting everything. */}
+                                                                        {isTeam && !isTemplate && isLocked && stayPages.picked.length > 0 && (
+                                                                            <p className="mt-5 text-sm text-tertiary">
+                                                                                To draft these from the {stayPages.picked.length} property pages in{" "}
+                                                                                <span className="font-semibold text-secondary">Website links</span>, press{" "}
+                                                                                <span className="font-semibold text-secondary">Edit dashboard</span> first.
+                                                                            </p>
+                                                                        )}
+                                                                        {isTeam && !isTemplate && !isLocked && (
+                                                                            <div className="mt-5 rounded-2xl bg-primary p-4 ring-1 ring-secondary">
+                                                                                <p className="text-sm font-semibold text-primary">
+                                                                                    Fill this section from the website links
+                                                                                </p>
+                                                                                <p className="mt-2 text-sm text-tertiary">
+                                                                                    {stayPages.picked.length > 0
+                                                                                        ? `Each property page listed in section 11 is read on its own and becomes an entry here — name, location, sleeps, beds, baths, description, features and terms. ${
+                                                                                              stayPages.total > stayPages.picked.length
+                                                                                                  ? `Section 11 lists ${stayPages.total}, and focus properties are meant to be a selection, so the first ${stayPages.picked.length} are drafted — remove or reorder rows up there to choose which.`
+                                                                                                  : `Section 11 lists ${stayPages.picked.length}.`
+                                                                                          } It takes about a minute.`
+                                                                                        : "This reads each property page listed in section 11, Website links, and turns it into an entry here. None of the rows there look like an individual property yet — a listing sits under a folder of its own, like /properties/coach-house."}
+                                                                                </p>
+                                                                                <div className="mt-3 flex flex-wrap items-center gap-3">
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        color="primary"
+                                                                                        iconLeading={Stars02}
+                                                                                        isDisabled={stayPages.picked.length === 0}
+                                                                                        isLoading={focusDraftState === "drafting"}
+                                                                                        showTextWhileLoading
+                                                                                        onClick={() => void draftFocusProperties()}
+                                                                                    >
+                                                                                        {focusDraftState === "drafting"
+                                                                                            ? focusDraftStep || "Reading the property pages…"
+                                                                                            : "Draft from the website links"}
+                                                                                    </Button>
+                                                                                    <span className="text-xs text-quaternary">
+                                                                                        Nothing already listed here is changed.
+                                                                                    </span>
+                                                                                </div>
+                                                                                {focusDraftNote && (
+                                                                                    <p
+                                                                                        role={focusDraftState === "error" ? "alert" : undefined}
+                                                                                        className={cx(
+                                                                                            "mt-2 flex items-start gap-1.5 text-sm",
+                                                                                            focusDraftState === "error"
+                                                                                                ? "text-error-primary"
+                                                                                                : "text-success-primary",
+                                                                                        )}
+                                                                                    >
+                                                                                        {focusDraftState === "error" ? (
+                                                                                            <AlertTriangle
+                                                                                                className="mt-0.5 size-4 shrink-0"
+                                                                                                aria-hidden="true"
+                                                                                            />
+                                                                                        ) : (
+                                                                                            <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                                                                        )}
+                                                                                        {focusDraftNote}
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
                                                                     </DocSection>
 
                                                                     {/* ── 9. Local favorites ── */}

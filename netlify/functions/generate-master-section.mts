@@ -9,6 +9,7 @@ import {
     readAuthEnv,
     readClientSources,
     readEnv,
+    readPage,
     readWebsite,
     sourceBlocks,
 } from "../lib/client-sources.mts";
@@ -72,13 +73,25 @@ const FOCUS_PROPS = {
     description: str("The listing description, in the brand's own voice, 3-5 sentences."),
     features: str("Features and amenities, as a newline-separated list."),
     terms: str("House rules, check-in/out, pets, minimum stay — only what the source states."),
-    reviews: { type: "array", items: { type: "string" }, description: "Up to 3 verbatim guest review quotes about THIS property. Empty array unless the source contains real quotes." },
+    reviews: {
+        type: "array",
+        items: { type: "string" },
+        description: "Up to 3 verbatim guest review quotes about THIS property. Empty array unless the source contains real quotes.",
+    },
 };
 
 /** Each group: which Foundation keys it fills, the tool that shapes them, and the brief. */
 const GROUPS: Record<
     string,
-    { keys: string[]; needsSite?: boolean; needsReviews?: boolean; maxTokens: number; instruction: string; properties: Record<string, unknown> }
+    {
+        keys: string[];
+        needsSite?: boolean;
+        needsReviews?: boolean;
+        needsPage?: boolean;
+        maxTokens: number;
+        instruction: string;
+        properties: Record<string, unknown>;
+    }
 > = {
     hosts: {
         keys: ["hosts", "exactLocation", "proximityCities", "proximityAirports"],
@@ -183,6 +196,26 @@ Do not invent a demographic the source contradicts; leave a field empty rather t
             },
         },
     },
+    /* One stay, from its own page. The `focus` group above drafts up to four properties
+       out of the whole-site read, which carries the homepage and three inner pages — on a
+       portfolio site that is most of the cabins missing. This runs once per stay page
+       listed in section 11 instead, so every property gets a page of its own read at full
+       length and its own set of fields. The dashboard picks which links are stays
+       (src/pages/client/dashboard/stay-pages.ts) and loops them. */
+    property: {
+        keys: ["focusProperties"],
+        needsPage: true,
+        maxTokens: 1800,
+        instruction:
+            "Draft ONE focus property: the single stay described by the property page above. Every field comes from that page — the other sources are background on the brand's voice, not facts about this property. Leave a field empty rather than carrying a number or a rule over from a different stay. The `link` field is the property page's own URL, copied verbatim. Return an empty array if the page is not about one individual stay.",
+        properties: {
+            focusProperties: {
+                type: "array",
+                items: { type: "object", properties: FOCUS_PROPS, required: Object.keys(FOCUS_PROPS) },
+                description: "Exactly one entry — the property this page is about. Empty array if the page describes no single stay.",
+            },
+        },
+    },
     favorites: {
         keys: ["restaurants", "activities"],
         maxTokens: 2000,
@@ -191,12 +224,30 @@ Do not invent a demographic the source contradicts; leave a field empty rather t
         properties: {
             restaurants: {
                 type: "array",
-                items: { type: "object", properties: { name: str("The restaurant or café name, exactly as the client wrote it."), description: str("The website address the client gave for it, exactly as written. If they gave no link, one line on why they recommend it. Empty if neither.") }, required: ["name", "description"] },
+                items: {
+                    type: "object",
+                    properties: {
+                        name: str("The restaurant or café name, exactly as the client wrote it."),
+                        description: str(
+                            "The website address the client gave for it, exactly as written. If they gave no link, one line on why they recommend it. Empty if neither.",
+                        ),
+                    },
+                    required: ["name", "description"],
+                },
                 description: "One row per restaurant or café the client named. Empty array if they named none.",
             },
             activities: {
                 type: "array",
-                items: { type: "object", properties: { name: str("The activity or attraction name, exactly as the client wrote it."), description: str("The website address the client gave for it, exactly as written. If they gave no link, one line on why they recommend it. Empty if neither.") }, required: ["name", "description"] },
+                items: {
+                    type: "object",
+                    properties: {
+                        name: str("The activity or attraction name, exactly as the client wrote it."),
+                        description: str(
+                            "The website address the client gave for it, exactly as written. If they gave no link, one line on why they recommend it. Empty if neither.",
+                        ),
+                    },
+                    required: ["name", "description"],
+                },
                 description: "One row per activity or attraction the client named. Empty array if they named none.",
             },
         },
@@ -269,6 +320,16 @@ function clean(value: unknown): unknown {
     return value;
 }
 
+/** Two URLs on the same site, ignoring a www prefix. An unparseable URL is never a match. */
+const hostOf = (u: string): string => {
+    try {
+        return new URL(u.trim()).hostname.toLowerCase().replace(/^www\./, "");
+    } catch {
+        return "";
+    }
+};
+const sameHost = (a: string, b: string): boolean => !!hostOf(a) && hostOf(a) === hostOf(b);
+
 export default async (req: Request) => {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
@@ -289,6 +350,7 @@ export default async (req: Request) => {
     let siteText = "";
     let reviewsText = "";
     let allowedLinks: string[] = [];
+    let propertyUrl = "";
     try {
         const body = await req.json();
         slug = String(body.slug ?? "").trim();
@@ -296,6 +358,9 @@ export default async (req: Request) => {
         siteText = String(body.siteText ?? "").slice(0, 40_000);
         reviewsText = String(body.reviewsText ?? "").slice(0, 60_000);
         allowedLinks = Array.isArray(body.allowedLinks) ? body.allowedLinks.map(String).slice(0, 40) : [];
+        propertyUrl = String(body.propertyUrl ?? "")
+            .trim()
+            .slice(0, 500);
     } catch {
         return Response.json({ error: "Bad request." }, { status: 400 });
     }
@@ -324,7 +389,7 @@ export default async (req: Request) => {
 
     // publicCopy: this document feeds what guests read, so team-only answers stay out.
     const sources = await readClientSources(admin, slug, { publicCopy: true });
-    if (!sources.hasAny && !siteText && !reviewsText) {
+    if (!sources.hasAny && !siteText && !reviewsText && !propertyUrl) {
         return Response.json({ error: "There's nothing to draft from yet — this client hasn't submitted either form." }, { status: 400 });
     }
     if (spec.needsReviews && !reviewsText.trim()) {
@@ -334,12 +399,34 @@ export default async (req: Request) => {
         return Response.json({ error: "The website hasn't been read yet." }, { status: 400 });
     }
 
+    /* Groups drafted a page at a time read that page here, inside their own request.
+       assertPublicUrl (in readPage) already refuses private addresses; this refuses any
+       host but the client's own, so the endpoint can only ever read the site the document
+       is about, whatever a caller sends. */
+    let pageBlock = "";
+    if (spec.needsPage) {
+        const home = sources.clientWebsite || String(sources.intakeAnswers.websiteUrl ?? "").trim();
+        if (!propertyUrl) return Response.json({ error: "No property page was given to draft from." }, { status: 400 });
+        if (!home) return Response.json({ error: "No website on file for this client — add one on the dashboard or in the onboarding form." }, { status: 400 });
+        if (!sameHost(propertyUrl, home)) return Response.json({ error: "That page isn't on the client's own website." }, { status: 400 });
+        try {
+            const page = await readPage(propertyUrl);
+            pageBlock = `--- THE PROPERTY PAGE (draft this one stay from it) ---\n${page.url}${page.title ? ` (${page.title})` : ""}\n${page.text}`;
+            allowedLinks = [...allowedLinks, page.url];
+        } catch (err) {
+            return Response.json({ error: (err as Error).message }, { status: 502 });
+        }
+    }
+
     const airbnb = String(sources.intakeAnswers.airbnbUrl ?? "").trim();
     const links = [...new Set([...allowedLinks, airbnb].filter(Boolean))];
 
     const parts = [
         sourceBlocks(sources),
-        siteText.trim() && `--- THE CLIENT'S WEBSITE ---\n${siteText.trim()}`,
+        pageBlock,
+        // The whole-site read is left out of a per-page draft: the page IS the source, and
+        // 40,000 characters of site text repeated once per property is paid for every time.
+        !spec.needsPage && siteText.trim() && `--- THE CLIENT'S WEBSITE ---\n${siteText.trim()}`,
         reviewsText.trim() && `--- GUEST REVIEWS (pasted by the account manager) ---\n${reviewsText.trim()}`,
         links.length && `--- ALLOWED LINKS (the only URLs you may use, copy verbatim) ---\n${links.join("\n")}`,
     ].filter(Boolean);

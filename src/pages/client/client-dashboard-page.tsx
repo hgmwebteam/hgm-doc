@@ -2137,7 +2137,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
 
     /** Which rows in section 11 are individual property pages — what the button offers.
         `total` is the uncapped count, so a sixty-cabin portfolio can be told it is getting
-        the first twelve rather than silently getting twelve. */
+        the first five rather than silently getting five. */
     const stayPages = useMemo(() => {
         const rows = foundation.websiteLinks.map((l) => ({ page: l.page, url: l.url }));
         return { picked: stayPageLinks(rows), total: stayPageLinks(rows, rows.length || 1).length };

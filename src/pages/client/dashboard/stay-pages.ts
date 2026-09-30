@@ -27,11 +27,12 @@ export type PageLink = { page: string; url: string };
 /**
  * The individual stay pages in a link table, in the order they were listed.
  *
- * Capped because this drives one page fetch and one model call each, and a 60-page
- * sitemap would otherwise turn a draft into a twenty-minute run. Rows with no usable
- * URL are skipped rather than guessed at.
+ * Capped because this drives one page fetch and one model call each, and because focus
+ * properties are a selection — the handful a client is marketed on, not their whole
+ * portfolio. Which five is the account manager's call, made by editing section 11. Rows
+ * with no usable URL are skipped rather than guessed at.
  */
-export const STAY_PAGE_MAX = 12;
+export const STAY_PAGE_MAX = 5;
 
 export const stayPageLinks = (links: readonly PageLink[], max = STAY_PAGE_MAX): PageLink[] => {
     const out: PageLink[] = [];

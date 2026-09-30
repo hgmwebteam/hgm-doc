@@ -13,7 +13,7 @@
  *   && node /tmp/hgm-check/stays.cjs
  */
 import assert from "node:assert";
-import { stayPageLinks } from "@/pages/client/dashboard/stay-pages";
+import { STAY_PAGE_MAX, stayPageLinks } from "@/pages/client/dashboard/stay-pages";
 
 const urls = (links: { page: string; url: string }[]) => stayPageLinks(links).map((l) => l.url);
 const table = (...u: string[]) => u.map((url) => ({ page: "", url }));
@@ -52,9 +52,11 @@ assert.deepEqual(urls(table("https://x.com/properties/wild-blue", "https://x.com
 /* Rows with nothing usable in the URL column are skipped, not guessed at. */
 assert.deepEqual(urls(table("", "https://", "not a url", "mailto:host@x.com", "javascript:alert(1)")), []);
 
-/* Capped: the cap is what keeps a draft from becoming a twenty-minute run. */
+/* Capped, and capped at the top of the list: focus properties are a selection, and which
+   five is chosen by the order of section 11. */
 const many = table(...Array.from({ length: 30 }, (_, i) => `https://x.com/cabins/cabin-${i}`));
-assert.equal(stayPageLinks(many).length, 12);
+assert.equal(stayPageLinks(many).length, STAY_PAGE_MAX);
+assert.equal(STAY_PAGE_MAX, 5);
 assert.equal(stayPageLinks(many, 3).length, 3);
 assert.deepEqual(
     stayPageLinks(many, 3).map((l) => l.url),

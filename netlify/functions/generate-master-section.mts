@@ -320,10 +320,21 @@ function clean(value: unknown): unknown {
     return value;
 }
 
-/** Two URLs on the same site, ignoring a www prefix. An unparseable URL is never a match. */
-const hostOf = (u: string): string => {
+/**
+ * Two addresses on the same site, ignoring a www prefix and a missing scheme.
+ *
+ * The scheme matters: the website on file is typed by a person and usually arrives as
+ * "cabincollectivebb.com", which `new URL` rejects outright. Every fetch in this codebase
+ * goes through assertPublicUrl, which bolts https:// onto a bare host — so a check that
+ * didn't refused the client's own listing pages while the crawl of the same site worked.
+ * Normalised the one way, here, rather than at each call site.
+ */
+const hostOf = (raw: string): string => {
+    const u = raw.trim();
+    if (!u) return "";
     try {
-        return new URL(u.trim()).hostname.toLowerCase().replace(/^www\./, "");
+        const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(u);
+        return new URL(hasScheme ? u : `https://${u}`).hostname.toLowerCase().replace(/^www\./, "");
     } catch {
         return "";
     }
@@ -408,7 +419,10 @@ export default async (req: Request) => {
         const home = sources.clientWebsite || String(sources.intakeAnswers.websiteUrl ?? "").trim();
         if (!propertyUrl) return Response.json({ error: "No property page was given to draft from." }, { status: 400 });
         if (!home) return Response.json({ error: "No website on file for this client — add one on the dashboard or in the onboarding form." }, { status: 400 });
-        if (!sameHost(propertyUrl, home)) return Response.json({ error: "That page isn't on the client's own website." }, { status: 400 });
+        // Names the site it was compared against: "isn't on the client's own website" is
+        // unanswerable when the website on file is the thing that's wrong.
+        if (!sameHost(propertyUrl, home))
+            return Response.json({ error: `That page isn't on the client's own website (${hostOf(home) || home}).` }, { status: 400 });
         try {
             const page = await readPage(propertyUrl);
             pageBlock = `--- THE PROPERTY PAGE (draft this one stay from it) ---\n${page.url}${page.title ? ` (${page.title})` : ""}\n${page.text}`;

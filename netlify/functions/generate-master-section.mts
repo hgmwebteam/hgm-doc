@@ -320,15 +320,7 @@ function clean(value: unknown): unknown {
     return value;
 }
 
-/**
- * Two addresses on the same site, ignoring a www prefix and a missing scheme.
- *
- * The scheme matters: the website on file is typed by a person and usually arrives as
- * "cabincollectivebb.com", which `new URL` rejects outright. Every fetch in this codebase
- * goes through assertPublicUrl, which bolts https:// onto a bare host — so a check that
- * didn't refused the client's own listing pages while the crawl of the same site worked.
- * Normalised the one way, here, rather than at each call site.
- */
+/** A URL's host, without www and tolerant of a missing scheme (people type bare domains). */
 const hostOf = (raw: string): string => {
     const u = raw.trim();
     if (!u) return "";
@@ -339,7 +331,11 @@ const hostOf = (raw: string): string => {
         return "";
     }
 };
-const sameHost = (a: string, b: string): boolean => !!hostOf(a) && hostOf(a) === hostOf(b);
+
+/* The big listing platforms serve bot protection to datacenter IPs, so a fetch from here
+   comes back as a flat refusal however valid the link. Worth saying by name: "the page
+   didn't answer" sends an AM to check a URL that was never the problem. */
+const WALLED = /^(www\.)?(airbnb\.[a-z.]+|vrbo\.com|homeaway\.[a-z.]+|booking\.com|expedia\.[a-z.]+|tripadvisor\.[a-z.]+)$/i;
 
 export default async (req: Request) => {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
@@ -411,24 +407,28 @@ export default async (req: Request) => {
     }
 
     /* Groups drafted a page at a time read that page here, inside their own request.
-       assertPublicUrl (in readPage) already refuses private addresses; this refuses any
-       host but the client's own, so the endpoint can only ever read the site the document
-       is about, whatever a caller sends. */
+       ANY public page, not only the client's own site: a host's listings routinely live on
+       a booking platform or a second domain, and the website on file is often blank or
+       stale, so a same-site rule refused real listings and could not be argued with.
+       assertPublicUrl (in readPage) still refuses private networks and anything that isn't
+       http(s) — that is the guard that matters — and this endpoint is team-only above. */
     let pageBlock = "";
     if (spec.needsPage) {
-        const home = sources.clientWebsite || String(sources.intakeAnswers.websiteUrl ?? "").trim();
         if (!propertyUrl) return Response.json({ error: "No property page was given to draft from." }, { status: 400 });
-        if (!home) return Response.json({ error: "No website on file for this client — add one on the dashboard or in the onboarding form." }, { status: 400 });
-        // Names the site it was compared against: "isn't on the client's own website" is
-        // unanswerable when the website on file is the thing that's wrong.
-        if (!sameHost(propertyUrl, home))
-            return Response.json({ error: `That page isn't on the client's own website (${hostOf(home) || home}).` }, { status: 400 });
         try {
             const page = await readPage(propertyUrl);
             pageBlock = `--- THE PROPERTY PAGE (draft this one stay from it) ---\n${page.url}${page.title ? ` (${page.title})` : ""}\n${page.text}`;
             allowedLinks = [...allowedLinks, page.url];
         } catch (err) {
-            return Response.json({ error: (err as Error).message }, { status: 502 });
+            const host = hostOf(propertyUrl);
+            return Response.json(
+                {
+                    error: WALLED.test(host)
+                        ? `${host} blocks automated readers, so its pages can't be read from here — use the listing on the client's own website, or fill this one in by hand.`
+                        : (err as Error).message,
+                },
+                { status: 502 },
+            );
         }
     }
 

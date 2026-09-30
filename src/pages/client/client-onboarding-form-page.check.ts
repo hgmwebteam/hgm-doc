@@ -117,7 +117,7 @@ assert.deepEqual(
     [],
 );
 assert.equal(ONBOARDING_FORM.total, 26);
-assert.equal(ACCESS_FORM.total, 6);
+assert.equal(ACCESS_FORM.total, 7);
 
 /* ── Carrying the old Onboarding row's logins and billing into the new Access row ── */
 const oldRow = {
@@ -152,7 +152,10 @@ const vision = {
 const merged = withBrandVisionAnswers({ answers: { email: "typed@here.com" } }, vision);
 /* Empty questions fill… */
 assert.equal(merged.answers.purpose, "To provide romantic getaways");
-assert.equal(merged.answers.idealGuest__other, "Birdwatchers");
+/* The Brand Vision Form still asks this one as multiple choice; here it is free text
+   now, so the pick list and its "Other" line arrive as plain words. */
+assert.equal(merged.answers.idealGuest, "Birdwatchers");
+assert.equal(merged.answers.idealGuest__other, undefined);
 assert.equal(merged.answers.threeWords, "Quiet, wild, warm");
 /* …but nothing already typed here is overwritten. */
 assert.equal(merged.answers.email, "typed@here.com");
@@ -170,7 +173,15 @@ for (const f of ["favoritesRestaurants", "favoritesActivities"])
         guideRows.find((r) => r.field === f)!.lines.map((l) => l.text),
         ["Guide: https://acme.com/local"],
     );
-/* An "Other"-only answer counts as answered. */
-assert.ok(clientOnboardingProgress({ answers: { idealGuest__other: "Birdwatchers" } }).answered === 1);
+/* An "Other"-only answer counts as answered — including one written while the question
+   was still multiple choice, which is folded into the field it belongs to. */
+assert.ok(clientOnboardingProgress({ answers: { purpose__other: "To fund a rescue" } }).answered === 1);
+assert.deepEqual(
+    clientOnboardingAnswers({ answers: { idealGuest__other: "Birdwatchers", idealGuest: "Families with kids" } })
+        .flatMap((s) => s.rows)
+        .find((r) => r.field === "idealGuest")!
+        .lines.map((l) => l.text),
+    ["Families with kids", "Birdwatchers"],
+);
 
 console.log("client-onboarding-form-page.check.ts — all assertions passed");

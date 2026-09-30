@@ -9,6 +9,7 @@ import {
     readAuthEnv,
     readClientSources,
     readEnv,
+    readWebsite,
     sourceBlocks,
 } from "../lib/client-sources.mts";
 
@@ -74,7 +75,19 @@ const FIELDS: Record<string, string> = {
  * bigger allowance here rather than a retry.
  */
 type Effort = "low" | "medium";
-const GROUPS: Record<string, { keys: string[]; maxTokens: number; effort: Effort; instruction: string }> = {
+const GROUPS: Record<
+    string,
+    {
+        keys: string[];
+        maxTokens: number;
+        effort: Effort;
+        instruction: string;
+        /** Drafted from the client's own website rather than their forms — see the `site` group. */
+        needsSite?: true;
+        /** Overrides the default "every key is a string" schema, for a group that isn't prose. */
+        schema?: Record<string, unknown>;
+    }
+> = {
     basics: {
         keys: ["client_name", "business_name", "email", "business_type", "locations", "instagram", "tiktok", "direct_booking_website", "airbnb"],
         maxTokens: 2000,
@@ -93,6 +106,36 @@ const GROUPS: Record<string, { keys: string[]; maxTokens: number; effort: Effort
         maxTokens: 4000,
         effort: "medium",
         instruction: "Draft how this client presents themselves and how they want to be handled.",
+    },
+    /**
+     * The one group drafted from the client's site rather than their forms: no form asks for
+     * a per-property list, so before this the Properties block was typed out by hand for
+     * every client. Mirrors the Master Document's `focus` group, including its rule that a
+     * link is copied from the allowed list or left empty — a constructed listing URL looks
+     * right and 404s.
+     */
+    properties: {
+        keys: ["properties"],
+        needsSite: true,
+        maxTokens: 3000,
+        // Extraction: the names and links are already on the page.
+        effort: "low",
+        instruction:
+            "List the individual properties this client rents out, one entry per property, from the website text. Only include properties the source actually names — a page like 'About' or 'Book now' is not a property. The `link` field must be copied verbatim from the allowed links or left empty; never construct a URL.",
+        schema: {
+            properties: {
+                type: "array",
+                description: "One entry per property the website names, up to 20. Empty array if it names none.",
+                items: {
+                    type: "object",
+                    properties: {
+                        name: { type: "string", description: "The property's own name, as the site calls it." },
+                        link: { type: "string", description: "Its page on the site, copied verbatim from the allowed links. Empty if the list has no page for it." },
+                    },
+                    required: ["name", "link"],
+                },
+            },
+        },
     },
 };
 
@@ -153,22 +196,47 @@ export default async (req: Request) => {
 
     let slug: string;
     let group: string;
+    let siteText: string;
+    let allowedLinks: string[];
     try {
         const body = await req.json();
         slug = String(body.slug ?? "").trim();
         group = String(body.group ?? "").trim();
+        siteText = String(body.siteText ?? "");
+        allowedLinks = Array.isArray(body.links) ? body.links.map((l: unknown) => String((l as { url?: string })?.url ?? "")).filter(Boolean) : [];
     } catch {
         return Response.json({ error: "Bad request." }, { status: 400 });
     }
     if (!isDashboardSlug(slug)) return Response.json({ error: "Bad slug." }, { status: 400 });
+
+    /* The website read — no model, its own request, so the group that needs the text doesn't
+       spend its budget fetching. Same split as generate-master-section's `site` group. */
+    if (group === "site") {
+        const admin = createClient(env.supabaseUrl, env.serviceKey);
+        const sources = await readClientSources(admin, slug);
+        const url = sources.clientWebsite || String(sources.intakeAnswers.websiteUrl ?? "").trim();
+        if (!url) {
+            return Response.json({ error: "No website on file for this client — add one on the dashboard or in the onboarding form." }, { status: 400 });
+        }
+        try {
+            const read = await readWebsite(url);
+            return Response.json({ group, site: read.site, siteText: read.text, links: read.links });
+        } catch (err) {
+            return Response.json({ error: (err as Error).message }, { status: 502 });
+        }
+    }
+
     const spec = GROUPS[group];
     if (!spec) return Response.json({ error: "Unknown group." }, { status: 400 });
+    if (spec.needsSite && !siteText.trim()) return Response.json({ error: "The website hasn't been read yet." }, { status: 400 });
 
     try {
         const supabaseAdmin = createClient(env.supabaseUrl, env.serviceKey);
         const sources = await readClientSources(supabaseAdmin, slug);
 
-        if (!sources.hasAny) {
+        // siteText counts as source material: the properties group is drafted from the
+        // website, so a client who has not returned a form can still have one.
+        if (!sources.hasAny && !siteText.trim()) {
             return Response.json({ error: "There's nothing to draft from yet — this client hasn't submitted either form." }, { status: 400 });
         }
 
@@ -177,10 +245,17 @@ export default async (req: Request) => {
             description: "Record this part of the Client Overview Document, drafted from the client's own answers.",
             input_schema: {
                 type: "object",
-                properties: Object.fromEntries(spec.keys.map((key) => [key, { type: "string", description: FIELDS[key] }])),
+                properties: spec.schema ?? Object.fromEntries(spec.keys.map((key) => [key, { type: "string", description: FIELDS[key] }])),
                 required: spec.keys,
             },
         };
+
+        /* The allowed links are given as a closed list, and the instruction says to copy from
+           it. A model asked for a listing URL from prose will otherwise assemble a plausible
+           one — /cabins/the-overlook — that looks right to an AM and 404s for a client. */
+        const siteBlock = spec.needsSite
+            ? `\n\n--- the client's website ---\n${siteText}\n\n--- allowed links (copy verbatim, never construct) ---\n${allowedLinks.join("\n") || "(none)"}`
+            : "";
 
         const anthropic = new Anthropic({ apiKey: env.apiKey });
         const message = await anthropic.messages.create({
@@ -190,7 +265,7 @@ export default async (req: Request) => {
             system: SYSTEM_PROMPT,
             tools: [tool],
             tool_choice: { type: "tool", name: tool.name },
-            messages: [{ role: "user", content: `${sourceBlocks(sources)}\n\n${spec.instruction}` }],
+            messages: [{ role: "user", content: `${sourceBlocks(sources)}${siteBlock}\n\n${spec.instruction}` }],
         });
 
         const block = message.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
@@ -205,6 +280,21 @@ export default async (req: Request) => {
         // Only fields this group owns are passed on. If the schema and the form drift apart,
         // the extra keys are dropped here rather than saved into the row forever.
         const raw = block.input as Record<string, unknown>;
+
+        /* The properties group answers with rows, not prose, so it skips the string coercion
+           below — String() on an array would store "[object Object]" in the row. Rows with no
+           name are dropped, and a link the allowed list doesn't contain is cleared rather
+           than the row discarded: the name is still worth having. */
+        if (spec.needsSite && spec.keys[0] === "properties") {
+            const allowed = new Set(allowedLinks);
+            const rows = (Array.isArray(raw.properties) ? raw.properties : [])
+                .map((p) => ({ name: String((p as { name?: unknown })?.name ?? "").trim(), link: String((p as { link?: unknown })?.link ?? "").trim() }))
+                .filter((p) => p.name)
+                .map((p) => ({ ...p, link: allowed.has(p.link) ? p.link : "" }))
+                .slice(0, 20);
+            return Response.json({ group, properties: rows });
+        }
+
         const doc = Object.fromEntries(spec.keys.map((k) => [k, blankIfPlaceholder(String(raw[k] ?? ""))]));
 
         // Literal form answers don't need a model — copy them verbatim when the model left

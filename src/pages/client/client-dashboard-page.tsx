@@ -1457,9 +1457,59 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 }
             }
 
-            if (failed.length) {
+            /* Properties come from the client's own website, not their forms — no form asks
+               for a per-property list. Runs last and on its own error track: a site we can't
+               read (built in JavaScript, or none on file) is an ordinary outcome that must
+               not read as the whole draft having failed. */
+            let propertyNote = "";
+            try {
+                setOverviewStep("Reading their website");
+                const post = async (body: Record<string, unknown>) => {
+                    const res = await fetch("/.netlify/functions/generate-overview", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ slug, ...body }),
+                    });
+                    const text = await res.text();
+                    let json: { error?: string; siteText?: string; links?: { page: string; url: string }[]; properties?: { name: string; link: string }[] } | null =
+                        null;
+                    try {
+                        json = text ? JSON.parse(text) : null;
+                    } catch {
+                        json = null;
+                    }
+                    if (!json) throw new Error(`The server didn't send a usable reply (${res.status}).`);
+                    if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
+                    return json;
+                };
+
+                const site = await post({ group: "site" });
+                setOverviewStep("Listing their properties");
+                const drafted = await post({ group: "properties", siteText: site.siteText, links: site.links });
+                const rows = (drafted.properties ?? []).filter((p) => p.name.trim());
+
+                // Never overwrite a list an AM has already built — the draft fills a blank
+                // Properties block, it doesn't replace one somebody curated.
+                const existing = (content.overview_doc?.properties ?? []).filter((p) => p.name.trim() || p.link.trim());
+                if (!rows.length) propertyNote = "Their website named no properties — add them by hand.";
+                else if (existing.length) propertyNote = `Left the ${existing.length} properties already listed alone — their website named ${rows.length}.`;
+                else patchOverviewDoc({ properties: rows.map((p) => ({ id: uid(), name: p.name.trim(), link: p.link.trim() })) });
+            } catch (err) {
+                console.error("[overview doc] properties failed", err);
+                propertyNote = `Properties: ${err instanceof Error ? err.message : "couldn't read their website."}`;
+            }
+
+            if (failed.length || propertyNote) {
                 setOverviewError((e) =>
-                    `Couldn't draft: ${failed.join(", ")}. ${e || ""}${landed ? " Everything else landed — try again for the rest." : ""}`.trim(),
+                    [
+                        failed.length ? `Couldn't draft: ${failed.join(", ")}.` : "",
+                        e || "",
+                        failed.length && landed ? "Everything else landed — try again for the rest." : "",
+                        propertyNote,
+                    ]
+                        .filter(Boolean)
+                        .join(" ")
+                        .trim(),
                 );
             }
         } finally {

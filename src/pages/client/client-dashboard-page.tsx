@@ -77,7 +77,7 @@ import { type BrandKitDraft, BrandKitDraftReview } from "@/pages/client/dashboar
 import { brandKitCss, brandKitFileName, brandKitHasContent } from "@/pages/client/dashboard/brand-kit-export";
 import { BrandPreview } from "@/pages/client/dashboard/brand-kit-preview";
 import { ShadeScales } from "@/pages/client/dashboard/brand-kit-shades";
-import { TypeScale, TypographyCards } from "@/pages/client/dashboard/brand-kit-typography";
+import { type FontRole, TypeScale, TypographyCards, hasThirdHeadingFont } from "@/pages/client/dashboard/brand-kit-typography";
 import { readableTextOn, rgbString, wcagLabel } from "@/pages/client/dashboard/color-scale";
 import {
     ClientSearchBar,
@@ -438,7 +438,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Brand Kit custom font upload — stored as a data URL like the logos. Fonts can't be
      *  compressed the way images can, so a 1.5MB cap keeps a stray 4MB TTF from bloating
      *  the row every dashboard load pulls down; .woff2 files are far under it. */
-    const onPickFontFile = async (role: "heading" | "body", file: File) => {
+    const onPickFontFile = async (role: FontRole, file: File) => {
         if (file.size > 1_500_000) {
             window.alert("That font file is over 1.5MB — export it as .woff2 (much smaller) and try again.");
             return;
@@ -6650,8 +6650,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <TypographyCards
                                                                         fonts={content.brand.fonts}
                                                                         files={content.brand.font_files}
+                                                                        heading2={content.brand.heading2_font}
+                                                                        thirdFont={hasThirdHeadingFont(clientBase)}
                                                                         isLocked={isLocked}
                                                                         onFonts={(v) => patchBrand({ fonts: v })}
+                                                                        onHeading2={(v) => patchBrand({ heading2_font: v })}
                                                                         onUpload={(role, file) => void onPickFontFile(role, file)}
                                                                         onClearUpload={(role) =>
                                                                             patchBrand({ font_files: { ...content.brand.font_files, [role]: undefined } })
@@ -6661,6 +6664,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     {/* The Untitled UI type scale in the brand's own fonts, px + fluid clamp(). */}
                                                                     {(content.brand.fonts.trim() ||
                                                                         content.brand.font_files?.heading ||
+                                                                        content.brand.font_files?.heading2 ||
                                                                         content.brand.font_files?.body) && (
                                                                         <div className="mt-8">
                                                                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -6670,7 +6674,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 </span>
                                                                             </div>
                                                                             <div className="mt-2">
-                                                                                <TypeScale fonts={content.brand.fonts} files={content.brand.font_files} />
+                                                                                <TypeScale
+                                                                                    fonts={content.brand.fonts}
+                                                                                    files={content.brand.font_files}
+                                                                                    heading2={content.brand.heading2_font}
+                                                                                />
                                                                             </div>
                                                                         </div>
                                                                     )}

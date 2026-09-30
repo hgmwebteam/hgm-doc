@@ -201,7 +201,11 @@ export interface DashboardContent {
         logos?: { id: string; name: string; url: string }[];
         /** Uploaded font files (data URLs), one per role. When set, the upload overrides
          *  the typed name for that role. Optional: older rows predate it. */
-        font_files?: { heading?: { name: string; url: string }; body?: { name: string; url: string } };
+        font_files?: { heading?: { name: string; url: string }; heading2?: { name: string; url: string }; body?: { name: string; url: string } };
+        /** A second heading face for the two largest Display sizes (2xl, xl). Only the
+         *  clients in THIRD_HEADING_FONT_CLIENTS get the card that sets it; when unset,
+         *  those sizes use the heading font like everyone else's. */
+        heading2_font?: string;
     };
     instagram: {
         profile_url: string;

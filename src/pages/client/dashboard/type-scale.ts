@@ -3,15 +3,16 @@
  * Text xs→xl, Display xs→2xl, with each step's line-height and letter-spacing.
  * `min` is the mobile size — one display step down, the same `text-display-xs
  * md:text-display-sm` pattern the dashboard's own headings use; text sizes don't shrink.
+ * `large` marks the steps a brand's second heading font takes over (see resolveRoles).
  *
  * Pure data + one formula, shared by the Brand Kit's on-screen scale and its CSS export
  * so the two can never disagree about a size.
  */
-export type TypeStep = { label: string; px: number; lh: number; ls?: number; min: number; display?: boolean };
+export type TypeStep = { label: string; px: number; lh: number; ls?: number; min: number; display?: boolean; large?: boolean };
 
 export const TYPE_SCALE: TypeStep[] = [
-    { label: "Display 2xl", px: 72, lh: 90, ls: -1.44, min: 60, display: true },
-    { label: "Display xl", px: 60, lh: 72, ls: -1.2, min: 48, display: true },
+    { label: "Display 2xl", px: 72, lh: 90, ls: -1.44, min: 60, display: true, large: true },
+    { label: "Display xl", px: 60, lh: 72, ls: -1.2, min: 48, display: true, large: true },
     { label: "Display lg", px: 48, lh: 60, ls: -0.96, min: 36, display: true },
     { label: "Display md", px: 36, lh: 44, ls: -0.72, min: 30, display: true },
     { label: "Display sm", px: 30, lh: 38, min: 24, display: true },

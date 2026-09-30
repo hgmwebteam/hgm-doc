@@ -342,7 +342,9 @@ export const isUntouchedBrandKit = (brand: DashboardContent["brand"]) =>
     (!brand.fonts.trim() || brand.fonts.trim() === TEMPLATE_CONTENT.brand.fonts) &&
     !(brand.logos ?? []).length &&
     !brand.font_files?.heading &&
+    !brand.font_files?.heading2 &&
     !brand.font_files?.body &&
+    !brand.heading2_font?.trim() &&
     !brand.folder_link.trim();
 
 /** Fresh content for a newly created client copy — no sample numbers. */

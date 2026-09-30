@@ -71,6 +71,7 @@ const FIELD_LABELS: Record<string, string> = {
     netlify_email: "Netlify account",
     netlify_done: "Netlify confirmed",
     font_files: "Uploaded fonts",
+    heading2_font: "Heading font 2",
     promptHidden: "Working prompt",
 };
 

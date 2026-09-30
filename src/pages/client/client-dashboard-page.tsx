@@ -2127,23 +2127,14 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
     };
 
-    /* ── Draft section 8 one property at a time, from section 11's links ──
+    /* ── Section 8 is drafted one property at a time ──
        A portfolio site keeps each stay on its own page, and the whole-site read carries
        only three inner pages — ten cabins short on a thirteen-cabin site. So each stay
-       listed in Website links gets its own request: its page read at full length, its own
-       set of fields. Sequential for the same reason the group loop is, and because the AM
-       watches the property names tick past. */
-    const [focusDraftState, setFocusDraftState] = useState<"idle" | "drafting" | "done" | "error">("idle");
-    const [focusDraftNote, setFocusDraftNote] = useState("");
-    const [focusDraftStep, setFocusDraftStep] = useState("");
-
-    /** Which rows in section 11 are individual property pages — what the button offers.
-        `total` is the uncapped count, so a sixty-cabin portfolio can be told it is getting
-        the first five rather than silently getting five. */
-    const stayPages = useMemo(() => {
-        const rows = foundation.websiteLinks.map((l) => ({ page: l.page, url: l.url }));
-        return { picked: stayPageLinks(rows), total: stayPageLinks(rows, rows.length || 1).length };
-    }, [foundation.websiteLinks]);
+       gets its own request: its page read at full length, its own set of fields. Two ways
+       in, and they share this walk: the whole-document draft works down the stay pages in
+       section 11, and a row's own Fill from this link reads the one page pasted into it.
+       Sequential for the same reason the group loop is, and because the AM watches the
+       property names tick past. */
 
     /** One drafted entry per stay page, merged as each lands. Never throws — a page that
         fails is named in the result rather than losing the properties already drafted. */
@@ -2215,41 +2206,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             setRowFillNote({ id, text: err instanceof Error ? err.message : "Couldn't read that page — try again.", failed: true });
         } finally {
             setRowFillId("");
-        }
-    };
-
-    /** The button on section 8 — the same walk, run on its own, over whatever section 11
-        currently lists. That is the point of it: an AM who pastes the sitemap in by hand
-        can fill the focus properties from it without re-drafting the whole document. */
-    const draftFocusProperties = async () => {
-        if (!slug || isTemplate || focusDraftState === "drafting") return;
-        const links = stayPages.picked;
-        if (!links.length) {
-            setFocusDraftState("error");
-            setFocusDraftNote(
-                "None of the rows in Website links look like an individual property page. They need to sit under a folder of their own — /properties/coach-house, /cabins/wild-blue — which is how a listing is told apart from the rest of the site. Add them to section 11 first, or fill this section in by hand.",
-            );
-            return;
-        }
-        setFocusDraftState("drafting");
-        setFocusDraftNote("");
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token;
-        if (!token) {
-            setFocusDraftState("error");
-            setFocusDraftNote("Your sign-in has expired — reload the page and sign in again.");
-            return;
-        }
-        try {
-            const { drafted, failed } = await runPropertyWalk(token, links, setFocusDraftStep);
-            setFocusDraftState(drafted ? "done" : "error");
-            setFocusDraftNote(
-                drafted
-                    ? `Read ${drafted} of ${links.length} property pages.${failed.length ? ` Couldn't read: ${failed.join(", ")}.` : ""} Properties already listed here were left alone. Check what landed, then press Save changes — nothing is saved yet.`
-                    : `Couldn't read any of the ${links.length} property pages${failed.length ? `: ${failed.join(", ")}` : ""}. A site that builds its pages in the browser can't be read this way — those need filling in by hand.`,
-            );
-        } finally {
-            setFocusDraftStep("");
         }
     };
 
@@ -5867,73 +5823,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 </div>
                                                                             ))}
                                                                         </div>
-
-                                                                        {/* Fill this section from section 11 — one entry per property page. The
-                                                                            whole-document draft does this too; the button is here for the case it
-                                                                            was written for, an AM who has just pasted the sitemap into Website
-                                                                            links and wants these filled without re-drafting everything. */}
-                                                                        {isTeam && !isTemplate && isLocked && stayPages.picked.length > 0 && (
-                                                                            <p className="mt-5 text-sm text-tertiary">
-                                                                                To draft these from the {stayPages.picked.length} property pages in{" "}
-                                                                                <span className="font-semibold text-secondary">Website links</span>, press{" "}
-                                                                                <span className="font-semibold text-secondary">Edit dashboard</span> first.
-                                                                            </p>
-                                                                        )}
-                                                                        {isTeam && !isTemplate && !isLocked && (
-                                                                            <div className="mt-5 rounded-2xl bg-primary p-4 ring-1 ring-secondary">
-                                                                                <p className="text-sm font-semibold text-primary">
-                                                                                    Fill this section from the website links
-                                                                                </p>
-                                                                                <p className="mt-2 text-sm text-tertiary">
-                                                                                    {stayPages.picked.length > 0
-                                                                                        ? `Each property page listed in section 11 is read on its own and becomes an entry here — name, location, sleeps, beds, baths, description, features and terms. ${
-                                                                                              stayPages.total > stayPages.picked.length
-                                                                                                  ? `Section 11 lists ${stayPages.total}, and focus properties are meant to be a selection, so the first ${stayPages.picked.length} are drafted — remove or reorder rows up there to choose which.`
-                                                                                                  : `Section 11 lists ${stayPages.picked.length}.`
-                                                                                          } It takes about a minute.`
-                                                                                        : "This reads each property page listed in section 11, Website links, and turns it into an entry here. None of the rows there look like an individual property yet — a listing sits under a folder of its own, like /properties/coach-house."}
-                                                                                </p>
-                                                                                <div className="mt-3 flex flex-wrap items-center gap-3">
-                                                                                    <Button
-                                                                                        size="sm"
-                                                                                        color="primary"
-                                                                                        iconLeading={Stars02}
-                                                                                        isDisabled={stayPages.picked.length === 0}
-                                                                                        isLoading={focusDraftState === "drafting"}
-                                                                                        showTextWhileLoading
-                                                                                        onClick={() => void draftFocusProperties()}
-                                                                                    >
-                                                                                        {focusDraftState === "drafting"
-                                                                                            ? focusDraftStep || "Reading the property pages…"
-                                                                                            : "Draft from the website links"}
-                                                                                    </Button>
-                                                                                    <span className="text-xs text-quaternary">
-                                                                                        Nothing already listed here is changed.
-                                                                                    </span>
-                                                                                </div>
-                                                                                {focusDraftNote && (
-                                                                                    <p
-                                                                                        role={focusDraftState === "error" ? "alert" : undefined}
-                                                                                        className={cx(
-                                                                                            "mt-2 flex items-start gap-1.5 text-sm",
-                                                                                            focusDraftState === "error"
-                                                                                                ? "text-error-primary"
-                                                                                                : "text-success-primary",
-                                                                                        )}
-                                                                                    >
-                                                                                        {focusDraftState === "error" ? (
-                                                                                            <AlertTriangle
-                                                                                                className="mt-0.5 size-4 shrink-0"
-                                                                                                aria-hidden="true"
-                                                                                            />
-                                                                                        ) : (
-                                                                                            <Check className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                                                                                        )}
-                                                                                        {focusDraftNote}
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
                                                                     </DocSection>
 
                                                                     {/* ── 9. Local favorites ── */}

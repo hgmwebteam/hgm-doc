@@ -22,6 +22,8 @@ import assert from "node:assert/strict";
 import {
     DEFAULT_CLIENT_VISIBLE,
     DEFAULT_FOUNDATION,
+    FOCUS_PROPERTY_MAX,
+    type FocusProperty,
     type Foundation,
     createDefaultContent,
     emptyFocusProperty,
@@ -236,4 +238,51 @@ console.log("mergeFoundationDraft: all checks passed");
     assert.deepEqual(fillFocusProperty(empty, { name: "   ", guests: "" }), empty, "blank strings are not values");
 }
 
-console.log("newDashboardRow, websites and fillFocusProperty: all checks passed");
+/* ── The section is five cards ─────────────────────────────────────────────
+   Blank cards accumulate from the Add button and persist; filled ones are never dropped. */
+{
+    const blank = () => emptyFocusProperty();
+    const named = (name: string) => ({ ...emptyFocusProperty(), name });
+    /* Through mergeContent, because that is where a stored row is read. */
+    const stored = (focusProperties: FocusProperty[]) => {
+        const { foundation } = mergeContent({ foundation: { ...DEFAULT_FOUNDATION, focusProperties } });
+        assert.ok(foundation, "mergeContent always returns a foundation");
+        return foundation.focusProperties;
+    };
+
+    /* Cabin Collective's row: twelve cards, nothing written in any of them. */
+    const twelveBlanks = Array.from({ length: 12 }, blank);
+    assert.equal(stored(twelveBlanks).length, FOCUS_PROPERTY_MAX);
+
+    /* Idempotent, and a row already at or under the size is untouched. */
+    const five = stored(twelveBlanks);
+    assert.deepEqual(stored(five), five);
+    const two = [blank(), blank()];
+    assert.deepEqual(stored(two), two);
+
+    /* A filled card is never dropped — not at the size, not past it. */
+    assert.equal(stored(Array.from({ length: 8 }, (_, i) => named(`Cabin ${i + 1}`))).length, 8);
+
+    /* Mixed: the filled ones stay, blanks fill up to five, and the order is the stored one. */
+    const kept = stored([blank(), named("Coach House"), blank(), blank(), named("Wild Blue"), blank(), blank(), blank()]);
+    assert.equal(kept.length, FOCUS_PROPERTY_MAX);
+    assert.deepEqual(
+        kept.map((p) => p.name),
+        ["", "Coach House", "", "", "Wild Blue"],
+        "stored order, not filled-first",
+    );
+
+    /* A card counts as filled by anything in it, not just a name. */
+    const late = { ...emptyFocusProperty(), link: "https://x.com/properties/late-addition" };
+    assert.ok(
+        stored([...Array.from({ length: 5 }, blank), late]).some((p) => p.id === late.id),
+        "a link the AM pasted is content, and keeps its card",
+    );
+    const quoted = { ...emptyFocusProperty(), reviews: ["Loved it", "", ""] };
+    assert.ok(
+        stored([...Array.from({ length: 5 }, blank), quoted]).some((p) => p.id === quoted.id),
+        "so is a quote",
+    );
+}
+
+console.log("newDashboardRow, websites, fillFocusProperty and the five-card section: all checks passed");

@@ -98,6 +98,7 @@ import {
     type DashboardUser,
     EMPTY_PINNED_POSTS,
     type ExampleReel,
+    FOCUS_PROPERTY_MAX,
     type FocusProperty,
     type Foundation,
     type GhlItem,
@@ -5547,7 +5548,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         label="Focus properties"
                                                                         badge={isTeam ? <SourceBadge>From client's website</SourceBadge> : undefined}
                                                                         action={
-                                                                            !isLocked && (
+                                                                            !isLocked &&
+                                                                            (foundation.focusProperties.length < FOCUS_PROPERTY_MAX ? (
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() =>
@@ -5562,7 +5564,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 >
                                                                                     + Add focus property
                                                                                 </button>
-                                                                            )
+                                                                            ) : (
+                                                                                // Said, not just withheld: an Add button that has quietly vanished
+                                                                                // reads as a bug, and the way to make room is to delete a card.
+                                                                                <span className="text-sm text-quaternary">
+                                                                                    {FOCUS_PROPERTY_MAX} of {FOCUS_PROPERTY_MAX} — remove one to add another
+                                                                                </span>
+                                                                            ))
                                                                         }
                                                                     >
                                                                         <div className="flex flex-col gap-4">

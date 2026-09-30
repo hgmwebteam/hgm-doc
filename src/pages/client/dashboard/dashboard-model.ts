@@ -150,6 +150,15 @@ export const emptyPersona = (rank: string): Persona => ({
     keywords: [],
 });
 
+/**
+ * How many focus properties the document holds.
+ *
+ * Focus properties are a selection — the handful a client is marketed on — not their
+ * portfolio; Cabin Collective alone has sixty listings. Five is the section, so it is also
+ * what the Add button stops at and what a draft from the website links fills.
+ */
+export const FOCUS_PROPERTY_MAX = 5;
+
 export const emptyFocusProperty = (): FocusProperty => ({
     id: uid(),
     name: "",
@@ -164,6 +173,31 @@ export const emptyFocusProperty = (): FocusProperty => ({
     terms: "",
     reviews: ["", "", ""],
 });
+
+/**
+ * The focus properties a stored row should show: everything a person filled in, plus empty
+ * cards up to the section's size.
+ *
+ * Pressing "+ Add focus property" a dozen times leaves a dozen blank cards in the row, and
+ * they are still there on the next load — Cabin Collective was carrying twelve. Blanks past
+ * the fifth hold nothing, so they are dropped on read and the next Save makes it permanent.
+ *
+ * A filled card is NEVER dropped, whatever the count: a client who genuinely has eight
+ * written up keeps all eight, and it is the Add button that stops rather than this. The one
+ * rule everything here shares is that nothing a person wrote is thrown away by the code.
+ */
+export const trimFocusProperties = (rows: FocusProperty[]): FocusProperty[] => {
+    const isFilled = (p: FocusProperty) =>
+        [p.name, p.link, p.location, p.guests, p.bedrooms, p.beds, p.bathrooms, p.description, p.features, p.terms].some(filled) || p.reviews.some(filled);
+    const kept = rows.filter(isFilled);
+    for (const p of rows) {
+        if (kept.length >= FOCUS_PROPERTY_MAX) break;
+        if (!isFilled(p)) kept.push(p);
+    }
+    // Back into the order they were stored in, so trimming never reshuffles the section.
+    const keep = new Set(kept.map((p) => p.id));
+    return rows.filter((p) => keep.has(p.id));
+};
 
 export const emptyFavorite = (): LocalFavorite => ({ id: uid(), name: "", description: "" });
 
@@ -427,7 +461,7 @@ export const mergeContent = (partial?: Partial<DashboardContent> | null): Dashbo
         ...partial?.foundation,
         taglines: [0, 1, 2].map((i) => partial?.foundation?.taglines?.[i] ?? ""),
         personas: partial?.foundation?.personas ?? [],
-        focusProperties: partial?.foundation?.focusProperties ?? [],
+        focusProperties: trimFocusProperties(partial?.foundation?.focusProperties ?? []),
         restaurants: partial?.foundation?.restaurants ?? [],
         activities: partial?.foundation?.activities ?? [],
         websiteLinks: partial?.foundation?.websiteLinks ?? [],

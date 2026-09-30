@@ -13,6 +13,7 @@
  *   && node /tmp/hgm-check/stays.cjs
  */
 import assert from "node:assert";
+import { FOCUS_PROPERTY_MAX } from "@/pages/client/dashboard/dashboard-model";
 import { STAY_PAGE_MAX, stayPageLinks } from "@/pages/client/dashboard/stay-pages";
 
 const urls = (links: { page: string; url: string }[]) => stayPageLinks(links).map((l) => l.url);
@@ -56,7 +57,7 @@ assert.deepEqual(urls(table("", "https://", "not a url", "mailto:host@x.com", "j
    five is chosen by the order of section 11. */
 const many = table(...Array.from({ length: 30 }, (_, i) => `https://x.com/cabins/cabin-${i}`));
 assert.equal(stayPageLinks(many).length, STAY_PAGE_MAX);
-assert.equal(STAY_PAGE_MAX, 5);
+assert.equal(STAY_PAGE_MAX, FOCUS_PROPERTY_MAX, "the walk fills the section, so the two counts are one number");
 assert.equal(stayPageLinks(many, 3).length, 3);
 assert.deepEqual(
     stayPageLinks(many, 3).map((l) => l.url),

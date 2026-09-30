@@ -1,3 +1,5 @@
+import { FOCUS_PROPERTY_MAX } from "@/pages/client/dashboard/dashboard-model";
+
 /**
  * Which of a site's pages are individual stays.
  *
@@ -32,7 +34,9 @@ export type PageLink = { page: string; url: string };
  * portfolio. Which five is the account manager's call, made by editing section 11. Rows
  * with no usable URL are skipped rather than guessed at.
  */
-export const STAY_PAGE_MAX = 5;
+/* The same number as the section it fills — a walk that drafted six entries into a
+   five-card section would be drafting one of them into nowhere. */
+export const STAY_PAGE_MAX = FOCUS_PROPERTY_MAX;
 
 export const stayPageLinks = (links: readonly PageLink[], max = STAY_PAGE_MAX): PageLink[] => {
     const out: PageLink[] = [];

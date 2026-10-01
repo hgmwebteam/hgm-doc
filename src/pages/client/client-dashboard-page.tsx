@@ -163,7 +163,7 @@ import {
     foundationProgress,
     masterDocumentHtml,
 } from "@/pages/client/dashboard/master-brand-document";
-import { DocField, DocRail, DocSection, DocStat, FavoriteTable, ManualStar, SourceBadge, WorkflowBadge } from "@/pages/client/dashboard/master-brand-fields";
+import { DocField, DocRail, DocSection, DocStat, FavoriteTable, ManualStar, SourceBadge } from "@/pages/client/dashboard/master-brand-fields";
 import { OnboardingAnswers } from "@/pages/client/dashboard/onboarding-answers";
 import {
     DEFAULT_OVERVIEW_DOC,
@@ -5070,17 +5070,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="audience"
                                                                         label="Target audience profile"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
                                                                             rows={3}
                                                                             value={foundation.targetAudience}
-                                                                            placeholder={
-                                                                                isTeam
-                                                                                    ? "Paste the target audience profile from the workflow output."
-                                                                                    : "Who your ideal guests are, as a group."
-                                                                            }
+                                                                            placeholder="Who your ideal guests are, as a group."
                                                                             sKey="targetAudience"
                                                                             onChange={(v) => patchFoundation({ targetAudience: v })}
                                                                         />
@@ -5090,17 +5086,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="uvp"
                                                                         label="Unique value proposition"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
                                                                             rows={3}
                                                                             value={foundation.uvp}
-                                                                            placeholder={
-                                                                                isTeam
-                                                                                    ? "Paste the UVP from the workflow output."
-                                                                                    : "What makes this stay worth choosing over any other."
-                                                                            }
+                                                                            placeholder="What makes this stay worth choosing over any other."
                                                                             sKey="uvp"
                                                                             onChange={(v) => patchFoundation({ uvp: v })}
                                                                         />
@@ -5110,7 +5102,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="brand"
                                                                         label="About the brand"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
@@ -5189,7 +5181,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="personas"
                                                                         label="Personas"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                         action={
                                                                             !isLocked && (
                                                                                 <button

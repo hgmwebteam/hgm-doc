@@ -1,54 +1,33 @@
-import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BookClosed, ChevronDown, LayoutAlt01, SearchLg, XClose } from "@untitledui/icons";
-import { useNavigate } from "react-router";
-import { AppShell, CollapsedTopBar, IconRail, NavCollapseButton, RailBottom, useNavCollapsed } from "@/components/application/icon-rail";
+import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { ChevronDown, Download01, Eye, File06, SearchLg, XClose } from "@untitledui/icons";
+import { useLocation } from "react-router";
+import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, RailBottom, useNavCollapsed } from "@/components/application/icon-rail";
 import { Button } from "@/components/base/buttons/button";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { TeamGate } from "@/pages/team/dashboard-screen";
+import { DocsSideMenu, TeamGate } from "@/pages/team/dashboard-screen";
+import { type DictionaryData, loadDictionary } from "@/pages/team/dictionary/dictionary-data";
 import { DictionaryEntryCard, entryElementId } from "@/pages/team/dictionary/dictionary-entry";
-import {
-    type DictionaryEntry,
-    type DictionaryFilter,
-    FILTERS,
-    type IndexedEntry,
-    buildIndex,
-    compact,
-    groupBySection,
-    matchesFilter,
-    search,
-    suggest,
-} from "@/pages/team/dictionary/dictionary-model";
-import { DOCS_MENU } from "@/pages/team/manual-screen";
+import { type DictionaryFilter, FILTERS, type Hit, compact, groupBySection, matchesFilter, search, suggest } from "@/pages/team/dictionary/dictionary-model";
+import { DICTIONARY_RESOURCES } from "@/pages/team/dictionary/dictionary-resources";
 import { cx } from "@/utils/cx";
 
 /**
- * `/dictionary` — the Industry Acumen Dictionary: 253 hotel, resort and marketing terms,
- * searched as you type. Account managers use it live on client calls, so everything here
- * leans towards fewer clicks: the box has focus on arrival, `/` returns to it from
- * anywhere, and the best match opens in full without a click.
+ * `/dictionary` — the HiddenGem Industry Acumen Dictionary: 253 hotel, resort and
+ * marketing terms, searched as you type. Account managers use it live on client calls,
+ * so everything leans towards fewer clicks: the box has focus on arrival, `/` returns to
+ * it from anywhere, and the best match opens in full without a click.
+ *
+ * It is laid out exactly like a Docs tab on /dashboard — the same icon rail, header row
+ * and Docs side menu (DocsSideMenu, the dashboard's own Sidebar) in the same place, with
+ * the dictionary in the pane to its right — so moving between Docs pages leaves the menu
+ * where it is. It keeps its own route so /dictionary#term links work. Below md, where
+ * that layout doesn't fit, the rail and menu drop out and the search box comes first.
  *
  * Behind TeamGate, like /dashboard. The gate hides the page, not the data: the JSON is a
  * public chunk of the site like every other page's content (agreed 2026-10-01).
  *
- * Search, ranking and labels live in dictionary-model.ts; this file is the page. The
- * master loads lazily, started at module load when the path is /dictionary, so it fetches
- * while the gate renders and never weighs on another page.
+ * Search, ranking and labels live in dictionary-model.ts; loading in dictionary-data.ts.
  */
-
-type Loaded = { entries: DictionaryEntry[]; index: IndexedEntry[]; bySlug: Map<string, DictionaryEntry> };
-
-let loading: Promise<Loaded> | null = null;
-const loadDictionary = () =>
-    (loading ??= import("@/data/ref_dictionary-v2-253.json")
-        .then((mod) => {
-            // An assignment, not a cast: a new master missing a field the page needs fails the build.
-            const entries: DictionaryEntry[] = mod.default;
-            return { entries, index: buildIndex(entries), bySlug: new Map(entries.map((e) => [e.slug, e])) };
-        })
-        .catch((error: unknown) => {
-            loading = null; // let a retry try again
-            throw error;
-        }));
 
 if (typeof window !== "undefined" && /^\/dictionary\/?$/i.test(window.location.pathname)) loadDictionary().catch(() => {});
 
@@ -104,7 +83,7 @@ const writeHash = (slug: string | null) => {
 };
 
 /**
- * Scrolls the page's own scroller. Never scrollIntoView here: AppShell's root is
+ * Scrolls the pane's own scroller. Never scrollIntoView here: AppShell's root is
  * overflow-hidden, and scrollIntoView would scroll that too and drag the rail out of
  * view. Always instant — the site sets smooth scrolling globally, which would ignore a
  * reduced-motion preference.
@@ -118,59 +97,63 @@ const scrollWithin = (scroller: HTMLElement, el: HTMLElement, mode: "start" | "n
     if (delta) scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: "instant" });
 };
 
-/* ── The Docs menu, with Dictionary as the current row ──────────── */
+/* ── Resources ──────────────────────────────────────────────────── */
 
 /**
- * The same list /manual renders (DOCS_MENU, exported from manual-screen.tsx), so the two
- * cannot drift. The current row uses tokens that hold in both themes — the manual's own
- * current-row colours lose the icon in dark mode.
+ * The PDFs that go with the dictionary, shown in the browse view (an empty search box):
+ * one click from the Docs menu, and out of the way while searching on a call. A file
+ * not dropped in yet keeps its buttons, disabled, under "Coming soon". The columns fit
+ * the pane (auto-fit), not the window: beside the rail and menu the pane is narrow.
  */
-const DocsMenu = ({ onCollapse }: { onCollapse?: () => void }) => {
-    const navigate = useNavigate();
-    return (
-        <aside className="flex w-64 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm lg:sticky lg:top-2 lg:max-h-[calc(100vh-1rem)]">
-            <div className="flex h-[73px] shrink-0 items-center justify-between gap-2 border-b border-secondary px-5">
-                <h2 className="truncate text-md font-semibold text-primary">Client Docs</h2>
-                {onCollapse && <NavCollapseButton onClick={onCollapse} />}
-            </div>
-            <nav aria-label="Client docs" className="flex-1 overflow-y-auto px-3 py-4">
-                <p className="mb-1 px-2 text-xs font-semibold tracking-widest text-quaternary uppercase">Create Docs</p>
-                <div className="flex flex-col gap-1">
-                    {DOCS_MENU.map((item) => {
-                        const current = item.id === "dictionary";
-                        const Icon = item.icon;
-                        return (
-                            <button
-                                key={item.id}
-                                type="button"
-                                aria-current={current ? "page" : undefined}
-                                onClick={current ? undefined : () => navigate(item.to)}
-                                className={cx(
-                                    "flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none",
-                                    current
-                                        ? "bg-brand-primary_alt text-brand-secondary ring-1 ring-brand ring-inset"
-                                        : "text-secondary hover:bg-secondary hover:text-primary",
-                                )}
-                            >
-                                <Icon className={cx("size-4 shrink-0", current ? "text-fg-brand-secondary" : "text-fg-quaternary")} aria-hidden="true" />
-                                <span className="truncate">{item.label}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-            </nav>
-            <div className="shrink-0 border-t border-secondary px-4 py-3">
-                <a
-                    href="/dashboard"
-                    className="flex items-center gap-1.5 rounded text-xs font-semibold text-tertiary outline-focus-ring transition duration-100 ease-linear hover:text-brand-secondary focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
-                >
-                    <LayoutAlt01 className="size-3.5 shrink-0" aria-hidden="true" />
-                    Back to the dashboard
-                </a>
-            </div>
-        </aside>
-    );
-};
+const Resources = () => (
+    <section aria-labelledby="dict-resources" className="mt-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
+            <h2 id="dict-resources" className="text-md font-semibold text-primary">
+                Resources
+            </h2>
+            <p className="text-sm text-tertiary">PDFs to view, download or print</p>
+        </div>
+        <ul className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-3">
+            {DICTIONARY_RESOURCES.map((r) => (
+                <li key={r.id} className="flex flex-col rounded-xl bg-primary p-4 ring-1 ring-secondary">
+                    <div className="flex items-start gap-3">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-primary_alt text-fg-brand-secondary ring-1 ring-brand">
+                            <File06 className="size-5" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                            <h3 className="text-sm font-semibold text-primary">{r.title}</h3>
+                            <p className="mt-0.5 text-sm text-tertiary">{r.description}</p>
+                        </div>
+                    </div>
+                    <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+                        {r.url ? (
+                            <>
+                                <Button size="sm" color="secondary" iconLeading={Eye} href={r.url} target="_blank" rel="noopener noreferrer">
+                                    View
+                                </Button>
+                                <Button size="sm" iconLeading={Download01} href={r.url} download={r.downloadName}>
+                                    Download
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button size="sm" color="secondary" iconLeading={Eye} isDisabled aria-describedby={`dict-res-${r.id}`}>
+                                    View
+                                </Button>
+                                <Button size="sm" iconLeading={Download01} isDisabled aria-describedby={`dict-res-${r.id}`}>
+                                    Download
+                                </Button>
+                                <span id={`dict-res-${r.id}`} className="text-xs font-medium text-quaternary">
+                                    Coming soon
+                                </span>
+                            </>
+                        )}
+                    </div>
+                </li>
+            ))}
+        </ul>
+    </section>
+);
 
 /* ── The page ───────────────────────────────────────────────────── */
 
@@ -178,13 +161,13 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 const Dictionary = () => {
     const { collapsed: navCollapsed, toggle: toggleNav } = useNavCollapsed();
-    // The shared rail layout doesn't fit a phone (the live /manual renders 1,136px wide
-    // at 400px and clips), so below md this page drops the rail and its header row, and
-    // below lg the Docs menu, putting the search box first.
-    const roomForRail = useBreakpoint("md");
-    const roomForMenu = useBreakpoint("lg");
+    const location = useLocation();
+    // The dashboard's layout (rail + 240px menu) needs md and up; below it the page is
+    // the pane alone, search box first.
+    const roomForChrome = useBreakpoint("md");
+    const showChrome = roomForChrome && !navCollapsed;
 
-    const [data, setData] = useState<Loaded | null>(null);
+    const [data, setData] = useState<DictionaryData | null>(null);
     const [loadFailed, setLoadFailed] = useState(false);
     const [query, setQuery] = useState("");
     const [settled, setSettled] = useState("");
@@ -198,11 +181,19 @@ const Dictionary = () => {
     const inputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const stickyRef = useRef<HTMLDivElement>(null);
-    const columnRef = useRef<HTMLDivElement>(null);
-    const dataRef = useRef<Loaded | null>(null);
+    /** Marks where the pinned search box sits before it pins: "back to the top" scrolls here. */
+    const barAnchorRef = useRef<HTMLDivElement>(null);
+    const dataRef = useRef<DictionaryData | null>(null);
     const timer = useRef<number | undefined>(undefined);
-    // What to scroll to after the next render: an entry's top, or the results' top.
-    const pendingScroll = useRef<{ slug: string; mode: "start" | "nearest" } | "top" | null>(null);
+    // What to scroll to after the next render: an entry's top, or the results' top. Each
+    // request forces its own render, so it is never left over for an unrelated later one.
+    type ScrollTarget = { slug: string; mode: "start" | "nearest" } | "top";
+    const pendingScroll = useRef<ScrollTarget | null>(null);
+    const [, bumpScroll] = useReducer((n: number) => n + 1, 0);
+    const requestScroll = useCallback((target: ScrollTarget) => {
+        pendingScroll.current = target;
+        bumpScroll();
+    }, []);
 
     const searching = compact(settled) !== "";
     const hits = useMemo(() => (data && searching ? search(data.index, settled) : []), [data, searching, settled]);
@@ -210,24 +201,28 @@ const Dictionary = () => {
     const suggestions = useMemo(() => (data && searching && hits.length === 0 ? suggest(data.index, settled) : []), [data, searching, hits.length, settled]);
 
     /** Run a query now: the best match opens in full and the list returns to the top. */
-    const applySearch = useCallback((q: string, open?: string) => {
-        window.clearTimeout(timer.current);
-        setSettled(q);
-        setShowAll(false);
-        const d = dataRef.current;
-        if (!d) return; // picked up when the data arrives
-        const found = search(d.index, q);
-        const at = open
-            ? Math.max(
-                  0,
-                  found.findIndex((h) => h.entry.slug === open),
-              )
-            : 0;
-        setOpenSlug(found[at]?.entry.slug ?? null);
-        setActive(at);
-        if (at >= SHOWN) setShowAll(true);
-        pendingScroll.current = "top";
-    }, []);
+    const applySearch = useCallback(
+        (q: string, open?: string): Hit[] => {
+            window.clearTimeout(timer.current);
+            setSettled(q);
+            setShowAll(false);
+            const d = dataRef.current;
+            if (!d) return []; // picked up when the data arrives
+            const found = search(d.index, q);
+            const at = open
+                ? Math.max(
+                      0,
+                      found.findIndex((h) => h.entry.slug === open),
+                  )
+                : 0;
+            setOpenSlug(found[at]?.entry.slug ?? null);
+            setActive(at);
+            if (at >= SHOWN) setShowAll(true);
+            requestScroll("top");
+            return found;
+        },
+        [requestScroll],
+    );
 
     const clearSearch = useCallback(() => {
         window.clearTimeout(timer.current);
@@ -237,18 +232,21 @@ const Dictionary = () => {
         setActive(0);
     }, []);
 
-    /** Browse view, scrolled to one entry and opened: a deep link, or a pasted #slug. */
-    const goToEntry = useCallback((slug: string) => {
-        const entry = dataRef.current?.bySlug.get(slug);
-        if (!entry) return;
-        window.clearTimeout(timer.current);
-        setQuery("");
-        setSettled("");
-        setFilter((f) => (matchesFilter(entry, f) ? f : "all"));
-        setOpenSections((s) => new Set(s).add(entry.section));
-        setOpenSlug(slug);
-        pendingScroll.current = { slug, mode: "start" };
-    }, []);
+    /** Browse view, scrolled to one entry and opened: a deep link, a pasted #slug, or the header search. */
+    const goToEntry = useCallback(
+        (slug: string) => {
+            const entry = dataRef.current?.bySlug.get(slug);
+            if (!entry) return;
+            window.clearTimeout(timer.current);
+            setQuery("");
+            setSettled("");
+            setFilter((f) => (matchesFilter(entry, f) ? f : "all"));
+            setOpenSections((s) => new Set(s).add(entry.section));
+            setOpenSlug(slug);
+            requestScroll({ slug, mode: "start" });
+        },
+        [requestScroll],
+    );
 
     /** A related chip or a suggestion: search for that term, with it open at the top. */
     const searchFor = useCallback(
@@ -267,7 +265,7 @@ const Dictionary = () => {
         setOpenSlug(slug);
         const i = visible.findIndex((h) => h.entry.slug === slug);
         if (i >= 0) setActive(i);
-        pendingScroll.current = { slug, mode: "nearest" };
+        requestScroll({ slug, mode: "nearest" });
     };
 
     // Load the master; then open whatever the link pointed at.
@@ -294,6 +292,19 @@ const Dictionary = () => {
     useEffect(() => {
         if (data) writeHash(openSlug);
     }, [data, openSlug]);
+
+    // A term picked in the header's global search while already here: React Router
+    // navigates to /dictionary#slug, which changes the location but fires no hashchange.
+    const firstLocation = useRef(true);
+    useEffect(() => {
+        if (firstLocation.current) {
+            firstLocation.current = false; // the load above handles the address we arrived on
+            return;
+        }
+        const slug = slugFromHash(location.hash);
+        if (slug) goToEntry(slug);
+        else clearSearch(); // e.g. Back to the bare /dictionary: nothing open, as the address says
+    }, [location.key, location.hash, goToEntry, clearSearch]);
 
     // A #slug pasted into the address bar while the page is open.
     useEffect(() => {
@@ -334,8 +345,8 @@ const Dictionary = () => {
         pendingScroll.current = null;
         if (target === "top") {
             // Back to where the results start, just under the pinned search box.
-            const column = columnRef.current;
-            const start = column ? column.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop : 0;
+            const anchor = barAnchorRef.current;
+            const start = anchor ? anchor.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop : 0;
             if (scroller.scrollTop > start) scroller.scrollTo({ top: start, behavior: "instant" });
             return;
         }
@@ -346,7 +357,7 @@ const Dictionary = () => {
     // The arrow keys keep the highlighted result in view.
     const revealActive = (i: number) => {
         const slug = visible[i]?.entry.slug;
-        if (slug) pendingScroll.current = { slug, mode: "nearest" };
+        if (slug && i !== active) requestScroll({ slug, mode: "nearest" });
     };
 
     // Tell screen readers what the search found, once typing pauses.
@@ -382,9 +393,14 @@ const Dictionary = () => {
         }
         if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
         if (query !== settled && compact(query)) {
-            // Keys pressed inside the debounce act on what is in the box, not the last result.
+            // A key pressed inside the debounce acts on what is in the box: run that search now
+            // (its best match opens, so Enter is done), then let ↓ move on to the second result.
             e.preventDefault();
-            applySearch(query);
+            const found = applySearch(query);
+            if (e.key === "ArrowDown" && found.length > 1) {
+                setActive(1);
+                requestScroll({ slug: found[1].entry.slug, mode: "nearest" });
+            }
             return;
         }
         if (!searching || visible.length === 0) return;
@@ -424,33 +440,31 @@ const Dictionary = () => {
     return (
         <AppShell
             className="flex flex-col"
-            rail={roomForRail && !navCollapsed && <IconRail activeDept="docs" bottom={<RailBottom />} />}
-            breadcrumb={[
-                { label: "Dashboard", to: "/dashboard", icon: LayoutAlt01 },
-                { label: "Dictionary", icon: BookClosed },
-            ]}
+            rail={showChrome && <IconRail activeDept="docs" bottom={<RailBottom />} />}
+            headerRight={showChrome && <HeaderAvatar />}
         >
-            {roomForRail && navCollapsed && <CollapsedTopBar title="Dictionary" onExpand={toggleNav} />}
+            {/* Exactly the dashboard's arrangement for a Docs tab, so nothing shifts between them. */}
+            {roomForChrome && navCollapsed && <CollapsedTopBar title="Client Docs" onExpand={toggleNav} />}
 
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-secondary p-2">
-                <div className="mx-auto w-full max-w-7xl px-2 py-6 sm:px-6 sm:py-8">
-                    <header>
-                        <h1 className="text-display-xs font-semibold text-primary">Industry acumen dictionary</h1>
-                        <p className="mt-2 max-w-2xl text-sm text-pretty text-tertiary">
-                            {total ? `${total} hotel, resort and marketing terms` : "Hotel, resort and marketing terms"}, with what each means for an owner and
-                            how to say it on a call. Press{" "}
-                            <kbd className="rounded bg-primary px-1.5 py-0.5 text-xs font-semibold text-secondary ring-1 ring-secondary">/</kbd> to search from
-                            anywhere.
-                        </p>
-                    </header>
+            <div className="flex min-h-0 flex-1 gap-2 bg-secondary p-2">
+                {showChrome && <DocsSideMenu current="dictionary" onCollapse={toggleNav} />}
 
-                    <div className="mt-6 flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
-                        {roomForMenu && <DocsMenu onCollapse={navCollapsed ? undefined : toggleNav} />}
+                <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+                    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+                        <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-12 sm:px-8 sm:pt-8">
+                            <header>
+                                <h1 className="text-display-xs font-semibold text-primary md:text-display-sm">The HiddenGem Industry Acumen Dictionary</h1>
+                                <p className="mt-2 max-w-2xl text-md text-pretty text-tertiary">
+                                    {total ? `${total} hotel, resort and marketing terms` : "Hotel, resort and marketing terms"}, with what each means for an
+                                    owner and how to say it on a call. Press{" "}
+                                    <kbd className="rounded bg-secondary px-1.5 py-0.5 text-xs font-semibold text-secondary ring-1 ring-secondary">/</kbd> to
+                                    search from anywhere.
+                                </p>
+                            </header>
 
-                        <div ref={columnRef} className="max-w-4xl min-w-0 flex-1">
-                            {/* The search box stays put while the results scroll under it. It sticks at the
-                                scroller's padding edge (-top-2), so nothing shows through above it. */}
-                            <div ref={stickyRef} className="sticky -top-2 z-20 -mx-2 bg-secondary px-2 pt-3 pb-3">
+                            <div ref={barAnchorRef} className="mt-6" aria-hidden="true" />
+                            {/* The search box stays put while the results scroll under it. */}
+                            <div ref={stickyRef} className="sticky top-0 z-20 -mx-4 bg-primary px-4 pt-2 pb-3 sm:-mx-8 sm:px-8">
                                 <label className="flex h-12 items-center gap-2.5 rounded-xl border border-secondary bg-primary pr-1.5 pl-3.5 shadow-xs transition duration-100 ease-linear focus-within:border-brand focus-within:ring-1 focus-within:ring-brand motion-reduce:transition-none">
                                     <SearchLg className="size-5 shrink-0 text-fg-quaternary" aria-hidden="true" />
                                     <input
@@ -578,75 +592,83 @@ const Dictionary = () => {
                                 )
                             ) : (
                                 <>
-                                    <div role="group" aria-label="Filter terms" className="flex flex-wrap gap-2 px-1">
-                                        {FILTERS.map((f) => {
-                                            const pressed = filter === f.id;
-                                            return (
-                                                <button
-                                                    key={f.id}
-                                                    type="button"
-                                                    aria-pressed={pressed}
-                                                    onClick={() => setFilter(f.id)}
-                                                    className={cx(
-                                                        "inline-flex h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none sm:h-9",
-                                                        pressed
-                                                            ? "border-brand bg-brand-primary_alt text-brand-secondary"
-                                                            : "border-secondary bg-primary text-secondary hover:bg-secondary",
-                                                    )}
-                                                >
-                                                    {f.label}
-                                                    <span className={cx("tabular-nums", pressed ? "text-brand-secondary" : "text-quaternary")}>
-                                                        {filterCounts[f.id]}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                    <Resources />
 
-                                    <div className="mt-4 flex flex-col gap-3">
-                                        {sections.map((group) => {
-                                            const isOpen = openSections.has(group.section);
-                                            const listId = `dict-section-${group.section}`;
-                                            return (
-                                                <section key={group.section} className="rounded-xl bg-primary ring-1 ring-secondary">
-                                                    <h2>
-                                                        <button
-                                                            type="button"
-                                                            aria-expanded={isOpen}
-                                                            aria-controls={listId}
-                                                            onClick={() => toggleSection(group.section)}
-                                                            className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 sm:px-5"
-                                                        >
-                                                            <span className="min-w-0 flex-1 text-md font-semibold text-primary">{group.name}</span>
-                                                            <span className="font-mono text-sm text-quaternary tabular-nums">{group.entries.length}</span>
-                                                            <ChevronDown
-                                                                className={cx(
-                                                                    "size-5 shrink-0 text-fg-quaternary transition-transform duration-100 ease-linear motion-reduce:transition-none",
-                                                                    !isOpen && "-rotate-90",
-                                                                )}
-                                                                aria-hidden="true"
-                                                            />
-                                                        </button>
-                                                    </h2>
-                                                    {isOpen && (
-                                                        <ul id={listId} className="flex flex-col gap-2 border-t border-secondary bg-secondary/50 p-2 sm:p-3">
-                                                            {group.entries.map((entry) => (
-                                                                <li key={entry.slug}>
-                                                                    <DictionaryEntryCard
-                                                                        entry={entry}
-                                                                        open={openSlug === entry.slug}
-                                                                        bySlug={data.bySlug}
-                                                                        onToggle={toggleEntry}
-                                                                        onRelated={searchFor}
-                                                                    />
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    )}
-                                                </section>
-                                            );
-                                        })}
-                                    </div>
+                                    <section aria-labelledby="dict-browse" className="mt-8">
+                                        <h2 id="dict-browse" className="px-1 text-md font-semibold text-primary">
+                                            Browse by section
+                                        </h2>
+                                        <div role="group" aria-label="Filter terms by tier" className="mt-3 flex flex-wrap gap-2 px-1">
+                                            {FILTERS.map((f) => {
+                                                const pressed = filter === f.id;
+                                                return (
+                                                    <button
+                                                        key={f.id}
+                                                        type="button"
+                                                        aria-pressed={pressed}
+                                                        onClick={() => setFilter(f.id)}
+                                                        className={cx(
+                                                            "inline-flex h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none sm:h-9",
+                                                            pressed
+                                                                ? "border-brand bg-brand-primary_alt text-brand-secondary"
+                                                                : "border-secondary bg-primary text-secondary hover:bg-secondary",
+                                                        )}
+                                                    >
+                                                        {f.label}
+                                                        <span className={cx("tabular-nums", pressed ? "text-brand-secondary" : "text-quaternary")}>
+                                                            {filterCounts[f.id]}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="mt-4 flex flex-col gap-3">
+                                            {sections.map((group) => {
+                                                const isOpen = openSections.has(group.section);
+                                                const listId = `dict-section-${group.section}`;
+                                                return (
+                                                    <section key={group.section} className="rounded-xl bg-primary ring-1 ring-secondary">
+                                                        <h3>
+                                                            <button
+                                                                type="button"
+                                                                aria-expanded={isOpen}
+                                                                aria-controls={listId}
+                                                                onClick={() => toggleSection(group.section)}
+                                                                className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 sm:px-5"
+                                                            >
+                                                                <span className="min-w-0 flex-1 text-md font-semibold text-primary">{group.name}</span>
+                                                                <span className="font-mono text-sm text-quaternary tabular-nums">{group.entries.length}</span>
+                                                                <ChevronDown
+                                                                    className={cx(
+                                                                        "size-5 shrink-0 text-fg-quaternary transition-transform duration-100 ease-linear motion-reduce:transition-none",
+                                                                        !isOpen && "-rotate-90",
+                                                                    )}
+                                                                    aria-hidden="true"
+                                                                />
+                                                            </button>
+                                                        </h3>
+                                                        {isOpen && (
+                                                            <ul id={listId} className="flex flex-col gap-2 border-t border-secondary bg-secondary p-2 sm:p-3">
+                                                                {group.entries.map((entry) => (
+                                                                    <li key={entry.slug}>
+                                                                        <DictionaryEntryCard
+                                                                            entry={entry}
+                                                                            open={openSlug === entry.slug}
+                                                                            bySlug={data.bySlug}
+                                                                            onToggle={toggleEntry}
+                                                                            onRelated={searchFor}
+                                                                            headingLevel={4}
+                                                                        />
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </section>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
                                 </>
                             )}
                         </div>

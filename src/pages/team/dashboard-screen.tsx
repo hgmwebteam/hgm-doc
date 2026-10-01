@@ -355,7 +355,8 @@ const DEPARTMENTS: Department[] = [
             // Scratch bench for device mockups and drawn backdrops — a reference
             // surface, so it links out rather than rendering a card grid here.
             { id: "mockups", label: "Mockups & backdrops", icon: Image01, to: "/test" },
-            // The Industry Acumen Dictionary — its own page, so it links out like the bench above.
+            // The Industry Acumen Dictionary — its own route (so /dictionary#term links work), but it
+            // renders this same side menu (DocsSideMenu below), so the menu doesn't move.
             { id: "dictionary", label: "Dictionary", icon: BookClosed, to: "/dictionary" },
         ],
     },
@@ -451,8 +452,9 @@ const NavRow = ({
         <button
             type="button"
             onClick={onSelect}
+            aria-current={active ? "page" : undefined}
             className={cx(
-                "flex flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium transition duration-100 ease-linear",
+                "flex flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2",
                 active ? "text-brand-700 dark:text-brand-300" : "text-secondary group-hover:text-primary",
             )}
         >
@@ -524,6 +526,7 @@ const Sidebar = ({
     onAddTab,
     onDeleteTab,
     onCollapse,
+    animate = true,
 }: {
     department: Department;
     tabs: DeptTab[];
@@ -538,6 +541,8 @@ const Sidebar = ({
     onAddTab: (label: string, sectionId?: string) => void;
     onDeleteTab: (id: string) => void;
     onCollapse?: () => void;
+    /** false ⇒ the rows appear in place, without the entrance stagger (arriving from another Docs page). */
+    animate?: boolean;
 }) => {
     return (
         <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
@@ -556,7 +561,7 @@ const Sidebar = ({
                         <p className="mb-1 px-2 text-xs font-semibold tracking-widest text-quaternary uppercase">{group.label}</p>
                         <motion.div
                             className="flex flex-col gap-1"
-                            initial="hidden"
+                            initial={animate ? "hidden" : false}
                             animate="show"
                             variants={{ show: { transition: { staggerChildren: 0.05 } } }}
                         >
@@ -580,7 +585,7 @@ const Sidebar = ({
                 <motion.div
                     key={department.id}
                     className="flex flex-col gap-1"
-                    initial="hidden"
+                    initial={animate ? "hidden" : false}
                     animate="show"
                     variants={{ show: { transition: { staggerChildren: 0.05 } } }}
                 >
@@ -612,7 +617,7 @@ const Sidebar = ({
                         <motion.div
                             key={department.id + ":" + section.id}
                             className="flex flex-col gap-1"
-                            initial="hidden"
+                            initial={animate ? "hidden" : false}
                             animate="show"
                             variants={{ show: { transition: { staggerChildren: 0.05 } } }}
                         >
@@ -633,6 +638,53 @@ const Sidebar = ({
                 ))}
             </nav>
         </aside>
+    );
+};
+
+/**
+ * Whether a DocsSideMenu is on screen. The dashboard reads it while it first renders —
+ * before the page it replaces has unmounted — so arriving from /dictionary by any route
+ * (a menu row, the header back arrow, browser Back, the rail's Docs icon) shows the
+ * menu in place instead of replaying its entrance. A reload starts it false again.
+ */
+let docsSideMenuOnScreen = false;
+
+/**
+ * The Docs department's side menu, read-only, for a Docs page on its own route
+ * (/dictionary). It IS the dashboard's Sidebar — same rows, same place — so moving
+ * between Docs pages leaves the menu exactly where it was. `current` is the highlighted
+ * row. Rows open their tab here on /dashboard, or their own page.
+ */
+export const DocsSideMenu = ({ current, onCollapse }: { current: string; onCollapse?: () => void }) => {
+    const navigate = useNavigate();
+    useEffect(() => {
+        docsSideMenuOnScreen = true;
+        return () => {
+            docsSideMenuOnScreen = false;
+        };
+    }, []);
+    const docs = DEPARTMENTS.find((d) => d.id === "docs");
+    if (!docs) return null;
+    const open = (id: string) => {
+        const tab = docs.tabs.find((t) => t.id === id);
+        if (!tab || tab.id === current) return;
+        navigate(tab.to ?? `/dashboard?dept=docs&tab=${tab.id}`);
+    };
+    return (
+        <Sidebar
+            department={docs}
+            tabs={docs.tabs}
+            sections={[]}
+            activeSection={current}
+            onSelect={open}
+            editing={false}
+            canEditTabs={false}
+            customTabIds={[]}
+            onAddTab={() => {}}
+            onDeleteTab={() => {}}
+            onCollapse={onCollapse}
+            animate={false}
+        />
     );
 };
 
@@ -3744,6 +3796,14 @@ const DashboardLayout = () => {
         return p && DEPARTMENTS.some((d) => d.id === p) ? p : "clients";
     })();
     const [department, setDepartment] = useState(initialDeptId);
+    // Arriving on Docs from a page that shows the same Docs menu (/dictionary), the menu was
+    // already on screen in this exact spot — so it appears in place instead of staggering in.
+    // Used for the first paint only: hiding/showing the menu or switching department later
+    // animates exactly as before.
+    const [menuStill, setMenuStill] = useState(() => initialDeptId === "docs" && docsSideMenuOnScreen);
+    useEffect(() => {
+        if (menuStill) setMenuStill(false);
+    }, []);
     const [activeSection, setActiveSection] = useState(() => {
         const d = DEPARTMENTS.find((x) => x.id === initialDeptId) ?? DEPARTMENTS[0];
         // Link rows (Manual) render no content of their own, so they can't be the landing tab.
@@ -3882,6 +3942,7 @@ const DashboardLayout = () => {
                                 onAddTab={addTab}
                                 onDeleteTab={deleteTab}
                                 onCollapse={toggleNav}
+                                animate={!menuStill}
                             />
                         )}
                         {dept.kind === "sops" ? (

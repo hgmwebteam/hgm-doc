@@ -4,9 +4,9 @@
  * search returns the wrong thing. dictionary-model.check.ts pins its behaviour.
  *
  * The data is `src/data/ref_dictionary-v2-253.json`, a master kept OUTSIDE this
- * repo and dropped in whole under the same name. Never edit it here. The page
- * imports it lazily (dictionary-screen.tsx), so it is its own ~45 KB chunk rather
- * than weight on every page of the site.
+ * repo and dropped in whole under the same name. Never edit it here. It is loaded
+ * lazily through dictionary-data.ts, so it is its own ~45 KB chunk rather than
+ * weight on every page of the site.
  *
  * Only slug, term, tier, section and gloss are required below. A replaced master
  * that loses one of those fails `tsc -b`, so Netlify keeps the last good deploy;
@@ -72,22 +72,20 @@ export const SECTION_NAMES: Record<number, string> = {
 
 export const sectionName = (section: number) => SECTION_NAMES[section] ?? `Section ${section}`;
 
-/** The tier letter is never shown; A and B carry a badge, C carries none. */
-export const tierBadge = (tier: string): string | null => (tier === "A" ? "Core term" : tier === "B" ? "On the check" : null);
+/** Every entry carries its tier as a badge: "Tier A", "Tier B", "Tier C" (decided 2026-10-01). */
+export const tierBadge = (tier: string): string | null => (tier.trim() ? `Tier ${tier.trim()}` : null);
 
-export const isHgmTerm = (entry: DictionaryEntry) => entry.origin === "HGM";
-
-export type DictionaryFilter = "all" | "core" | "check" | "hgm";
+/** The browse view's filters: everything, or one tier. Counts come from the data, never hard-coded. */
+export type DictionaryFilter = "all" | "A" | "B" | "C";
 
 export const FILTERS: { id: DictionaryFilter; label: string }[] = [
     { id: "all", label: "All" },
-    { id: "core", label: "Core terms" },
-    { id: "check", label: "On the check" },
-    { id: "hgm", label: "HGM terms" },
+    { id: "A", label: "Tier A" },
+    { id: "B", label: "Tier B" },
+    { id: "C", label: "Tier C" },
 ];
 
-export const matchesFilter = (entry: DictionaryEntry, filter: DictionaryFilter) =>
-    filter === "all" || (filter === "core" && entry.tier === "A") || (filter === "check" && entry.tier === "B") || (filter === "hgm" && isHgmTerm(entry));
+export const matchesFilter = (entry: DictionaryEntry, filter: DictionaryFilter) => filter === "all" || entry.tier === filter;
 
 const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
 export const byTerm = (a: DictionaryEntry, b: DictionaryEntry) => collator.compare(a.term, b.term);

@@ -16,11 +16,13 @@ import assert from "node:assert";
 import master from "@/data/ref_dictionary-v2-253.json";
 import {
     type DictionaryEntry,
+    FILTERS,
     buildIndex,
     compact,
     editDistance,
     groupBySection,
     linkKind,
+    matchesFilter,
     search,
     suggest,
     tierBadge,
@@ -53,10 +55,16 @@ assert.equal(
 );
 assert.equal(groups.length, 9, "nine sections");
 
-/* The tier letter never reaches the page; only these two labels do. */
-assert.equal(tierBadge("A"), "Core term");
-assert.equal(tierBadge("B"), "On the check");
-assert.equal(tierBadge("C"), null);
+/* Every entry shows its tier as a badge, and each tier filter matches only its own entries. */
+assert.equal(tierBadge("A"), "Tier A");
+assert.equal(tierBadge("B"), "Tier B");
+assert.equal(tierBadge("C"), "Tier C");
+assert.equal(tierBadge(""), null);
+assert.equal(
+    FILTERS.filter((f) => f.id !== "all").reduce((n, f) => n + entries.filter((e) => matchesFilter(e, f.id)).length, 0),
+    entries.length,
+    "the three tier filters cover every entry once",
+);
 
 /* ── Normalising and edit distance ──────────────────────────────── */
 

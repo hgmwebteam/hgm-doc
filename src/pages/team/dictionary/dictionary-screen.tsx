@@ -1,12 +1,12 @@
 import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { ChevronDown, Download01, Eye, File06, SearchLg, XClose } from "@untitledui/icons";
 import { useLocation } from "react-router";
-import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, RailBottom, useNavCollapsed } from "@/components/application/icon-rail";
 import { Button } from "@/components/base/buttons/button";
-import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { DocsSideMenu, TeamGate } from "@/pages/team/dashboard-screen";
+import { TeamGate } from "@/pages/team/dashboard-screen";
+import { CheckLinks } from "@/pages/team/dictionary/check/check-links";
 import { type DictionaryData, loadDictionary } from "@/pages/team/dictionary/dictionary-data";
 import { DictionaryEntryCard, entryElementId } from "@/pages/team/dictionary/dictionary-entry";
+import { DictionaryLayout } from "@/pages/team/dictionary/dictionary-layout";
 import { type DictionaryFilter, FILTERS, type Hit, compact, groupBySection, matchesFilter, search, suggest } from "@/pages/team/dictionary/dictionary-model";
 import { DICTIONARY_RESOURCES } from "@/pages/team/dictionary/dictionary-resources";
 import { cx } from "@/utils/cx";
@@ -18,10 +18,13 @@ import { cx } from "@/utils/cx";
  * it from anywhere, and the best match opens in full without a click.
  *
  * It is laid out exactly like a Docs tab on /dashboard — the same icon rail, header row
- * and Docs side menu (DocsSideMenu, the dashboard's own Sidebar) in the same place, with
- * the dictionary in the pane to its right — so moving between Docs pages leaves the menu
- * where it is. It keeps its own route so /dictionary#term links work. Below md, where
+ * and Docs side menu (DictionaryLayout, shared with the check's pages) in the same place,
+ * with the dictionary in the pane to its right — so moving between Docs pages leaves the
+ * menu where it is. It keeps its own route so /dictionary#term links work. Below md, where
  * that layout doesn't fit, the rail and menu drop out and the search box comes first.
+ *
+ * Under the heading, CheckLinks is the way into the check and the flashcards
+ * (src/pages/team/dictionary/check/).
  *
  * Behind TeamGate, like /dashboard. The gate hides the page, not the data: the JSON is a
  * public chunk of the site like every other page's content (agreed 2026-10-01).
@@ -160,12 +163,7 @@ const Resources = () => (
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const Dictionary = () => {
-    const { collapsed: navCollapsed, toggle: toggleNav } = useNavCollapsed();
     const location = useLocation();
-    // The dashboard's layout (rail + 240px menu) needs md and up; below it the page is
-    // the pane alone, search box first.
-    const roomForChrome = useBreakpoint("md");
-    const showChrome = roomForChrome && !navCollapsed;
 
     const [data, setData] = useState<DictionaryData | null>(null);
     const [loadFailed, setLoadFailed] = useState(false);
@@ -438,244 +436,230 @@ const Dictionary = () => {
         });
 
     return (
-        <AppShell
-            className="flex flex-col"
-            rail={showChrome && <IconRail activeDept="docs" bottom={<RailBottom />} />}
-            headerRight={showChrome && <HeaderAvatar />}
-        >
-            {/* Exactly the dashboard's arrangement for a Docs tab, so nothing shifts between them. */}
-            {roomForChrome && navCollapsed && <CollapsedTopBar title="Client Docs" onExpand={toggleNav} />}
+        <DictionaryLayout scrollRef={scrollRef}>
+            <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-12 sm:px-8 sm:pt-8">
+                <header>
+                    <h1 className="text-display-xs font-semibold text-primary md:text-display-sm">The HiddenGem Industry Acumen Dictionary</h1>
+                    <p className="mt-2 max-w-2xl text-md text-pretty text-tertiary">
+                        {total ? `${total} hotel, resort and marketing terms` : "Hotel, resort and marketing terms"}, with what each means for an owner and how
+                        to say it on a call. Press{" "}
+                        <kbd className="rounded bg-secondary px-1.5 py-0.5 text-xs font-semibold text-secondary ring-1 ring-secondary">/</kbd> to search from
+                        anywhere.
+                    </p>
+                    <CheckLinks />
+                </header>
 
-            <div className="flex min-h-0 flex-1 gap-2 bg-secondary p-2">
-                {showChrome && <DocsSideMenu current="dictionary" onCollapse={toggleNav} />}
+                <div ref={barAnchorRef} className="mt-6" aria-hidden="true" />
+                {/* The search box stays put while the results scroll under it. */}
+                <div ref={stickyRef} className="sticky top-0 z-20 -mx-4 bg-primary px-4 pt-2 pb-3 sm:-mx-8 sm:px-8">
+                    <label className="flex h-12 items-center gap-2.5 rounded-xl border border-secondary bg-primary pr-1.5 pl-3.5 shadow-xs transition duration-100 ease-linear focus-within:border-brand focus-within:ring-1 focus-within:ring-brand motion-reduce:transition-none">
+                        <SearchLg className="size-5 shrink-0 text-fg-quaternary" aria-hidden="true" />
+                        <input
+                            ref={inputRef}
+                            type="search"
+                            role="combobox"
+                            aria-label="Search the dictionary"
+                            aria-autocomplete="list"
+                            aria-haspopup="grid"
+                            aria-controls="dictionary-results"
+                            aria-expanded={searching && hits.length > 0}
+                            aria-activedescendant={activeSlug ? `dict-cell-${activeSlug}` : undefined}
+                            aria-describedby="dictionary-hint"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            enterKeyHint="search"
+                            placeholder="Search terms, acronyms or definitions"
+                            value={query}
+                            onChange={(e) => onChange(e.target.value)}
+                            onKeyDown={onKeyDown}
+                            className="h-full min-w-0 flex-1 bg-transparent text-md text-primary outline-none placeholder:text-placeholder [&::-webkit-search-cancel-button]:hidden"
+                        />
+                        {query ? (
+                            <button
+                                type="button"
+                                aria-label="Clear search"
+                                onClick={() => {
+                                    clearSearch();
+                                    inputRef.current?.focus({ preventScroll: true });
+                                }}
+                                className="flex size-9 shrink-0 items-center justify-center rounded-lg text-fg-quaternary outline-focus-ring transition duration-100 ease-linear hover:bg-secondary hover:text-fg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+                            >
+                                <XClose className="size-5" aria-hidden="true" />
+                            </button>
+                        ) : (
+                            <kbd
+                                className="mr-1.5 hidden rounded bg-secondary px-1.5 py-0.5 text-xs font-semibold text-tertiary ring-1 ring-secondary md:inline"
+                                aria-hidden="true"
+                            >
+                                /
+                            </kbd>
+                        )}
+                    </label>
+                    <p id="dictionary-hint" className="sr-only">
+                        Results update as you type and the best match opens below. Use the up and down arrows to move through results, Enter to open one, Escape
+                        to clear.
+                    </p>
+                    <p role="status" aria-live="polite" className="sr-only">
+                        {announcement}
+                    </p>
+                    {searching && data && hits.length > 0 && (
+                        <p className="mt-2 px-1 text-sm text-tertiary">{plural(hits.length, "term matches", "terms match")}</p>
+                    )}
+                </div>
 
-                <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
-                    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-                        <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-12 sm:px-8 sm:pt-8">
-                            <header>
-                                <h1 className="text-display-xs font-semibold text-primary md:text-display-sm">The HiddenGem Industry Acumen Dictionary</h1>
-                                <p className="mt-2 max-w-2xl text-md text-pretty text-tertiary">
-                                    {total ? `${total} hotel, resort and marketing terms` : "Hotel, resort and marketing terms"}, with what each means for an
-                                    owner and how to say it on a call. Press{" "}
-                                    <kbd className="rounded bg-secondary px-1.5 py-0.5 text-xs font-semibold text-secondary ring-1 ring-secondary">/</kbd> to
-                                    search from anywhere.
-                                </p>
-                            </header>
-
-                            <div ref={barAnchorRef} className="mt-6" aria-hidden="true" />
-                            {/* The search box stays put while the results scroll under it. */}
-                            <div ref={stickyRef} className="sticky top-0 z-20 -mx-4 bg-primary px-4 pt-2 pb-3 sm:-mx-8 sm:px-8">
-                                <label className="flex h-12 items-center gap-2.5 rounded-xl border border-secondary bg-primary pr-1.5 pl-3.5 shadow-xs transition duration-100 ease-linear focus-within:border-brand focus-within:ring-1 focus-within:ring-brand motion-reduce:transition-none">
-                                    <SearchLg className="size-5 shrink-0 text-fg-quaternary" aria-hidden="true" />
-                                    <input
-                                        ref={inputRef}
-                                        type="search"
-                                        role="combobox"
-                                        aria-label="Search the dictionary"
-                                        aria-autocomplete="list"
-                                        aria-haspopup="grid"
-                                        aria-controls="dictionary-results"
-                                        aria-expanded={searching && hits.length > 0}
-                                        aria-activedescendant={activeSlug ? `dict-cell-${activeSlug}` : undefined}
-                                        aria-describedby="dictionary-hint"
-                                        autoComplete="off"
-                                        autoCorrect="off"
-                                        autoCapitalize="none"
-                                        spellCheck={false}
-                                        enterKeyHint="search"
-                                        placeholder="Search terms, acronyms or definitions"
-                                        value={query}
-                                        onChange={(e) => onChange(e.target.value)}
-                                        onKeyDown={onKeyDown}
-                                        className="h-full min-w-0 flex-1 bg-transparent text-md text-primary outline-none placeholder:text-placeholder [&::-webkit-search-cancel-button]:hidden"
-                                    />
-                                    {query ? (
-                                        <button
-                                            type="button"
-                                            aria-label="Clear search"
-                                            onClick={() => {
-                                                clearSearch();
-                                                inputRef.current?.focus({ preventScroll: true });
-                                            }}
-                                            className="flex size-9 shrink-0 items-center justify-center rounded-lg text-fg-quaternary outline-focus-ring transition duration-100 ease-linear hover:bg-secondary hover:text-fg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
-                                        >
-                                            <XClose className="size-5" aria-hidden="true" />
-                                        </button>
-                                    ) : (
-                                        <kbd
-                                            className="mr-1.5 hidden rounded bg-secondary px-1.5 py-0.5 text-xs font-semibold text-tertiary ring-1 ring-secondary md:inline"
-                                            aria-hidden="true"
-                                        >
-                                            /
-                                        </kbd>
-                                    )}
-                                </label>
-                                <p id="dictionary-hint" className="sr-only">
-                                    Results update as you type and the best match opens below. Use the up and down arrows to move through results, Enter to open
-                                    one, Escape to clear.
-                                </p>
-                                <p role="status" aria-live="polite" className="sr-only">
-                                    {announcement}
-                                </p>
-                                {searching && data && hits.length > 0 && (
-                                    <p className="mt-2 px-1 text-sm text-tertiary">{plural(hits.length, "term matches", "terms match")}</p>
-                                )}
-                            </div>
-
-                            {loadFailed ? (
-                                <div className="rounded-xl bg-primary p-5 ring-1 ring-secondary">
-                                    <p className="text-md font-semibold text-primary">The dictionary couldn't load</p>
-                                    <p className="mt-1 text-sm text-tertiary">
-                                        The portal may have been updated since this tab was opened. Reloading picks up the new version.
-                                    </p>
-                                    <Button className="mt-4" size="sm" onClick={() => window.location.reload()}>
-                                        Reload
-                                    </Button>
-                                </div>
-                            ) : !data ? (
-                                <p className="px-1 py-6 text-sm text-tertiary">Loading the dictionary…</p>
-                            ) : searching ? (
-                                hits.length === 0 ? (
-                                    <div className="rounded-xl bg-primary p-5 ring-1 ring-secondary">
-                                        <p className="text-md font-semibold text-primary">No terms match ‘{settled.trim()}’.</p>
-                                        {suggestions.length > 0 && (
-                                            <>
-                                                <p className="mt-3 text-sm text-tertiary">Closest terms</p>
-                                                <ul className="mt-2 flex flex-wrap gap-2">
-                                                    {suggestions.map((s) => (
-                                                        <li key={s.slug}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => searchFor(s.slug)}
-                                                                className="inline-flex rounded-full border border-secondary bg-primary px-3 py-1 text-left text-sm text-secondary outline-focus-ring transition duration-100 ease-linear hover:border-brand hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
-                                                            >
-                                                                {s.term}
-                                                            </button>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <>
-                                        <h2 className="sr-only">Matching terms</h2>
-                                        <div id="dictionary-results" role="grid" aria-label="Matching terms" className="flex flex-col gap-2">
-                                            {visible.map((h, i) => (
-                                                <div role="row" key={h.entry.slug}>
-                                                    <div
-                                                        role="gridcell"
-                                                        id={`dict-cell-${h.entry.slug}`}
-                                                        aria-selected={i === active}
-                                                        aria-labelledby={`dict-term-${h.entry.slug}`}
-                                                    >
-                                                        <DictionaryEntryCard
-                                                            entry={h.entry}
-                                                            open={openSlug === h.entry.slug}
-                                                            highlighted={i === active}
-                                                            bySlug={data.bySlug}
-                                                            onToggle={toggleEntry}
-                                                            onRelated={searchFor}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        {!showAll && hits.length > SHOWN && (
-                                            <div className="mt-4 px-1">
-                                                <Button color="link-color" size="sm" onClick={() => setShowAll(true)}>
-                                                    {`Show all ${hits.length}`}
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </>
-                                )
-                            ) : (
+                {loadFailed ? (
+                    <div className="rounded-xl bg-primary p-5 ring-1 ring-secondary">
+                        <p className="text-md font-semibold text-primary">The dictionary couldn't load</p>
+                        <p className="mt-1 text-sm text-tertiary">
+                            The portal may have been updated since this tab was opened. Reloading picks up the new version.
+                        </p>
+                        <Button className="mt-4" size="sm" onClick={() => window.location.reload()}>
+                            Reload
+                        </Button>
+                    </div>
+                ) : !data ? (
+                    <p className="px-1 py-6 text-sm text-tertiary">Loading the dictionary…</p>
+                ) : searching ? (
+                    hits.length === 0 ? (
+                        <div className="rounded-xl bg-primary p-5 ring-1 ring-secondary">
+                            <p className="text-md font-semibold text-primary">No terms match ‘{settled.trim()}’.</p>
+                            {suggestions.length > 0 && (
                                 <>
-                                    <Resources />
-
-                                    <section aria-labelledby="dict-browse" className="mt-8">
-                                        <h2 id="dict-browse" className="px-1 text-md font-semibold text-primary">
-                                            Browse by section
-                                        </h2>
-                                        <div role="group" aria-label="Filter terms by tier" className="mt-3 flex flex-wrap gap-2 px-1">
-                                            {FILTERS.map((f) => {
-                                                const pressed = filter === f.id;
-                                                return (
-                                                    <button
-                                                        key={f.id}
-                                                        type="button"
-                                                        aria-pressed={pressed}
-                                                        onClick={() => setFilter(f.id)}
-                                                        className={cx(
-                                                            "inline-flex h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none sm:h-9",
-                                                            pressed
-                                                                ? "border-brand bg-brand-primary_alt text-brand-secondary"
-                                                                : "border-secondary bg-primary text-secondary hover:bg-secondary",
-                                                        )}
-                                                    >
-                                                        {f.label}
-                                                        <span className={cx("tabular-nums", pressed ? "text-brand-secondary" : "text-quaternary")}>
-                                                            {filterCounts[f.id]}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <div className="mt-4 flex flex-col gap-3">
-                                            {sections.map((group) => {
-                                                const isOpen = openSections.has(group.section);
-                                                const listId = `dict-section-${group.section}`;
-                                                return (
-                                                    <section key={group.section} className="rounded-xl bg-primary ring-1 ring-secondary">
-                                                        <h3>
-                                                            <button
-                                                                type="button"
-                                                                aria-expanded={isOpen}
-                                                                aria-controls={listId}
-                                                                onClick={() => toggleSection(group.section)}
-                                                                className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 sm:px-5"
-                                                            >
-                                                                <span className="min-w-0 flex-1 text-md font-semibold text-primary">{group.name}</span>
-                                                                <span className="font-mono text-sm text-quaternary tabular-nums">{group.entries.length}</span>
-                                                                <ChevronDown
-                                                                    className={cx(
-                                                                        "size-5 shrink-0 text-fg-quaternary transition-transform duration-100 ease-linear motion-reduce:transition-none",
-                                                                        !isOpen && "-rotate-90",
-                                                                    )}
-                                                                    aria-hidden="true"
-                                                                />
-                                                            </button>
-                                                        </h3>
-                                                        {isOpen && (
-                                                            <ul id={listId} className="flex flex-col gap-2 border-t border-secondary bg-secondary p-2 sm:p-3">
-                                                                {group.entries.map((entry) => (
-                                                                    <li key={entry.slug}>
-                                                                        <DictionaryEntryCard
-                                                                            entry={entry}
-                                                                            open={openSlug === entry.slug}
-                                                                            bySlug={data.bySlug}
-                                                                            onToggle={toggleEntry}
-                                                                            onRelated={searchFor}
-                                                                            headingLevel={4}
-                                                                        />
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        )}
-                                                    </section>
-                                                );
-                                            })}
-                                        </div>
-                                    </section>
+                                    <p className="mt-3 text-sm text-tertiary">Closest terms</p>
+                                    <ul className="mt-2 flex flex-wrap gap-2">
+                                        {suggestions.map((s) => (
+                                            <li key={s.slug}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => searchFor(s.slug)}
+                                                    className="inline-flex rounded-full border border-secondary bg-primary px-3 py-1 text-left text-sm text-secondary outline-focus-ring transition duration-100 ease-linear hover:border-brand hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+                                                >
+                                                    {s.term}
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </>
                             )}
                         </div>
-                    </div>
-                </div>
+                    ) : (
+                        <>
+                            <h2 className="sr-only">Matching terms</h2>
+                            <div id="dictionary-results" role="grid" aria-label="Matching terms" className="flex flex-col gap-2">
+                                {visible.map((h, i) => (
+                                    <div role="row" key={h.entry.slug}>
+                                        <div
+                                            role="gridcell"
+                                            id={`dict-cell-${h.entry.slug}`}
+                                            aria-selected={i === active}
+                                            aria-labelledby={`dict-term-${h.entry.slug}`}
+                                        >
+                                            <DictionaryEntryCard
+                                                entry={h.entry}
+                                                open={openSlug === h.entry.slug}
+                                                highlighted={i === active}
+                                                bySlug={data.bySlug}
+                                                onToggle={toggleEntry}
+                                                onRelated={searchFor}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {!showAll && hits.length > SHOWN && (
+                                <div className="mt-4 px-1">
+                                    <Button color="link-color" size="sm" onClick={() => setShowAll(true)}>
+                                        {`Show all ${hits.length}`}
+                                    </Button>
+                                </div>
+                            )}
+                        </>
+                    )
+                ) : (
+                    <>
+                        <Resources />
+
+                        <section aria-labelledby="dict-browse" className="mt-8">
+                            <h2 id="dict-browse" className="px-1 text-md font-semibold text-primary">
+                                Browse by section
+                            </h2>
+                            <div role="group" aria-label="Filter terms by tier" className="mt-3 flex flex-wrap gap-2 px-1">
+                                {FILTERS.map((f) => {
+                                    const pressed = filter === f.id;
+                                    return (
+                                        <button
+                                            key={f.id}
+                                            type="button"
+                                            aria-pressed={pressed}
+                                            onClick={() => setFilter(f.id)}
+                                            className={cx(
+                                                "inline-flex h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none sm:h-9",
+                                                pressed
+                                                    ? "border-brand bg-brand-primary_alt text-brand-secondary"
+                                                    : "border-secondary bg-primary text-secondary hover:bg-secondary",
+                                            )}
+                                        >
+                                            {f.label}
+                                            <span className={cx("tabular-nums", pressed ? "text-brand-secondary" : "text-quaternary")}>
+                                                {filterCounts[f.id]}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-4 flex flex-col gap-3">
+                                {sections.map((group) => {
+                                    const isOpen = openSections.has(group.section);
+                                    const listId = `dict-section-${group.section}`;
+                                    return (
+                                        <section key={group.section} className="rounded-xl bg-primary ring-1 ring-secondary">
+                                            <h3>
+                                                <button
+                                                    type="button"
+                                                    aria-expanded={isOpen}
+                                                    aria-controls={listId}
+                                                    onClick={() => toggleSection(group.section)}
+                                                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 sm:px-5"
+                                                >
+                                                    <span className="min-w-0 flex-1 text-md font-semibold text-primary">{group.name}</span>
+                                                    <span className="font-mono text-sm text-quaternary tabular-nums">{group.entries.length}</span>
+                                                    <ChevronDown
+                                                        className={cx(
+                                                            "size-5 shrink-0 text-fg-quaternary transition-transform duration-100 ease-linear motion-reduce:transition-none",
+                                                            !isOpen && "-rotate-90",
+                                                        )}
+                                                        aria-hidden="true"
+                                                    />
+                                                </button>
+                                            </h3>
+                                            {isOpen && (
+                                                <ul id={listId} className="flex flex-col gap-2 border-t border-secondary bg-secondary p-2 sm:p-3">
+                                                    {group.entries.map((entry) => (
+                                                        <li key={entry.slug}>
+                                                            <DictionaryEntryCard
+                                                                entry={entry}
+                                                                open={openSlug === entry.slug}
+                                                                bySlug={data.bySlug}
+                                                                onToggle={toggleEntry}
+                                                                onRelated={searchFor}
+                                                                headingLevel={4}
+                                                            />
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </section>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    </>
+                )}
             </div>
-        </AppShell>
+        </DictionaryLayout>
     );
 };
 

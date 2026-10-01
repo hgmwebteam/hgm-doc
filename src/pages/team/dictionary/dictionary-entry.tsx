@@ -70,7 +70,17 @@ const prose = "max-w-[66ch] text-md leading-relaxed text-tertiary text-pretty";
 /** A plain left click opens the related entry here; any modified click is left to the browser. */
 const plainClick = (e: MouseEvent) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
 
-const FullBody = ({ entry, bySlug, onRelated }: { entry: DictionaryEntry; bySlug: Map<string, DictionaryEntry>; onRelated: (slug: string) => void }) => {
+const FullBody = ({
+    entry,
+    bySlug,
+    onRelated,
+    explanation,
+}: {
+    entry: DictionaryEntry;
+    bySlug: Map<string, DictionaryEntry>;
+    onRelated: (slug: string) => void;
+    explanation?: string | null;
+}) => {
     const core = entry.tier === "A" ? entry.core : null;
     const worked = (core?.worked ?? []).filter((s) => s?.trim());
     const links = (core?.links ?? []).filter((l) => l?.url?.trim());
@@ -87,6 +97,13 @@ const FullBody = ({ entry, bySlug, onRelated }: { entry: DictionaryEntry; bySlug
                     <PartHeading className="text-sm font-semibold text-utility-brand-700">Formula</PartHeading>
                     <p className="mt-1 font-mono text-sm font-medium break-words whitespace-pre-wrap text-primary">{entry.formula}</p>
                 </section>
+            )}
+
+            {explanation?.trim() && (
+                // Only on the check's results page: why the answer to that question was what it was.
+                <Part label="From the check">
+                    <p className={prose}>{explanation}</p>
+                </Part>
             )}
 
             {(entry.example?.trim() || worked.length > 0) && (
@@ -170,7 +187,8 @@ const FullBody = ({ entry, bySlug, onRelated }: { entry: DictionaryEntry; bySlug
                         {related.map((r) => (
                             <li key={r.slug}>
                                 <a
-                                    href={`#${r.slug}`}
+                                    // The full address, not a bare #slug, so a new-tab click works from the check's pages too.
+                                    href={entryPath(r.slug)}
                                     onClick={(e) => {
                                         if (!plainClick(e)) return;
                                         e.preventDefault();
@@ -199,6 +217,8 @@ export const DictionaryEntryCard = ({
     onToggle,
     onRelated,
     headingLevel = 3,
+    showTier = true,
+    explanation,
 }: {
     entry: DictionaryEntry;
     open: boolean;
@@ -209,6 +229,10 @@ export const DictionaryEntryCard = ({
     onRelated: (slug: string) => void;
     /** 3 in search results (under "Matching terms"), 4 in the browse view (under a section's h3). */
     headingLevel?: 3 | 4;
+    /** False on the check's pages, which never show tiers. */
+    showTier?: boolean;
+    /** The check question's explanation, shown in the open card on the results page. */
+    explanation?: string | null;
 }) => {
     const Term = headingLevel === 4 ? "h4" : "h3";
     return (
@@ -244,13 +268,13 @@ export const DictionaryEntryCard = ({
                         />
                     </button>
                 </Term>
-                <TierBadge tier={entry.tier} />
+                {showTier && <TierBadge tier={entry.tier} />}
                 {open && <CopyLink slug={entry.slug} />}
             </header>
 
             {open ? (
                 <PartLevel.Provider value={headingLevel === 4 ? "h5" : "h4"}>
-                    <FullBody entry={entry} bySlug={bySlug} onRelated={onRelated} />
+                    <FullBody entry={entry} bySlug={bySlug} onRelated={onRelated} explanation={explanation} />
                 </PartLevel.Provider>
             ) : (
                 <p className="-mt-1 line-clamp-2 px-4 pb-3.5 text-sm text-tertiary sm:px-5">{entry.gloss}</p>

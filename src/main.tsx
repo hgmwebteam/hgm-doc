@@ -29,6 +29,9 @@ import { ComponentLibraryArchitectureScreen } from "@/pages/team/component-libra
 import { DashboardScreen } from "@/pages/team/dashboard-screen";
 import { DeploymentScreen } from "@/pages/team/deployment-screen";
 import { DesignSystemScreen } from "@/pages/team/design-system-screen";
+import { CheckResultsScreen } from "@/pages/team/dictionary/check/check-results-screen";
+import { CheckScreen } from "@/pages/team/dictionary/check/check-screen";
+import { PracticeScreen } from "@/pages/team/dictionary/check/practice-screen";
 import { DictionaryScreen } from "@/pages/team/dictionary/dictionary-screen";
 import { EmailPreviewScreen } from "@/pages/team/email-preview-screen";
 import { HomeScreen } from "@/pages/team/home-screen";
@@ -84,6 +87,9 @@ const PAGES_WITHOUT_FLOATING_CHROME = [
     "/fix",
     "/manual",
     "/dictionary",
+    "/dictionary/check",
+    "/dictionary/check/results",
+    "/dictionary/practice",
     "/alicia-feedback",
 ];
 
@@ -230,6 +236,10 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/manual" element={<ManualScreen />} />
                         {/* The Industry Acumen Dictionary, behind TeamGate. Its data is src/data/ref_dictionary-v2-253.json. */}
                         <Route path="/dictionary" element={<DictionaryScreen />} />
+                        {/* The Industry Acumen check, its results and the flashcards (src/pages/team/dictionary/check/). */}
+                        <Route path="/dictionary/check" element={<CheckScreen />} />
+                        <Route path="/dictionary/check/results" element={<CheckResultsScreen />} />
+                        <Route path="/dictionary/practice" element={<PracticeScreen />} />
                         {/* Team-only log of what Alicia asks for and what we did. */}
                         <Route path="/alicia-feedback" element={<AliciaFeedbackScreen />} />
                         <Route path="/test" element={<TestScreen />} />

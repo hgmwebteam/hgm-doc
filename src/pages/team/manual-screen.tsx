@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import {
     AlertTriangle,
     ArrowRight,
+    BookClosed,
     BookOpen01,
     Brush01,
     ChevronDown,
@@ -734,6 +735,7 @@ const RowGroup = ({ title, children }: { title: string; children: React.ReactNod
  * The manual's left side menu — the SAME navigation the dashboard's Docs
  * department shows, not a table of contents for this page. Keep it in step with
  * the `docs` entry in dashboard-screen.tsx: one menu, two places it renders.
+ * /dictionary renders this list too, with its own row current, so it is exported.
  *
  * Manual is the current page, so its row is the active chip and does not
  * navigate; every other row goes to that tab on /dashboard.
@@ -741,7 +743,7 @@ const RowGroup = ({ title, children }: { title: string; children: React.ReactNod
  * No entrance animation — /manual is on this repo's no-animation list (see the
  * Project facts table and the /animation skill), so only hover and focus move.
  */
-const DOCS_MENU: { id: string; label: string; icon: IconType; to: string }[] = [
+export const DOCS_MENU: { id: string; label: string; icon: IconType; to: string }[] = [
     { id: "manual", label: "Manual", icon: BookOpen01, to: "/manual" },
     { id: "owner-guides", label: "Owner Guides", icon: BookOpen01, to: "/dashboard?dept=docs&tab=owner-guides" },
     { id: "host-onboarding", label: "Brand Vision Form", icon: Home02, to: "/dashboard?dept=docs&tab=host-onboarding" },
@@ -751,6 +753,7 @@ const DOCS_MENU: { id: string; label: string; icon: IconType; to: string }[] = [
     // The scratch benches. Last on purpose — reference surfaces, not client deliverables.
     { id: "mockups", label: "Mockups & backdrops", icon: Image01, to: "/test" },
     { id: "backgrounds", label: "Backgrounds", icon: Palette, to: "/background" },
+    { id: "dictionary", label: "Dictionary", icon: BookClosed, to: "/dictionary" },
 ];
 
 /**

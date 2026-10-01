@@ -26,10 +26,11 @@ import { cx } from "@/utils/cx";
  * locked, only filled slots are, and the client gets one quiet line when none are.
  *
  * THE CAPTION IS THE TEXT ALTERNATIVE. These loops are silent and autoplay, so the title
- * and description under the stage are what a reduced-motion visitor (or a screen reader)
- * gets instead of the footage — which is why both are editable rather than fixed labels.
- * The caption follows the reel in focus and is a live region, so moving between reels is
- * announced.
+ * and description at the top of the stage are what a reduced-motion visitor (or a screen
+ * reader) gets instead of the footage — which is why both are editable rather than fixed
+ * labels. The caption follows the reel in focus and is a live region, so moving between
+ * reels is announced. It sits above the phone, not under it, so the name is read before
+ * the footage it names.
  *
  * THE CLIENT ANSWERS IN THE SHARED FEEDBACK BOX (client-feedback.tsx), the same one the
  * welcome emails and the landing page carry — one note on the set of three, editable and
@@ -43,7 +44,14 @@ import { cx } from "@/utils/cx";
 const ACCEPT = "video/mp4,video/webm,video/quicktime";
 
 /** How far a neighbour sits from the centre (of its own width), how small, how faded. */
-const SIDE = { shift: 78, scale: 0.74, opacity: 0.4 };
+const SIDE = { shift: 78, scale: 0.74, opacity: 0.2 };
+
+/**
+ * The arrows sit just outside the neighbours, centred on the phone: half the stage, less
+ * how far a neighbour reaches (its shift plus half its scaled width ≈ 1.15 phone widths),
+ * less the button and a gap. On a narrow stage that goes negative, so they pin to the edge.
+ */
+const ARROW_INSET = "max(0px, calc(50% - var(--reel-w) * 1.15 - 60px))";
 
 /** The reel's width on the stage: a phone's worth, never so wide a reel outgrows a laptop viewport. */
 const STAGE_VARS = { "--reel-w": "clamp(232px, 42%, 320px)" } as CSSProperties;
@@ -101,7 +109,7 @@ const ReelSlide = ({
                 scale: isActive ? 1 : SIDE.scale,
                 opacity: isActive ? 1 : SIDE.opacity,
             }}
-            whileHover={isActive ? undefined : { opacity: 0.7 }}
+            whileHover={isActive ? undefined : { opacity: 0.45 }}
             transition={reduced ? { duration: 0 } : { duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         >
             <PhoneFrame label={`Slot ${index + 1} · empty`} className="w-full drop-shadow-xl">
@@ -129,12 +137,28 @@ const ReelSlide = ({
     );
 };
 
-const StageButton = ({ label, icon: Icon, onPress }: { label: string; icon: typeof ChevronLeft; onPress: () => void }) => (
+const StageButton = ({
+    label,
+    icon: Icon,
+    onPress,
+    className,
+    style,
+}: {
+    label: string;
+    icon: typeof ChevronLeft;
+    onPress: () => void;
+    className?: string;
+    style?: CSSProperties;
+}) => (
     <button
         type="button"
         aria-label={label}
         onClick={onPress}
-        className="flex size-9 items-center justify-center rounded-full border border-secondary bg-primary text-fg-quaternary shadow-xs transition duration-100 ease-linear outline-none hover:bg-primary_hover hover:text-fg-secondary focus-visible:ring-2 focus-visible:ring-brand"
+        style={style}
+        className={cx(
+            "flex size-11 items-center justify-center rounded-full border border-primary bg-primary text-fg-secondary shadow-md transition duration-100 ease-linear outline-none hover:bg-primary_hover hover:text-fg-primary focus-visible:ring-2 focus-visible:ring-brand",
+            className,
+        )}
     >
         <Icon className="size-5" aria-hidden="true" />
     </button>
@@ -165,8 +189,13 @@ export const ExampleReelsSection = ({
 
     const go = (step: number) => setFocused((((active + step) % count) + count) % count);
 
+    /** True when the event started in one of the caption's edit inputs, where ← → and a
+     *  drag mean "move the caret" and "select text", never "change reel". */
+    const fromInput = (target: EventTarget | null) => target instanceof Element && !!target.closest("input, textarea");
+
     const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        if (fromInput(e.target)) return;
         e.preventDefault();
         go(e.key === "ArrowLeft" ? -1 : 1);
     };
@@ -222,18 +251,85 @@ export const ExampleReelsSection = ({
                 onKeyDown={onKeyDown}
                 // A swipe is the gesture a reel already teaches. `touch-pan-y` keeps the page
                 // scrolling vertically through the stage.
-                onPanEnd={(_, info) => {
-                    if (count < 2) return;
+                onPanEnd={(event, info) => {
+                    if (count < 2 || fromInput(event.target)) return;
                     if (info.offset.x < -48) go(1);
                     else if (info.offset.x > 48) go(-1);
                 }}
                 style={STAGE_VARS}
                 className="mt-8 touch-pan-y overflow-hidden rounded-3xl border border-secondary bg-secondary bg-radial-[ellipse_70%_60%_at_50%_42%] from-primary to-secondary outline-none select-none focus-visible:ring-2 focus-visible:ring-brand"
             >
+                {/* The caption leads: name first, then the phone it names. Keyed so it fades in
+                    fresh with each reel; `aria-live` so moving between reels is announced, not
+                    silent. `select-text` because the stage is select-none and the edit inputs
+                    live here. */}
+                <div aria-live="polite" className="mx-auto w-full max-w-[400px] px-4 pt-6 select-text sm:pt-7">
+                    <motion.div
+                        key={reel.id}
+                        initial={reduced ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        className={cx("flex flex-col", isLocked ? "items-center text-center" : "gap-2")}
+                    >
+                        <span className={cx("text-xs font-semibold tracking-wide text-quaternary uppercase", !isLocked && "text-center")}>
+                            {isLocked ? "Reel" : "Slot"} {active + 1} of {count}
+                        </span>
+
+                        {isLocked ? (
+                            <>
+                                <span className="mt-1.5 block text-lg font-semibold text-primary">{title || "Example reel"}</span>
+                                {description && <span className="mt-1 block text-sm text-tertiary">{description}</span>}
+                            </>
+                        ) : (
+                            <>
+                                {reel.url && (
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <label
+                                            className={cx(
+                                                "flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-tertiary transition duration-100 ease-linear hover:bg-secondary hover:text-brand-secondary",
+                                                upload.busy && "pointer-events-none opacity-50",
+                                            )}
+                                        >
+                                            <input type="file" accept={ACCEPT} className="hidden" onChange={fileHandler(reel.id)} disabled={upload.busy} />
+                                            <RefreshCw01 className={cx("size-3.5", upload.busy && "animate-spin")} aria-hidden="true" />
+                                            {upload.busy ? "Uploading…" : "Replace"}
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => onChange(reel.id, { url: "" })}
+                                            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-tertiary transition duration-100 ease-linear hover:bg-error-primary hover:text-error-primary"
+                                        >
+                                            <XClose className="size-3.5" aria-hidden="true" />
+                                            Remove
+                                        </button>
+                                    </div>
+                                )}
+                                <input
+                                    type="text"
+                                    value={reel.title}
+                                    placeholder="Reel title"
+                                    aria-label="Reel title"
+                                    onChange={(e) => onChange(reel.id, { title: e.target.value })}
+                                    className={editInput("text-center font-semibold")}
+                                />
+                                <textarea
+                                    value={reel.description}
+                                    placeholder="What the reel shows — one line"
+                                    aria-label="Reel description"
+                                    rows={2}
+                                    onChange={(e) => onChange(reel.id, { description: e.target.value })}
+                                    className={editInput("resize-none text-center")}
+                                />
+                                {upload.error && <p className="text-center text-xs text-error-primary">{upload.error}</p>}
+                            </>
+                        )}
+                    </motion.div>
+                </div>
+
                 {/* Padding sits on this wrapper, not the positioned box: an absolute child
                     ignores its parent's padding, so a padded parent would put the phone on
                     the panel's top edge. */}
-                <div className="px-4 pt-7 sm:pt-8">
+                <div className="px-4 pt-5 sm:pt-6">
                     <div className="relative flex justify-center">
                         {/* Sets the stage's height: the phones are positioned over this blank. */}
                         <div aria-hidden="true" className="aspect-626/1290 w-[var(--reel-w)]" />
@@ -250,100 +346,51 @@ export const ExampleReelsSection = ({
                                 onFile={fileHandler(r.id)}
                             />
                         ))}
+
+                        {/* The arrows flank the phone at its midline, above the neighbours.
+                            Hidden for a single reel — there is nowhere to go. */}
+                        {count > 1 && (
+                            <>
+                                <StageButton
+                                    label="Previous reel"
+                                    icon={ChevronLeft}
+                                    onPress={() => go(-1)}
+                                    className="absolute top-1/2 z-10 -translate-y-1/2"
+                                    style={{ left: ARROW_INSET }}
+                                />
+                                <StageButton
+                                    label="Next reel"
+                                    icon={ChevronRight}
+                                    onPress={() => go(1)}
+                                    className="absolute top-1/2 z-10 -translate-y-1/2"
+                                    style={{ right: ARROW_INSET }}
+                                />
+                            </>
+                        )}
                     </div>
                 </div>
 
-                {/* Where you are in the set, under the phone: arrows either side of one segment
-                    per reel, the one in focus drawn long. Hidden for a single reel — there is
-                    nowhere to go. */}
+                {/* Where you are in the set, under the phone: one segment per reel, the one in
+                    focus drawn long. */}
                 {count > 1 && (
-                    <div className="flex items-center justify-center gap-4 px-4 pt-5 pb-4">
-                        <StageButton label="Previous reel" icon={ChevronLeft} onPress={() => go(-1)} />
-                        <div className="flex items-center gap-1.5">
-                            {shown.map((r, i) => (
-                                <button
-                                    key={r.id}
-                                    type="button"
-                                    aria-label={`Show reel ${i + 1} of ${count}${r.title.trim() ? `: ${r.title.trim()}` : ""}`}
-                                    aria-current={i === active ? "true" : undefined}
-                                    onClick={() => setFocused(i)}
-                                    className={cx(
-                                        "h-1.5 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
-                                        reduced ? "transition-none" : "transition-all duration-300 ease-out",
-                                        i === active ? "w-7 bg-brand-solid" : "w-2 bg-quaternary hover:bg-fg-quaternary",
-                                    )}
-                                />
-                            ))}
-                        </div>
-                        <StageButton label="Next reel" icon={ChevronRight} onPress={() => go(1)} />
+                    <div className="flex items-center justify-center gap-1.5 px-4 pt-5 pb-5">
+                        {shown.map((r, i) => (
+                            <button
+                                key={r.id}
+                                type="button"
+                                aria-label={`Show reel ${i + 1} of ${count}${r.title.trim() ? `: ${r.title.trim()}` : ""}`}
+                                aria-current={i === active ? "true" : undefined}
+                                onClick={() => setFocused(i)}
+                                className={cx(
+                                    "h-1.5 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+                                    reduced ? "transition-none" : "transition-all duration-300 ease-out",
+                                    i === active ? "w-7 bg-brand-solid" : "w-2 bg-quaternary hover:bg-fg-quaternary",
+                                )}
+                            />
+                        ))}
                     </div>
                 )}
             </motion.div>
-
-            {/* The caption follows the reel in focus. Keyed so it fades in fresh with each
-                reel; `aria-live` so moving between reels is announced, not silent. */}
-            <div aria-live="polite" className="mx-auto mt-5 w-full max-w-[400px]">
-                <motion.div
-                    key={reel.id}
-                    initial={reduced ? false : { opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className={cx("flex flex-col", isLocked ? "items-center text-center" : "gap-2")}
-                >
-                    <span className={cx("text-xs font-semibold tracking-wide text-quaternary uppercase", !isLocked && "text-center")}>
-                        {isLocked ? "Reel" : "Slot"} {active + 1} of {count}
-                    </span>
-
-                    {isLocked ? (
-                        <>
-                            <span className="mt-1.5 block text-lg font-semibold text-primary">{title || "Example reel"}</span>
-                            {description && <span className="mt-1 block text-sm text-tertiary">{description}</span>}
-                        </>
-                    ) : (
-                        <>
-                            {reel.url && (
-                                <div className="flex items-center justify-center gap-1.5">
-                                    <label
-                                        className={cx(
-                                            "flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-tertiary transition duration-100 ease-linear hover:bg-secondary hover:text-brand-secondary",
-                                            upload.busy && "pointer-events-none opacity-50",
-                                        )}
-                                    >
-                                        <input type="file" accept={ACCEPT} className="hidden" onChange={fileHandler(reel.id)} disabled={upload.busy} />
-                                        <RefreshCw01 className={cx("size-3.5", upload.busy && "animate-spin")} aria-hidden="true" />
-                                        {upload.busy ? "Uploading…" : "Replace"}
-                                    </label>
-                                    <button
-                                        type="button"
-                                        onClick={() => onChange(reel.id, { url: "" })}
-                                        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-tertiary transition duration-100 ease-linear hover:bg-error-primary hover:text-error-primary"
-                                    >
-                                        <XClose className="size-3.5" aria-hidden="true" />
-                                        Remove
-                                    </button>
-                                </div>
-                            )}
-                            <input
-                                type="text"
-                                value={reel.title}
-                                placeholder="Reel title"
-                                aria-label="Reel title"
-                                onChange={(e) => onChange(reel.id, { title: e.target.value })}
-                                className={editInput("text-center font-semibold")}
-                            />
-                            <textarea
-                                value={reel.description}
-                                placeholder="What the reel shows — one line"
-                                aria-label="Reel description"
-                                rows={2}
-                                onChange={(e) => onChange(reel.id, { description: e.target.value })}
-                                className={editInput("resize-none text-center")}
-                            />
-                            {upload.error && <p className="text-center text-xs text-error-primary">{upload.error}</p>}
-                        </>
-                    )}
-                </motion.div>
-            </div>
 
             {/* The client's: one note on the set, under the reel they just watched. Capped at
                 the width of a paragraph — a textarea spanning the stage reads as a form. */}

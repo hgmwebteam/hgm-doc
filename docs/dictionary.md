@@ -34,21 +34,24 @@ every other page's content does.
   in `dictionary-model.ts`. The nine names come from the brief; the file stores numbers only.
 
 **Rules the file has to follow:** `slug` stays unique and URL-safe, because it is the link
-(`/dictionary#cap-rate`). Each `related` entry is another entry's slug. `tier` A shows a "Core
-term" badge and B "On the check". `origin` "HGM" shows an "HGM term" badge. `core` is read only
-on tier A entries.
+(`/dictionary#cap-rate`). Each `related` entry is another entry's slug. `tier` (A, B or C) shows
+as a "Tier A" / "Tier B" / "Tier C" badge and drives the tier filters. `core` is read only on
+tier A entries. `origin` is not shown.
 
 ## Where the code is
 
-| File | What it holds |
-| :--- | :------------ |
-| `src/pages/team/dictionary/dictionary-model.ts` | Types, section and badge labels, text normalising, **the ranking** (`scoreEntry`, `search`), edit distance and no-match suggestions. No React. Start here when a search returns the wrong thing. |
-| `src/pages/team/dictionary/dictionary-model.check.ts` | The self-check: the master's shape plus every search the brief promised. |
-| `src/pages/team/dictionary/dictionary-screen.tsx` | The page: lazy loading, the search box and keys, results, the browse view, `#slug` links, scrolling. |
-| `src/pages/team/dictionary/dictionary-entry.tsx` | One entry, as a compact card or in full. |
-| `src/main.tsx` | The `/dictionary` route. |
-| `src/pages/team/dashboard-screen.tsx` | The dashboard's Docs menu row (`DEPARTMENTS`, `docs`). |
-| `src/pages/team/manual-screen.tsx` | The same menu as `DOCS_MENU`. It is exported, and `/dictionary` renders it with its own row current. |
+| File                                                  | What it holds                                                                                                                                                                                    |
+| :---------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/pages/team/dictionary/dictionary-model.ts`       | Types, section and badge labels, text normalising, **the ranking** (`scoreEntry`, `search`), edit distance and no-match suggestions. No React. Start here when a search returns the wrong thing. |
+| `src/pages/team/dictionary/dictionary-model.check.ts` | The self-check: the master's shape plus every search the brief promised.                                                                                                                         |
+| `src/pages/team/dictionary/dictionary-screen.tsx`     | The page: the search box and keys, results, the browse view, Resources, `#slug` links, scrolling.                                                                                                |
+| `src/pages/team/dictionary/dictionary-data.ts`        | `loadDictionary()`, the one way to load the file — shared by the page and the header's global search, so it is fetched once.                                                                     |
+| `src/pages/team/dictionary/dictionary-resources.ts`   | The Resources list (see below).                                                                                                                                                                  |
+| `src/components/application/search-modal.tsx`         | The header search on every team page; its Terms tab and term results use this dictionary's ranking.                                                                                              |
+| `src/pages/team/dictionary/dictionary-entry.tsx`      | One entry, as a compact card or in full.                                                                                                                                                         |
+| `src/main.tsx`                                        | The `/dictionary` route.                                                                                                                                                                         |
+| `src/pages/team/dashboard-screen.tsx`                 | The Docs menu (`DEPARTMENTS`, `docs`) and `DocsSideMenu`: the dashboard's own side menu, which `/dictionary` renders so the menu never moves between Docs pages.                                 |
+| `src/pages/team/manual-screen.tsx`                    | The manual's copy of the Docs menu (`DOCS_MENU`), which also lists Dictionary.                                                                                                                   |
 
 ## How search works
 
@@ -66,13 +69,23 @@ Ranking, best first:
 5. The query is inside the definition.
 6. A typo of the term: 1 edit for queries of 4–6 characters, 2 edits for 7 or more.
 
-Ties go to Core terms first, then "On the check", then the rest, then A–Z.
+Ties go to Tier A first, then Tier B, then Tier C, then A–Z.
 
 Two refinements stop nonsense matches:
 
 - A substring match (rules 4–5) must start at a word, or stay inside one word. Without this,
   `adt` would match "Lead time" once the spaces are ignored.
 - Filler words (and, the, per…) are never typo targets.
+
+## Resources (PDF downloads)
+
+The browse view (an empty search box) opens with **Resources**: the Acumen Dictionary PDF, the
+call sheet cheat sheet (the Tier A terms) and the client tech stack guide. To publish one, drop
+the PDF into `src/assets/dictionary-resources/` under its name in that folder's README, then
+commit. Its View and Download buttons switch on by themselves; until then they show disabled,
+under "Coming soon". **The PDFs are public**: anyone with a file's link can open it, signed in or
+not, and the repository is public on GitHub — so only documents that are fine to share outside HGM. Replacing a PDF is overwriting it under the same name. The list, its titles
+and the download file names are in `dictionary-resources.ts`.
 
 ## Debugging a search
 
@@ -99,6 +112,9 @@ The master may simply have renamed or removed a term.
   browser history doesn't fill up. "Copy link" copies `…/dictionary#slug`.
 - **Signing in from a link:** Google sign-in normally drops the `#slug`. The page parks it in
   `sessionStorage` for 15 minutes and reopens the entry after sign-in.
-- **Phones:** below 768 px the page hides the icon rail and header row, and below 1024 px the Docs
-  menu, so the search box comes first.
+- **Layout:** from 768 px up the page is laid out exactly like a Docs tab on `/dashboard` — same
+  rail, header row and Docs menu in the same place, the dictionary in the pane beside it. Below
+  768 px the rail, header row and menu drop out so the search box comes first.
+- **Header search:** every team page's "Search pages, clients, cards, terms…" finds terms too, with
+  the same ranking. Picking one opens it on `/dictionary`.
 - **Tracking:** none. Nothing records what people search.

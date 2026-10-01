@@ -191,9 +191,12 @@ overview, table, editor, peek, prompt library. Editing rides the dashboard's own
 The **Industry Acumen Dictionary** (`/dictionary`, behind `TeamGate`) is `src/pages/team/dictionary/`:
 `dictionary-model.ts` holds the shape, labels and the in-browser search (pure; `dictionary-model.check.ts`
 pins the brief's searches), `dictionary-screen.tsx` the page. Its data, `src/data/ref_dictionary-v2-253.json`,
-is a master maintained OUTSIDE this repo: replace it whole under the same name, never edit it here. It loads
-as its own lazy chunk, so keep it out of static imports. `/dictionary` renders the manual's exported
-`DOCS_MENU` with its own row current. See `docs/dictionary.md`.
+is a master maintained OUTSIDE this repo: replace it whole under the same name, never edit it here. Load it
+only through `loadDictionary()` (`dictionary-data.ts`) — the page and the header `SearchBar`'s terms share it,
+and a static import would put ~45 KB on every page. The page renders the dashboard's own Docs menu
+(`DocsSideMenu`, exported from `dashboard-screen.tsx`) in the dashboard's layout, so the menu doesn't move
+between Docs pages. Its Resources PDFs are dropped into `src/assets/dictionary-resources/`. See
+`docs/dictionary.md`.
 
 `reference/` at the repo root is team material (design mockups, SOP screenshots,
 design-tool exports) and is **not** read by the app; only `src/` is bundled and only

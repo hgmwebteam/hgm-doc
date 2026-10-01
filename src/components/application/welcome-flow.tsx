@@ -16,7 +16,7 @@ import { cx } from "@/utils/cx";
  * editable template from the original Canva structure (2026-07-03). A slot
  * with none of those shows a "not ready yet" card. Persists to welcome_flows.
  *
- * Mobile (390px) and desktop (600px) previews render side by side, each under
+ * Mobile (390px) and desktop (640px) previews render side by side, each under
  * an inbox-style header with the subject line and preview text (2026-09-10).
  *
  * Editing UX (WYSIWYG, 2026-07-03): the email preview IS the editor —
@@ -550,10 +550,12 @@ const NEW_ITEMS: Record<string, () => unknown> = {
 /** Client feedback wiring — now shared with the Landing page, see client-feedback.tsx. */
 export type FlowFeedbackProps = ClientFeedbackProps;
 
-/** The two previews, in display order — mobile first. */
+/** The two previews, in display order — mobile first. Desktop is wider than the
+ *  600px email on purpose: Pooja's emails switch to their phone layout at
+ *  `max-width:600px`, so a 600px frame showed the mobile hero under "Desktop". */
 const DEVICES = [
     { id: "mobile", label: "Mobile", width: 390, icon: Phone01 },
-    { id: "desktop", label: "Desktop", width: 600, icon: Monitor01 },
+    { id: "desktop", label: "Desktop", width: 640, icon: Monitor01 },
 ] as const;
 
 const inputCls =
@@ -616,7 +618,7 @@ export const WelcomeFlowSection = ({
     // in place inside the iframe and only sync state — no reload, no flicker.
     const [rev, setRev] = useState(0);
     const hydratedRef = useRef(false);
-    // Two previews of the same document — mobile (390) and desktop (600) — both
+    // Two previews of the same document — mobile (390) and desktop (640) — both
     // editable. Messages are matched to whichever frame sent them.
     const mobileRef = useRef<HTMLIFrameElement | null>(null);
     const desktopRef = useRef<HTMLIFrameElement | null>(null);

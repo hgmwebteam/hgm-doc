@@ -88,7 +88,11 @@ export const OVERVIEW_RAIL: { id: string; label: string }[] = [
 /** 1-based heading number for a rail section, shared by the rail and the headings. */
 export const overviewSectionNumber = (id: string) => OVERVIEW_RAIL.findIndex((r) => r.id === id) + 1;
 
-/** The kickoff numbers. Kept out of OVERVIEW_SECTIONS because they render as tiles, not rows. */
+/** The kickoff numbers. Kept out of OVERVIEW_SECTIONS because they render as tiles, not rows.
+ *  All four, plus direct_booking_split and instagram_screenshot alongside them, are manual —
+ *  nothing in generate-overview.mts's GROUPS can source these from the client's forms or
+ *  website, so the Baseline section carries one combined "fill these in by hand" marker
+ *  instead of a flag per field. */
 export const OVERVIEW_BASELINE: { key: keyof OverviewDoc; label: string }[] = [
     { key: "instagram_followers", label: "Instagram followers" },
     { key: "facebook_followers", label: "Facebook followers" },

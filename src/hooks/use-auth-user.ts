@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export interface AuthUser {
+    /** The Supabase user id: what auth.uid() returns, so what row-level security compares against. */
+    id: string;
     email: string;
     name: string;
     avatarUrl: string | null;
@@ -27,6 +29,7 @@ export const useAuthUser = () => {
             // last resort.
             const app = (u.app_metadata ?? {}) as Record<string, unknown>;
             return {
+                id: u.id,
                 email: u.email,
                 name: (meta.full_name as string) || (meta.name as string) || (app.full_name as string) || (app.name as string) || u.email.split("@")[0],
                 avatarUrl: (meta.avatar_url as string) || (meta.picture as string) || null,

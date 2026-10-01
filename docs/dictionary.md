@@ -48,7 +48,9 @@ tier A entries. `origin` is not shown.
 | `src/pages/team/dictionary/dictionary-data.ts`        | `loadDictionary()`, the one way to load the file — shared by the page and the header's global search, so it is fetched once.                                                                     |
 | `src/pages/team/dictionary/dictionary-resources.ts`   | The Resources list (see below).                                                                                                                                                                  |
 | `src/components/application/search-modal.tsx`         | The header search on every team page; its Terms tab and term results use this dictionary's ranking.                                                                                              |
-| `src/pages/team/dictionary/dictionary-entry.tsx`      | One entry, as a compact card or in full.                                                                                                                                                         |
+| `src/pages/team/dictionary/dictionary-entry.tsx`      | One entry, as a compact card or in full. The check's results page reuses it, without the tier and with the question's explanation.                                                               |
+| `src/pages/team/dictionary/dictionary-layout.tsx`     | The Docs frame (rail, header row, Docs menu) shared with the check's pages.                                                                                                                      |
+| `src/pages/team/dictionary/check/`                    | The check, its results and the flashcards. See [dictionary-check.md](dictionary-check.md).                                                                                                       |
 | `src/main.tsx`                                        | The `/dictionary` route.                                                                                                                                                                         |
 | `src/pages/team/dashboard-screen.tsx`                 | The Docs menu (`DEPARTMENTS`, `docs`) and `DocsSideMenu`: the dashboard's own side menu, which `/dictionary` renders so the menu never moves between Docs pages.                                 |
 | `src/pages/team/manual-screen.tsx`                    | The manual's copy of the Docs menu (`DOCS_MENU`), which also lists Dictionary.                                                                                                                   |
@@ -117,4 +119,12 @@ The master may simply have renamed or removed a term.
   768 px the rail, header row and menu drop out so the search box comes first.
 - **Header search:** every team page's "Search pages, clients, cards, terms…" finds terms too, with
   the same ranking. Picking one opens it on `/dictionary`.
-- **Tracking:** none. Nothing records what people search.
+- **Tracking:** none. Nothing records what people search. The check under the dictionary does
+  save each person's own results (see [dictionary-check.md](dictionary-check.md)), visible only
+  to them in the portal.
+
+## The check and flashcards
+
+"Take the check" and "Practise the terms", under the heading, lead to `/dictionary/check`,
+its results page and `/dictionary/practice`. They have their own doc:
+[dictionary-check.md](dictionary-check.md).

@@ -52,13 +52,6 @@ export const DocSection = ({
     </section>
 );
 
-/** Marks the four sections an AM pastes in from the brand messaging workflow. */
-export const WorkflowBadge = () => (
-    <BadgeWithDot color="warning" size="sm" type="pill-color">
-        From brand messaging workflow
-    </BadgeWithDot>
-);
-
 /** A plain star: nothing pulls this field from the client's forms or website, so an
  *  account manager has to go find the answer themselves and type it in. Standalone (rather
  *  than baked into one badge) so it can sit next to a badge, a heading, or on its own. */
@@ -70,7 +63,7 @@ export const ManualStar = ({ title = "Nothing pulls this in automatically — fi
 
 /** Marks where a section's content pulls from — the onboarding form, the client's
  *  website, or pasted guest reviews — so an AM can see each answer's source at a glance.
- *  Blue on purpose: yellow stays reserved for the workflow sections above.
+ *  Blue on purpose: yellow is reserved for the ManualStar above.
  *
  *  `manual` adds a star in front: this "source" isn't actually the client's forms or
  *  website — it's something the AM has to go find and bring in themselves (e.g. guest

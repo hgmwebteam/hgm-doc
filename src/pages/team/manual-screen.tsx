@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import {
     AlertTriangle,
     ArrowRight,
+    BookClosed,
     BookOpen01,
     Brush01,
     ChevronDown,
@@ -751,6 +752,7 @@ const DOCS_MENU: { id: string; label: string; icon: IconType; to: string }[] = [
     // The scratch benches. Last on purpose — reference surfaces, not client deliverables.
     { id: "mockups", label: "Mockups & backdrops", icon: Image01, to: "/test" },
     { id: "backgrounds", label: "Backgrounds", icon: Palette, to: "/background" },
+    { id: "dictionary", label: "Dictionary", icon: BookClosed, to: "/dictionary" },
 ];
 
 /**

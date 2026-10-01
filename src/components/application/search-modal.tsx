@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, BookOpen01, ClipboardCheck, Code02, Flag05, FolderClosed, Home02, Inbox01, LayoutAlt01, Mail01, MessageChatCircle, SearchLg, Share07 } from "@untitledui/icons";
+import { ArrowRight, BookClosed, BookOpen01, ClipboardCheck, Code02, Flag05, FolderClosed, Home02, Inbox01, LayoutAlt01, Mail01, MessageChatCircle, SearchLg, Share07 } from "@untitledui/icons";
 import type { FC } from "react";
 import { supabase, type ClientPageData, type HostOnboardingPageData, type LeadCapturePageData, type OverviewCard } from "@/lib/supabase";
+import { type DictionaryData, entryPath, loadDictionary } from "@/pages/team/dictionary/dictionary-data";
+import { type DictionaryEntry, byTerm, search as searchTerms } from "@/pages/team/dictionary/dictionary-model";
 import { cx } from "@/utils/cx";
 
 export interface SearchItem {
@@ -35,6 +37,7 @@ export const STATIC_ITEMS: SearchItem[] = [
     { id: "s-homepageoverview", title: "Homepage — Overview", subtitle: "Company-wide home screen project reference", path: "/homepage-overview", kind: "Page", icon: Home02 },
     { id: "s-questions", title: "Questions", subtitle: "Every log page's questions in one inbox", path: "/questions", kind: "Page", icon: ClipboardCheck },
     { id: "s-promptlib", title: "Prompt & Pattern Library", subtitle: "Your private prompt/pattern vault", path: "/prompt-library", kind: "Page", icon: BookOpen01 },
+    { id: "s-dictionary", title: "Industry Acumen Dictionary", subtitle: "Hotel, resort and marketing terms, and the PDFs that go with them", path: "/dictionary", kind: "Page", icon: BookClosed },
 ];
 
 /** Client/card/template rows that only exist in Supabase — fetched once, the first time the dropdown opens. */
@@ -81,9 +84,17 @@ export async function fetchDynamicSearchItems(): Promise<SearchItem[]> {
     return items;
 }
 
+/* ── Dictionary terms ─────────────────────────────────────────────── */
+
+/** Terms shown among everything else while typing; the Terms tab lists them all. */
+const TERMS_AMONG_ALL = 6;
+
+/** A dictionary entry as a search row. Opening it lands on /dictionary with that entry open. */
+const termItem = (e: DictionaryEntry): SearchItem => ({ id: "t-" + e.slug, title: e.term, subtitle: e.gloss, path: entryPath(e.slug), kind: "Term", icon: BookClosed });
+
 /* ── Category rail (Godly-style browse filters) ──────────────────── */
 
-type CatId = "all" | "Log" | "Page" | "Client" | "Template" | "Card";
+type CatId = "all" | "Log" | "Page" | "Client" | "Template" | "Card" | "Term";
 
 // "Card" items stay searchable (typing in Browse finds them) but don't get
 // their own rail tab — the team browses cards from the dashboard itself.
@@ -92,6 +103,7 @@ const CATEGORIES: { id: CatId; label: string; icon: FC<{ className?: string }> }
     { id: "Log", label: "Project Logs", icon: ClipboardCheck },
     { id: "Page", label: "Pages", icon: LayoutAlt01 },
     { id: "Template", label: "Templates", icon: FolderClosed },
+    { id: "Term", label: "Terms", icon: BookClosed },
 ];
 
 const categoryOf = (item: SearchItem): Exclude<CatId, "all"> => {
@@ -99,6 +111,7 @@ const categoryOf = (item: SearchItem): Exclude<CatId, "all"> => {
     if (item.kind === "Page") return "Page";
     if (item.kind === "Template") return "Template";
     if (item.kind === "Card") return "Card";
+    if (item.kind === "Term") return "Term";
     return "Client"; // Meta Pixel / Lead Capture client pages
 };
 
@@ -121,12 +134,32 @@ export const SearchBar = () => {
     const [loaded, setLoaded] = useState(false);
     const [activeIdx, setActiveIdx] = useState(0);
     const [cat, setCat] = useState<CatId>("all");
+    // The Industry Acumen Dictionary's terms. Its ~45 KB file loads the first time the
+    // panel opens (shared with /dictionary, so it is fetched once), never with the page.
+    // A failed load is retried the next time the panel opens.
+    const [dictionary, setDictionary] = useState<DictionaryData | null>(null);
+    const [dictionaryFailed, setDictionaryFailed] = useState(false);
+    const dictionaryLoading = useRef(false);
+    const listRef = useRef<HTMLDivElement>(null);
+    const keyboardMoved = useRef(false);
 
     const openDropdown = () => {
         setOpen(true);
         if (!loaded) {
             setLoaded(true);
             fetchDynamicSearchItems().then(setDynamic);
+        }
+        if (!dictionary && !dictionaryLoading.current) {
+            dictionaryLoading.current = true;
+            loadDictionary()
+                .then((d) => {
+                    setDictionary(d);
+                    setDictionaryFailed(false);
+                })
+                .catch(() => setDictionaryFailed(true)) // the rest of search works without it
+                .finally(() => {
+                    dictionaryLoading.current = false;
+                });
         }
     };
 
@@ -161,25 +194,51 @@ export const SearchBar = () => {
 
     const all = useMemo(() => [...STATIC_ITEMS, ...dynamic], [dynamic]);
 
+    // Terms are ranked by the dictionary's own search (typos, acronyms, "Rev PAR" = "revpar"),
+    // not the substring match below, and listed after everything else.
+    const termResults = useMemo(() => {
+        if (!dictionary || (cat !== "all" && cat !== "Term")) return [];
+        const q = query.trim();
+        if (!q) return cat === "Term" ? [...dictionary.entries].sort(byTerm).map(termItem) : [];
+        const hits = searchTerms(dictionary.index, q);
+        return (cat === "Term" ? hits : hits.slice(0, TERMS_AMONG_ALL)).map((h) => termItem(h.entry));
+    }, [dictionary, query, cat]);
+
     const results = useMemo(() => {
         const q = query.trim().toLowerCase();
         let pool = cat === "all" ? all : all.filter((i) => categoryOf(i) === cat);
-        if (!q) return pool;
-        return pool.filter((i) =>
+        const matches = !q ? pool : pool.filter((i) =>
             i.title.toLowerCase().includes(q) ||
             i.subtitle?.toLowerCase().includes(q) ||
             i.path.toLowerCase().includes(q) ||
             i.kind.toLowerCase().includes(q),
         );
-    }, [query, cat, all]);
+        return [...matches, ...termResults];
+    }, [query, cat, all, termResults]);
 
     useEffect(() => { setActiveIdx(0); }, [query, cat]);
 
+    // Arrowing through a long list (the 253 terms) keeps the highlighted row in view. The
+    // list itself is scrolled, never scrollIntoView, which would also scroll the page shell;
+    // and instantly, because the site's global smooth scrolling would otherwise lag behind
+    // every keypress. Mouse hover moves the highlight too, but doesn't scroll.
+    useEffect(() => {
+        if (!keyboardMoved.current) return;
+        keyboardMoved.current = false;
+        const list = listRef.current;
+        const row = list?.querySelector<HTMLElement>(`[data-idx="${activeIdx}"]`);
+        if (!list || !row) return;
+        const l = list.getBoundingClientRect();
+        const r = row.getBoundingClientRect();
+        const delta = r.top < l.top ? r.top - l.top - 8 : r.bottom > l.bottom ? r.bottom - l.bottom + 8 : 0;
+        if (delta) list.scrollTo({ top: list.scrollTop + delta, behavior: "instant" });
+    }, [activeIdx]);
+
     const counts = useMemo(() => {
-        const c: Record<Exclude<CatId, "all">, number> = { Log: 0, Page: 0, Client: 0, Template: 0, Card: 0 };
+        const c: Record<Exclude<CatId, "all">, number> = { Log: 0, Page: 0, Client: 0, Template: 0, Card: 0, Term: dictionary?.entries.length ?? 0 };
         all.forEach((i) => { c[categoryOf(i)]++; });
         return c;
-    }, [all]);
+    }, [all, dictionary]);
 
     const go = (item?: SearchItem) => {
         if (!item) return;
@@ -187,6 +246,12 @@ export const SearchBar = () => {
         setQuery("");
         inputRef.current?.blur();
         const p = item.path;
+        // A term while already on the Dictionary: replace, don't push. The page opens entries
+        // without adding history, so a pushed entry here would make the next Back do nothing.
+        if (item.kind === "Term" && window.location.pathname === "/dictionary") {
+            navigate(p, { replace: true });
+            return;
+        }
         if (/^https?:\/\//i.test(p)) {
             try {
                 const u = new URL(p);
@@ -199,8 +264,8 @@ export const SearchBar = () => {
     };
 
     const onKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, results.length - 1)); }
-        else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
+        if (e.key === "ArrowDown") { e.preventDefault(); keyboardMoved.current = true; setActiveIdx((i) => Math.min(i + 1, results.length - 1)); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); keyboardMoved.current = true; setActiveIdx((i) => Math.max(i - 1, 0)); }
         else if (e.key === "Enter") { e.preventDefault(); go(results[activeIdx]); }
         else if (e.key === "Escape") { e.preventDefault(); setOpen(false); inputRef.current?.blur(); }
     };
@@ -238,6 +303,7 @@ export const SearchBar = () => {
         return (
             <button
                 type="button"
+                data-idx={idx}
                 onClick={() => go(item)}
                 onMouseEnter={() => setActiveIdx(idx)}
                 className={cx(
@@ -276,7 +342,7 @@ export const SearchBar = () => {
                     onChange={(e) => { setQuery(e.target.value); openDropdown(); }}
                     onFocus={openDropdown}
                     onKeyDown={onKeyDown}
-                    placeholder="Search pages, clients, cards…"
+                    placeholder="Search pages, clients, cards, terms…"
                     className="flex-1 bg-transparent text-sm text-primary placeholder:text-placeholder outline-none"
                 />
                 {!open && (
@@ -302,7 +368,8 @@ export const SearchBar = () => {
                             <div className="hidden w-44 shrink-0 flex-col gap-0.5 border-r border-secondary p-2.5 sm:flex">
                                 {CATEGORIES.map((c) => {
                                     const active = cat === c.id;
-                                    const count = c.id === "all" ? all.length : counts[c.id];
+                                    // Browse searches terms too, so its total counts them.
+                                    const count = c.id === "all" ? all.length + counts.Term : counts[c.id];
                                     return (
                                         <button
                                             key={c.id}
@@ -322,7 +389,7 @@ export const SearchBar = () => {
                             </div>
 
                             {/* Content */}
-                            <div className="min-w-0 flex-1 overflow-y-auto">
+                            <div ref={listRef} className="min-w-0 flex-1 overflow-y-auto">
                                 {browsing ? (
                                     <div className="flex flex-col gap-6 p-5">
                                         {/* Quick access — app-launcher tiles, one scrollable row.
@@ -365,8 +432,19 @@ export const SearchBar = () => {
                                     <div className="p-2">
                                         {results.length === 0 ? (
                                             <div className="px-4 py-10 text-center">
-                                                <p className="text-sm font-medium text-secondary">No matches{query.trim() && <> for “{query}”</>}</p>
-                                                <p className="mt-1 text-xs text-tertiary">Try a client name, page name, or “meta pixel”.</p>
+                                                {cat === "Term" && !dictionary && dictionaryFailed ? (
+                                                    <>
+                                                        <p className="text-sm font-medium text-secondary">The dictionary couldn’t load</p>
+                                                        <p className="mt-1 text-xs text-tertiary">Close and reopen search to try again, or reload the page.</p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-sm font-medium text-secondary">No matches{query.trim() && <> for “{query}”</>}</p>
+                                                        <p className="mt-1 text-xs text-tertiary">
+                                                            {cat === "all" || cat === "Term" ? "Try a client name, a page name, or a term like “RevPAR”." : "Try a client name, page name, or “meta pixel”."}
+                                                        </p>
+                                                    </>
+                                                )}
                                             </div>
                                         ) : (
                                             results.map((item, idx) => <ResultRow key={item.id} item={item} idx={idx} />)

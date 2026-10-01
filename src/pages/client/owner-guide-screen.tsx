@@ -988,7 +988,7 @@ const Sidebar = ({
 // ── Create-guide popup ────────────────────────────────────────────
 
 /** Fixed product suffix appended to every owner-guide share link. */
-const LINK_SUFFIX = "landing-page";
+const LINK_SUFFIX = "aiwebsite";
 
 const CreateGuideModal = ({ open, onClose, onCreated }: {
     open: boolean; onClose: () => void; onCreated: (slug: string) => void;
@@ -1010,7 +1010,7 @@ const CreateGuideModal = ({ open, onClose, onCreated }: {
         setSaving(true); setError("");
         const base = slugify(name) || "client";
         // Link is auto-built from the client name with a fixed product suffix,
-        // e.g. "FLOHOM" → flohom-landing-page.
+        // e.g. "FLOHOM" → flohom-aiwebsite.
         const slug = `${base}-${LINK_SUFFIX}`;
 
         try {

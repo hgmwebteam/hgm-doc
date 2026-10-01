@@ -320,23 +320,6 @@ function clean(value: unknown): unknown {
     return value;
 }
 
-/** A URL's host, without www and tolerant of a missing scheme (people type bare domains). */
-const hostOf = (raw: string): string => {
-    const u = raw.trim();
-    if (!u) return "";
-    try {
-        const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(u);
-        return new URL(hasScheme ? u : `https://${u}`).hostname.toLowerCase().replace(/^www\./, "");
-    } catch {
-        return "";
-    }
-};
-
-/* The big listing platforms serve bot protection to datacenter IPs, so a fetch from here
-   comes back as a flat refusal however valid the link. Worth saying by name: "the page
-   didn't answer" sends an AM to check a URL that was never the problem. */
-const WALLED = /^(www\.)?(airbnb\.[a-z.]+|vrbo\.com|homeaway\.[a-z.]+|booking\.com|expedia\.[a-z.]+|tripadvisor\.[a-z.]+)$/i;
-
 export default async (req: Request) => {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
@@ -420,15 +403,9 @@ export default async (req: Request) => {
             pageBlock = `--- THE PROPERTY PAGE (draft this one stay from it) ---\n${page.url}${page.title ? ` (${page.title})` : ""}\n${page.text}`;
             allowedLinks = [...allowedLinks, page.url];
         } catch (err) {
-            const host = hostOf(propertyUrl);
-            return Response.json(
-                {
-                    error: WALLED.test(host)
-                        ? `${host} blocks automated readers, so its pages can't be read from here — use the listing on the client's own website, or fill this one in by hand.`
-                        : (err as Error).message,
-                },
-                { status: 502 },
-            );
+            // readPage already says which kind of failure this is, and has tried the reader
+            // where one could help. Naming platforms here would now contradict it.
+            return Response.json({ error: (err as Error).message }, { status: 502 });
         }
     }
 

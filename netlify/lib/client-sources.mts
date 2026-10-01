@@ -272,22 +272,41 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
 }
 
 /** Capped, time-bounded fetch. Null on any failure — callers decide what a miss means. */
-export async function grab(url: string, cap: number, timeoutMs = FETCH_MS): Promise<{ body: ArrayBuffer; type: string } | null> {
+/**
+ * The same fetch, with the reason it failed kept.
+ *
+ * `grab` collapses every failure into null, which is right for a crawl that moves on to the
+ * next page and wrong when one page IS the request: an AM told "the page didn't answer" goes
+ * off to check a URL that is fine, when the site actually refused us. Callers that report to
+ * a person use this one.
+ */
+export type GrabResult =
+    | { ok: true; body: ArrayBuffer; type: string }
+    | { ok: false; reason: "refused"; status: number }
+    | { ok: false; reason: "too-big" }
+    | { ok: false; reason: "no-answer" };
+
+export async function grabResult(url: string, cap: number, timeoutMs = FETCH_MS): Promise<GrabResult> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
         const res = await fetch(url, { signal: ctrl.signal, redirect: "follow", headers: { "user-agent": UA } });
-        if (!res.ok) return null;
+        if (!res.ok) return { ok: false, reason: "refused", status: res.status };
         const declared = Number(res.headers.get("content-length") ?? 0);
-        if (declared > cap) return null;
+        if (declared > cap) return { ok: false, reason: "too-big" };
         const body = await res.arrayBuffer();
-        if (body.byteLength > cap) return null;
-        return { body, type: (res.headers.get("content-type") ?? "").toLowerCase() };
+        if (body.byteLength > cap) return { ok: false, reason: "too-big" };
+        return { ok: true, body, type: (res.headers.get("content-type") ?? "").toLowerCase() };
     } catch {
-        return null;
+        return { ok: false, reason: "no-answer" };
     } finally {
         clearTimeout(timer);
     }
+}
+
+export async function grab(url: string, cap: number, timeoutMs = FETCH_MS): Promise<{ body: ArrayBuffer; type: string } | null> {
+    const r = await grabResult(url, cap, timeoutMs);
+    return r.ok ? { body: r.body, type: r.type } : null;
 }
 
 export const asText = (b: ArrayBuffer): string => new TextDecoder("utf-8", { fatal: false }).decode(b);
@@ -457,13 +476,38 @@ export async function sitemapLinks(site: URL, max = 40): Promise<{ page: string;
  */
 export async function readPage(raw: string, cap = 12_000): Promise<{ url: string; title: string; text: string }> {
     const url = await assertPublicUrl(raw);
-    const r = await grab(url.href, SINGLE_PAGE_CAP, 4500);
-    if (!r) throw new Error(`Couldn't load ${url.href} — the page didn't answer.`);
+    const host = url.hostname.replace(/^www\./, "");
+    const r = await grabResult(url.href, SINGLE_PAGE_CAP, 4500);
+    if (!r.ok) {
+        if (r.reason === "too-big") throw new Error(`${host} sent a page too large to read.`);
+        // A missing page and a refused one are different problems with different fixes:
+        // one is a wrong URL to correct, the other a site we cannot read at all.
+        if (r.reason === "refused") {
+            if (r.status === 404 || r.status === 410) throw new Error(`There's no page at that address on ${host} — check the link.`);
+            if (r.status === 401 || r.status === 403 || r.status === 429 || r.status === 503)
+                throw new Error(`${host} refused an automated request (HTTP ${r.status}) — the page opens in a browser but is closed to a server.`);
+            throw new Error(`${host} answered HTTP ${r.status} for that page.`);
+        }
+        throw new Error(`${host} didn't answer in time.`);
+    }
     const html = asText(r.body);
     const text = stripHtml(html, cap);
-    if (text.length < 200) throw new Error(`${url.href} returned almost no readable text — it likely builds its page in JavaScript.`);
+    if (text.length < 200) {
+        /* A bot wall answers 200 (SiteGround's sgcaptcha even answers 202) with a stub that
+           redirects to a challenge, so "almost no text" is ambiguous between a wall and a
+           page built in the browser. Naming which one is the difference between an AM trying
+           a different link and an AM trying the same link again. */
+        if (BOT_WALL.test(html)) {
+            throw new Error(`${host} is behind bot protection that only a real browser can pass, so its pages can't be read from here.`);
+        }
+        throw new Error(`${host} returned almost no readable text — it likely builds its pages in JavaScript.`);
+    }
     return { url: url.href, title: pageTitle(html), text };
 }
+
+/** The challenge pages the common bot walls serve in place of the real one. */
+const BOT_WALL =
+    /sgcaptcha|\/\.well-known\/captcha|cf-browser-verification|cdn-cgi\/challenge|Just a moment\.\.\.|Attention Required!|Checking your browser|__cf_chl|px-captcha|incapsula|_Incapsula_Resource|DataDome/i;
 
 export interface SiteRead {
     site: string;

@@ -5509,10 +5509,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         </div>
                                                                     </DocSection>
 
-                                                                    {/* ── 8. Focus properties ── */}
+                                                                    {/* ── 8. Property types/Unit types ── */}
                                                                     <DocSection
                                                                         id="focus"
-                                                                        label="Focus properties"
+                                                                        label="Property types/Unit types"
                                                                         badge={isTeam ? <SourceBadge>From client's website</SourceBadge> : undefined}
                                                                         action={
                                                                             !isLocked &&

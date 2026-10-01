@@ -175,6 +175,8 @@ import {
     overviewSectionNumber,
 } from "@/pages/client/dashboard/overview-doc";
 import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pages/client/dashboard/pinned-posts";
+import { revealCheck } from "@/pages/client/dashboard/reveal-check";
+import { RevealConfirmDialog } from "@/pages/client/dashboard/reveal-confirm-dialog";
 import { stayPageLinks } from "@/pages/client/dashboard/stay-pages";
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
@@ -1632,6 +1634,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const cur = c.client_visible ?? DEFAULT_CLIENT_VISIBLE;
             return { ...c, client_visible: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] };
         });
+    /** The row whose eye was pressed to SHOW it, waiting on the confirm dialog. Hiding skips it.
+     *  The id outlives `revealOpen` so the dialog keeps its title while it fades out. */
+    const [revealAsk, setRevealAsk] = useState<SectionId | null>(null);
+    const [revealOpen, setRevealOpen] = useState(false);
+    const pressEye = (id: SectionId) => {
+        if (revealedToClient(id)) return toggleClientVisible(id);
+        setRevealAsk(id);
+        setRevealOpen(true);
+    };
 
     /**
      * Single choke point: whatever route put a client on a section they can't see —
@@ -3024,7 +3035,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         : `Show ${s.label} to this client`
                                                                                 }
                                                                                 aria-pressed={revealedToClient(s.id)}
-                                                                                onClick={() => toggleClientVisible(s.id)}
+                                                                                onClick={() => pressEye(s.id)}
                                                                                 className={cx(
                                                                                     "flex size-6 items-center justify-center rounded-md transition duration-100 ease-linear hover:bg-secondary",
                                                                                     revealedToClient(s.id)
@@ -3934,15 +3945,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                     </>
                                                 )}
 
-                                                {/* ── Example Reels — three phones, the team's reels playing inside ── */}
+                                                {/* ── Example Reels — one phone in focus, the other two waiting beside it ── */}
                                                 {activeSection === "reels" && (
                                                     <Reveal>
                                                         <SectionEyebrow section={activeSection} />
                                                         <SectionHeading>Example Reels</SectionHeading>
                                                         <p className="mt-3 text-md text-tertiary">
                                                             {isLocked
-                                                                ? "Three reels made for your property, shown the way they play on a phone."
-                                                                : "Upload up to three 9:16 reels. The title and line under each phone are what the client reads — and what stands in for the footage when motion is off."}
+                                                                ? "Three reels made for your property, shown the way they play on a phone — one at a time. Use the arrows, or tap a phone at the side, to see the next."
+                                                                : "Upload up to three 9:16 reels. Use the arrows to move between slots. The title and line under the phone are what the client reads — and what stands in for the footage when motion is off."}
                                                         </p>
                                                         <ExampleReelsSection
                                                             reels={content.reels ?? []}
@@ -7578,6 +7589,24 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     </div>
                 </div>
             )}
+
+            {(() => {
+                const item = revealAsk ? NAV_GROUPS.flatMap((g) => g.items).find((i) => i.id === revealAsk) : undefined;
+                return (
+                    <RevealConfirmDialog
+                        open={revealOpen && !!item}
+                        label={item?.label ?? ""}
+                        clientName={clientName}
+                        check={revealAsk ? revealCheck(revealAsk, content) : null}
+                        notBuilt={!!item && navNotBuilt(item)}
+                        onCancel={() => setRevealOpen(false)}
+                        onConfirm={() => {
+                            if (revealAsk && !revealedToClient(revealAsk)) toggleClientVisible(revealAsk);
+                            setRevealOpen(false);
+                        }}
+                    />
+                );
+            })()}
 
             {/* ── Client-input form modal ──
                 The form keeps its own Typeform-style chrome (progress bar, counter,

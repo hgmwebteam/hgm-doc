@@ -3780,15 +3780,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                     </>
                                                 )}
 
-                                                {/* ── Example Reels — three phones, the team's reels playing inside ── */}
+                                                {/* ── Example Reels — one phone in focus, the other two waiting beside it ── */}
                                                 {activeSection === "reels" && (
                                                     <Reveal>
                                                         <SectionEyebrow section={activeSection} />
                                                         <SectionHeading>Example Reels</SectionHeading>
                                                         <p className="mt-3 text-md text-tertiary">
                                                             {isLocked
-                                                                ? "Three reels made for your property, shown the way they play on a phone."
-                                                                : "Upload up to three 9:16 reels. The title and line under each phone are what the client reads — and what stands in for the footage when motion is off."}
+                                                                ? "Three reels made for your property, shown the way they play on a phone — one at a time. Use the arrows, or tap a phone at the side, to see the next."
+                                                                : "Upload up to three 9:16 reels. Use the arrows to move between slots. The title and line under the phone are what the client reads — and what stands in for the footage when motion is off."}
                                                         </p>
                                                         <ExampleReelsSection
                                                             reels={content.reels ?? []}

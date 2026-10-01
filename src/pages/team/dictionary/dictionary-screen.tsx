@@ -121,7 +121,7 @@ const Resources = () => (
                             <File06 className="size-5" aria-hidden="true" />
                         </span>
                         <div className="min-w-0">
-                            <h3 className="text-sm font-semibold text-primary">{r.title}</h3>
+                            <h3 className="text-sm font-semibold break-words text-primary">{r.title}</h3>
                             <p className="mt-0.5 text-sm text-tertiary">{r.description}</p>
                         </div>
                     </div>

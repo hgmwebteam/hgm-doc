@@ -1,0 +1,5178 @@
+[
+ {
+  "slug": "adr-average-daily-rate",
+  "term": "ADR (average daily rate)",
+  "tier": "A",
+  "section": 1,
+  "origin": "Carry",
+  "gloss": "Room revenue divided by rooms sold — the average price a sold room actually went for.",
+  "formula": "Room revenue ÷ Rooms sold",
+  "source": "the STR/CoStar glossary, 19 Sep 2026",
+  "usage": "Your ADR held up nicely this month — the question is whether the discounting on quiet nights is pulling it down.",
+  "aliases": [],
+  "owner": "The clearest read on pricing power. A rising ADR means guests will pay more; a flat or falling ADR next to rising occupancy often means the property is discounting to fill rooms.",
+  "example": "Lakeside Lodge, September (illustrative): $360,000 room revenue ÷ 1,200 room nights sold = $300.",
+  "related": [
+   "revpar-revenue-per-available-room",
+   "occupancy",
+   "rack-rate",
+   "bar-best-available-rate"
+  ],
+  "core": {
+   "worked": [
+    "Room revenue: $360,000",
+    "Room nights sold: 1,200",
+    "$360,000 ÷ 1,200 = $300 ADR"
+   ],
+   "hgm": "Used across the doctrine rather than defined in it: the Ratchet (Play P8, HYPOTHESIS) is measured in 'ADR gained per cycle', and value optimisation points Meta at higher-ADR bookings (revenue-management.md §2, §9).",
+   "confusions": "ADR divides by rooms sold; RevPAR divides by rooms available. Dividing room revenue by available rooms gives RevPAR, not ADR. Total revenue (spa, restaurant) never goes into ADR.",
+   "links": [
+    {
+     "title": "STR glossary (CoStar)",
+     "url": "https://www.costar.com/products/str-benchmark/resources/glossary",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "ancillary-revenue",
+  "term": "Ancillary revenue",
+  "tier": "A",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Everything a guest spends beyond the room — food and beverage, spa, activities, add-ons — and the lever marketing can move without touching rate.",
+  "formula": null,
+  "source": "the IDeaS and Mews revenue glossaries, 19 Sep 2026",
+  "usage": "Rooms are only part of the story here — how much of your ancillary revenue comes from the spa and dinner?",
+  "aliases": [],
+  "owner": "At an amenity-rich resort the spa, restaurant, events and add-ons can be a large share of the business — room revenue 'can be less than half the picture' (ref_revenue-management-metrics-dictionary.md) — so it's revenue the owner can grow without touching the room rate.",
+  "example": null,
+  "related": [
+   "total-revenue-vs-rooms-revenue",
+   "capture-rate",
+   "upsell",
+   "event-and-wedding-revenue"
+  ],
+  "core": {
+   "worked": [
+    "Lakeside Lodge, September (illustrative): spa $90,000 + restaurant and bar $150,000 = $240,000 ancillary",
+    "Total revenue $600,000, so ancillary is 40% of the total"
+   ],
+   "hgm": "The doctrine leaves ancillary and total-revenue management (F&B, spa, experiences) out of scope for v1 (revenue-management.md §13); HGM's lever today is content and pre-arrival marketing that sells the extras.",
+   "confusions": "Ancillary revenue is everything beyond the room, not only add-ons at checkout. It's also not the same as TRevPAR, which divides total revenue by available rooms.",
+   "links": []
+  }
+ },
+ {
+  "slug": "comp-set",
+  "term": "Comp set",
+  "tier": "A",
+  "section": 1,
+  "origin": "New",
+  "gloss": "The set of properties an owner benchmarks against, and the basis of every index on an STR report.",
+  "formula": null,
+  "source": "the STR/CoStar glossary (comp set, ARI, RGI), 19 Sep 2026",
+  "usage": "Who's in your comp set? I'd like to see who you're measuring yourself against before we talk about rate.",
+  "aliases": [],
+  "owner": "Less a metric than a lens: who an owner names as their competition shows how they see themselves, which tells you what story and positioning to lean into.",
+  "example": null,
+  "related": [
+   "mpi-market-penetration-index",
+   "rate-shopping",
+   "benchmarking-tools",
+   "occupancy"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine prices against the property's own booking curve, not the neighbourhood's (Principle 1), and treats market data as 'a guardrail, never a driver' (§13). Recognise comp-set indices if the owner has an STR report; don't lead with them.",
+   "confusions": "A comp set is the owner's chosen peers, not simply the nearest properties on a map. An STR comp set has formal rules; an owner's informal one doesn't.",
+   "links": [
+    {
+     "title": "STR glossary (CoStar)",
+     "url": "https://www.costar.com/products/str-benchmark/resources/glossary",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "denial",
+  "term": "Denial",
+  "tier": "A",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Demand that tried to book a date and could not because it was sold out.",
+  "formula": null,
+  "source": null,
+  "usage": "If you're turning people away on peak weekends, that denial is demand we can price for, not just celebrate.",
+  "aliases": [],
+  "owner": "Proof that demand exists and was turned away, which is the strongest case an owner can see for raising rates on those dates or adding capacity.",
+  "example": null,
+  "related": [
+   "regret",
+   "compression",
+   "yield-management",
+   "minimum-length-of-stay"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine defines a denial as a date-search with no availability and keeps a per-property denial ledger as 'the standing evidence file for rate increases and unit expansion' (revenue-management.md §2, Play P2, HYPOTHESIS).",
+   "confusions": "A denial is demand that couldn't book (no availability or a restriction); a regret is demand that could have booked and chose not to. Many small properties don't track denials at all, which is itself worth noticing.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "flow-through",
+  "term": "Flow-through",
+  "tier": "A",
+  "section": 1,
+  "origin": "New",
+  "gloss": "How much of each extra dollar of revenue actually reaches profit rather than being eaten by cost.",
+  "formula": "Change in GOP ÷ Change in revenue",
+  "source": null,
+  "usage": "More revenue is only good news if it flows through — what's the flow-through on the extra bookings from the promotion?",
+  "aliases": [],
+  "owner": "Answers 'of the extra revenue you drove, how much did I actually keep?' — the difference between being busier and being better off.",
+  "example": "Lakeside Lodge, September (illustrative): GOP rose from $150,000 to $175,000 while total revenue rose from $500,000 to $600,000. $25,000 ÷ $100,000 = 25%.",
+  "related": [
+   "gop-gross-operating-profit",
+   "fixed-vs-variable-cost",
+   "the-profit-ladder",
+   "noi-net-operating-income"
+  ],
+  "core": {
+   "worked": [
+    "Change in GOP: $175,000 − $150,000 = $25,000",
+    "Change in total revenue: $600,000 − $500,000 = $100,000",
+    "$25,000 ÷ $100,000 = 25% flow-through"
+   ],
+   "hgm": "Not a doctrine metric. Useful on calls because the doctrine's north star, NetRevPAR, is about what the property keeps rather than what it sells (Principle 8).",
+   "confusions": "Flow-through is a ratio of changes between two periods, not a margin for one period. HGM's metrics dictionary prefers comparing with a prior period rather than budget; either way, say which you mean.",
+   "links": []
+  }
+ },
+ {
+  "slug": "noi-net-operating-income",
+  "term": "NOI (net operating income)",
+  "tier": "A",
+  "section": 1,
+  "origin": "New",
+  "gloss": "GOP less management fees and fixed charges; what owners and buyers price the property on. USALI now labels this line EBITDA.",
+  "formula": "NOI = GOP − management fees − fixed charges",
+  "source": "USALI summaries from HFTP and Inn-Flow, 19 Sep 2026, re-checked against HFTP's USALI 12th edition overview, 29 Sep 2026 — USALI renamed the old Net Operating Income line EBITDA in the 11th edition; owners and buyers still say NOI.",
+  "usage": "When you think about selling or expanding one day, NOI is the number the buyer will look at first.",
+  "aliases": [],
+  "owner": "The number a buyer prices the property on, so it carries the owner's long-term dream: a business worth a lot more one day, whether they sell or not.",
+  "example": "Lakeside Lodge, September (illustrative): GOP $175,000 − management fee $25,000 − property tax and insurance $30,000 = $120,000 NOI.",
+  "related": [
+   "gop-gross-operating-profit",
+   "ebitda",
+   "cap-rate",
+   "the-profit-ladder",
+   "exit-vocabulary"
+  ],
+  "core": {
+   "worked": [
+    "GOP: $175,000",
+    "Less management company fee: $25,000",
+    "Less property tax and insurance: $30,000",
+    "$175,000 − $25,000 − $30,000 = $120,000 NOI"
+   ],
+   "hgm": "icp.md describes the owner's dream as a business that 'commands a massive multiple on the back of high net operating income', and says the work lifts 'demand, NOI, brand assets, and overall resort equity value'.",
+   "confusions": "USALI's current editions label this line EBITDA; owners and buyers still say NOI. Buyers often value on NOI after a reserve for replacing furniture and equipment (FF&E), so their NOI can sit a little below EBITDA. Don't confuse NOI with GOP (before the owner's fixed costs) or with GOPPAR (GOP per available room).",
+   "links": [
+    {
+     "title": "USALI 12th Revised Edition overview (HFTP)",
+     "url": "https://www.hftp.org/downloads/documents/usali/usali12_presentation.pdf",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "regret",
+  "term": "Regret",
+  "tier": "A",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Demand that looked at a date and left without booking, usually on price or restriction.",
+  "formula": null,
+  "source": null,
+  "usage": "Lots of people are looking at those dates and leaving — that's regret, and it usually points to price or a minimum stay.",
+  "aliases": [],
+  "owner": "Demand that saw the price and walked away. It tells the owner whether a soft date is a price problem or an awareness problem, which decides whether to discount or to market.",
+  "example": null,
+  "related": [
+   "denial",
+   "look-to-book",
+   "adr-average-daily-rate",
+   "soft-dates"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine defines a regret as a session that viewed price or availability and left without booking, and uses the regret rate to tell 'Soft–Price Resistance' from 'Soft–Low Traffic' (revenue-management.md §2, §5.1).",
+   "confusions": "Regret is not the same as a denial: in a regret the room was available. It's also not cancellation, which happens after a booking.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "revenue-management-the-function",
+  "term": "Revenue management (the function)",
+  "tier": "A",
+  "section": 1,
+  "origin": "New",
+  "gloss": "The job itself; at this ICP it may be the owner, a part-timer, or an outsourced firm.",
+  "formula": null,
+  "source": null,
+  "usage": "Who handles revenue management for you right now — you, someone on the team, or an outside firm?",
+  "aliases": [],
+  "owner": "Tells you who actually sets the rates, and so who you need on the call when pricing comes up — often the owner themselves, which means they feel every pricing decision personally.",
+  "example": null,
+  "related": [
+   "yield-management",
+   "who-you-are-talking-to",
+   "dynamic-pricing",
+   "management-company-vs-owner-operator"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "HGM's doctrine treats pricing and demand as one system run with the owner, with every price change human-approved until a property graduates (revenue-management.md §0, §7.6).",
+   "confusions": "Revenue management is the job; yield management is the discipline it practises; dynamic pricing is one tool it may use.",
+   "links": []
+  }
+ },
+ {
+  "slug": "revpar-revenue-per-available-room",
+  "term": "RevPAR (revenue per available room)",
+  "tier": "A",
+  "section": 1,
+  "origin": "Carry",
+  "gloss": "Rate and fill in one number; what owners reach for when asked how the year is going.",
+  "formula": "Room revenue ÷ Rooms available  (= ADR × Occupancy)",
+  "source": "the STR/CoStar glossary, 19 Sep 2026",
+  "usage": "RevPAR tells us rate and fill together, so we're not fooled by a full house sold too cheap.",
+  "aliases": [],
+  "owner": "The standard topline health check and the number owners quote as 'how we're doing'. Its blind spot: it treats a commission-free direct booking and a heavily commissioned OTA booking exactly the same.",
+  "example": "Lakeside Lodge, September (illustrative): $360,000 room revenue ÷ 1,500 room nights available = $240 (= $300 ADR × 80% occupancy).",
+  "related": [
+   "adr-average-daily-rate",
+   "occupancy",
+   "goppar",
+   "effective-commission-ec"
+  ],
+  "core": {
+   "worked": [
+    "Rooms available: 50 rooms × 30 nights = 1,500",
+    "Room revenue: $360,000",
+    "$360,000 ÷ 1,500 = $240 RevPAR",
+    "Check: $300 ADR × 80% occupancy = $240"
+   ],
+   "hgm": "HGM's north star is NetRevPAR, RevPAR after OTA commissions, allocated ad spend and discounts (revenue-management.md Principle 8: 'Occupancy is vanity; NetRevPAR is sanity').",
+   "confusions": "RevPAR divides by rooms available, ADR by rooms sold. RevPAR ignores the spa and restaurant; that's TRevPAR.",
+   "links": [
+    {
+     "title": "STR glossary (CoStar)",
+     "url": "https://www.costar.com/products/str-benchmark/resources/glossary",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "boutique",
+  "term": "Boutique",
+  "tier": "B",
+  "section": 1,
+  "origin": "New",
+  "gloss": "A small, design-led, independently run property — the category most of this ICP puts itself in.",
+  "formula": null,
+  "source": "icp.md lists luxury boutique hotels in the ICP; the kickoff outline describes most of the ICP as proudly independent.",
+  "usage": "You've built something boutique, so the story we tell needs to feel as personal as the place.",
+  "aliases": [],
+  "owner": "Most of this ICP is proudly independent and design-led, so 'boutique' is part of how the owner sees themselves, not just a category.",
+  "example": null,
+  "related": [
+   "independent-hotel",
+   "flagged",
+   "soft-brand-affiliation",
+   "micro-resort"
+  ]
+ },
+ {
+  "slug": "capture-rate",
+  "term": "Capture rate",
+  "tier": "B",
+  "section": 1,
+  "origin": "New",
+  "gloss": "The share of guests staying at the property who eat or drink at its own restaurant or bar.",
+  "formula": "Covers from in-house guests ÷ In-house guests",
+  "source": "Regulr, 'Hotel F&B capture rate guide', checked 29 Sep 2026. Divides by guests, not rooms occupied; some guides use guest meal occasions instead. Measure it per meal period.",
+  "usage": "What's your capture rate at the restaurant? If guests are eating in town, that's revenue walking out the door.",
+  "aliases": [],
+  "owner": "Every in-house guest who eats elsewhere is revenue walking out the door, so a low capture rate is an easy ancillary win the owner already has the guests for.",
+  "example": "Lakeside Lodge, September (illustrative): 1,200 room nights × 2 guests = 2,400 in-house guest nights; 960 dinner covers came from in-house guests. 960 ÷ 2,400 = 40%.",
+  "related": [
+   "ancillary-revenue",
+   "pre-arrival-sequence",
+   "package-rate"
+  ]
+ },
+ {
+  "slug": "ebitda",
+  "term": "EBITDA (earnings before interest, tax, depreciation and amortisation)",
+  "tier": "B",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Earnings before interest, tax, depreciation and amortisation — the number in a sale conversation.",
+  "formula": "GOP − management fees − fixed charges",
+  "source": null,
+  "usage": "If a buyer ever comes calling, EBITDA is the line they'll want to see on your P&L.",
+  "aliases": [],
+  "owner": "The line a buyer or lender asks for first, so it's where years of building the business turn into a price.",
+  "example": "Lakeside Lodge, September (illustrative): GOP $175,000 − management fee $25,000 − property tax and insurance $30,000 = $120,000.",
+  "related": [
+   "noi-net-operating-income",
+   "the-profit-ladder",
+   "cap-rate",
+   "sale-multiple"
+  ]
+ },
+ {
+  "slug": "flagged",
+  "term": "Flagged",
+  "tier": "B",
+  "section": 1,
+  "origin": "New",
+  "gloss": "A property operating under a chain brand, as opposed to independent or soft-branded.",
+  "formula": null,
+  "source": "the STR/CoStar glossary (comp set, ARI, RGI), 19 Sep 2026",
+  "usage": "Were you ever approached about being flagged, or have you always wanted to stay independent?",
+  "aliases": [],
+  "owner": "Tells you whether the owner answers to a chain's rules and systems or makes their own marketing decisions.",
+  "example": null,
+  "related": [
+   "flag",
+   "franchise",
+   "independent-hotel",
+   "soft-brand-affiliation"
+  ]
+ },
+ {
+  "slug": "occupancy",
+  "term": "Occupancy %",
+  "tier": "B",
+  "section": 1,
+  "origin": "Carry",
+  "gloss": "The share of available rooms sold in a period; HGM also reads it per date, cancellation-weighted.",
+  "formula": "Rooms sold ÷ Rooms available",
+  "source": "the STR/CoStar glossary, 19 Sep 2026",
+  "usage": "Occupancy is strong, but let's look at it by date — the averages hide the nights you most need to fill.",
+  "aliases": [],
+  "owner": "The most satisfying number to look at and the most misleading on its own: a full house sold too cheap can be busier and less profitable at the same time.",
+  "example": "Lakeside Lodge, September (illustrative): 1,200 room nights sold ÷ 1,500 available = 80%.",
+  "related": [
+   "adr-average-daily-rate",
+   "revpar-revenue-per-available-room",
+   "effective-otb",
+   "date-classes"
+  ]
+ },
+ {
+  "slug": "the-profit-ladder",
+  "term": "The profit ladder",
+  "tier": "B",
+  "section": 1,
+  "origin": "New",
+  "gloss": "The order revenue falls through on a hotel P&L, from total revenue down to NOI, and where each cost is deducted.",
+  "formula": null,
+  "source": "USALI summaries from HFTP and Inn-Flow, 19 Sep 2026 — USALI renamed the old Net Operating Income line EBITDA; owners and buyers still say NOI",
+  "usage": "Let's walk down the profit ladder together so we can see where the extra revenue actually lands.",
+  "aliases": [],
+  "owner": "Shows the owner where extra revenue actually lands, and why a busy month can still disappoint once costs have come off.",
+  "example": null,
+  "related": [
+   "gop-gross-operating-profit",
+   "noi-net-operating-income",
+   "ebitda",
+   "usali"
+  ]
+ },
+ {
+  "slug": "attrition",
+  "term": "Attrition",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "The contract clause that makes a group pay for rooms it blocked but didn't fill.",
+  "formula": null,
+  "source": null,
+  "usage": "If the wedding group releases rooms late, does your contract have an attrition clause to cover it?",
+  "aliases": [],
+  "owner": "Protects the owner when a wedding or retreat block doesn't fill, because late releases are hard to resell at short notice.",
+  "example": null,
+  "related": [
+   "transient-vs-group",
+   "allotment",
+   "buyout"
+  ]
+ },
+ {
+  "slug": "budget-vs-forecast",
+  "term": "Budget vs forecast",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "A budget sets the targets the organisation intends to hit; a forecast predicts what is likely to happen from live performance and current data.",
+  "formula": null,
+  "source": "Definition corrected by Gillian Conley at review, Sep 2026",
+  "usage": "Is that number from your budget or your latest forecast? I want to know whether we're chasing the plan or reality.",
+  "aliases": [],
+  "owner": "Separates what the owner hoped for from what's actually happening, so a conversation about a 'bad month' starts from the right baseline.",
+  "example": null,
+  "related": [
+   "pace",
+   "otb-on-the-books",
+   "flash-report"
+  ]
+ },
+ {
+  "slug": "event-and-wedding-revenue",
+  "term": "Event and wedding revenue",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Group and event income, which at wineries and lodges can rival rooms.",
+  "formula": null,
+  "source": "ref_revenue-management-metrics-dictionary.md: at many properties in this ICP, event and wedding revenue 'can rival or exceed room revenue'.",
+  "usage": "How much of your year is event and wedding revenue? For some lodges it's as big as the rooms side.",
+  "aliases": [],
+  "owner": "Comes with its own buyers, sales cycle and content needs, so wedding enquiries may need a separate path through the funnel from leisure guests.",
+  "example": null,
+  "related": [
+   "ancillary-revenue",
+   "transient-vs-group",
+   "buyout",
+   "attrition"
+  ]
+ },
+ {
+  "slug": "fixed-vs-variable-cost",
+  "term": "Fixed vs variable cost",
+  "tier": "C",
+  "section": 1,
+  "origin": "Carry",
+  "gloss": "Why an empty midweek room costs little to fill and a discounted one still hurts.",
+  "formula": null,
+  "source": null,
+  "usage": "Most of your costs are fixed, so filling an empty midweek room costs you very little.",
+  "aliases": [],
+  "owner": "Explains why filling an empty midweek room is nearly all profit, and why a discounted peak room still costs the owner real money.",
+  "example": null,
+  "related": [
+   "flow-through",
+   "housekeeping-turnover",
+   "midweek-gap"
+  ]
+ },
+ {
+  "slug": "flash-report",
+  "term": "Flash report",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "A one-page summary of yesterday's rooms, revenue and rate, produced first thing each morning.",
+  "formula": null,
+  "source": null,
+  "usage": "Could we see the flash report on a Monday? It's the quickest way to spot a soft week early.",
+  "aliases": [],
+  "owner": "The owner's morning read on yesterday. If they already look at one, it's the fastest place to spot a soft week together.",
+  "example": null,
+  "related": [
+   "night-audit",
+   "pace",
+   "adr-average-daily-rate"
+  ]
+ },
+ {
+  "slug": "folio",
+  "term": "Folio",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "A guest's running bill for the stay — room charges plus everything they add to it.",
+  "formula": null,
+  "source": null,
+  "usage": "If we track what's on each guest's folio, we'll see which add-ons actually sell.",
+  "aliases": [],
+  "owner": "Shows what guests actually add to their stay, so the owner can see which extras are worth promoting.",
+  "example": null,
+  "related": [
+   "ancillary-revenue",
+   "upsell",
+   "add-on-enhancement"
+  ]
+ },
+ {
+  "slug": "gop-gross-operating-profit",
+  "term": "GOP (gross operating profit)",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "What is left after departmental and undistributed costs — the operator’s profit line.",
+  "formula": "GOP = Revenue − departmental − undistributed costs",
+  "source": "USALI summaries from HFTP and Inn-Flow, 19 Sep 2026 — USALI renamed the old Net Operating Income line EBITDA; owners and buyers still say NOI",
+  "usage": "GOP is your operating profit before the owner's fixed costs — it's where good management shows up.",
+  "aliases": [],
+  "owner": "The operator's own profit line, before the owner's fixed costs. It's where good management shows up.",
+  "example": "Lakeside Lodge, September (illustrative): $600,000 total revenue − $255,000 departmental − $170,000 undistributed = $175,000.",
+  "related": [
+   "the-profit-ladder",
+   "noi-net-operating-income",
+   "goppar",
+   "flow-through"
+  ]
+ },
+ {
+  "slug": "goppar",
+  "term": "GOPPAR (gross operating profit per available room)",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Gross operating profit per available room — profitability rather than topline.",
+  "formula": "GOP ÷ Rooms available",
+  "source": null,
+  "usage": "GOPPAR tells us whether the extra bookings made money, not just revenue.",
+  "aliases": [],
+  "owner": "Ties the business to profit, not just revenue, for an owner asking 'but did it actually make money?'. Many owners won't share full P&L detail with an agency, so it's more often a concept than a number you track.",
+  "example": "Lakeside Lodge, September (illustrative): $175,000 GOP ÷ 1,500 room nights available = $116.67.",
+  "related": [
+   "gop-gross-operating-profit",
+   "revpar-revenue-per-available-room",
+   "rooms-profit-margin"
+  ]
+ },
+ {
+  "slug": "mpi-market-penetration-index",
+  "term": "MPI (market penetration index)",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Your share of the comp set’s occupancy; above 100 means you are filling better than the set.",
+  "formula": "MPI = (Your occupancy ÷ Comp set occupancy) × 100",
+  "source": "STR/CoStar glossary, checked 29 Sep 2026.",
+  "usage": "Your MPI says you're filling better than the comp set — so it may be time to test a higher rate.",
+  "aliases": [],
+  "owner": "Tells the owner whether they're winning their fair share of demand against the properties they compare themselves with.",
+  "example": "Illustrative: your occupancy 80% ÷ comp set occupancy 70% × 100 = 114, so you're filling better than the set.",
+  "related": [
+   "comp-set",
+   "occupancy",
+   "benchmarking-tools"
+  ]
+ },
+ {
+  "slug": "night-audit",
+  "term": "Night audit",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "The overnight close-out that locks in the day's room charges and rolls the property into the next date.",
+  "formula": null,
+  "source": null,
+  "usage": "Once the night audit runs, yesterday's numbers are locked, so that's when your report is reliable.",
+  "aliases": [],
+  "owner": "The moment yesterday's numbers become final, so any report the owner shares is only reliable after it runs.",
+  "example": null,
+  "related": [
+   "flash-report",
+   "folio"
+  ]
+ },
+ {
+  "slug": "rooms-profit-margin",
+  "term": "Rooms profit margin",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "What the rooms department keeps after its own costs.",
+  "formula": "Rooms profit ÷ Rooms revenue",
+  "source": null,
+  "usage": "Your rooms profit margin is healthy, which gives us room to spend a little to win direct bookings.",
+  "aliases": [],
+  "owner": "How much of each room dollar the owner keeps after housekeeping, front desk and supplies, which sets how much room there is to spend winning direct bookings.",
+  "example": "Illustrative: rooms department profit $270,000 ÷ rooms revenue $360,000 = 75%.",
+  "related": [
+   "gop-gross-operating-profit",
+   "fixed-vs-variable-cost",
+   "distribution-cost"
+  ]
+ },
+ {
+  "slug": "total-revenue-vs-rooms-revenue",
+  "term": "Total revenue vs rooms revenue",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Which one an owner means when they say revenue — worth establishing early on a call.",
+  "formula": null,
+  "source": null,
+  "usage": "When you say revenue is up, do you mean total revenue or just rooms?",
+  "aliases": [],
+  "owner": "Owners say 'revenue' and mean different things; settling which one early stops a whole call being about the wrong number.",
+  "example": null,
+  "related": [
+   "ancillary-revenue",
+   "revpar-revenue-per-available-room",
+   "the-profit-ladder"
+  ]
+ },
+ {
+  "slug": "usali",
+  "term": "USALI (Uniform System of Accounts for the Lodging Industry)",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "The uniform accounting standard that fixes what goes on which line of a hotel P&L.",
+  "formula": null,
+  "source": "HFTP, USALI 12th Revised Edition (launched Feb 2025, in effect from 1 Jan 2026), checked 29 Sep 2026.",
+  "usage": "Your accountant probably follows USALI, so their P&L lines should match what other resorts report.",
+  "aliases": [],
+  "owner": "The standard the owner's accountant uses, so the P&L lines match other resorts and can be compared like for like.",
+  "example": null,
+  "related": [
+   "the-profit-ladder",
+   "noi-net-operating-income",
+   "ebitda",
+   "gop-gross-operating-profit"
+  ]
+ },
+ {
+  "slug": "yield-management",
+  "term": "Yield management",
+  "tier": "C",
+  "section": 1,
+  "origin": "New",
+  "gloss": "Moving price and availability in response to real-time demand, to maximise revenue rather than just fill rooms; it started in the airline industry and was adopted into hospitality.",
+  "formula": null,
+  "source": null,
+  "usage": "Yield management is really about selling the right night to the right guest at the right price, not just filling rooms.",
+  "aliases": [],
+  "owner": "The philosophy underneath most of these metrics: it's not about filling every room, it's about each room earning what it should for the demand on that date.",
+  "example": null,
+  "related": [
+   "revenue-management-the-function",
+   "dynamic-pricing",
+   "rate-fence",
+   "minimum-length-of-stay"
+  ]
+ },
+ {
+  "slug": "orphan-night",
+  "term": "Orphan night",
+  "tier": "A",
+  "section": 2,
+  "origin": "New",
+  "gloss": "A single night left stranded between two bookings, too short for most guests to want.",
+  "formula": null,
+  "source": null,
+  "usage": "That single Tuesday between two bookings is an orphan night — a small offer could turn it into revenue.",
+  "aliases": [],
+  "owner": "Hard to sell once it's stranded, so it's lost revenue unless someone acts early with an offer or a relaxed minimum stay.",
+  "example": null,
+  "related": [
+   "minimum-length-of-stay",
+   "length-of-stay-pricing",
+   "alos-average-length-of-stay",
+   "changeover-day"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine defines an orphan night as 'an unsold night bracketed by bookings such that min-LOS rules make it hard to sell' and answers it with the Orphan Night Weaver: detect inside T-21, price the gap, and offer adjacent guests an extension night (Play P5, HYPOTHESIS).",
+   "confusions": "It isn't any empty night — it's a short gap between bookings that's hard to sell, often because of the property's own minimum-stay rules. Relaxing min LOS for that date is often the fix.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "rate-parity",
+  "term": "Rate parity",
+  "tier": "A",
+  "section": 2,
+  "origin": "New",
+  "gloss": "A contractual commitment not to undercut an OTA's rate — Expedia or Booking.com, say — on your own site.",
+  "formula": null,
+  "source": "Cloudbeds and SiteMinder, plus CJEU C-264/23 coverage, 19 Sep 2026 — still standard and lawful in North America, dismantled across the EU/EEA and UK since 2024. Legal wording confirm-before-shipping",
+  "usage": "Does your Booking.com contract include rate parity? That decides what we can offer on your own site.",
+  "aliases": [],
+  "owner": "Decides what the owner can offer on their own site. With parity in their OTA contracts, they compete on value-adds and demand, not on a cheaper price.",
+  "example": null,
+  "related": [
+   "book-direct-incentive",
+   "channel-conflict",
+   "best-rate-guarantee",
+   "ota-online-travel-agency"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine syncs every rate change to all live channels within an hour and, where OTA share is above zero, verifies parity before any public price mention (revenue-management.md Guardrail 5). Discounts stay fenced to owned channels (Principle 7).",
+   "confusions": "Keep two senses apart: rate parity (industry: the same public price across channels) and cost parity (meta-ads-strategy.md: ad cost compared with the OTA commission line).",
+   "links": []
+  }
+ },
+ {
+  "slug": "dynamic-pricing",
+  "term": "Dynamic pricing",
+  "tier": "B",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Rates moving automatically with demand; the category Wheelhouse and PriceLabs sit in.",
+  "formula": null,
+  "source": null,
+  "usage": "Are you using dynamic pricing, or setting rates by hand each season?",
+  "aliases": [],
+  "owner": "Takes day-to-day rate setting off the owner's plate, but only prices against demand that already exists — it doesn't create any.",
+  "example": null,
+  "related": [
+   "yield-management",
+   "rate-shopping-and-market-intelligence-tools",
+   "the-tools-map",
+   "comp-set"
+  ]
+ },
+ {
+  "slug": "overbooking",
+  "term": "Overbooking",
+  "tier": "B",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Selling past physical capacity on purpose, on the expectation that some bookings will cancel or not arrive.",
+  "formula": null,
+  "source": null,
+  "usage": "Do you ever overbook to cover no-shows, or would you rather keep a room empty than walk a guest?",
+  "aliases": [],
+  "owner": "A bet against no-shows. Some owners would rather keep a room empty than risk walking a guest and damaging a hard-won reputation.",
+  "example": null,
+  "related": [
+   "cancellation-rate",
+   "deposit-policy",
+   "inventory"
+  ]
+ },
+ {
+  "slug": "package-rate",
+  "term": "Package rate",
+  "tier": "B",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Room plus something — breakfast, spa credit, an activity — sold at one price.",
+  "formula": null,
+  "source": null,
+  "usage": "A package rate with breakfast and a spa credit gives people a reason to book direct instead of on an OTA.",
+  "aliases": [],
+  "owner": "A way to add value without cutting the public price, and one of the best reasons a guest has to book direct.",
+  "example": null,
+  "related": [
+   "rate-plan",
+   "book-direct-incentive",
+   "ancillary-revenue",
+   "rate-parity"
+  ]
+ },
+ {
+  "slug": "rack-rate",
+  "term": "Rack rate",
+  "tier": "B",
+  "section": 2,
+  "origin": "New",
+  "gloss": "The published undiscounted rate; increasingly notional, still quoted.",
+  "formula": null,
+  "source": null,
+  "usage": "Hardly anyone pays the rack rate, but it's still the anchor guests compare your offers against.",
+  "aliases": [],
+  "owner": "The anchor price. Few guests pay it, but it frames every offer the owner makes.",
+  "example": null,
+  "related": [
+   "bar-best-available-rate",
+   "adr-average-daily-rate",
+   "rate-plan"
+  ]
+ },
+ {
+  "slug": "rate-fence",
+  "term": "Rate fence",
+  "tier": "B",
+  "section": 2,
+  "origin": "HGM",
+  "gloss": "The condition that stops a discount leaking to guests who would have paid full price — a date range, a membership, a non-refundable rule.",
+  "formula": null,
+  "source": null,
+  "usage": "If we offer a midweek discount, we need a rate fence so weekend guests don't grab it too.",
+  "aliases": [],
+  "owner": "Lets the owner discount the dates that need it without teaching every guest to wait for a deal.",
+  "example": null,
+  "related": [
+   "promo-code",
+   "blackout-dates",
+   "non-refundable-advance-purchase",
+   "soft-dates"
+  ]
+ },
+ {
+  "slug": "rate-plan",
+  "term": "Rate plan",
+  "tier": "B",
+  "section": 2,
+  "origin": "New",
+  "gloss": "A sellable combination of rate, conditions and inclusions — the unit an owner actually loads.",
+  "formula": null,
+  "source": null,
+  "usage": "How many rate plans do you have loaded? Too many can confuse guests on the booking page.",
+  "aliases": [],
+  "owner": "Each plan is a choice a guest has to understand; too many confuse the booking page, too few leave money on the table.",
+  "example": null,
+  "related": [
+   "package-rate",
+   "bar-best-available-rate",
+   "cancellation-policy",
+   "room-type"
+  ]
+ },
+ {
+  "slug": "rate-shopping",
+  "term": "Rate shopping",
+  "tier": "B",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Watching what the comp set is charging, usually through a tool.",
+  "formula": null,
+  "source": null,
+  "usage": "Do you do any rate shopping, or do you set prices without looking at what nearby resorts charge?",
+  "aliases": [],
+  "owner": "Shows the owner what the neighbours charge; useful context, as long as it doesn't become the only thing setting their price.",
+  "example": null,
+  "related": [
+   "rate-shopping-and-market-intelligence-tools",
+   "comp-set",
+   "dynamic-pricing"
+  ]
+ },
+ {
+  "slug": "resort-fee-amenity-fee",
+  "term": "Resort fee / amenity fee",
+  "tier": "B",
+  "section": 2,
+  "origin": "New",
+  "gloss": "A mandatory per-night charge outside the room rate.",
+  "formula": null,
+  "source": null,
+  "usage": "Do you charge a resort fee? Guests notice it at checkout, so we should be upfront about it in the ads.",
+  "aliases": [],
+  "owner": "Adds revenue but can feel like a surprise at checkout, and surprises cost reviews.",
+  "example": null,
+  "related": [
+   "bar-best-available-rate",
+   "review-score",
+   "all-inclusive"
+  ]
+ },
+ {
+  "slug": "soft-dates",
+  "term": "Soft dates",
+  "tier": "B",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Upcoming dates where bookings are pacing below target or below last year, signalling weak demand. These are the nights a property most needs help filling, and the best place to aim promotions and ad spend.",
+  "formula": null,
+  "source": null,
+  "usage": "Which soft dates are coming up in the next six weeks? That's where we should aim the next campaign.",
+  "aliases": [],
+  "owner": "The nights the owner is most worried about, and where marketing spend does the most good.",
+  "example": null,
+  "related": [
+   "need-dates",
+   "pace",
+   "midweek-gap",
+   "rate-fence"
+  ]
+ },
+ {
+  "slug": "add-on-enhancement",
+  "term": "Add-on / enhancement",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "An extra bought at or after booking — firewood, breakfast, a late checkout.",
+  "formula": null,
+  "source": null,
+  "usage": "Firewood and late checkout are easy add-ons — have you tried offering them at booking?",
+  "aliases": [],
+  "owner": "Small, easy revenue per stay that also makes the guest's trip better.",
+  "example": null,
+  "related": [
+   "upsell",
+   "ancillary-revenue",
+   "pre-arrival-sequence"
+  ]
+ },
+ {
+  "slug": "advance-purchase-window",
+  "term": "Advance purchase window",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "How far ahead of arrival a cheaper non-refundable rate is still available.",
+  "formula": null,
+  "source": null,
+  "usage": "How far out does your advance purchase rate stay open? A shorter window protects your late bookings.",
+  "aliases": [],
+  "owner": "Sets how long a cheaper, committed rate stays available; too long and late guests who would pay full price take the deal.",
+  "example": null,
+  "related": [
+   "non-refundable-advance-purchase",
+   "lead-time",
+   "rate-fence"
+  ]
+ },
+ {
+  "slug": "bar-best-available-rate",
+  "term": "BAR (best available rate)",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "A date's standard public rate, before any fenced discount or package is applied.",
+  "formula": null,
+  "source": "SiteMinder rate and distribution documentation, 19 Sep 2026",
+  "usage": "What's your BAR for that weekend? I'd like to know the starting point before any offer.",
+  "aliases": [],
+  "owner": "The starting price for a date; every offer and package is measured against it.",
+  "example": null,
+  "related": [
+   "rack-rate",
+   "rate-plan",
+   "rate-parity"
+  ]
+ },
+ {
+  "slug": "best-rate-guarantee",
+  "term": "Best-rate guarantee",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "The promise the direct site won't be beaten, and the mechanics behind it.",
+  "formula": null,
+  "source": null,
+  "usage": "A best-rate guarantee on your site tells guests they don't need to shop around.",
+  "aliases": [],
+  "owner": "Tells guests they won't find the room cheaper elsewhere, which removes the reason to leave the owner's site to compare.",
+  "example": null,
+  "related": [
+   "rate-parity",
+   "book-direct-incentive",
+   "direct-booking-widget"
+  ]
+ },
+ {
+  "slug": "blackout-dates",
+  "term": "Blackout dates",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Dates an offer or discounted rate explicitly does not apply to.",
+  "formula": null,
+  "source": null,
+  "usage": "Should the promo have blackout dates over the long weekend? You'll sell those nights anyway.",
+  "aliases": [],
+  "owner": "Keeps promotions off the nights that sell themselves, so the owner doesn't give away margin on peak dates.",
+  "example": null,
+  "related": [
+   "rate-fence",
+   "promo-code",
+   "date-classes"
+  ]
+ },
+ {
+  "slug": "cancellation-policy",
+  "term": "Cancellation policy",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "The deadline and penalty structure behind the cancellation rate.",
+  "formula": null,
+  "source": null,
+  "usage": "Your cancellation policy is generous — that's good for guests, but it may explain some late cancellations.",
+  "aliases": [],
+  "owner": "A trade-off between guest confidence and the owner's certainty about who is actually coming.",
+  "example": null,
+  "related": [
+   "cancellation-rate",
+   "deposit-policy",
+   "non-refundable-advance-purchase",
+   "effective-otb"
+  ]
+ },
+ {
+  "slug": "deposit-policy",
+  "term": "Deposit policy",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "When money is taken, and how much.",
+  "formula": null,
+  "source": null,
+  "usage": "What's your deposit policy? A deposit up front tends to cut down on no-shows.",
+  "aliases": [],
+  "owner": "The owner's main protection against no-shows, and a question for operations more than marketing.",
+  "example": null,
+  "related": [
+   "cancellation-policy",
+   "payments",
+   "overbooking"
+  ]
+ },
+ {
+  "slug": "displacement",
+  "term": "Displacement",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Taking a group at a lower rate and losing higher-rate individual bookings you would otherwise have had on those dates.",
+  "formula": null,
+  "source": null,
+  "usage": "Before you take the group at a lower rate, let's check the displacement — you might lose better-paying guests.",
+  "aliases": [],
+  "owner": "Asks whether a group booking is actually worth more than the individual guests it would push out.",
+  "example": null,
+  "related": [
+   "transient-vs-group",
+   "opportunity-cost",
+   "buyout"
+  ]
+ },
+ {
+  "slug": "last-minute-rate",
+  "term": "Last-minute rate",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "A discount released close to arrival to clear unsold inventory.",
+  "formula": null,
+  "source": null,
+  "usage": "A last-minute rate can fill empty rooms, but if you use it too often guests learn to wait.",
+  "aliases": [],
+  "owner": "Fills rooms today but can train guests to wait for discounts, which erodes the public price over time.",
+  "example": null,
+  "related": [
+   "rate-fence",
+   "lead-time",
+   "soft-dates"
+  ]
+ },
+ {
+  "slug": "length-of-stay-pricing",
+  "term": "Length-of-stay pricing",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Pricing by the number of nights booked rather than by date.",
+  "formula": null,
+  "source": null,
+  "usage": "Would length-of-stay pricing help? A lower nightly rate for three nights could stretch short stays.",
+  "aliases": [],
+  "owner": "Rewards longer stays, which cut turnover cost and fill the gaps between bookings.",
+  "example": null,
+  "related": [
+   "minimum-length-of-stay",
+   "alos-average-length-of-stay",
+   "orphan-night"
+  ]
+ },
+ {
+  "slug": "minimum-length-of-stay",
+  "term": "Minimum length of stay (min LOS)",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "A rule that a date can only be booked as part of a stay of at least so many nights.",
+  "formula": null,
+  "source": "stay-control guides from NetSuite, Lighthouse and Hospitality Net, 19 Sep 2026",
+  "usage": "A two-night minimum on summer weekends protects you from single-night gaps.",
+  "aliases": [],
+  "owner": "A real inventory lever: it stops a single night blocking a high-demand weekend, and it needs to be stated upfront in the ads and on the booking page.",
+  "example": null,
+  "related": [
+   "orphan-night",
+   "length-of-stay-pricing",
+   "changeover-day",
+   "regret"
+  ]
+ },
+ {
+  "slug": "non-refundable-advance-purchase",
+  "term": "Non-refundable / advance purchase",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "Pay now, no refund, lower rate — the main tool against cancellation risk.",
+  "formula": null,
+  "source": null,
+  "usage": "A non-refundable rate gives price-sensitive guests a deal and gives you certainty.",
+  "aliases": [],
+  "owner": "Gives price-sensitive guests a deal and gives the owner money and certainty up front.",
+  "example": null,
+  "related": [
+   "advance-purchase-window",
+   "cancellation-policy",
+   "effective-otb"
+  ]
+ },
+ {
+  "slug": "promo-code",
+  "term": "Promo code",
+  "tier": "C",
+  "section": 2,
+  "origin": "Carry",
+  "gloss": "A code unlocking a fenced offer.",
+  "formula": null,
+  "source": null,
+  "usage": "If we give each campaign its own promo code, we'll know exactly which bookings it brought in.",
+  "aliases": [],
+  "owner": "Makes a campaign's bookings traceable, which is how the owner sees what the marketing actually brought in.",
+  "example": null,
+  "related": [
+   "rate-fence",
+   "meta-attributed-bookings",
+   "utm"
+  ]
+ },
+ {
+  "slug": "upsell",
+  "term": "Upsell",
+  "tier": "C",
+  "section": 2,
+  "origin": "Carry",
+  "gloss": "Selling an extra alongside the stay — breakfast, a late checkout, firewood.",
+  "formula": null,
+  "source": null,
+  "usage": "What's the easiest upsell to offer — breakfast, a late checkout, a bottle of wine in the room?",
+  "aliases": [],
+  "owner": "Extra revenue from guests who've already chosen the property, the easiest sale an owner has.",
+  "example": null,
+  "related": [
+   "add-on-enhancement",
+   "upsell-tools",
+   "pre-arrival-sequence",
+   "ancillary-revenue"
+  ]
+ },
+ {
+  "slug": "yield-calendar",
+  "term": "Yield calendar",
+  "tier": "C",
+  "section": 2,
+  "origin": "New",
+  "gloss": "The month-at-a-glance view an owner works from, with each date coloured by how well it is selling.",
+  "formula": null,
+  "source": null,
+  "usage": "Could you share your yield calendar? It shows us at a glance which dates need help.",
+  "aliases": [],
+  "owner": "The owner's month at a glance; if they'll share it, it shows which dates need marketing and which can take a rate rise.",
+  "example": null,
+  "related": [
+   "pace",
+   "soft-dates",
+   "date-classes"
+  ]
+ },
+ {
+  "slug": "metasearch",
+  "term": "Metasearch",
+  "tier": "A",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Google Hotel Ads, Tripadvisor, Trivago — rate comparison that passes traffic on to a booking channel.",
+  "formula": null,
+  "source": null,
+  "usage": "Guests comparing prices on Google or Tripadvisor are on metasearch — are you showing up there with your direct rate?",
+  "aliases": [],
+  "owner": "Where guests compare the owner's direct price against the OTAs side by side, so showing up there with a direct rate wins bookings that would otherwise go to Expedia or Booking.com.",
+  "example": null,
+  "related": [
+   "google-hotel-ads",
+   "google-free-booking-links",
+   "ota-online-travel-agency",
+   "rate-parity"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "Not in the doctrine files. Relevant to NetRevPAR, because metasearch fees are one of the distribution costs the metrics dictionary deducts (ref_revenue-management-metrics-dictionary.md).",
+   "confusions": "Metasearch sites compare and pass the guest on; OTAs take the booking. Google's free booking links are unpaid; Google Hotel Ads are paid.",
+   "links": [
+    {
+     "title": "Google Hotel Ads bidding changes",
+     "url": "https://support.google.com/google-ads/answer/14280291",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "airbnb-host-only-vs-split-fee",
+  "term": "Airbnb host-only vs split service fee",
+  "tier": "B",
+  "section": 3,
+  "origin": "New",
+  "gloss": "How Airbnb charges its service fee: the older split fee shares it between host and guest, and the host-only (single) fee puts all of it on the host. Airbnb is moving all hosts to the single fee.",
+  "formula": null,
+  "source": "Airbnb Help Centre article 1857 and Hostaway (updated 8 Sep 2026), checked 29 Sep 2026: single fee 15.5% for most hosts; already required for hotels and PMS-connected hosts; remaining non-EU hosts from 15 Sep 2026, EU hosts from 13 Oct 2026.",
+  "usage": "Has Airbnb moved you to the single host-only fee yet? It changes the price guests see and what you keep.",
+  "aliases": [],
+  "owner": "Changes the price guests see and what the owner keeps, and Airbnb is moving all hosts to the host-only fee, so it's worth knowing which one they're on.",
+  "example": null,
+  "related": [
+   "ota-online-travel-agency",
+   "commission-vs-markup",
+   "distribution-cost"
+  ]
+ },
+ {
+  "slug": "booking-com-genius",
+  "term": "Booking.com Genius",
+  "tier": "B",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Booking.com's guest-loyalty programme; a property opts in by offering Genius members a discount in exchange for more visibility.",
+  "formula": null,
+  "source": "Booking.com Partner Hub, 'Becoming a Genius partner', checked 29 Sep 2026: level 1 is a 10% discount; eligibility needs 3+ reviews and a review score of 7.5+.",
+  "usage": "Booking.com Genius gets you more visibility, but it costs you a discount on every booking it brings.",
+  "aliases": [],
+  "owner": "More visibility on Booking.com in exchange for a discount on every booking it brings, so it's worth asking whether those guests would have come anyway.",
+  "example": null,
+  "related": [
+   "preferred-partner",
+   "ota-online-travel-agency",
+   "cannibalization"
+  ]
+ },
+ {
+  "slug": "channel-mix",
+  "term": "Channel mix",
+  "tier": "B",
+  "section": 3,
+  "origin": "HGM",
+  "gloss": "The split of bookings across channels — direct, each OTA, phone, walk-in — and the clearest read on OTA dependence.",
+  "formula": "Bookings by channel ÷ Total bookings",
+  "source": "revenue-management.md and ref_revenue-management-metrics-dictionary.md",
+  "usage": "What does your channel mix look like? If most bookings come through OTAs, direct is the big opportunity.",
+  "aliases": [],
+  "owner": "The single clearest read on how dependent the owner is on OTAs, and where most of the money in moving bookings direct sits.",
+  "example": "Illustrative, 480 bookings: direct 168 (35%), Booking.com 216 (45%), Expedia 72 (15%), phone and walk-in 24 (5%).",
+  "related": [
+   "direct-booking-share",
+   "distribution-cost",
+   "effective-commission-ec",
+   "ota-online-travel-agency"
+  ]
+ },
+ {
+  "slug": "crs-central-reservation-system",
+  "term": "CRS (central reservation system)",
+  "tier": "B",
+  "section": 3,
+  "origin": "New",
+  "gloss": "The rate and inventory brain above the PMS, mostly at multi-property operations.",
+  "formula": null,
+  "source": null,
+  "usage": "With several properties, a CRS keeps rates and availability in step across all of them.",
+  "aliases": [],
+  "owner": "Keeps rates and availability in step across several properties, which matters once an owner grows past one.",
+  "example": null,
+  "related": [
+   "the-tools-map",
+   "inventory",
+   "channel-conflict"
+  ]
+ },
+ {
+  "slug": "allotment",
+  "term": "Allotment",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "A block of rooms held under contract for one channel or buyer to sell.",
+  "formula": null,
+  "source": null,
+  "usage": "Do you give a tour operator an allotment of rooms? We should know which rooms aren't yours to sell.",
+  "aliases": [],
+  "owner": "Rooms held for someone else to sell; worth knowing so marketing doesn't promote inventory the owner can't sell directly.",
+  "example": null,
+  "related": [
+   "inventory",
+   "transient-vs-group",
+   "attrition"
+  ]
+ },
+ {
+  "slug": "billboard-effect",
+  "term": "Billboard effect",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "The contested claim that being listed on an OTA drives extra direct bookings by putting the property in front of more people.",
+  "formula": null,
+  "source": "Chris Anderson, Cornell Center for Hospitality Research, 'The Billboard Effect' (2009), with follow-ups in 2011 and 2017, checked 29 Sep 2026. 'Contested' is HGM's framing, not the study's.",
+  "usage": "Some owners stay on the OTAs for the billboard effect — the hope that guests find them there and then book direct.",
+  "aliases": [],
+  "owner": "The reason some owners stay on OTAs they resent: the hope that being listed brings direct bookings too.",
+  "example": null,
+  "related": [
+   "ota-online-travel-agency",
+   "metasearch",
+   "direct-booking-share"
+  ]
+ },
+ {
+  "slug": "book-direct-incentive",
+  "term": "Book-direct incentive",
+  "tier": "C",
+  "section": 3,
+  "origin": "HGM",
+  "gloss": "What the direct channel offers that an OTA can't match without breaking parity.",
+  "formula": null,
+  "source": null,
+  "usage": "A book-direct incentive like free breakfast gives guests a reason to skip the OTA without breaking parity.",
+  "aliases": [],
+  "owner": "Gives guests a reason to book on the owner's own site without breaking their OTA contract.",
+  "example": null,
+  "related": [
+   "rate-parity",
+   "package-rate",
+   "best-rate-guarantee",
+   "direct-booking-share"
+  ]
+ },
+ {
+  "slug": "channel-conflict",
+  "term": "Channel conflict",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Two channels selling the same room at prices that undercut each other.",
+  "formula": null,
+  "source": null,
+  "usage": "If your own site shows a higher price than Expedia, that channel conflict sends guests straight to the OTA.",
+  "aliases": [],
+  "owner": "When the owner's own site looks more expensive than an OTA, guests book the OTA and the owner pays commission on a guest they could have had direct.",
+  "example": null,
+  "related": [
+   "rate-parity",
+   "crs-central-reservation-system",
+   "best-rate-guarantee"
+  ]
+ },
+ {
+  "slug": "commission-vs-markup",
+  "term": "Commission vs markup",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Two ways a channel takes its cut, with different effects on the rate a guest sees.",
+  "formula": null,
+  "source": null,
+  "usage": "Is that OTA taking a commission or adding a markup? It changes what the guest actually pays.",
+  "aliases": [],
+  "owner": "Changes what the guest sees as the price, and so how the owner's direct rate compares.",
+  "example": null,
+  "related": [
+   "ota-online-travel-agency",
+   "distribution-cost",
+   "airbnb-host-only-vs-split-fee"
+  ]
+ },
+ {
+  "slug": "direct-booking-share",
+  "term": "Direct booking share",
+  "tier": "C",
+  "section": 3,
+  "origin": "HGM",
+  "gloss": "The share of bookings taken on the property's own site; what HGM's guarantee is measured in.",
+  "formula": "Direct bookings ÷ Total bookings",
+  "source": "revenue-management.md and ref_revenue-management-metrics-dictionary.md",
+  "usage": "Our goal is to grow your direct booking share, so more of each booking stays with you.",
+  "aliases": [],
+  "owner": "Every point that moves direct keeps more of each booking with the owner and puts the guest's details in their hands.",
+  "example": "Illustrative: 168 direct bookings ÷ 480 total bookings = 35%.",
+  "related": [
+   "channel-mix",
+   "first-party-data",
+   "effective-commission-ec"
+  ]
+ },
+ {
+  "slug": "distribution-cost",
+  "term": "Distribution cost",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Everything paid to get the booking: commission, fees, processing.",
+  "formula": "Commission + channel fees + payment processing",
+  "source": null,
+  "usage": "When we add up commission, fees and card processing, your distribution cost is the real price of each booking.",
+  "aliases": [],
+  "owner": "The real price of each booking, once commission, fees and card processing are added up.",
+  "example": "Illustrative $2,000 Booking.com stay: $360 commission + $0 channel fees + $50 card processing = $410.",
+  "related": [
+   "effective-commission-ec",
+   "commission-vs-markup",
+   "channel-mix"
+  ]
+ },
+ {
+  "slug": "expedia-travelads",
+  "term": "Expedia TravelAds",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Expedia's pay-per-click sponsored listings inside Expedia search (TravelAds Sponsored Listings); the guest still books on Expedia.",
+  "formula": null,
+  "source": "Expedia Group Advertising, Sponsored Listings, checked 29 Sep 2026.",
+  "usage": "Have you tried Expedia TravelAds? It's paid placement inside Expedia, so the guest still books there.",
+  "aliases": [],
+  "owner": "Buys more visibility on Expedia, but the guest still books there and the owner still pays commission.",
+  "example": null,
+  "related": [
+   "ota-online-travel-agency",
+   "preferred-partner",
+   "metasearch"
+  ]
+ },
+ {
+  "slug": "google-free-booking-links",
+  "term": "Google free booking links",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Unpaid rate listings in Google's hotel results.",
+  "formula": null,
+  "source": "Google Hotel Center Help, answer 10472393, checked 29 Sep 2026.",
+  "usage": "Your free booking links on Google let guests book direct from the search results without paying for the click.",
+  "aliases": [],
+  "owner": "Free visibility for the owner's direct rate right in Google's hotel results.",
+  "example": null,
+  "related": [
+   "google-hotel-ads",
+   "metasearch"
+  ]
+ },
+ {
+  "slug": "google-hotel-ads",
+  "term": "Google Hotel Ads",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Paid placement in Google's hotel results, bought by the click or with goal-based bidding; Google retired its commission options in 2024.",
+  "formula": null,
+  "source": "Google Ads Help, answer 14280291, checked 29 Sep 2026: commission per stay and per conversion ended for existing campaigns on 31 Oct 2024.",
+  "usage": "Google Hotel Ads put your direct rate right beside the OTAs when someone searches for you.",
+  "aliases": [],
+  "owner": "Puts the owner's direct rate beside the OTAs in Google's hotel results, including when someone searches for the property by name.",
+  "example": null,
+  "related": [
+   "google-free-booking-links",
+   "metasearch",
+   "cpc"
+  ]
+ },
+ {
+  "slug": "ota-online-travel-agency",
+  "term": "OTA (online travel agency)",
+  "tier": "C",
+  "section": 3,
+  "origin": "Carry",
+  "gloss": "A third-party marketplace selling the room for a cut.",
+  "formula": null,
+  "source": null,
+  "usage": "The OTAs are good for being found, but every booking there costs you commission.",
+  "aliases": [],
+  "owner": "Good for being found, costly for every booking, and a platform whose rules the owner doesn't control — the dependence icp.md names as one of the owner's biggest pains.",
+  "example": null,
+  "related": [
+   "channel-mix",
+   "rate-parity",
+   "otas-and-niche-marketplaces",
+   "distribution-cost"
+  ]
+ },
+ {
+  "slug": "preferred-partner",
+  "term": "Preferred Partner",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "Booking.com programme where eligible properties pay a slightly higher commission for better placement and a badge.",
+  "formula": null,
+  "source": "Booking.com Partner Hub, Preferred Partner Programme, checked 29 Sep 2026: eligibility includes a performance score and review score threshold, reassessed every 90 days.",
+  "usage": "Preferred Partner moves you up the Booking.com results, but you pay more commission for it.",
+  "aliases": [],
+  "owner": "Higher placement on Booking.com at the cost of a higher commission, so it only makes sense if those bookings wouldn't come anyway.",
+  "example": null,
+  "related": [
+   "booking-com-genius",
+   "expedia-travelads",
+   "cannibalization"
+  ]
+ },
+ {
+  "slug": "direct-booking-widget",
+  "term": "Price comparison widget",
+  "tier": "C",
+  "section": 3,
+  "origin": "New",
+  "gloss": "An overlay on the property's own site that compares its price to the OTAs and nudges the guest to book direct; also called a direct-booking widget.",
+  "formula": null,
+  "source": null,
+  "usage": "A price comparison widget on your site shows guests they won't find a better rate on the OTAs.",
+  "aliases": [
+   "Direct-booking widget"
+  ],
+  "owner": "Reassures guests on the owner's own site that they won't find it cheaper elsewhere, so fewer leave to compare.",
+  "example": null,
+  "related": [
+   "direct-booking-conversion-tools",
+   "best-rate-guarantee",
+   "book-direct-incentive"
+  ]
+ },
+ {
+  "slug": "booking-curve",
+  "term": "Booking curve",
+  "tier": "A",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "The shape reservations accumulate in ahead of a stay date, which differs by segment.",
+  "formula": null,
+  "source": null,
+  "usage": "Your booking curve shows when each type of guest books, so we can time the ads to match.",
+  "aliases": [],
+  "owner": "Shows when each kind of guest books, which tells the owner when marketing has to be in front of them.",
+  "example": null,
+  "related": [
+   "lead-time",
+   "pace",
+   "t-minus-checkpoints",
+   "date-classes"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine fits target booking curves per property and date class, prices against the property's own curve rather than the neighbourhood's, and re-fits them quarterly (revenue-management.md Principle 1, §4). Seed curves are [SEED] until real data replaces them.",
+   "confusions": "A booking curve is the shape over time for one stay date; pace is how that shape compares with last year or target.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "effective-otb",
+  "term": "Effective OTB",
+  "tier": "A",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "On-the-books weighted for expected cancellation.",
+  "formula": "OTB × (1 − expected cancellation rate)",
+  "source": null,
+  "usage": "Once we allow for likely cancellations, your effective OTB for October is a bit lower than it looks.",
+  "aliases": [],
+  "owner": "A truer picture of what's really coming. A calendar full of refundable bookings made far out is both cheaper and more fragile than it looks.",
+  "example": "Illustrative, as in session 1: October is 80% on the books, all of it refundable, and about 20% of refundable bookings usually cancel. 80% × (1 − 0.20) = 64%.",
+  "related": [
+   "otb-on-the-books",
+   "cancellation-rate",
+   "pace",
+   "pickup"
+  ],
+  "core": {
+   "worked": [
+    "On the books: 80% of October, all refundable",
+    "Expected to cancel: 20% of the 80% = 16%",
+    "80% × (1 − 0.20) = 64% effective OTB",
+    "Non-refundable bookings would count in full; the weighting applies only to refundable ones"
+   ],
+   "hgm": "All of the doctrine's pace maths uses Effective OTB. Non-refundable bookings count 1.0; refundable ones are weighted by lead time at booking (revenue-management.md §2, §2.1, weights [TUNE]).",
+   "confusions": "Effective OTB weights only the bookings that could cancel. Non-refundable bookings count in full.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "lead-time",
+  "term": "Lead time",
+  "tier": "A",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "How far ahead of arrival a booking is made; it differs sharply by date class and by segment.",
+  "formula": null,
+  "source": "revenue-management.md, and the STR/CoStar glossary for STLY",
+  "usage": "What's your usual lead time for summer? If guests book months out, spring is when we need to be in front of them.",
+  "aliases": [],
+  "owner": "Peak and holiday dates tend to book further out than midweek and shoulder dates, so lead time decides when each campaign has to run.",
+  "example": null,
+  "related": [
+   "booking-curve",
+   "t-minus-checkpoints",
+   "advance-purchase-window",
+   "drive-market-vs-fly-market"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine uses lead time two ways: as a booking attribute, and as T-minus checkpoints (T-90, T-60, T-30, T-14, T-7) where pace is read. Principle 3: 'Lead time is an instrument, not an objective.'",
+   "confusions": "Lead time is days between booking and arrival. It isn't the same as the booking window a rate is open for (the advance purchase window).",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "pace",
+  "term": "Pace",
+  "tier": "A",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "How fast bookings are arriving for a future date against last year or target.",
+  "formula": null,
+  "source": "revenue-management.md, and the STR/CoStar glossary for STLY",
+  "usage": "How is October pacing against last year? That tells us whether to push now or hold.",
+  "aliases": [],
+  "owner": "The earliest warning of a soft month, while there's still time to do something about it.",
+  "example": null,
+  "related": [
+   "booking-curve",
+   "otb-on-the-books",
+   "pickup",
+   "soft-dates"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine measures Pace Delta: actual occupancy minus target at the current lead time, in points. It says 'never act on pace alone — decompose first' into a traffic, price or scarcity problem (revenue-management.md §2, Principle 4). Owners usually compare against same time last year (STLY) instead.",
+   "confusions": "Pace compares with last year or target; pickup is the raw number of new bookings in a period.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "transient-vs-group",
+  "term": "Transient vs group",
+  "tier": "A",
+  "section": 4,
+  "origin": "New",
+  "gloss": "Individual bookings versus contracted blocks — two different businesses inside one property.",
+  "formula": null,
+  "source": null,
+  "usage": "Is most of your business transient or group? The two need very different marketing.",
+  "aliases": [],
+  "owner": "Group business brings volume in one contract but can push out higher-paying individual guests, so the mix decides how exposed the owner is if one group cancels.",
+  "example": null,
+  "related": [
+   "attrition",
+   "displacement",
+   "event-and-wedding-revenue",
+   "buyout"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine is built for transient demand; group bookings are out of scope for v1 (revenue-management.md §13).",
+   "confusions": "A wedding party booking separately is still group business if the rooms come from a contracted block.",
+   "links": []
+  }
+ },
+ {
+  "slug": "changeover-day",
+  "term": "Changeover day",
+  "tier": "B",
+  "section": 4,
+  "origin": "New",
+  "gloss": "The fixed day a multi-night property turns over, common at cabins and glamping sites, which shapes what can be sold at all.",
+  "formula": null,
+  "source": null,
+  "usage": "If Saturday is your changeover day, we should sell weeks that start on Saturday.",
+  "aliases": [],
+  "owner": "A fixed changeover day rules some stays out entirely, so promoting dates that don't fit it wastes the owner's ad spend.",
+  "example": null,
+  "related": [
+   "minimum-length-of-stay",
+   "housekeeping-turnover",
+   "orphan-night"
+  ]
+ },
+ {
+  "slug": "date-classes",
+  "term": "Date classes",
+  "tier": "B",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "Peak, shoulder and low, weekend and midweek — every pacing conversation happens per class, not per month.",
+  "formula": null,
+  "source": "revenue-management.md, HGM date classes",
+  "usage": "Let's talk about pace by date class — peak weekends and quiet midweeks tell very different stories.",
+  "aliases": [],
+  "owner": "Lets the owner see which kinds of nights need help instead of averaging good and bad dates into one number.",
+  "example": null,
+  "related": [
+   "seasonality",
+   "midweek-gap",
+   "shoulder-season",
+   "pace"
+  ]
+ },
+ {
+  "slug": "drive-market-vs-fly-market",
+  "term": "Drive market vs fly market",
+  "tier": "B",
+  "section": 4,
+  "origin": "New",
+  "gloss": "Whether guests arrive by car or plane; it sets lead time, radius and creative.",
+  "formula": null,
+  "source": null,
+  "usage": "Are you mainly a drive market? If most guests come by car, we can target nearby cities and book closer in.",
+  "aliases": [],
+  "owner": "Drive-market guests tend to book closer in and come from nearby cities, which changes where and when the ads run.",
+  "example": null,
+  "related": [
+   "feeder-market",
+   "lead-time",
+   "geo-targeting"
+  ]
+ },
+ {
+  "slug": "feeder-market",
+  "term": "Feeder market",
+  "tier": "B",
+  "section": 4,
+  "origin": "New",
+  "gloss": "The cities guests actually come from — the targeting question in an owner's words.",
+  "formula": null,
+  "source": null,
+  "usage": "Where do most of your guests come from? That's your feeder market, and it's where we focus the ads.",
+  "aliases": [],
+  "owner": "Knowing where guests really come from stops the owner paying to reach places that never send anyone.",
+  "example": null,
+  "related": [
+   "drive-market-vs-fly-market",
+   "geo-targeting",
+   "lookalike-audience"
+  ]
+ },
+ {
+  "slug": "midweek-gap",
+  "term": "Midweek gap",
+  "tier": "B",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "The structural soft spot at nearly every property in this ICP.",
+  "formula": null,
+  "source": null,
+  "usage": "Most properties like yours have a midweek gap — what would bring guests in on a Tuesday?",
+  "aliases": [],
+  "owner": "The chronic soft spot icp.md calls less a targeting problem than a raw demand problem, and one of the owner's most common worries.",
+  "example": null,
+  "related": [
+   "date-classes",
+   "soft-dates",
+   "slow-season",
+   "fixed-vs-variable-cost"
+  ]
+ },
+ {
+  "slug": "otb-on-the-books",
+  "term": "OTB (on the books)",
+  "tier": "B",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "Rooms and revenue already reserved for a future date, before any further pickup.",
+  "formula": null,
+  "source": "revenue-management.md, and the STR/CoStar glossary for STLY",
+  "usage": "What do you have on the books for the holidays so far?",
+  "aliases": [],
+  "owner": "The owner's forward pipeline: what's locked in versus what's still hope.",
+  "example": null,
+  "related": [
+   "effective-otb",
+   "pickup",
+   "pace"
+  ]
+ },
+ {
+  "slug": "pickup",
+  "term": "Pickup",
+  "tier": "B",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "New reservations added in a period for a future date; the velocity read.",
+  "formula": "OTB today − OTB at the last reading",
+  "source": null,
+  "usage": "How much pickup did you see last week? A jump tells us the campaign is working.",
+  "aliases": [],
+  "owner": "Shows whether new demand is arriving right now, not just historically, so it's the first sign a campaign is working.",
+  "example": "Illustrative: 28 units on the books for a date last Monday, 35 today. 35 − 28 = 7 units of pickup.",
+  "related": [
+   "otb-on-the-books",
+   "pace",
+   "effective-otb"
+  ]
+ },
+ {
+  "slug": "search-vs-discovery-demand",
+  "term": "Search vs discovery demand",
+  "tier": "B",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "Harvesting someone already looking versus creating the want; HGM's whole reason for existing.",
+  "formula": null,
+  "source": null,
+  "usage": "Search catches people already looking for a place like yours; discovery makes people want it before they knew it existed.",
+  "aliases": [],
+  "owner": "Explains what HGM does differently: creating demand from people who weren't searching, rather than competing for the same searchers on price.",
+  "example": null,
+  "related": [
+   "cannibalization",
+   "incrementality",
+   "retargeting-vs-prospecting"
+  ]
+ },
+ {
+  "slug": "shoulder-season",
+  "term": "Shoulder season",
+  "tier": "B",
+  "section": 4,
+  "origin": "New",
+  "gloss": "The stretch between peak and low, where marketing pushes matter most.",
+  "formula": null,
+  "source": null,
+  "usage": "The shoulder season is where marketing earns its keep — peak sells itself.",
+  "aliases": [],
+  "owner": "Where marketing earns its keep; peak sells itself.",
+  "example": null,
+  "related": [
+   "date-classes",
+   "seasonality",
+   "slow-season"
+  ]
+ },
+ {
+  "slug": "slow-season",
+  "term": "Slow season",
+  "tier": "B",
+  "section": 4,
+  "origin": "Carry",
+  "gloss": "The owner's word for low season, and one of the ICP's stated pain points.",
+  "formula": null,
+  "source": null,
+  "usage": "What does the slow season look like for you, and what have you tried to fill it?",
+  "aliases": [],
+  "owner": "Payroll and fixed costs don't stop in the slow months, which is why owners feel them so sharply and have usually tried to fix them before.",
+  "example": null,
+  "related": [
+   "shoulder-season",
+   "seasonality",
+   "midweek-gap",
+   "retreat"
+  ]
+ },
+ {
+  "slug": "compression",
+  "term": "Compression",
+  "tier": "C",
+  "section": 4,
+  "origin": "New",
+  "gloss": "When demand across a whole market spikes and every property can hold or raise its rate.",
+  "formula": null,
+  "source": null,
+  "usage": "When the big festival is in town, there's compression across the whole area, so you can hold your rate.",
+  "aliases": [],
+  "owner": "Nights when the whole market is busy and the owner can hold or raise rate instead of discounting.",
+  "example": null,
+  "related": [
+   "demand-calendar",
+   "denial",
+   "dynamic-pricing"
+  ]
+ },
+ {
+  "slug": "demand-calendar",
+  "term": "Demand calendar",
+  "tier": "C",
+  "section": 4,
+  "origin": "New",
+  "gloss": "The dated list of what will move demand in the market.",
+  "formula": null,
+  "source": null,
+  "usage": "Let's build a demand calendar of local events so we're never surprised by a busy weekend.",
+  "aliases": [],
+  "owner": "Stops the owner being surprised by a busy weekend they could have priced for.",
+  "example": null,
+  "related": [
+   "compression",
+   "seasonality",
+   "date-classes"
+  ]
+ },
+ {
+  "slug": "need-dates",
+  "term": "Need dates",
+  "tier": "C",
+  "section": 4,
+  "origin": "New",
+  "gloss": "The dates that need help, as opposed to the ones that sell themselves.",
+  "formula": null,
+  "source": null,
+  "usage": "Which are your need dates this quarter? Those are the ones worth spending on.",
+  "aliases": [],
+  "owner": "The dates worth spending money on; the rest sell themselves.",
+  "example": null,
+  "related": [
+   "soft-dates",
+   "pace",
+   "blackout-dates"
+  ]
+ },
+ {
+  "slug": "seasonality",
+  "term": "Seasonality",
+  "tier": "C",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "The property's yearly demand shape, which sets when rate can be pushed and when marketing has to work.",
+  "formula": null,
+  "source": "revenue-management.md, HGM date classes",
+  "usage": "Your seasonality tells us when to push rate and when marketing has to do the heavy lifting.",
+  "aliases": [],
+  "owner": "Knowing the yearly shape lets the owner plan rate rises for the strong months and marketing for the weak ones, instead of reacting late.",
+  "example": null,
+  "related": [
+   "date-classes",
+   "shoulder-season",
+   "slow-season"
+  ]
+ },
+ {
+  "slug": "t-minus-checkpoints",
+  "term": "T-minus checkpoints",
+  "tier": "C",
+  "section": 4,
+  "origin": "HGM",
+  "gloss": "T-90, T-60, T-30, T-14, T-7 — where the doctrine takes pace readings.",
+  "formula": null,
+  "source": null,
+  "usage": "We check pace at set points before arrival, so a soft date is caught while there's still time to act.",
+  "aliases": [],
+  "owner": "Catches a soft date early enough that the owner still has options besides discounting.",
+  "example": null,
+  "related": [
+   "lead-time",
+   "pace",
+   "booking-curve"
+  ]
+ },
+ {
+  "slug": "cap-rate",
+  "term": "Cap rate",
+  "tier": "A",
+  "section": 5,
+  "origin": "New",
+  "gloss": "The yield a buyer prices the property at, applied to NOI.",
+  "formula": "NOI ÷ Purchase price",
+  "source": null,
+  "usage": "A higher NOI at the same cap rate means the property is worth more — that's the long game.",
+  "aliases": [],
+  "owner": "Turns NOI into a property value, so every dollar added to NOI adds many dollars to what the owner's life's work is worth.",
+  "example": "Illustrative, a different lodge from the September example: a buyer values it at $12,000,000 on $900,000 of trailing twelve-month NOI. $900,000 ÷ $12,000,000 = 7.5%.",
+  "related": [
+   "noi-net-operating-income",
+   "sale-multiple",
+   "exit-vocabulary",
+   "ebitda"
+  ],
+  "core": {
+   "worked": [
+    "Trailing twelve-month NOI: $900,000",
+    "Buyer's price: $12,000,000",
+    "$900,000 ÷ $12,000,000 = 7.5% cap rate",
+    "At 7.5%, every extra $75,000 of NOI adds about $1,000,000 of value ($75,000 ÷ 0.075)"
+   ],
+   "hgm": "icp.md frames the owner's dream as a business that 'commands a massive multiple on the back of high net operating income'. The session's figures are illustrative, not a market cap rate.",
+   "confusions": "Cap rate is NOI ÷ price, a percentage. Price ÷ NOI is the sale multiple (13.3× here) — the same sale described the other way up.",
+   "links": []
+  }
+ },
+ {
+  "slug": "flag",
+  "term": "Flag",
+  "tier": "B",
+  "section": 5,
+  "origin": "New",
+  "gloss": "The chain brand a property operates under; to be flagged is to carry one.",
+  "formula": null,
+  "source": null,
+  "usage": "Would you ever consider a flag, or is staying independent part of who you are?",
+  "aliases": [],
+  "owner": "Carrying a chain's brand brings its booking system and loyalty members, at the cost of fees and control over the property's own story.",
+  "example": null,
+  "related": [
+   "flagged",
+   "franchise",
+   "soft-brand-affiliation",
+   "independent-hotel"
+  ]
+ },
+ {
+  "slug": "franchise",
+  "term": "Franchise",
+  "tier": "B",
+  "section": 5,
+  "origin": "New",
+  "gloss": "Paying a chain for its brand, systems and reservation flow while still owning and running the property.",
+  "formula": null,
+  "source": null,
+  "usage": "A franchise brings you a chain's booking system, but you pay fees and give up some control.",
+  "aliases": [],
+  "owner": "Buys a chain's systems and reservation flow while the owner keeps the property, but with brand standards, fees and less say.",
+  "example": null,
+  "related": [
+   "flag",
+   "soft-brand-affiliation",
+   "management-company-vs-owner-operator"
+  ]
+ },
+ {
+  "slug": "keys-rooms-and-units",
+  "term": "Keys, rooms and units",
+  "tier": "B",
+  "section": 5,
+  "origin": "New",
+  "gloss": "The three words for the same inventory; owners say keys, the doctrine says units.",
+  "formula": null,
+  "source": null,
+  "usage": "How many keys do you have? Cabins and suites all count, so we know how much there is to sell.",
+  "aliases": [],
+  "owner": "Using the owner's word, usually keys, signals you know the industry; it's also how much there is to sell.",
+  "example": null,
+  "related": [
+   "inventory",
+   "room-type"
+  ]
+ },
+ {
+  "slug": "room-type",
+  "term": "Room type",
+  "tier": "B",
+  "section": 5,
+  "origin": "New",
+  "gloss": "A sellable category of room or unit, each with its own rate and availability.",
+  "formula": null,
+  "source": null,
+  "usage": "Which room type sells out first? That's usually where there's room to raise the rate.",
+  "aliases": [],
+  "owner": "Each type sells differently; the one that sells out first is usually where the owner can raise the rate.",
+  "example": null,
+  "related": [
+   "inventory",
+   "rate-plan",
+   "keys-rooms-and-units"
+  ]
+ },
+ {
+  "slug": "who-you-are-talking-to",
+  "term": "Who you are talking to",
+  "tier": "B",
+  "section": 5,
+  "origin": "New",
+  "gloss": "Owner, general manager, revenue manager, asset manager — four seats, four scorecards.",
+  "formula": null,
+  "source": "GM vs asset manager: RoomMaster, 'Hotel Asset Management: A Guide for Independent Owners', checked 29 Sep 2026. The revenue manager's scorecard (RevPAR, pace, comp-set indices) is Claude's summary for Nicole to confirm.",
+  "usage": "Before the call, it helps to know who we're talking to — the owner cares about different numbers than a general manager.",
+  "aliases": [],
+  "owner": "The owner, a general manager, a revenue manager and an asset manager each answer for different numbers, so the same update lands differently depending on who's on the call.",
+  "example": null,
+  "related": [
+   "revenue-management-the-function",
+   "management-company-vs-owner-operator",
+   "asset-manager-vs-founder-operator"
+  ]
+ },
+ {
+  "slug": "all-inclusive",
+  "term": "All-inclusive",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "A rate covering stay, meals and most on-property spend.",
+  "formula": null,
+  "source": null,
+  "usage": "With an all-inclusive rate, the value story is about what guests don't have to think about.",
+  "aliases": [],
+  "owner": "The value story is everything the guest doesn't have to think about, not the nightly price.",
+  "example": null,
+  "related": [
+   "package-rate",
+   "resort-fee-amenity-fee"
+  ]
+ },
+ {
+  "slug": "buyout",
+  "term": "Buyout",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "Selling the entire property to one group for a date range.",
+  "formula": null,
+  "source": null,
+  "usage": "A full buyout for a retreat can fill a slow week in one booking.",
+  "aliases": [],
+  "owner": "Fills a slow week in one booking, but it has to beat what the individual stays would have earned.",
+  "example": null,
+  "related": [
+   "displacement",
+   "retreat",
+   "event-and-wedding-revenue"
+  ]
+ },
+ {
+  "slug": "eco-resort",
+  "term": "Eco-resort",
+  "tier": "C",
+  "section": 5,
+  "origin": "Carry",
+  "gloss": "A property whose environmental design is part of the product.",
+  "formula": null,
+  "source": null,
+  "usage": "As an eco-resort, your sustainability story is part of the product, so it belongs in the ads.",
+  "aliases": [],
+  "owner": "Sustainability is part of the product and the reason many guests book, so it belongs in the marketing.",
+  "example": null,
+  "related": [
+   "wellness-resort",
+   "lodge",
+   "micro-resort"
+  ]
+ },
+ {
+  "slug": "housekeeping-turnover",
+  "term": "Housekeeping turnover",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "The cost and time of cleaning and resetting a unit between guests, which sets how short a stay can profitably be.",
+  "formula": null,
+  "source": null,
+  "usage": "If housekeeping turnover takes most of a day, one-night stays may cost more than they earn.",
+  "aliases": [],
+  "owner": "Every turnover costs staff time and supplies, so very short stays can earn the owner less than they cost.",
+  "example": null,
+  "related": [
+   "fixed-vs-variable-cost",
+   "changeover-day",
+   "alos-average-length-of-stay"
+  ]
+ },
+ {
+  "slug": "independent-hotel",
+  "term": "Independent hotel",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "Unbranded and self-distributed, which is this ICP by default.",
+  "formula": null,
+  "source": null,
+  "usage": "As an independent hotel, you don't have a chain's booking system behind you, so every direct booking is yours to win.",
+  "aliases": [],
+  "owner": "No chain booking system behind the owner, so every direct booking is theirs to win — and the guest relationship is theirs to keep.",
+  "example": null,
+  "related": [
+   "boutique",
+   "flagged",
+   "soft-brand-affiliation"
+  ]
+ },
+ {
+  "slug": "inventory",
+  "term": "Inventory",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "The rooms or units available to sell on a date, across every channel.",
+  "formula": null,
+  "source": null,
+  "usage": "How much inventory do you have left for New Year's across all channels?",
+  "aliases": [],
+  "owner": "Once a date's inventory is gone, extra marketing for it is wasted and price becomes the only lever.",
+  "example": null,
+  "related": [
+   "keys-rooms-and-units",
+   "room-type",
+   "allotment"
+  ]
+ },
+ {
+  "slug": "lodge",
+  "term": "Lodge",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "A full-service rural property where the setting and the activities are the product.",
+  "formula": null,
+  "source": null,
+  "usage": "At a lodge like yours, the setting and the activities are what people are really booking.",
+  "aliases": [],
+  "owner": "The setting and the activities are what guests book, so they lead the marketing.",
+  "example": null,
+  "related": [
+   "eco-resort",
+   "micro-resort",
+   "event-and-wedding-revenue"
+  ]
+ },
+ {
+  "slug": "management-company-vs-owner-operator",
+  "term": "Management company vs owner-operator",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "Whether a third party runs the property or the founder does.",
+  "formula": null,
+  "source": null,
+  "usage": "Is the property run by a management company, or do you operate it yourself?",
+  "aliases": [],
+  "owner": "Tells you whether the person on the call runs the place day to day or oversees someone who does, which changes what they care about.",
+  "example": null,
+  "related": [
+   "who-you-are-talking-to",
+   "owner-operator-founder",
+   "asset-manager-vs-founder-operator"
+  ]
+ },
+ {
+  "slug": "micro-resort",
+  "term": "Micro-resort",
+  "tier": "C",
+  "section": 5,
+  "origin": "HGM",
+  "gloss": "HGM's term for a small, high-design, multi-unit property.",
+  "formula": null,
+  "source": null,
+  "usage": "A micro-resort sells an experience a big hotel can't, so we lead with the design and the setting.",
+  "aliases": [],
+  "owner": "Sells an experience a big hotel can't, which is exactly what HGM's content is built to show.",
+  "example": null,
+  "related": [
+   "boutique",
+   "eco-resort",
+   "lodge"
+  ]
+ },
+ {
+  "slug": "reit",
+  "term": "REIT (real estate investment trust)",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "A listed property-owning trust; the far end of the ownership spectrum from this ICP.",
+  "formula": null,
+  "source": null,
+  "usage": "A REIT owns hotels as investments — very different from an owner who built the place themselves.",
+  "aliases": [],
+  "owner": "Owns hotels as investments; the opposite end of the spectrum from an owner who built the place themselves.",
+  "example": null,
+  "related": [
+   "asset-manager-vs-founder-operator",
+   "cap-rate"
+  ]
+ },
+ {
+  "slug": "retreat",
+  "term": "Retreat",
+  "tier": "C",
+  "section": 5,
+  "origin": "Carry",
+  "gloss": "A hosted multi-day programme using the property; a distinct demand source.",
+  "formula": null,
+  "source": null,
+  "usage": "Yoga and corporate retreats can fill a whole week in the shoulder season.",
+  "aliases": [],
+  "owner": "A distinct source of demand that can fill a whole shoulder-season week.",
+  "example": null,
+  "related": [
+   "buyout",
+   "shoulder-season",
+   "wellness-resort"
+  ]
+ },
+ {
+  "slug": "sale-multiple",
+  "term": "Sale multiple",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "A property's price expressed as a multiple of its earnings — the other way a sale gets talked about, alongside cap rate.",
+  "formula": null,
+  "source": null,
+  "usage": "Buyers might talk about your sale multiple rather than a cap rate, but it's the same question — what is this place worth?",
+  "aliases": [],
+  "owner": "Another way a buyer puts a number on the owner's work; the same question as cap rate, turned the other way up.",
+  "example": null,
+  "related": [
+   "cap-rate",
+   "ebitda",
+   "exit-vocabulary"
+  ]
+ },
+ {
+  "slug": "soft-brand-affiliation",
+  "term": "Soft brand / affiliation",
+  "tier": "C",
+  "section": 5,
+  "origin": "New",
+  "gloss": "Keeping your own name while joining a collection for distribution and marketing.",
+  "formula": null,
+  "source": null,
+  "usage": "A soft brand lets you keep your own name while getting the reach of a larger collection.",
+  "aliases": [],
+  "owner": "A middle path: the owner keeps their own name and story while getting a larger collection's reach.",
+  "example": null,
+  "related": [
+   "flag",
+   "franchise",
+   "independent-hotel",
+   "boutique"
+  ]
+ },
+ {
+  "slug": "wellness-resort",
+  "term": "Wellness resort",
+  "tier": "C",
+  "section": 5,
+  "origin": "Carry",
+  "gloss": "A property built around spa, movement or restorative programming.",
+  "formula": null,
+  "source": null,
+  "usage": "For a wellness resort, the programming is the reason to book, so it should lead every campaign.",
+  "aliases": [],
+  "owner": "The programming is the reason to book, so it leads every campaign.",
+  "example": null,
+  "related": [
+   "eco-resort",
+   "retreat",
+   "ancillary-revenue"
+  ]
+ },
+ {
+  "slug": "first-party-data",
+  "term": "First-party data",
+  "tier": "A",
+  "section": 6,
+  "origin": "Carry",
+  "gloss": "Guest data the property owns outright, which is most of why direct matters.",
+  "formula": null,
+  "source": null,
+  "usage": "Every direct booking gives you first-party data — the guest's email is yours, not the OTA's.",
+  "aliases": [],
+  "owner": "Owning the guest relationship means repeat stays without paying commission again, and it's a big part of what makes direct bookings worth more than their price.",
+  "example": null,
+  "related": [
+   "direct-booking-share",
+   "guest-lifetime-value",
+   "crm-tools",
+   "custom-audience"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "HGM builds the owner's list through the funnel: welcome offer, landing page and email nurture in GoHighLevel (funnel-system-overview.md, welcome-flow-strategy.md). At Steady State the doctrine reclassifies surplus spend as list-building (revenue-management.md Principle 15).",
+   "confusions": "First-party data is data the property collects and owns. Data an OTA holds about the property's guests is not, even if the owner can see some of it.",
+   "links": []
+  }
+ },
+ {
+  "slug": "cancellation-rate",
+  "term": "Cancellation rate",
+  "tier": "B",
+  "section": 6,
+  "origin": "New",
+  "gloss": "The share of bookings cancelled before arrival; markedly higher on OTA bookings.",
+  "formula": "Cancelled bookings ÷ Total bookings",
+  "source": "OTA-versus-direct gap: Cloudbeds' 2026 State of Independent Hotels dataset, via ref_revenue-management-metrics-dictionary.md — directional, not an audited figure; don't quote a number to a client.",
+  "usage": "Your cancellation rate is higher on OTA bookings — another reason to win more of them direct.",
+  "aliases": [],
+  "owner": "Every cancellation is a room the owner thought was sold. Direct bookings tend to cancel less than OTA ones, so moving guests direct makes the calendar more reliable as well as cheaper.",
+  "example": "Illustrative: 36 cancelled ÷ 480 bookings = 7.5%.",
+  "related": [
+   "cancellation-policy",
+   "effective-otb",
+   "non-refundable-advance-purchase"
+  ]
+ },
+ {
+  "slug": "guest-lifetime-value",
+  "term": "Guest lifetime value",
+  "tier": "B",
+  "section": 6,
+  "origin": "Carry",
+  "gloss": "Total value of a guest across every stay rather than one booking.",
+  "formula": null,
+  "source": null,
+  "usage": "A guest who comes back every year is worth far more than one booking — that's their lifetime value.",
+  "aliases": [],
+  "owner": "A guest who returns every year is worth far more than one booking, which justifies spending more to win them the first time.",
+  "example": null,
+  "related": [
+   "repeat-rate",
+   "first-party-data",
+   "loyalty-programme"
+  ]
+ },
+ {
+  "slug": "pre-arrival-sequence",
+  "term": "Pre-arrival sequence",
+  "tier": "B",
+  "section": 6,
+  "origin": "HGM",
+  "gloss": "The window where upsell and expectation-setting actually work.",
+  "formula": null,
+  "source": null,
+  "usage": "The pre-arrival sequence is the best moment to offer a spa booking or a dinner reservation.",
+  "aliases": [],
+  "owner": "The moment guests are most excited and most open to adding a spa booking or a dinner reservation.",
+  "example": null,
+  "related": [
+   "upsell",
+   "guest-messaging-tools",
+   "add-on-enhancement"
+  ]
+ },
+ {
+  "slug": "repeat-rate",
+  "term": "Repeat rate",
+  "tier": "B",
+  "section": 6,
+  "origin": "HGM",
+  "gloss": "The share of guests who come back — the cheapest demand a property has.",
+  "formula": "Returning guests ÷ Total guests",
+  "source": null,
+  "usage": "What's your repeat rate? Returning guests are the cheapest bookings you'll ever get.",
+  "aliases": [],
+  "owner": "Returning guests are the cheapest bookings the owner will ever get.",
+  "example": "Illustrative: 90 returning guests ÷ 600 guests = 15%.",
+  "related": [
+   "guest-lifetime-value",
+   "loyalty-programme",
+   "post-stay-sequence"
+  ]
+ },
+ {
+  "slug": "review-score",
+  "term": "Review score",
+  "tier": "B",
+  "section": 6,
+  "origin": "New",
+  "gloss": "The rating on Google, Tripadvisor and each OTA, which feeds ranking and rate power.",
+  "formula": null,
+  "source": null,
+  "usage": "Your review score affects where you rank on every OTA, so it's worth protecting.",
+  "aliases": [],
+  "owner": "Feeds where the property ranks on every OTA and how much it can charge, so the owner protects it closely.",
+  "example": null,
+  "related": [
+   "reputation-tools",
+   "post-stay-sequence",
+   "booking-com-genius"
+  ]
+ },
+ {
+  "slug": "alos-average-length-of-stay",
+  "term": "ALOS (average length of stay)",
+  "tier": "C",
+  "section": 6,
+  "origin": "HGM",
+  "gloss": "The average nights per booking across a period; it moves cleaning cost and orphan nights.",
+  "formula": "Room nights ÷ Bookings",
+  "source": null,
+  "usage": "If we can nudge your ALOS up from two nights to three, housekeeping and orphan nights both get easier.",
+  "aliases": [],
+  "owner": "Longer average stays mean fewer turnovers, lower cleaning cost and fewer orphan nights.",
+  "example": "Lakeside Lodge, September (illustrative): 1,200 room nights ÷ 480 bookings = 2.5 nights.",
+  "related": [
+   "los-length-of-stay",
+   "orphan-night",
+   "housekeeping-turnover"
+  ]
+ },
+ {
+  "slug": "guest-journey-stages",
+  "term": "Guest journey stages",
+  "tier": "C",
+  "section": 6,
+  "origin": "Carry",
+  "gloss": "Dream, plan, book, stay, share — the frame most hospitality content sits on.",
+  "formula": null,
+  "source": null,
+  "usage": "We plan content around the guest journey — dreaming, planning, booking, staying and sharing.",
+  "aliases": [],
+  "owner": "Maps where the owner's marketing reaches guests, from dreaming about a trip to sharing it afterwards.",
+  "example": null,
+  "related": [
+   "pre-arrival-sequence",
+   "post-stay-sequence",
+   "funnel-stages-tof-mof-bof"
+  ]
+ },
+ {
+  "slug": "guest-profile",
+  "term": "Guest profile",
+  "tier": "C",
+  "section": 6,
+  "origin": "New",
+  "gloss": "The stored record of a returning guest — past stays, preferences, spend — that lets staff treat them as known.",
+  "formula": null,
+  "source": null,
+  "usage": "If the guest profile remembers their favourite cabin, you can offer it before they ask.",
+  "aliases": [],
+  "owner": "Lets staff treat returning guests as known, which is the kind of service guests come back for.",
+  "example": null,
+  "related": [
+   "crm-tools",
+   "first-party-data",
+   "repeat-rate"
+  ]
+ },
+ {
+  "slug": "look-to-book",
+  "term": "Look-to-book",
+  "tier": "C",
+  "section": 6,
+  "origin": "Carry",
+  "gloss": "The share of visitors or searches that complete a booking.",
+  "formula": "Bookings ÷ Site visits",
+  "source": "ref_revenue-management-metrics-dictionary.md (look-to-book ratio / website conversion rate). The travel industry often quotes the ratio the other way up, as looks per booking (for example 40:1); HGM's metrics dictionary uses the conversion-rate form.",
+  "usage": "Lots of people visit your booking page, but the look-to-book is low — something is stopping them.",
+  "aliases": [],
+  "owner": "A direct read on whether the booking engine and landing pages are turning the traffic the owner pays for into bookings.",
+  "example": "Illustrative: 96 bookings ÷ 4,000 site visits = 2.4%.",
+  "related": [
+   "landing-page-conversion-rate",
+   "regret",
+   "direct-booking-conversion-tools"
+  ]
+ },
+ {
+  "slug": "los-length-of-stay",
+  "term": "LOS (length of stay)",
+  "tier": "C",
+  "section": 6,
+  "origin": "HGM",
+  "gloss": "The number of nights in a single booking.",
+  "formula": null,
+  "source": null,
+  "usage": "Longer LOS usually means fewer turnovers and happier housekeeping.",
+  "aliases": [],
+  "owner": "Longer stays usually mean a less price-sensitive guest and less turnover cost.",
+  "example": null,
+  "related": [
+   "alos-average-length-of-stay",
+   "minimum-length-of-stay",
+   "length-of-stay-pricing"
+  ]
+ },
+ {
+  "slug": "loyalty-programme",
+  "term": "Loyalty programme",
+  "tier": "C",
+  "section": 6,
+  "origin": "New",
+  "gloss": "Repeat-driving mechanics an independent can run without a chain scheme.",
+  "formula": null,
+  "source": null,
+  "usage": "You don't need a chain's points scheme — a simple loyalty programme for returning guests can work just as well.",
+  "aliases": [],
+  "owner": "Keeps past guests coming back without the owner joining a chain's points scheme.",
+  "example": null,
+  "related": [
+   "repeat-rate",
+   "referral-programme",
+   "guest-lifetime-value"
+  ]
+ },
+ {
+  "slug": "post-stay-sequence",
+  "term": "Post-stay sequence",
+  "tier": "C",
+  "section": 6,
+  "origin": "HGM",
+  "gloss": "Review requests, rebooking and the start of the repeat cycle.",
+  "formula": null,
+  "source": null,
+  "usage": "The post-stay sequence is where we ask for the review and plant the idea of coming back.",
+  "aliases": [],
+  "owner": "Where reviews get asked for and the next stay gets planted, the start of the owner's cheapest demand.",
+  "example": null,
+  "related": [
+   "review-score",
+   "repeat-rate",
+   "guest-journey-stages"
+  ]
+ },
+ {
+  "slug": "referral-programme",
+  "term": "Referral programme",
+  "tier": "C",
+  "section": 6,
+  "origin": "Carry",
+  "gloss": "Guests bringing guests, and how the incentive is fenced.",
+  "formula": null,
+  "source": null,
+  "usage": "A referral programme turns happy guests into your best marketing.",
+  "aliases": [],
+  "owner": "Turns happy guests into the owner's best marketing, at a cost only when it works.",
+  "example": null,
+  "related": [
+   "loyalty-programme",
+   "repeat-rate",
+   "rate-fence"
+  ]
+ },
+ {
+  "slug": "walk-in",
+  "term": "Walk-in",
+  "tier": "C",
+  "section": 6,
+  "origin": "New",
+  "gloss": "A guest booking at the desk, with no channel cost at all.",
+  "formula": null,
+  "source": null,
+  "usage": "A walk-in costs you nothing in commission, so it's worth knowing how many you get.",
+  "aliases": [],
+  "owner": "No commission at all, so it's worth knowing how much business arrives this way.",
+  "example": null,
+  "related": [
+   "channel-mix",
+   "distribution-cost"
+  ]
+ },
+ {
+  "slug": "cannibalization",
+  "term": "Cannibalization",
+  "tier": "A",
+  "section": 7,
+  "origin": "New",
+  "gloss": "When an ad, promotion or channel takes bookings the resort would have gotten anyway, instead of creating new ones. The numbers look like growth, but revenue has only moved around, often at a higher cost.",
+  "formula": null,
+  "source": null,
+  "usage": "Before we celebrate the promo, let's check for cannibalization — were those guests going to book anyway?",
+  "aliases": [],
+  "owner": "Makes marketing look like growth when revenue has only moved around, often at a higher cost; it's the owner's reasonable fear that they're paying for guests they'd have had anyway.",
+  "example": null,
+  "related": [
+   "incrementality",
+   "incremental-cpb",
+   "booking-com-genius",
+   "click-vs-view-through"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine corrects for it with a quarterly incrementality holdout and an incremental : attributed ratio per property (revenue-management.md §3.4). Fenced offers keep discounts off dates that would sell anyway (Play P3, HYPOTHESIS).",
+   "confusions": "Cannibalization is the problem; incrementality is the test for it. A booking can be correctly attributed to an ad and still be cannibalized.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "capi-conversions-api",
+  "term": "CAPI (conversions API)",
+  "tier": "A",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "Server-side event sending, which survives the browser blocking the pixel.",
+  "formula": null,
+  "source": null,
+  "usage": "With CAPI connected, bookings still get reported even when a guest's browser blocks the pixel.",
+  "aliases": [],
+  "owner": "Keeps bookings visible to the ad platform when browsers block the pixel, so the owner's campaigns are judged and optimised on real results.",
+  "example": null,
+  "related": [
+   "pixel",
+   "server-events-vs-browser-events",
+   "dataset",
+   "emq-event-match-quality"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine requires booking-engine events to sync to Meta CAPI before a property is activated (revenue-management.md §3.1). HGM's pixel report treats browser events with no server events as 'no CAPI connected' (Shawal's Meta Ads Terms).",
+   "confusions": "CAPI doesn't replace the pixel; the two run together and are deduplicated by a shared event ID.",
+   "links": [
+    {
+     "title": "Conversions API (Meta for Developers)",
+     "url": "https://developers.facebook.com/docs/marketing-api/conversions-api",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "cpm-cost-per-mille",
+  "term": "CPM (cost per mille — cost per thousand impressions)",
+  "tier": "A",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "Cost per thousand impressions — the ad number an owner is most likely to quote at you.",
+  "formula": "(Ad spend ÷ Impressions) × 1,000",
+  "source": null,
+  "usage": "Your CPM went up this month, which usually means we're competing with more advertisers for the same people.",
+  "aliases": [],
+  "owner": "The ad number owners are most likely to quote at you. On its own it says what attention costs, not whether the ads brought bookings.",
+  "example": "Illustrative month of Meta ads: $6,000 spend ÷ 600,000 impressions × 1,000 = $10.",
+  "related": [
+   "impressions",
+   "frequency",
+   "cpc",
+   "creative-fatigue-index"
+  ],
+  "core": {
+   "worked": [
+    "Ad spend: $6,000",
+    "Impressions: 600,000",
+    "($6,000 ÷ 600,000) × 1,000 = $10 CPM"
+   ],
+   "hgm": "In the doctrine's CPB decomposition, 'CPM up with CTR and conversion stable' reads as auction pressure: ride it or trim modestly (revenue-management.md §5.2). CPM is one of HGM's diagnostics — it explains a campaign's state but never sets it (Shawal's Meta Ads Terms).",
+   "confusions": "The M is Latin mille, a thousand. CPM is per thousand impressions, not per thousand people; that's reach.",
+   "links": []
+  }
+ },
+ {
+  "slug": "effective-commission-ec",
+  "term": "Effective commission (EC)",
+  "tier": "A",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The full cost of winning a booking as a percentage of its value, so a direct booking and an OTA booking compare on one line.",
+  "formula": "Total cost of winning the booking ÷ Gross booking value",
+  "source": "revenue-management.md and meta-ads-strategy.md — three wordings, one proposed reconciliation; question 2 for Dustin",
+  "usage": "Once we count ad spend and discounts too, what's your effective commission on a direct booking compared with Booking.com?",
+  "aliases": [],
+  "owner": "Puts a direct booking and an OTA booking on one line as a percentage of the stay, which is the comparison owners actually care about — and unlike an OTA contract, it's a cost HGM can improve.",
+  "example": "Illustrative, one $2,000 stay: Meta ad cost $180 ÷ $2,000 = 9%, against a $360 Booking.com commission ÷ $2,000 = 18%.",
+  "related": [
+   "cpb-cost-per-booking",
+   "distribution-cost",
+   "percent-of-booking-value",
+   "channel-mix"
+  ],
+  "core": {
+   "worked": [
+    "Direct booking value: $2,000; ad cost to win it: $180",
+    "$180 ÷ $2,000 = 9% effective commission",
+    "Same stay through Booking.com: $360 ÷ $2,000 = 18%"
+   ],
+   "hgm": "The doctrine governs ad spend on EC, not dollar CPB, because raising a rate raises dollar CPB with no change in how the ads perform (revenue-management.md Principle 12). Default EC targets are [TUNE]: peak 8%, standard weekend 10–12%, midweek 15%, shoulder 18% (§6.8).",
+   "confusions": "EC is a percentage of the booking's value; CPB is dollars. Three repo wordings differ on whether discounts count — question 2 with Dustin.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "incrementality",
+  "term": "Incrementality",
+  "tier": "A",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "Whether a booking actually happened because of the advertising, or would have happened anyway.",
+  "formula": null,
+  "source": null,
+  "usage": "The real test is incrementality — did the ads bring in bookings that wouldn't have happened anyway?",
+  "aliases": [],
+  "owner": "Answers whether the owner's ad money created bookings or just took credit for ones that were coming anyway.",
+  "example": null,
+  "related": [
+   "cannibalization",
+   "incremental-cpb",
+   "click-vs-view-through",
+   "attribution-window"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "Quarterly holdout: pause prospecting in one geo or date-class window for 14 days [TUNE] and compare with a matched control (revenue-management.md §3.4). Scaling decisions use incremental-adjusted numbers once they exist.",
+   "confusions": "Attribution says which ad a booking followed; incrementality says whether the ad caused it.",
+   "links": [
+    {
+     "title": "HGM revenue management doctrine",
+     "url": "repo:revenue-management.md",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "utm",
+  "term": "UTM (urchin tracking module link tags)",
+  "tier": "A",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "Link tags that make traffic traceable.",
+  "formula": null,
+  "source": null,
+  "usage": "We tag every link with a UTM so we can see exactly which post or email brought each booking.",
+  "aliases": [],
+  "owner": "Makes it possible to show the owner which post, email or ad brought each booking, rather than asking them to take it on trust.",
+  "example": null,
+  "related": [
+   "promo-code",
+   "link-in-bio",
+   "meta-attributed-bookings",
+   "attribution-window"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "UTMs, promo codes and link-in-bio are HGM's non-pixel attribution routes in the Monthly ROI data (Shawal's Meta Ads Terms).",
+   "confusions": "A UTM tags the link, not the person; if someone comes back later by typing the address, the UTM doesn't follow them.",
+   "links": [
+    {
+     "title": "URL builders: collect campaign data with custom URLs (Google Analytics Help)",
+     "url": "https://support.google.com/analytics/answer/10917952",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "attribution-window",
+  "term": "Attribution window",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "How long after seeing or clicking an ad a booking still counts.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026): Meta's default is 7-day click, 1-day view. HGM's decision maths uses 7-day click only (revenue-management.md §3.4).",
+  "usage": "With a seven-day attribution window, a guest who clicks on Monday and books on Friday still counts.",
+  "aliases": [],
+  "owner": "Decides which bookings the ads get credit for, so it changes how well the marketing appears to be doing.",
+  "example": null,
+  "related": [
+   "click-vs-view-through",
+   "incrementality",
+   "roas-return-on-ad-spend"
+  ]
+ },
+ {
+  "slug": "blended-cpb",
+  "term": "Blended CPB",
+  "tier": "B",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Total ad spend divided by every attributed booking — the average cost of a booking.",
+  "formula": "Total ad spend ÷ All attributed bookings",
+  "source": "revenue-management.md §2 (CPB, blended)",
+  "usage": "Your blended CPB is the average cost of every booking the ads brought in.",
+  "aliases": [],
+  "owner": "The average cost of a booking from the ads, useful for reporting but a poor guide to what the next dollar buys.",
+  "example": "Illustrative month of Meta ads: $6,000 spend ÷ 20 attributed bookings = $300.",
+  "related": [
+   "cpb-cost-per-booking",
+   "marginal-cpb",
+   "incremental-cpb"
+  ]
+ },
+ {
+  "slug": "click-vs-view-through",
+  "term": "Click vs view-through",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "Whether the booking followed someone clicking the ad, or merely seeing it.",
+  "formula": null,
+  "source": null,
+  "usage": "Some of those bookings were view-through — people saw the ad but didn't click — so we count them carefully.",
+  "aliases": [],
+  "owner": "View-through credit can make ads look better than they are, so the owner deserves to know which is being counted.",
+  "example": null,
+  "related": [
+   "attribution-window",
+   "incrementality",
+   "roas-return-on-ad-spend"
+  ]
+ },
+ {
+  "slug": "cpa",
+  "term": "CPA (cost per acquisition)",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "What a defined conversion costs; CPB is the hospitality-specific case.",
+  "formula": "Ad spend ÷ Conversions",
+  "source": null,
+  "usage": "CPA is what we pay for each result we asked for — a lead, a sign-up, a booking.",
+  "aliases": [],
+  "owner": "What each result the owner paid for cost, as long as the result is one they actually care about.",
+  "example": "Illustrative: $1,500 spend ÷ 75 sign-ups = $20 per acquisition.",
+  "related": [
+   "cpb-cost-per-booking",
+   "cost-per-result",
+   "cpl"
+  ]
+ },
+ {
+  "slug": "cpb-cost-per-booking",
+  "term": "CPB (cost per booking)",
+  "tier": "B",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Ad spend divided by attributed bookings; effective commission is the honest version of it.",
+  "formula": "Ad spend ÷ Attributed bookings",
+  "source": null,
+  "usage": "Your CPB tells you what each ad-driven booking cost, which we can compare against OTA commission.",
+  "aliases": [],
+  "owner": "What each ad-driven booking cost in dollars, easy to compare with an OTA commission as long as the stay values are similar.",
+  "example": "Illustrative month of Meta ads: $6,000 spend ÷ 20 attributed bookings = $300.",
+  "related": [
+   "effective-commission-ec",
+   "blended-cpb",
+   "cost-per-meta-attributed-booking"
+  ]
+ },
+ {
+  "slug": "creative-fatigue-index",
+  "term": "Creative fatigue index",
+  "tier": "B",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The doctrine's composite for when creative is worn out.",
+  "formula": null,
+  "source": null,
+  "usage": "The creative fatigue index is telling us this video has run its course — time for fresh footage.",
+  "aliases": [],
+  "owner": "Tells the owner when results are slipping because people have seen the same ad too often, not because demand has gone.",
+  "example": null,
+  "related": [
+   "frequency",
+   "cpm-cost-per-mille",
+   "ctr",
+   "creative"
+  ]
+ },
+ {
+  "slug": "deliverability",
+  "term": "Deliverability",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "Whether email reaches the inbox at all.",
+  "formula": null,
+  "source": null,
+  "usage": "If deliverability is poor, the newsletter is landing in spam and nobody sees the offer.",
+  "aliases": [],
+  "owner": "If email lands in spam, the owner's cheapest channel stops working without anyone noticing.",
+  "example": null,
+  "related": [
+   "email-open-rate",
+   "email-click-rate"
+  ]
+ },
+ {
+  "slug": "email-click-rate",
+  "term": "Email click rate",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "The share of delivered emails where someone clicked through — the honest engagement read.",
+  "formula": "Clicks ÷ Delivered emails",
+  "source": null,
+  "usage": "Opens are noisy these days, so the email click rate is the number we trust.",
+  "aliases": [],
+  "owner": "The honest read on whether the owner's emails interest people.",
+  "example": "Illustrative: 300 people clicked ÷ 10,000 delivered = 3%.",
+  "related": [
+   "email-open-rate",
+   "deliverability",
+   "landing-page-conversion-rate"
+  ]
+ },
+ {
+  "slug": "email-open-rate",
+  "term": "Email open rate",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "The share of delivered emails opened; increasingly noisy since mail privacy protections.",
+  "formula": null,
+  "source": null,
+  "usage": "Your email open rate looks high, but privacy settings inflate it, so we watch clicks too.",
+  "aliases": [],
+  "owner": "Looks reassuring but is inflated by mail privacy settings, so it shouldn't be the number an owner judges email by.",
+  "example": null,
+  "related": [
+   "email-click-rate",
+   "deliverability"
+  ]
+ },
+ {
+  "slug": "frequency",
+  "term": "Frequency",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "How many times the average person saw it; the fatigue diagnostic.",
+  "formula": "Impressions ÷ Reach",
+  "source": null,
+  "usage": "Frequency is climbing, so the same people are seeing the ad too often — time to refresh it.",
+  "aliases": [],
+  "owner": "When the same people see an ad too often, it stops working and starts annoying them.",
+  "example": "Illustrative month of Meta ads: 600,000 impressions ÷ 240,000 people reached = 2.5.",
+  "related": [
+   "reach",
+   "impressions",
+   "creative-fatigue-index"
+  ]
+ },
+ {
+  "slug": "hold-rate",
+  "term": "Hold rate",
+  "tier": "B",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The share of people who keep watching past the hook to a ThruPlay (the whole video, or at least 15 seconds); hooking without holding is a thumbnail, not a creative.",
+  "formula": "ThruPlays ÷ 3-second video plays",
+  "source": "Industry convention, not a Meta-defined metric, checked 29 Sep 2026; some use ThruPlays ÷ impressions. Say which formula you use.",
+  "usage": "The hold rate shows people watch to the end, so the story is working, not just the first shot.",
+  "aliases": [],
+  "owner": "Shows whether the video tells a story people finish, not just a first shot that stops the scroll.",
+  "example": "Illustrative: 9,000 ThruPlays ÷ 30,000 three-second plays = 30%.",
+  "related": [
+   "hook-rate",
+   "creative",
+   "creative-fatigue-index"
+  ]
+ },
+ {
+  "slug": "hook-rate",
+  "term": "Hook rate",
+  "tier": "B",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The share of impressions where someone watched at least the first three seconds of a video.",
+  "formula": "3-second video plays ÷ Impressions",
+  "source": "Industry convention, not a Meta-defined metric, checked 29 Sep 2026. Say which formula you use.",
+  "usage": "The hook rate on the sunrise clip is strong — people stop scrolling in the first few seconds.",
+  "aliases": [],
+  "owner": "Shows whether the opening seconds of the owner's video stop people scrolling.",
+  "example": "Illustrative: 30,000 three-second plays ÷ 100,000 impressions = 30%.",
+  "related": [
+   "hold-rate",
+   "creative",
+   "ctr"
+  ]
+ },
+ {
+  "slug": "impressions",
+  "term": "Impressions",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "The number of times an ad was shown, counting repeats to the same person.",
+  "formula": null,
+  "source": null,
+  "usage": "Impressions count every time the ad was shown, including repeats to the same person.",
+  "aliases": [],
+  "owner": "A big impression count can reassure an owner without meaning anyone booked, so it's context, not a result.",
+  "example": null,
+  "related": [
+   "reach",
+   "frequency",
+   "cpm-cost-per-mille"
+  ]
+ },
+ {
+  "slug": "incremental-cpb",
+  "term": "Incremental CPB",
+  "tier": "B",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "What a booking costs counting only the ones that would not have happened anyway.",
+  "formula": "Ad spend ÷ Bookings that wouldn't have happened without the ads",
+  "source": "revenue-management.md §2 and §3.4 (holdout-measured incrementality)",
+  "usage": "Incremental CPB counts only the bookings the ads truly created, so it's usually higher than the average.",
+  "aliases": [],
+  "owner": "The decision-grade cost of a booking: it counts only the bookings the ads truly created, so it's usually higher than the average.",
+  "example": "Illustrative month of Meta ads: a holdout suggests 15 of the 20 attributed bookings were incremental. $6,000 ÷ 15 = $400.",
+  "related": [
+   "incrementality",
+   "blended-cpb",
+   "cannibalization"
+  ]
+ },
+ {
+  "slug": "landing-page-conversion-rate",
+  "term": "Landing-page conversion rate",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "The share of visitors who take the page's action.",
+  "formula": "Conversions ÷ Sessions",
+  "source": null,
+  "usage": "Traffic is good, but the landing-page conversion rate is low, so the page is where we'll focus next.",
+  "aliases": [],
+  "owner": "If traffic arrives and doesn't act, the page is where the owner's money is leaking.",
+  "example": "Illustrative: 300 sign-ups ÷ 4,000 sessions = 7.5%.",
+  "related": [
+   "look-to-book",
+   "cta-call-to-action",
+   "email-click-rate"
+  ]
+ },
+ {
+  "slug": "pixel",
+  "term": "Pixel",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "The browser-side tag that reports site events back to the ad platform.",
+  "formula": null,
+  "source": null,
+  "usage": "Is the pixel firing on your booking engine? Without it, we can't see which ads lead to bookings.",
+  "aliases": [],
+  "owner": "Without it firing on the booking engine, nobody can see which ads lead to bookings.",
+  "example": null,
+  "related": [
+   "capi-conversions-api",
+   "dataset",
+   "standard-events",
+   "silent-pixel"
+  ]
+ },
+ {
+  "slug": "reach",
+  "term": "Reach",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "The number of distinct people an ad was shown to.",
+  "formula": null,
+  "source": null,
+  "usage": "Reach tells us how many different people saw the ad, not how many times it was shown.",
+  "aliases": [],
+  "owner": "How many different people saw the ad, the size of the audience the owner is building.",
+  "example": null,
+  "related": [
+   "impressions",
+   "frequency"
+  ]
+ },
+ {
+  "slug": "retargeting-vs-prospecting",
+  "term": "Retargeting vs prospecting",
+  "tier": "B",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "Harvesting a warm pool versus building a new one.",
+  "formula": null,
+  "source": null,
+  "usage": "Retargeting reminds people who already visited, while prospecting finds new guests — we need both.",
+  "aliases": [],
+  "owner": "Prospecting finds new guests and retargeting brings back interested ones; cutting prospecting because retargeting looks cheaper empties the pool.",
+  "example": null,
+  "related": [
+   "custom-audience",
+   "lookalike-audience",
+   "funnel-stages-tof-mof-bof"
+  ]
+ },
+ {
+  "slug": "roas-return-on-ad-spend",
+  "term": "ROAS (return on ad spend)",
+  "tier": "B",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Attributed revenue divided by ad spend; always name whether you mean pixel or blended.",
+  "formula": "Attributed revenue ÷ Ad spend",
+  "source": null,
+  "usage": "Your ROAS looks strong, but is that the pixel number or blended? They tell different stories.",
+  "aliases": [],
+  "owner": "Revenue per ad dollar, the number owners find most intuitive, as long as everyone knows whether it's Meta's pixel number or the property's own.",
+  "example": "Illustrative month of Meta ads: $48,000 attributed revenue ÷ $6,000 spend = 8 (a ROAS of 8, or 800%).",
+  "related": [
+   "pixel-roas",
+   "blended-roas",
+   "effective-commission-ec"
+  ]
+ },
+ {
+  "slug": "accepted-secondary-hosts",
+  "term": "Accepted secondary hosts",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Domains allowed to fire a client's pixel besides their main site — GHL subdomains, PMS booking engines, Wix static hosts, Netlify staging.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The booking engine's domain is an accepted secondary host, so events from it aren't a problem.",
+  "aliases": [],
+  "owner": "Booking-engine and landing-page domains firing the owner's pixel are expected, so they don't get mistaken for a tracking problem.",
+  "example": null,
+  "related": [
+   "sending-host",
+   "pixel-cross-contamination",
+   "ghl-funnel-gohighlevel-funnel"
+  ]
+ },
+ {
+  "slug": "ad-meta",
+  "term": "Ad (Meta)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The bottom level of Meta's structure — the creative and copy people actually see.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Each ad is what the guest actually sees — the image, the words and the button.",
+  "aliases": [],
+  "owner": "The part of the campaign guests actually see, so it's where the owner's brand shows up.",
+  "example": null,
+  "related": [
+   "ad-set",
+   "campaign-meta",
+   "creative",
+   "headline"
+  ]
+ },
+ {
+  "slug": "ad-account",
+  "term": "Ad account",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "A single billing entity in Meta with its own campaigns, ID and spend history.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Which ad account is this campaign running in? We always match on the account ID.",
+  "aliases": [],
+  "owner": "Where the owner's ad spend is billed and recorded; checks key on its ID so spend is never mixed up between clients.",
+  "example": null,
+  "related": [
+   "business-manager-bm",
+   "campaign-meta",
+   "amount-spent"
+  ]
+ },
+ {
+  "slug": "ad-set",
+  "term": "Ad set",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The middle level of Meta's structure, where audience, placements, schedule and, without CBO, budget are set.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Let's split the audiences into separate ad sets so we can see which one books better.",
+  "aliases": [],
+  "owner": "Where the audience is chosen, so it's how the owner's ads reach the right people.",
+  "example": null,
+  "related": [
+   "campaign-meta",
+   "ad-meta",
+   "placements",
+   "cbo-advantage-campaign-budget"
+  ]
+ },
+ {
+  "slug": "advantage-audience",
+  "term": "Advantage+ audience",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta's automated targeting, where your audience inputs act as suggestions rather than limits.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); bir.ch Meta Advantage+ guide (Aug 2025), checked 29 Sep 2026. Meta's Business Help Centre can't be read by automated tools, so this is checked against trade press only.",
+  "usage": "With Advantage+ audience, Meta treats our targeting as a suggestion and looks wider.",
+  "aliases": [],
+  "owner": "Lets Meta look beyond the audience HGM sets, which can find new guests but gives the owner less control over who sees the ad.",
+  "example": null,
+  "related": [
+   "broad-targeting",
+   "audience-segments",
+   "lookalike-audience"
+  ]
+ },
+ {
+  "slug": "advantage-creative",
+  "term": "Advantage+ creative",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta's automatic enhancements to an ad's assets, such as cropping, brightness and text variations.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); bir.ch Meta Advantage+ guide (Aug 2025), checked 29 Sep 2026. Meta's Business Help Centre can't be read by automated tools, so this is checked against trade press only.",
+  "usage": "Advantage+ creative adjusted the crop and brightness automatically, so check the ad looks right.",
+  "aliases": [],
+  "owner": "Automatic edits can help results, but they change how the owner's property looks in the ad, so they're worth checking.",
+  "example": null,
+  "related": [
+   "dynamic-creative",
+   "creative",
+   "placements"
+  ]
+ },
+ {
+  "slug": "aggregated-event-measurement-aem",
+  "term": "Aggregated Event Measurement (AEM)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta's privacy-preserving method for measuring web conversions from people who opted out of tracking on iPhone; reported results can be modelled, limited or delayed.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); Jon Loomer, 'Meta announces big changes to website conversion campaigns' (updated 1 Mar 2025), checked 29 Sep 2026. Meta removed the 8-event limit, mandatory domain verification and the AEM settings tab.",
+  "usage": "Because of Aggregated Event Measurement, some iPhone bookings show up late or not at all in Meta.",
+  "aliases": [],
+  "owner": "Part of why Meta's numbers undercount iPhone bookings, and why HGM checks them against the owner's own booking data.",
+  "example": null,
+  "related": [
+   "ios-14-signal-loss",
+   "capi-conversions-api",
+   "blended-roas"
+  ]
+ },
+ {
+  "slug": "amount-spent",
+  "term": "Amount spent",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "What an account actually spent in a period, as distinct from the budget it was set to.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The amount spent this week is lower than the budget, so the campaign may not be delivering.",
+  "aliases": [],
+  "owner": "What the owner actually paid, which is what gets compared with the agreed budget.",
+  "example": null,
+  "related": [
+   "documented-vs-live-budget",
+   "daily-vs-lifetime-budget",
+   "dark-account"
+  ]
+ },
+ {
+  "slug": "audience-segments",
+  "term": "Audience segments",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Signals about existing and engaged customers you give Meta inside Advantage+ sales campaigns (formerly Advantage+ shopping).",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); bir.ch Meta Advantage+ guide (Aug 2025), checked 29 Sep 2026. Meta's Business Help Centre can't be read by automated tools, so this is checked against trade press only.",
+  "usage": "We've added past guests as an audience segment so Meta knows who's already a customer.",
+  "aliases": [],
+  "owner": "Tells Meta who the owner's existing guests are, so it can tell a returning guest from a new one.",
+  "example": null,
+  "related": [
+   "advantage-audience",
+   "custom-audience",
+   "first-party-data"
+  ]
+ },
+ {
+  "slug": "average-direct-booking-value",
+  "term": "Average direct booking value",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The average value of one direct booking.",
+  "formula": "Direct booking revenue ÷ Direct bookings",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Your average direct booking value is higher than on the OTAs, which makes every direct booking worth more.",
+  "aliases": [],
+  "owner": "If direct stays are worth more per booking than OTA stays, each one is more valuable to win — worth checking in the owner's own numbers.",
+  "example": "Illustrative, all direct bookings in a month: $60,000 direct booking revenue ÷ 30 direct bookings = $2,000.",
+  "related": [
+   "direct-booking-revenue",
+   "effective-commission-ec",
+   "percent-of-booking-value"
+  ]
+ },
+ {
+  "slug": "basic-vs-advanced-setup",
+  "term": "Basic vs Advanced setup",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The Meta Ads column in HGM's CRM sheet, recording whether a client has a Basic or an Advanced Meta setup.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Check the CRM sheet — is this client on a Basic or an Advanced Meta setup?",
+  "aliases": [],
+  "owner": "Records how much tracking and campaign structure an owner's account has, which sets what HGM can report back to them.",
+  "example": null,
+  "related": [
+   "crm-sheet",
+   "capi-conversions-api",
+   "pixel"
+  ]
+ },
+ {
+  "slug": "blended-roas",
+  "term": "Blended ROAS",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Booking revenue from the property's own records divided by total Meta spend; it runs lower than pixel ROAS, so always say which you mean.",
+  "formula": "Booking revenue ÷ Total Meta spend",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Blended ROAS uses the property's real booking revenue, so it usually runs lower than what Meta reports.",
+  "aliases": [],
+  "owner": "Uses the owner's own booking revenue rather than Meta's estimate, so it's the ROAS figure an owner can check against their books.",
+  "example": "Illustrative month of Meta ads: $36,000 of bookings the property's own records tie to Meta ÷ $6,000 Meta spend = 6, below the pixel's 8.",
+  "related": [
+   "pixel-roas",
+   "roas-return-on-ad-spend",
+   "client-performance-tracking-sheet"
+  ]
+ },
+ {
+  "slug": "boosted-post",
+  "term": "Boosted post",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "An Instagram or Facebook post promoted straight from the app or Page; it also appears in Ads Manager as a campaign, with fewer targeting options than an ad built there.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026). HGM's weekly reporting has seen boosted posts keep an Active status after their stop time; Meta doesn't document this, so check spend rather than status.",
+  "usage": "That boosted post is still showing as active after its end date — check it isn't still spending.",
+  "aliases": [],
+  "owner": "Quick for the owner to do themselves, but it runs outside the campaign plan and can keep spending if nobody checks.",
+  "example": null,
+  "related": [
+   "campaign-meta",
+   "delivery-status",
+   "amount-spent"
+  ]
+ },
+ {
+  "slug": "broad-targeting",
+  "term": "Broad targeting",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Targeting with minimal constraints, leaving Meta to find the people most likely to act.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Broad targeting leaves the audience to Meta, so we test it against narrower audiences before leaning on it.",
+  "aliases": [],
+  "owner": "Trusts Meta to find the likely bookers with few limits; worth testing against narrower audiences before relying on it for the owner's budget.",
+  "example": null,
+  "related": [
+   "advantage-audience",
+   "lookalike-audience",
+   "geo-targeting"
+  ]
+ },
+ {
+  "slug": "business-manager-bm",
+  "term": "Business Manager (BM)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta's container that owns a business's ad accounts, pages, pixels and user access; clients share their pixels into HGM's Business Manager.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Has the client shared their pixel into our Business Manager yet?",
+  "aliases": [],
+  "owner": "Holds the owner's ad accounts, pages and pixels; sharing access into HGM's is how the agency can work on them without taking ownership.",
+  "example": null,
+  "related": [
+   "ad-account",
+   "pixel",
+   "dataset"
+  ]
+ },
+ {
+  "slug": "campaign-meta",
+  "term": "Campaign (Meta)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The top level of Meta's three-level structure, where the objective and, under CBO, the budget are set.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Set the objective at the campaign level first — everything below it follows from that.",
+  "aliases": [],
+  "owner": "Where the goal is set, so it decides what the owner's budget is actually trying to buy.",
+  "example": null,
+  "related": [
+   "objective",
+   "ad-set",
+   "cbo-advantage-campaign-budget"
+  ]
+ },
+ {
+  "slug": "cbo-advantage-campaign-budget",
+  "term": "CBO (Advantage+ campaign budget)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "A budget set once at campaign level and spread across ad sets by Meta; without it, each ad set holds its own budget.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); bir.ch Meta Advantage+ guide (Aug 2025): Advantage+ campaign budget is the former campaign budget optimisation, checked 29 Sep 2026.",
+  "usage": "With CBO on, the budget sits at the campaign level, so the ad sets will show zero on their own.",
+  "aliases": [],
+  "owner": "Lets Meta move the owner's budget to whichever ad set is performing, which is why individual ad sets can show zero budget.",
+  "example": null,
+  "related": [
+   "campaign-meta",
+   "ad-set",
+   "daily-vs-lifetime-budget"
+  ]
+ },
+ {
+  "slug": "cost-per-link-click",
+  "term": "Cost per link click",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "What a click through to the site costs, as distinct from CPC, which counts any click.",
+  "formula": "Ad spend ÷ Link clicks",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Cost per link click is what we pay for someone actually reaching the website.",
+  "aliases": [],
+  "owner": "What it costs to get someone onto the owner's website, a truer read than cost per any click.",
+  "example": "Illustrative month of Meta ads: $6,000 spend ÷ 4,800 link clicks = $1.25.",
+  "related": [
+   "cpc",
+   "link-ctr",
+   "landing-page-conversion-rate"
+  ]
+ },
+ {
+  "slug": "cost-per-meta-attributed-booking",
+  "term": "Cost per Meta-attributed booking",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "What each Meta-attributed booking cost.",
+  "formula": "Meta spend ÷ Meta-attributed bookings",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Cost per Meta-attributed booking counts only bookings we can trace to Meta through a code or link.",
+  "aliases": [],
+  "owner": "The cost of bookings the owner can trace to Meta through a code or link, not just Meta's own reporting.",
+  "example": "Illustrative month of Meta ads: $6,000 spend ÷ 18 bookings traced by code, link or UTM = $333.33.",
+  "related": [
+   "cpb-cost-per-booking",
+   "meta-attributed-bookings",
+   "promo-code"
+  ]
+ },
+ {
+  "slug": "cost-per-result",
+  "term": "Cost per result",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "What each counted result cost.",
+  "formula": "Ad spend ÷ Results",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Cost per result depends on the objective — a lead campaign's result isn't a booking.",
+  "aliases": [],
+  "owner": "Only meaningful once you know what the result is: a lead campaign's result isn't a booking.",
+  "example": "Illustrative lead campaign: $1,500 spend ÷ 75 leads = $20.",
+  "related": [
+   "cpa",
+   "results",
+   "objective"
+  ]
+ },
+ {
+  "slug": "cpc",
+  "term": "CPC (cost per click)",
+  "tier": "C",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "What a click costs.",
+  "formula": "Ad spend ÷ Clicks",
+  "source": null,
+  "usage": "CPC counts any click on the ad, including likes and profile taps, so it can look cheaper than it is.",
+  "aliases": [],
+  "owner": "Can look cheap because it counts likes and taps as clicks, so it isn't a fair read of the traffic the owner is buying.",
+  "example": "Illustrative month of Meta ads: $6,000 spend ÷ 9,000 clicks of any kind = $0.67.",
+  "related": [
+   "cost-per-link-click",
+   "ctr",
+   "cpm-cost-per-mille"
+  ]
+ },
+ {
+  "slug": "cpl",
+  "term": "CPL (cost per lead)",
+  "tier": "C",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "What a lead costs; at HGM, Meta spend divided by Meta Lead events, which are usually an email sign-up.",
+  "formula": "Ad spend ÷ Leads (Meta Lead events)",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); reconciles the old 'email capture' wording with Shawal's definition.",
+  "usage": "Your CPL tells us what each new lead costs before they've booked anything.",
+  "aliases": [],
+  "owner": "What a new lead costs before they've booked; it's worth it when those leads go on to book direct.",
+  "example": "Illustrative lead campaign: $1,500 spend ÷ 75 leads = $20.",
+  "related": [
+   "lead-gen-campaign",
+   "cost-per-result",
+   "new-vs-total-leads"
+  ]
+ },
+ {
+  "slug": "creative",
+  "term": "Creative",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The image or video at the centre of an ad.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The creative is the first thing people notice, so it has to show the stay, not just the room.",
+  "aliases": [],
+  "owner": "The first thing people notice, so it needs to show the stay and the feeling, not just the room.",
+  "example": null,
+  "related": [
+   "ad-meta",
+   "creative-fatigue-index",
+   "hook-rate"
+  ]
+ },
+ {
+  "slug": "cta-call-to-action",
+  "term": "CTA (call to action)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The button or line that tells someone what to do next, such as Book now.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Let's change the CTA from Learn more to Book now and see if more people click through.",
+  "aliases": [],
+  "owner": "Tells guests what to do next; a clear one turns interest into a booking.",
+  "example": null,
+  "related": [
+   "headline",
+   "landing-page-conversion-rate"
+  ]
+ },
+ {
+  "slug": "ctr",
+  "term": "CTR (click-through rate)",
+  "tier": "C",
+  "section": 7,
+  "origin": "Carry",
+  "gloss": "Clicks divided by impressions.",
+  "formula": "Clicks ÷ Impressions",
+  "source": null,
+  "usage": "CTR is the share of people who clicked after seeing the ad.",
+  "aliases": [],
+  "owner": "How often people click after seeing an ad; this all-clicks version includes likes and taps, so link CTR is the fairer read for the owner.",
+  "example": "Illustrative month of Meta ads: 9,000 clicks ÷ 600,000 impressions = 1.5%.",
+  "related": [
+   "link-ctr",
+   "cpc",
+   "impressions"
+  ]
+ },
+ {
+  "slug": "custom-audience",
+  "term": "Custom audience",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "People drawn from your own data — site visitors, engagers or a customer list.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "We built a custom audience from your past guests so we can invite them back.",
+  "aliases": [],
+  "owner": "Built from the owner's own visitors and guests, so it's the warmest audience they have.",
+  "example": null,
+  "related": [
+   "lookalike-audience",
+   "first-party-data",
+   "retargeting-vs-prospecting"
+  ]
+ },
+ {
+  "slug": "custom-conversion",
+  "term": "Custom conversion",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "A rule that turns a URL or event detail into a conversion Meta can count and optimise for.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "We set up a custom conversion for the thank-you page so completed bookings get counted.",
+  "aliases": [],
+  "owner": "Makes sure completed bookings get counted, so the owner's campaigns are judged on the right result.",
+  "example": null,
+  "related": [
+   "standard-events",
+   "pixel",
+   "results"
+  ]
+ },
+ {
+  "slug": "daily-vs-lifetime-budget",
+  "term": "Daily vs lifetime budget",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Spend capped per day versus a fixed total spread across the schedule.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Is this on a daily or lifetime budget? It changes how we read the spend.",
+  "aliases": [],
+  "owner": "Changes how spend lands over the schedule, which matters when comparing it with what the owner agreed to.",
+  "example": null,
+  "related": [
+   "amount-spent",
+   "documented-vs-live-budget",
+   "cbo-advantage-campaign-budget"
+  ]
+ },
+ {
+  "slug": "dark-account",
+  "term": "Dark account",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "A client account marked Not Live or Paused that is still spending — the most important catch in HGM's ad spend check.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "This account is paused in our records but still spending — that's a dark account.",
+  "aliases": [],
+  "owner": "An owner paying for ads on an account they think is paused is money spent without agreement, which is why it's the first thing HGM's check catches.",
+  "example": null,
+  "related": [
+   "spend-check-flags-match-warning-critical-blocker",
+   "documented-vs-live-budget",
+   "amount-spent"
+  ]
+ },
+ {
+  "slug": "dataset",
+  "term": "Dataset",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta's current name for a pixel together with its server connection and any other event sources; see Pixel.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); Meta for Developers, Dataset Quality API (the dataset ID is the pixel ID), checked 29 Sep 2026.",
+  "usage": "Meta now calls it a dataset, but it's the same pixel plus its server connection.",
+  "aliases": [],
+  "owner": "If the owner sees 'dataset' in Meta, it's their pixel and server connection under a new name, not a new thing to pay for or set up.",
+  "example": null,
+  "related": [
+   "pixel",
+   "capi-conversions-api",
+   "emq-event-match-quality"
+  ]
+ },
+ {
+  "slug": "decision-making-table",
+  "term": "Decision Making table",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The section of HGM's Benchmarks doc that is the only source of a campaign's state.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The Decision Making table sets a campaign's state, so check it before calling one weak.",
+  "aliases": [],
+  "owner": "Keeps campaign calls consistent: every owner's campaign is judged against the same written rules.",
+  "example": null,
+  "related": [
+   "benchmarks-doc",
+   "governing-metric",
+   "diagnostics"
+  ]
+ },
+ {
+  "slug": "delivery-status",
+  "term": "Delivery status",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Whether a campaign is active or paused, and whether an active one is actually serving — it can be active and still not deliver, for example past its stop time or stuck in learning limited.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The delivery status says active, but nothing's spending — let's check whether it's stuck in learning.",
+  "aliases": [],
+  "owner": "A campaign can look active and still not be reaching anyone, so status alone doesn't tell the owner their money is working.",
+  "example": null,
+  "related": [
+   "learning-phase",
+   "boosted-post",
+   "amount-spent"
+  ]
+ },
+ {
+  "slug": "diagnostics",
+  "term": "Diagnostics",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The metrics that explain a campaign's state but never set it — CPC, CPM, CTR, frequency and cost per booking.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Frequency and CPM are diagnostics — they explain why a campaign is struggling, but they don't decide its state.",
+  "aliases": [],
+  "owner": "Explain why a campaign is doing what it's doing, so the fix addresses the cause rather than the symptom.",
+  "example": null,
+  "related": [
+   "governing-metric",
+   "cpm-cost-per-mille",
+   "frequency"
+  ]
+ },
+ {
+  "slug": "diff-status-new-still-open-fixed",
+  "term": "Diff status (New, Still open, Fixed)",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "How HGM's weekly reports mark each issue against the week before, with the weeks it has been open counted.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "That issue has been still open for three weeks, so it needs an owner.",
+  "aliases": [],
+  "owner": "Shows whether issues on the owner's account are being fixed or lingering week to week.",
+  "example": null,
+  "related": [
+   "spend-check-flags-match-warning-critical-blocker",
+   "dark-account"
+  ]
+ },
+ {
+  "slug": "direct-booking-revenue",
+  "term": "Direct booking revenue",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Revenue from direct bookings as recorded in the property's PMS.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Direct booking revenue comes from the PMS, not from Meta, so it's the owner's real number.",
+  "aliases": [],
+  "owner": "The owner's own record of what direct bookings earned, which beats any platform's estimate.",
+  "example": null,
+  "related": [
+   "average-direct-booking-value",
+   "blended-roas",
+   "client-performance-tracking-sheet"
+  ]
+ },
+ {
+  "slug": "documented-vs-live-budget",
+  "term": "Documented vs live budget",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The budget recorded in HGM's Master Meta Ads sheet against what the ad account is actually running.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The documented budget and the live budget don't match — the account is spending more than agreed.",
+  "aliases": [],
+  "owner": "Checks that the owner is spending what they agreed to, no more and no less.",
+  "example": null,
+  "related": [
+   "master-meta-ads-sheet",
+   "amount-spent",
+   "dark-account"
+  ]
+ },
+ {
+  "slug": "dynamic-creative",
+  "term": "Dynamic creative",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta combining the images, video and text you supply into variations and serving the best performers; since 2026 this is largely handled inside Advantage+ creative.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); Campaign Builder, 'Meta flexible ads removed' (29 Apr 2026), checked 29 Sep 2026. Meta's Business Help Centre can't be read by automated tools, so this is checked against trade press only.",
+  "usage": "Dynamic creative is mixing our headlines and images to find the best combination.",
+  "aliases": [],
+  "owner": "Lets Meta test combinations of the owner's images and words to find what books, with less manual testing.",
+  "example": null,
+  "related": [
+   "advantage-creative",
+   "creative",
+   "headline"
+  ]
+ },
+ {
+  "slug": "emq-event-match-quality",
+  "term": "EMQ (event match quality)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta's score, out of 10, for how well the customer details sent with an event match to real Meta users.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); Meta for Developers, Dataset Quality API ('a score (out of 10)'), checked 29 Sep 2026.",
+  "usage": "The EMQ score is low, so Meta can't match many of these bookings to real people — worth fixing.",
+  "aliases": [],
+  "owner": "A low score means Meta can't match many bookings to real people, so it optimises the owner's ads on weaker signal.",
+  "example": null,
+  "related": [
+   "capi-conversions-api",
+   "dataset",
+   "server-events-vs-browser-events"
+  ]
+ },
+ {
+  "slug": "funnel-stages-tof-mof-bof",
+  "term": "Funnel stages (ToF, MoF, BoF)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Top, middle and bottom of funnel — building awareness, warming interest, then converting; HGM campaign names carry the prefix.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "This is a ToF campaign, so judge it on reach, not bookings.",
+  "aliases": [],
+  "owner": "Each stage has a different job, so judging a top-of-funnel campaign on bookings would make good awareness spend look like waste.",
+  "example": null,
+  "related": [
+   "ig-discovery-and-keyword-campaigns",
+   "lead-gen-campaign",
+   "sales-retargeting-campaign"
+  ]
+ },
+ {
+  "slug": "geo-targeting",
+  "term": "Geo targeting",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Aiming ads by location — a country, listed cities, or a radius around a point.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Let's tighten the geo targeting to cities within a three-hour drive.",
+  "aliases": [],
+  "owner": "Puts the owner's ads in front of the places guests actually come from.",
+  "example": null,
+  "related": [
+   "feeder-market",
+   "drive-market-vs-fly-market",
+   "broad-targeting"
+  ]
+ },
+ {
+  "slug": "ghl-funnel-gohighlevel-funnel",
+  "term": "GHL funnel (GoHighLevel funnel)",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "A landing page built in GoHighLevel, HGM's landing-page and CRM tool, whose sub-account tracking settings carry the pixel ID.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The GHL funnel was cloned from another client, so check it isn't carrying their pixel.",
+  "aliases": [],
+  "owner": "The landing page where the owner's leads sign up; if its pixel settings are wrong, those leads go uncounted or land in someone else's data.",
+  "example": null,
+  "related": [
+   "pixel-cross-contamination",
+   "accepted-secondary-hosts",
+   "hgm-s-own-stack"
+  ]
+ },
+ {
+  "slug": "governing-metric",
+  "term": "Governing metric",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The one metric that sets a campaign's state in HGM's reports — CPL for Lead Gen, ROAS for Sales.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "For a Lead Gen campaign, CPL is the governing metric — the others just help explain it.",
+  "aliases": [],
+  "owner": "Keeps the verdict on each campaign simple and consistent: one number decides, the rest explain.",
+  "example": null,
+  "related": [
+   "diagnostics",
+   "cpl",
+   "roas-return-on-ad-spend"
+  ]
+ },
+ {
+  "slug": "headline",
+  "term": "Headline",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The short bold line that sits below an ad's creative.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Keep the headline short and specific — it's what people read after the image.",
+  "aliases": [],
+  "owner": "Often the first words guests read after the image, so it has to say why this stay.",
+  "example": null,
+  "related": [
+   "primary-text-ad-copy",
+   "cta-call-to-action",
+   "creative"
+  ]
+ },
+ {
+  "slug": "ig-discovery-and-keyword-campaigns",
+  "term": "IG Discovery and Keyword campaigns",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "HGM's top-of-funnel Instagram campaigns, reported as a spend line only and not scored.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The IG Discovery campaigns are for awareness, so we report their spend but don't score them.",
+  "aliases": [],
+  "owner": "Builds the audience that later books; judging it on bookings would cut the top of the owner's funnel.",
+  "example": null,
+  "related": [
+   "funnel-stages-tof-mof-bof",
+   "search-vs-discovery-demand",
+   "reach"
+  ]
+ },
+ {
+  "slug": "ios-14-signal-loss",
+  "term": "iOS 14 signal loss",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The drop in tracking data after Apple's App Tracking Transparency prompt (iOS 14.5, April 2021), and the reason pixel numbers undercount and need cross-checking against booking data.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); Apple Developer News, App Tracking Transparency requirement (26 Apr 2021), checked 29 Sep 2026.",
+  "usage": "Because of iOS signal loss, the pixel undercounts bookings, so we always check against the booking data.",
+  "aliases": [],
+  "owner": "Why Meta undercounts some bookings, and why HGM always checks against the owner's own booking data.",
+  "example": null,
+  "related": [
+   "aggregated-event-measurement-aem",
+   "capi-conversions-api",
+   "blended-roas"
+  ]
+ },
+ {
+  "slug": "lead-gen-campaign",
+  "term": "Lead Gen campaign",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "HGM's middle-of-funnel campaign type on the leads objective, usually retargeting engagers, scored on CPL over 30 days.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026) — the 30-day CPL window is stated in Shawal's doc, checked 29 Sep 2026. The Benchmarks doc itself wasn't reachable.",
+  "usage": "The Lead Gen campaign is warming up past engagers, so we judge it on cost per lead.",
+  "aliases": [],
+  "owner": "Builds the owner's email list from people already interested, the start of bookings that don't pay commission.",
+  "example": null,
+  "related": [
+   "cpl",
+   "funnel-stages-tof-mof-bof",
+   "scoring-window"
+  ]
+ },
+ {
+  "slug": "learning-phase",
+  "term": "Learning phase",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The period after a launch or significant edit when Meta is still working out delivery and results are unstable; it usually needs about 50 optimisation events in the 7 days after launch or the edit to exit.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026); consistent across trade press, checked 29 Sep 2026. Meta's Business Help Centre can't be read by automated tools, so this is checked against trade press only.",
+  "usage": "The campaign is still in its learning phase, so give it a few days before making changes.",
+  "aliases": [],
+  "owner": "Results bounce around at first, so judging or changing a new campaign too early wastes the owner's spend.",
+  "example": null,
+  "related": [
+   "delivery-status",
+   "objective",
+   "cbo-advantage-campaign-budget"
+  ]
+ },
+ {
+  "slug": "link-ctr",
+  "term": "Link CTR",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The share of impressions that became a click through to the site; the all-clicks CTR also counts likes, expands and profile taps.",
+  "formula": "Link clicks ÷ Impressions × 100",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Link CTR only counts clicks to the website, so it's the better measure of real interest.",
+  "aliases": [],
+  "owner": "The share of people who actually went to the owner's website after seeing the ad, the better measure of interest.",
+  "example": "Illustrative month of Meta ads: 4,800 link clicks ÷ 600,000 impressions × 100 = 0.8%.",
+  "related": [
+   "ctr",
+   "cost-per-link-click"
+  ]
+ },
+ {
+  "slug": "link-in-bio",
+  "term": "Link-in-bio",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The link in a social profile, used as a route to attribute bookings without the pixel.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "We track bookings from the link-in-bio separately, because the pixel doesn't always see them.",
+  "aliases": [],
+  "owner": "Catches bookings the pixel misses, so the owner sees more of what social actually brought in.",
+  "example": null,
+  "related": [
+   "meta-attributed-bookings",
+   "utm",
+   "promo-code"
+  ]
+ },
+ {
+  "slug": "lookalike-audience",
+  "term": "Lookalike audience",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "People Meta judges similar to a seed audience you supply.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "A lookalike audience built from past guests helps us find new people like them.",
+  "aliases": [],
+  "owner": "Finds new people who resemble the owner's best guests.",
+  "example": null,
+  "related": [
+   "custom-audience",
+   "audience-segments",
+   "mof-lookalike-sales-campaign"
+  ]
+ },
+ {
+  "slug": "marginal-cpb",
+  "term": "Marginal CPB",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "What the next booking costs at the current spend level, rather than the average.",
+  "formula": "Extra spend ÷ Extra bookings it brought",
+  "source": "revenue-management.md §2 (Marginal CPB)",
+  "usage": "Adding more budget raises the marginal CPB — the next booking costs more than the last one.",
+  "aliases": [],
+  "owner": "The next booking costs more than the last, so adding budget has limits the average cost doesn't show.",
+  "example": "Illustrative: budget raised by $3,000 a month brings 6 more bookings. $3,000 ÷ 6 = $500.",
+  "related": [
+   "blended-cpb",
+   "incremental-cpb",
+   "cpb-cost-per-booking"
+  ]
+ },
+ {
+  "slug": "mcp-disabled-account",
+  "term": "MCP-disabled account",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "An ad account the Meta connector can't read, so the weekly Ads Manager export is used instead.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "This is an MCP-disabled account, so we'll use the weekly Ads Manager export instead.",
+  "aliases": [],
+  "owner": "The owner's reporting continues as normal; it's read from a weekly export instead of live, so figures may lag a few days.",
+  "example": null,
+  "related": [
+   "ads-manager-export",
+   "meta-connector-mcp"
+  ]
+ },
+ {
+  "slug": "meta-ads-library",
+  "term": "Meta Ads Library",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta's public, searchable archive of every active ad, useful for checking what competitors are running.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Let's check the Meta Ads Library to see what other resorts nearby are running.",
+  "aliases": [],
+  "owner": "Shows what competitors are running, useful for the owner's positioning.",
+  "example": null,
+  "related": [
+   "comp-set",
+   "creative"
+  ]
+ },
+ {
+  "slug": "meta-attributed-bookings",
+  "term": "Meta-attributed bookings",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Bookings tied to Meta through link-in-bio, a promo code or a UTM rather than the pixel.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "These Meta-attributed bookings came through promo codes, not the pixel.",
+  "aliases": [],
+  "owner": "Bookings the owner can trace to Meta without relying on the pixel.",
+  "example": null,
+  "related": [
+   "link-in-bio",
+   "promo-code",
+   "utm",
+   "cost-per-meta-attributed-booking"
+  ]
+ },
+ {
+  "slug": "mof-lookalike-sales-campaign",
+  "term": "MoF lookalike sales campaign",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "A sales-objective campaign aimed at lookalikes, with no band of its own, scored on the retargeting ROAS bands.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The MoF lookalike sales campaign is scored against the retargeting ROAS bands.",
+  "aliases": [],
+  "owner": "Reaches new people similar to past guests with a direct booking offer.",
+  "example": null,
+  "related": [
+   "lookalike-audience",
+   "sales-retargeting-campaign",
+   "roas-return-on-ad-spend"
+  ]
+ },
+ {
+  "slug": "new-vs-total-leads",
+  "term": "New vs total leads",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "First-time leads against every Lead event, including leads from Instagram tags.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Total leads look high, but new leads are flat — most are people we already had.",
+  "aliases": [],
+  "owner": "Shows whether the owner's list is growing or just hearing from the same people again.",
+  "example": null,
+  "related": [
+   "cpl",
+   "lead-gen-campaign"
+  ]
+ },
+ {
+  "slug": "objective",
+  "term": "Objective",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The outcome Meta optimises delivery for, such as leads, sales, awareness or engagement.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The objective tells Meta what to optimise for, so pick sales if bookings are the goal.",
+  "aliases": [],
+  "owner": "Tells Meta what to spend the owner's budget trying to get, so the wrong one buys the wrong result.",
+  "example": null,
+  "related": [
+   "campaign-meta",
+   "results",
+   "cost-per-result"
+  ]
+ },
+ {
+  "slug": "percent-of-booking-value",
+  "term": "Percent of booking value",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Meta spend as a share of booking revenue.",
+  "formula": "Meta spend ÷ Booking revenue × 100",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Meta spend as a percent of booking value lets the owner compare ad cost with what an OTA would take.",
+  "aliases": [],
+  "owner": "Puts the owner's Meta spend in the same terms as an OTA commission.",
+  "example": "Illustrative month of Meta ads: $6,000 Meta spend ÷ $36,000 booking revenue × 100 = 16.7%.",
+  "related": [
+   "effective-commission-ec",
+   "blended-roas",
+   "direct-booking-revenue"
+  ]
+ },
+ {
+  "slug": "pixel-cross-contamination",
+  "term": "Pixel cross-contamination",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "Another client's domain firing events into a pixel, usually from a cloned GHL funnel still carrying the old pixel ID.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "We found pixel cross-contamination — another client's site is firing into this pixel.",
+  "aliases": [],
+  "owner": "Another business's data landing in the owner's pixel distorts their results until it's fixed.",
+  "example": null,
+  "related": [
+   "ghl-funnel-gohighlevel-funnel",
+   "sending-host",
+   "split-or-duplicate-pixels"
+  ]
+ },
+ {
+  "slug": "pixel-roas",
+  "term": "Pixel ROAS",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "ROAS as Meta's pixel reports it, from the revenue Meta attributes to ads.",
+  "formula": "Purchase conversion value ÷ Ad spend",
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Pixel ROAS is what Meta reports, so we always say which ROAS we mean.",
+  "aliases": [],
+  "owner": "Meta's own estimate of the revenue its ads brought; usually higher than what the owner's books show.",
+  "example": "Illustrative month of Meta ads: $48,000 purchase conversion value ÷ $6,000 spend = 8.",
+  "related": [
+   "blended-roas",
+   "roas-return-on-ad-spend",
+   "purchase-conversion-value"
+  ]
+ },
+ {
+  "slug": "placements",
+  "term": "Placements",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Where an ad appears — Feed, Stories, Reels, Audience Network; Advantage+ placements lets Meta choose.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Reels placements are doing well for this property, so let's give them more of the budget.",
+  "aliases": [],
+  "owner": "Where the owner's ads appear; some suit the property's content far better than others.",
+  "example": null,
+  "related": [
+   "ad-set",
+   "creative"
+  ]
+ },
+ {
+  "slug": "primary-text-ad-copy",
+  "term": "Primary text (ad copy)",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The main body text that sits above an ad's creative.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The primary text should say why this stay is different in the first line.",
+  "aliases": [],
+  "owner": "Where the owner's story gets told in words; the first line has to earn the rest.",
+  "example": null,
+  "related": [
+   "headline",
+   "creative",
+   "cta-call-to-action"
+  ]
+ },
+ {
+  "slug": "purchase-conversion-value",
+  "term": "Purchase conversion value",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The booking revenue Meta attributes to an ad through purchase events.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Purchase conversion value is the booking revenue Meta credits to the ads.",
+  "aliases": [],
+  "owner": "Meta's estimate of booking revenue from the ads, not the owner's actual books.",
+  "example": null,
+  "related": [
+   "pixel-roas",
+   "direct-booking-revenue"
+  ]
+ },
+ {
+  "slug": "results",
+  "term": "Results",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The count of whatever outcome the campaign's objective is set to, such as leads or purchases.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "In Ads Manager, results means whatever the objective counts — leads here, not bookings.",
+  "aliases": [],
+  "owner": "Only as useful as the outcome being counted; leads and bookings aren't the same result.",
+  "example": null,
+  "related": [
+   "objective",
+   "cost-per-result"
+  ]
+ },
+ {
+  "slug": "sales-retargeting-campaign",
+  "term": "Sales / Retargeting campaign",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "HGM's bottom-of-funnel campaign type on the sales objective, retargeting site visitors, scored on ROAS over 14 days.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026) — the 14-day ROAS window is stated in Shawal's doc, checked 29 Sep 2026. The Benchmarks doc itself wasn't reachable.",
+  "usage": "The Sales / Retargeting campaign shows ads to people who've already visited the website, so we judge it on ROAS.",
+  "aliases": [],
+  "owner": "Brings back people who already visited the owner's site, the closest ads get to a booking.",
+  "example": null,
+  "related": [
+   "retargeting-vs-prospecting",
+   "roas-return-on-ad-spend",
+   "scoring-window"
+  ]
+ },
+ {
+  "slug": "scoring-window",
+  "term": "Scoring window",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The lookback period HGM scores each campaign type over; accounts read from a CSV fallback use a 21-day provisional window.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026) — the 21-day CSV fallback window is stated in Shawal's doc, checked 29 Sep 2026. The Benchmarks doc itself wasn't reachable.",
+  "usage": "This account is on the CSV fallback, so it's using a shorter scoring window for now.",
+  "aliases": [],
+  "owner": "Judges each campaign over a fair stretch of time, so one good or bad week doesn't decide it.",
+  "example": null,
+  "related": [
+   "lead-gen-campaign",
+   "sales-retargeting-campaign",
+   "spend-gate"
+  ]
+ },
+ {
+  "slug": "sending-host",
+  "term": "Sending host",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The domain a pixel's events come from, checked against the domains expected for that client.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Check the sending host — events should only come from the client's own domains.",
+  "aliases": [],
+  "owner": "Confirms the owner's pixel is only hearing from the owner's own sites.",
+  "example": null,
+  "related": [
+   "accepted-secondary-hosts",
+   "pixel-cross-contamination"
+  ]
+ },
+ {
+  "slug": "server-events-vs-browser-events",
+  "term": "Server events vs browser events",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "The two routes events reach Meta — the browser through the pixel, the server through CAPI — matched by a shared event ID so one booking isn't counted twice.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "We're getting browser events but no server events, which means CAPI isn't connected yet.",
+  "aliases": [],
+  "owner": "Having both keeps the owner's bookings counted once and counted reliably.",
+  "example": null,
+  "related": [
+   "capi-conversions-api",
+   "pixel",
+   "emq-event-match-quality"
+  ]
+ },
+ {
+  "slug": "silent-pixel",
+  "term": "Silent pixel",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "A pixel sending zero or very few events for a client who is live.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "That client is live but the pixel is silent — something is broken on the site.",
+  "aliases": [],
+  "owner": "Something on the owner's site is broken and bookings aren't being seen.",
+  "example": null,
+  "related": [
+   "pixel",
+   "split-or-duplicate-pixels",
+   "sending-host"
+  ]
+ },
+ {
+  "slug": "spend-gate",
+  "term": "Spend gate",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The minimum spend a campaign needs in its window before HGM scores it; below it, its state reads Under gate.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The campaign hasn't cleared the spend gate yet, so don't read too much into its numbers.",
+  "aliases": [],
+  "owner": "Stops a campaign being judged before it has spent enough to mean anything.",
+  "example": null,
+  "related": [
+   "scoring-window",
+   "governing-metric",
+   "learning-phase"
+  ]
+ },
+ {
+  "slug": "spend-check-flags-match-warning-critical-blocker",
+  "term": "Spend-check flags (Match, Warning, Critical, Blocker)",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "The four flags HGM's ad spend check raises, set by the gap between documented and live budget and by any spend on accounts marked Not Live or Paused.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The spend check raised a Critical flag on this account, so it needs a look.",
+  "aliases": [],
+  "owner": "A quick signal of whether the owner's spend matches what was agreed.",
+  "example": null,
+  "related": [
+   "dark-account",
+   "documented-vs-live-budget",
+   "diff-status-new-still-open-fixed"
+  ]
+ },
+ {
+  "slug": "split-or-duplicate-pixels",
+  "term": "Split or duplicate pixels",
+  "tier": "C",
+  "section": 7,
+  "origin": "HGM",
+  "gloss": "One client running two live pixels, so the funnel is either divided between them or counted twice.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "This client has split pixels, so half the funnel is reporting to the wrong place.",
+  "aliases": [],
+  "owner": "Splits or double-counts the owner's results, so reports can't be trusted until it's fixed.",
+  "example": null,
+  "related": [
+   "silent-pixel",
+   "pixel-cross-contamination",
+   "pixel"
+  ]
+ },
+ {
+  "slug": "standard-events",
+  "term": "Standard events",
+  "tier": "C",
+  "section": 7,
+  "origin": "New",
+  "gloss": "Meta's predefined names for site actions — PageView, ViewContent, Lead, InitiateCheckout, Purchase and so on.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Make sure the Purchase standard event fires on the confirmation page, not the checkout page.",
+  "aliases": [],
+  "owner": "Named steps a guest takes on the site; the Purchase event has to fire at the right moment for bookings to count.",
+  "example": null,
+  "related": [
+   "custom-conversion",
+   "pixel",
+   "server-events-vs-browser-events"
+  ]
+ },
+ {
+  "slug": "crm-tools",
+  "term": "CRM tools",
+  "tier": "A",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Where guest data is held and segmented for marketing; Revinate, Cendyn.",
+  "formula": null,
+  "source": null,
+  "usage": "Which CRM tool holds your guest list? We could use it to invite past guests back.",
+  "aliases": [],
+  "owner": "Where the owner's guest list lives, and the difference between a one-time guest and a relationship.",
+  "example": null,
+  "related": [
+   "first-party-data",
+   "guest-profile",
+   "hgm-s-own-stack",
+   "reputation-tools"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "HGM's own CRM is GoHighLevel, which the Client FAQs describe as HGM's customised CRM used for clients free of charge; a property's own hotel CRM is a separate system to connect to or export from.",
+   "confusions": "A hotel CRM (Revinate, Cendyn) holds guest records from the PMS; GoHighLevel is HGM's marketing CRM for leads and email.",
+   "links": []
+  }
+ },
+ {
+  "slug": "guest-messaging-tools",
+  "term": "Guest messaging tools",
+  "tier": "A",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Pre-arrival and in-stay messaging to the guest; Duve, and Whistle (now part of Cloudbeds).",
+  "formula": null,
+  "source": "Whistle's acquisition by Cloudbeds (June 2022): PhocusWire, checked 25 Sep 2026; GlobeNewswire release, checked 29 Sep 2026.",
+  "usage": "Your guest messaging tool is a good place to offer upgrades before arrival.",
+  "aliases": [],
+  "owner": "Keeps the guest experience personal as the property grows, and gives the owner a pre-arrival moment to sell extras.",
+  "example": null,
+  "related": [
+   "pre-arrival-sequence",
+   "upsell-tools",
+   "the-tools-map"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "Pre-arrival is where HGM places upsells and expectation-setting (the pre-arrival sequence).",
+   "confusions": "Guest messaging is one-to-one during the stay window; email marketing is one-to-many.",
+   "links": [
+    {
+     "title": "Cloudbeds acquires Whistle (GlobeNewswire)",
+     "url": "https://www.globenewswire.com/news-release/2022/06/27/2469456/0/en/Cloudbeds-Acquires-Whistle-Moves-to-Solve-Friction-in-Guest-Journey.html",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "rate-shopping-and-market-intelligence-tools",
+  "term": "Rate shopping and market intelligence tools",
+  "tier": "A",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Watching comp-set rates automatically; Lighthouse, formerly OTA Insight.",
+  "formula": null,
+  "source": "Lighthouse, rebrand from OTA Insight (Nov 2023), checked 29 Sep 2026.",
+  "usage": "A rate shopping tool would show you what the resorts around you are charging each night.",
+  "aliases": [],
+  "owner": "Shows the owner what the market is charging each night, which is context rather than a pricing rule.",
+  "example": null,
+  "related": [
+   "rate-shopping",
+   "comp-set",
+   "benchmarking-tools",
+   "dynamic-pricing"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine treats comp-set data as 'a guardrail, never a driver' and runs only a manual quarterly check (revenue-management.md §13).",
+   "confusions": "Rate shopping tools show competitors' prices; benchmarking tools (STR) show their performance.",
+   "links": [
+    {
+     "title": "OTA Insight rebrands as Lighthouse",
+     "url": "https://www.mylighthouse.com/resources/blog/ota-insight-rebrands-as-lighthouse-to-illuminate-new-capabilities-and-launch-of-a-unified-commercial-platform",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "the-tools-map",
+  "term": "The tools map",
+  "tier": "A",
+  "section": 8,
+  "origin": "New",
+  "gloss": "PMS, channel manager, booking engine, dynamic pricing — what each does and which names sit where.",
+  "formula": null,
+  "source": "PMS, channel manager, booking engine and CRS documentation from RoomMaster, SiteMinder, Inntopia and HotelSystemsGuide, 19 Sep 2026",
+  "usage": "Which PMS, channel manager and booking engine are you on? That tells us what we can connect to.",
+  "aliases": [],
+  "owner": "Knowing which systems the owner runs tells you what HGM can connect to and where their data lives.",
+  "example": null,
+  "related": [
+   "crs-central-reservation-system",
+   "dynamic-pricing",
+   "crm-tools",
+   "payments"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "The doctrine needs PMS sync and booking-engine events feeding Meta CAPI before activation (revenue-management.md §3.1). The HGM Client Tech Stack Guide puts vendor names to each category.",
+   "confusions": "The PMS runs the property; the channel manager pushes rates and availability to OTAs; the booking engine takes direct bookings on the owner's site. One vendor, such as Cloudbeds, can do all three.",
+   "links": []
+  }
+ },
+ {
+  "slug": "upsell-tools",
+  "term": "Upsell tools",
+  "tier": "A",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Paid upgrades before and at arrival; Oaky (part of Plusgrade since 2025).",
+  "formula": null,
+  "source": "PR Newswire, Plusgrade acquires Oaky (Oct 2025), checked 29 Sep 2026.",
+  "usage": "An upsell tool can offer a room upgrade automatically a few days before check-in.",
+  "aliases": [],
+  "owner": "Adds revenue per stay automatically, without staff having to sell.",
+  "example": null,
+  "related": [
+   "upsell",
+   "pre-arrival-sequence",
+   "guest-messaging-tools"
+  ],
+  "core": {
+   "worked": [],
+   "hgm": "Pairs with HGM's pre-arrival sequence; the doctrine keeps ancillary revenue management itself out of scope for v1 (revenue-management.md §13).",
+   "confusions": "An upsell tool sells paid upgrades; a guest messaging tool handles conversation. Some platforms do both.",
+   "links": [
+    {
+     "title": "Plusgrade acquires Oaky (PR Newswire)",
+     "url": "https://www.prnewswire.com/news-releases/plusgrade-acquires-oaky-strengthening-its-position-as-a-global-leader-in-hospitality-upselling-302574955.html",
+     "checked": "29 Sep 2026"
+    }
+   ]
+  }
+ },
+ {
+  "slug": "otas-and-niche-marketplaces",
+  "term": "OTAs and niche marketplaces",
+  "tier": "B",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Booking.com, Expedia, Airbnb, Vrbo, plus Hipcamp, Glamping Hub, Mr & Mrs Smith.",
+  "formula": null,
+  "source": "Mr & Mrs Smith has been owned by Hyatt since June 2023 (LoyaltyLobby), checked 29 Sep 2026.",
+  "usage": "Which OTAs and niche marketplaces are you listed on — just the big ones, or glamping sites too?",
+  "aliases": [],
+  "owner": "Each listing brings visibility and a commission; niche marketplaces can reach guests the big OTAs don't.",
+  "example": null,
+  "related": [
+   "ota-online-travel-agency",
+   "channel-mix",
+   "billboard-effect"
+  ]
+ },
+ {
+  "slug": "accounting-systems",
+  "term": "Accounting systems",
+  "tier": "C",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Where the P&L is actually assembled.",
+  "formula": null,
+  "source": null,
+  "usage": "Your accounting system is where the real P&L lives, so that's where the final numbers come from.",
+  "aliases": [],
+  "owner": "Where the owner's real P&L lives, and the final word on the numbers.",
+  "example": null,
+  "related": [
+   "usali",
+   "the-profit-ladder"
+  ]
+ },
+ {
+  "slug": "activity-booking-systems",
+  "term": "Activity booking systems",
+  "tier": "C",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Scheduling and payment for tours, rentals and on-property experiences.",
+  "formula": null,
+  "source": null,
+  "usage": "If guests book tours through an activity booking system, we can promote those experiences too.",
+  "aliases": [],
+  "owner": "If experiences can be booked online, they can be marketed and sold ahead of the stay.",
+  "example": null,
+  "related": [
+   "ancillary-revenue",
+   "spa-booking-systems"
+  ]
+ },
+ {
+  "slug": "ads-manager-export",
+  "term": "Ads Manager export",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "The weekly CSV of campaign and ad set spend, budgets, purchases and leads, used where the connector can't read an account.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Pull the Ads Manager export for that account, since the connector can't read it.",
+  "aliases": [],
+  "owner": "A fallback that keeps the owner's reporting going when a live connection isn't possible.",
+  "example": null,
+  "related": [
+   "mcp-disabled-account",
+   "meta-connector-mcp"
+  ]
+ },
+ {
+  "slug": "benchmarking-tools",
+  "term": "Benchmarking tools",
+  "tier": "C",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Comp-set performance reporting; STR (part of CoStar) for hotels, KeyData for vacation and short-term rentals.",
+  "formula": null,
+  "source": "CoStar STR Benchmark and keydata.co, checked 29 Sep 2026. No outdoor-hospitality benchmark was found.",
+  "usage": "A benchmarking tool would show how you compare with similar properties nearby.",
+  "aliases": [],
+  "owner": "Shows how the owner's performance compares with similar properties, if they subscribe to one.",
+  "example": null,
+  "related": [
+   "comp-set",
+   "mpi-market-penetration-index",
+   "rate-shopping-and-market-intelligence-tools"
+  ]
+ },
+ {
+  "slug": "benchmarks-doc",
+  "term": "Benchmarks doc",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "HGM's Google Doc of campaign benchmarks, holding the Decision Making table.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The Benchmarks doc sets what good looks like for each campaign type.",
+  "aliases": [],
+  "owner": "Sets what good looks like for each campaign type, so every owner's results are judged the same way.",
+  "example": null,
+  "related": [
+   "decision-making-table",
+   "governing-metric"
+  ]
+ },
+ {
+  "slug": "campground-and-glamping-systems",
+  "term": "Campground and glamping systems",
+  "tier": "C",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Newbook, Campspot — the world a glamping client's stack usually comes from.",
+  "formula": null,
+  "source": null,
+  "usage": "Glamping clients often run on campground systems, which work differently from hotel software.",
+  "aliases": [],
+  "owner": "Glamping owners often run on campground software, which changes what HGM can connect to.",
+  "example": null,
+  "related": [
+   "the-tools-map",
+   "micro-resort"
+  ]
+ },
+ {
+  "slug": "client-performance-tracking-sheet",
+  "term": "Client Performance Tracking sheet",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "HGM's Google Sheet of client booking revenue, the source for blended ROAS.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Blended ROAS comes from the Client Performance Tracking sheet, not from Meta.",
+  "aliases": [],
+  "owner": "Holds the owner's booking revenue, the basis for the ROAS they can trust.",
+  "example": null,
+  "related": [
+   "blended-roas",
+   "direct-booking-revenue"
+  ]
+ },
+ {
+  "slug": "crm-sheet",
+  "term": "CRM sheet",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "HGM's Google Sheet of client records, including whether each has a Basic or Advanced Meta setup.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Check the CRM sheet to see whether this client has a Basic or Advanced setup.",
+  "aliases": [],
+  "owner": "Keeps each owner's setup on record, so whoever picks up the account knows what's been built.",
+  "example": null,
+  "related": [
+   "basic-vs-advanced-setup",
+   "master-meta-ads-sheet"
+  ]
+ },
+ {
+  "slug": "direct-booking-conversion-tools",
+  "term": "Direct-booking conversion tools",
+  "tier": "C",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Price comparison and nudges on the property's own site; Triptease, The Hotels Network.",
+  "formula": null,
+  "source": null,
+  "usage": "A direct-booking conversion tool shows guests they're getting the best price on your own site.",
+  "aliases": [],
+  "owner": "Helps turn visitors on the owner's own site into direct bookings instead of OTA ones.",
+  "example": null,
+  "related": [
+   "direct-booking-widget",
+   "look-to-book",
+   "best-rate-guarantee"
+  ]
+ },
+ {
+  "slug": "hg-ai-hidden-gem-ai",
+  "term": "HG AI (Hidden Gem AI)",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "The tool a campaign is handed to when it reaches a Review or Scale state.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "Once a campaign reaches Review, it's handed to HG AI for a closer look.",
+  "aliases": [],
+  "owner": "Where a campaign goes for a closer look when it's ready to review or scale.",
+  "example": null,
+  "related": [
+   "governing-metric",
+   "decision-making-table"
+  ]
+ },
+ {
+  "slug": "hgm-s-own-stack",
+  "term": "HGM's own stack",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "GoHighLevel, ManyChat, Meta pixel and CAPI — what HGM connects into the above.",
+  "formula": null,
+  "source": null,
+  "usage": "Our own stack is what plugs into your booking tools, so it helps to know which pieces we use.",
+  "aliases": [],
+  "owner": "The pieces HGM plugs into the owner's systems, so it's useful to know what connects where.",
+  "example": null,
+  "related": [
+   "ghl-funnel-gohighlevel-funnel",
+   "capi-conversions-api",
+   "the-tools-map"
+  ]
+ },
+ {
+  "slug": "master-meta-ads-sheet",
+  "term": "Master Meta Ads sheet",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "HGM's Google Sheet recording each client's documented Meta budget and status.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The Master Meta Ads sheet holds the agreed budget, so that's what we check the live spend against.",
+  "aliases": [],
+  "owner": "Holds the budget the owner agreed to, which live spend is checked against.",
+  "example": null,
+  "related": [
+   "documented-vs-live-budget",
+   "crm-sheet"
+  ]
+ },
+ {
+  "slug": "meta-connector-mcp",
+  "term": "Meta connector (MCP)",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "The claude.ai connection that reads Meta ad accounts, campaigns and datasets live.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The Meta connector reads the ad accounts live, so the weekly check is up to date.",
+  "aliases": [],
+  "owner": "Lets HGM read the owner's ad accounts live, so weekly checks are current.",
+  "example": null,
+  "related": [
+   "mcp-disabled-account",
+   "ads-manager-export"
+  ]
+ },
+ {
+  "slug": "notes-by-gemini",
+  "term": "Notes by Gemini",
+  "tier": "C",
+  "section": 8,
+  "origin": "HGM",
+  "gloss": "The auto-generated meeting notes attached to HGM's Strategy and Sync calendar events.",
+  "formula": null,
+  "source": "Shawal Nazir, Meta Ads Terms (Google Doc, last edited 23 Sep 2026)",
+  "usage": "The action items are in the Notes by Gemini from Tuesday's sync.",
+  "aliases": [],
+  "owner": "Means decisions made about an owner's account on a call are written down and can be found later.",
+  "example": null,
+  "related": [
+   "benchmarks-doc"
+  ]
+ },
+ {
+  "slug": "payments",
+  "term": "Payments",
+  "tier": "C",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Card capture and processing inside the PMS.",
+  "formula": null,
+  "source": null,
+  "usage": "If payments are handled inside your PMS, deposits can be taken the moment someone books.",
+  "aliases": [],
+  "owner": "Taking deposits at booking protects the owner from no-shows.",
+  "example": null,
+  "related": [
+   "deposit-policy",
+   "the-tools-map",
+   "distribution-cost"
+  ]
+ },
+ {
+  "slug": "reputation-tools",
+  "term": "Reputation tools",
+  "tier": "C",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Review aggregation and response; Revinate, TrustYou.",
+  "formula": null,
+  "source": null,
+  "usage": "A reputation tool pulls all your reviews into one place so nothing goes unanswered.",
+  "aliases": [],
+  "owner": "Keeps every review in one place so none goes unanswered.",
+  "example": null,
+  "related": [
+   "review-score",
+   "crm-tools",
+   "post-stay-sequence"
+  ]
+ },
+ {
+  "slug": "spa-booking-systems",
+  "term": "Spa booking systems",
+  "tier": "C",
+  "section": 8,
+  "origin": "New",
+  "gloss": "Scheduling and payment for treatments; Book4Time, Mindbody.",
+  "formula": null,
+  "source": null,
+  "usage": "If spa treatments can be booked online, we can promote them in the pre-arrival email.",
+  "aliases": [],
+  "owner": "Online spa booking makes treatments easy to sell before arrival.",
+  "example": null,
+  "related": [
+   "ancillary-revenue",
+   "pre-arrival-sequence",
+   "activity-booking-systems"
+  ]
+ },
+ {
+  "slug": "opportunity-cost",
+  "term": "Opportunity cost",
+  "tier": "B",
+  "section": 9,
+  "origin": "Carry",
+  "gloss": "The value of the best option you gave up by choosing another. In hospitality, it's usually the revenue a room, date or budget could have earned if it had been used differently.",
+  "formula": null,
+  "source": null,
+  "usage": "Holding that weekend for a possible wedding has an opportunity cost — the guests you turn away in the meantime.",
+  "aliases": [],
+  "owner": "Every choice about a room, a date or a budget gives something else up; naming it helps the owner make the trade on purpose.",
+  "example": null,
+  "related": [
+   "displacement",
+   "fixed-vs-variable-cost",
+   "buyout"
+  ]
+ },
+ {
+  "slug": "asset-manager-vs-founder-operator",
+  "term": "Asset manager vs founder-operator",
+  "tier": "C",
+  "section": 9,
+  "origin": "New",
+  "gloss": "The mindset HGM's ICP is defined against.",
+  "formula": null,
+  "source": null,
+  "usage": "You're not an asset manager looking at a spreadsheet — you built this place, and that changes how we talk about it.",
+  "aliases": [],
+  "owner": "HGM's ICP is the founder who cares about the place, not just the spreadsheet, which changes how every number should be framed.",
+  "example": null,
+  "related": [
+   "owner-operator-founder",
+   "who-you-are-talking-to",
+   "reit"
+  ]
+ },
+ {
+  "slug": "exit-vocabulary",
+  "term": "Exit vocabulary",
+  "tier": "C",
+  "section": 9,
+  "origin": "New",
+  "gloss": "NOI multiple, resort equity value, portfolio expansion — why NOI matters emotionally.",
+  "formula": null,
+  "source": null,
+  "usage": "Even if you never sell, knowing the exit vocabulary helps you see why growing NOI matters.",
+  "aliases": [],
+  "owner": "Even owners who never plan to sell care what the business is worth; NOI and multiples are how that's measured.",
+  "example": null,
+  "related": [
+   "noi-net-operating-income",
+   "cap-rate",
+   "sale-multiple"
+  ]
+ },
+ {
+  "slug": "owner-operator-founder",
+  "term": "Owner-operator founder",
+  "tier": "C",
+  "section": 9,
+  "origin": "HGM",
+  "gloss": "Someone whose dream was to build this stay, who cares about the place and not just the spreadsheet.",
+  "formula": null,
+  "source": null,
+  "usage": "As an owner-operator founder, you care about the place as much as the numbers, and our marketing should reflect that.",
+  "aliases": [],
+  "owner": "Their dream was to build this stay; icp.md says they 'care about the place, not just the spreadsheet', so lead with the place and bring the numbers in support.",
+  "example": null,
+  "related": [
+   "asset-manager-vs-founder-operator",
+   "management-company-vs-owner-operator",
+   "boutique"
+  ]
+ }
+]

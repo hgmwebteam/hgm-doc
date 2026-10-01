@@ -1,4 +1,5 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller } from "../lib/reporting.mts";
+import { CLIENT_COLUMN_LADDER, clientView, readDownLadder } from "../lib/ticket-columns.mts";
 
 /**
  * A client withdraws their own request.
@@ -23,13 +24,9 @@ import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFr
  * closed again as withdrawn.
  *
  * POST application/json { slug, reference, confirm: true } + Authorization: Bearer <session token> -> { ticket }
+ * (for a client, without promised_date, assignee_name, assignee_email or completed_by: ticket-columns.mts)
  */
 
-/** Kept in step with ticket-create.mts and ticket-detail.mts, which hand back the same row.
- *  Internal routing columns (tenant_id, portal_client_id, asana_*, derived_subject, routed_at,
- *  route_error) are absent by construction rather than stripped afterwards. */
-const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, image_count, drive_folder_url, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, account_manager_name, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
 
 /** Matches OPEN_STATUSES in src/pages/client/help/help-model.ts, where canWithdraw() shows or
  *  hides the button. That copy decides what a client is offered; this one decides what
@@ -63,12 +60,13 @@ export default async (req: Request) => {
 
         // Scoped by the verified slug, so a reference belonging to another client is a 404
         // and not a way to find out that it exists.
-        const { data: ticket, error } = await db
-            .from("tickets")
-            .select(TICKET_COLUMNS)
-            .eq("reference", reference)
-            .eq("client_slug", gate.caller.slug)
-            .maybeSingle();
+        // The same row ticket-create and ticket-detail hand back (ticket-columns.mts), plus
+        // the pages and the websites, stepping down one hand-applied column at a time while
+        // one is not in the database yet; the update below selects back the list the read
+        // settled on. This list used to be its own copy and had drifted (no priority, no
+        // client_slug).
+        const read = (cols: string) => db.from("tickets").select(cols).eq("reference", reference).eq("client_slug", gate.caller.slug).maybeSingle();
+        const { data: ticket, error, columns } = await readDownLadder(CLIENT_COLUMN_LADDER, read);
 
         if (error) {
             console.error("[ticket-withdraw] read failed", error.message);
@@ -76,7 +74,7 @@ export default async (req: Request) => {
         }
         if (!ticket) return jsonError(404, "We could not find a request with that reference.");
 
-        const current = ticket as { id: string; status: string; submitted_by: string | null };
+        const current = ticket as unknown as { id: string; status: string; submitted_by: string | null };
 
         if ((current.submitted_by ?? "").toLowerCase() !== gate.caller.email) {
             return jsonError(403, "Only the person who raised a request can withdraw it. Ask them, or speak to your account manager.");
@@ -92,7 +90,7 @@ export default async (req: Request) => {
             // The guard: if the team completed it in the meantime, this matches nothing and
             // the completion stands.
             .in("status", OPEN_STATUSES)
-            .select(TICKET_COLUMNS)
+            .select(columns)
             .maybeSingle();
 
         if (writeErr) {
@@ -116,7 +114,8 @@ export default async (req: Request) => {
         // that would leave the client pressing the button again on a closed request.
         if (eventErr) console.error("[ticket-withdraw] withdrawn event failed", eventErr.message, reference);
 
-        return Response.json({ ticket: updated });
+        // A client's answer, like ticket-detail's: no promised date and no assignee.
+        return Response.json({ ticket: clientView(updated as unknown as Record<string, unknown>, gate.via) });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-withdraw] not configured", err.message);

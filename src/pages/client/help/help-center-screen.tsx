@@ -9,8 +9,10 @@
  * The home is built node for node from "Desktop · Light / 1 Help home" (1440) and
  * "Mobile · Light / 390 Help home" in the file "Reporting System", on the atoms in
  * help-atoms.tsx and the tokens in help-centre.css, and an automated proof holds the
- * rendered page against both frames. Copy is the frames', verbatim; the numbers on the
- * position card are the client's own tickets (help-model.ts, "home screen").
+ * rendered page against both frames. Copy is the frames', verbatim, except where the owner
+ * changed it (28 Sep 2026: no date, estimate or named owner is promised to a client, and one
+ * category); the proof carries those as owner changes. The numbers on the position card are
+ * the client's own tickets (help-model.ts, "home screen").
  *
  * ── WHY THE SHELL WRAPS RATHER THAN GETS IMPORTED ───────────────────────────
  * HelpCenterScreen owns the gate, the one fetch of topics and tickets, and the page chrome,
@@ -22,8 +24,9 @@
  * ── NO ASSISTANT, ANYWHERE ──────────────────────────────────────────────────
  * There is deliberately no chat box, no "ask Jarvis", and no message composer aimed at us
  * on any of these screens. Jarvis never messages a client and a client never messages
- * Jarvis; the only channel here is a request, which becomes a ticket with a named owner.
+ * Jarvis; the only channel here is a request, which becomes a ticket the team works on.
  * If a box for typing at an assistant ever appears on this page, it is a bug.
+ * Jarvis never messages a client in Chat; HiddenGem Media sends one fixed-template completion email to the address entered on the request.
  *
  * ── BOTH THEMES ─────────────────────────────────────────────────────────────
  * Every colour on the home is a --hc-* token, so the page flips with the portal's
@@ -35,11 +38,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { ArrowNarrowLeft } from "@untitledui-pro/icons/line";
-import { Link, Navigate, useParams, useSearchParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
 import { Button, Card, Chevron, type Crumb, Eyebrow, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
 import { HELP_GUIDES, HelpGuidePage, findHelpGuide } from "@/pages/client/help/help-center-guides";
-import { RequestForm, RequestSent } from "@/pages/client/help/help-form";
+import { RequestForm, RequestSent, type SentExtras, sentExtrasFrom } from "@/pages/client/help/help-form";
 import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
 import {
     type CallerProof,
@@ -61,13 +64,15 @@ import {
     type Ticket,
     type TicketCounts,
     type TicketTopic,
-    averageDaysLabel,
     completedThisMonthTickets,
     countsFor,
-    nextDueLabel,
-    ticketsWithOwner,
+    lastCompletedLine,
+    underwayLine,
+    underwayTickets,
     type Priority,
 } from "@/pages/client/help/help-model";
+import { type Website, submitterNamePrefill } from "@/pages/client/help/request-rules";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
 import { ErrorNote, HelpRequestsScreen, HelpSpinner } from "@/pages/client/help/help-requests-screen";
 import { cx } from "@/utils/cx";
@@ -367,8 +372,17 @@ const TopicTiles = ({ topics, slug }: { topics: TicketTopic[]; slug: string }) =
     </ul>
 );
 
-/** /{slug}/help?raise=website, or ?raise=any for the button (the composer then shows the category selector). */
+/** /{slug}/help?raise=website, or ?raise=any for the button (the composer then shows the category selector, when there is more than one). */
 const raiseHref = (slug: string, topicKey: string | "any"): string => `/${slug}/help?raise=${encodeURIComponent(topicKey)}`;
+
+/**
+ * The Raise a request card's line under its heading: a choice only when there is one to make
+ * (owner, 28 Sep 2026: "there will only be Website and pages"). Read from the active topics,
+ * never a key written here, so a second category brings the frame's words back. The form
+ * makes the same call: with one active category it draws no Category field (help-form.tsx).
+ */
+const raiseLede = (topics: TicketTopic[]): string =>
+    topics.length > 1 ? "Select a category. Each routes directly to the team accountable for it." : "Every request routes directly to the team accountable for it.";
 
 /**
  * One Stat row inside Card/Open right now: bg/secondary, radius/lg, padding 12, gap 12.
@@ -376,7 +390,7 @@ const raiseHref = (slug: string, topicKey: string | "any"): string => `/${slug}/
  * label/field in the utility foreground; the Words are label/field over body/helper.
  *
  * The count is read once: it is inside the row's text, so the row announces "2 In
- * progress, Next due 12 September" with nothing repeated and nothing hidden.
+ * progress, With the team now" with nothing repeated and nothing hidden.
  */
 const StatRow = ({ count, label, detail, tone, to }: { count: number; label: string; detail: string; tone: "warning" | "success"; to: string }) => (
     // The row is a link to the list it summarises. The 390 frame draws no "View all
@@ -406,10 +420,10 @@ const StatRow = ({ count, label, detail, tone, to }: { count: number; label: str
  * the primary Button (FILL), the helper line and "View all requests"; the 390 frame
  * draws the card with the two stats alone (the button sits under the heading there).
  *
- * The numbers are the client's own: "In progress" is what an owner has, "Next due" the
- * earliest promised date among those, "Completed this month" this calendar month's
- * completions and the mean days from raised to done over them (help-model.ts, under
- * "home screen").
+ * The numbers are the client's own: "In progress" is what the team has taken on, "Completed
+ * this month" this calendar month's completions and the day of the latest (help-model.ts,
+ * under "home screen"). No date is ever a due date or an average: a client is shown the day a
+ * request was completed and nothing forward-looking (owner, 28 Sep 2026).
  */
 const CurrentPosition = ({ tickets, slug }: { tickets: Ticket[]; slug: string }) => (
     <Card as="section" className="flex w-full flex-col gap-3 sm:w-[344px] sm:shrink-0 sm:gap-4">
@@ -417,14 +431,14 @@ const CurrentPosition = ({ tickets, slug }: { tickets: Ticket[]; slug: string })
             Current position
         </h2>
         <ul className="flex w-full flex-col gap-3 sm:gap-4">
-            <StatRow count={ticketsWithOwner(tickets).length} label="In progress" detail={nextDueLabel(tickets)} tone="warning" to={`/${slug}/help/requests?filter=open`} />
-            <StatRow count={completedThisMonthTickets(tickets).length} label="Completed this month" detail={averageDaysLabel(tickets)} tone="success" to={`/${slug}/help/requests?filter=completed`} />
+            <StatRow count={underwayTickets(tickets).length} label="In progress" detail={underwayLine(tickets)} tone="warning" to={`/${slug}/help/requests?filter=open`} />
+            <StatRow count={completedThisMonthTickets(tickets).length} label="Completed this month" detail={lastCompletedLine(tickets)} tone="success" to={`/${slug}/help/requests?filter=completed`} />
         </ul>
         <div className="hidden sm:contents">
             <Button to={raiseHref(slug, "any")} fill>
                 Raise a request
             </Button>
-            <p className="hc-t-body-helper text-(--hc-text-tertiary)">The date is shown before submission.</p>
+            <p className="hc-t-body-helper text-(--hc-text-tertiary)">New requests appear in your list at once.</p>
             {/* body/helper at 20 tall as the frame draws it; the 44px target the build
                 notes ask for is the pseudo-element, which moves nothing. */}
             <Link
@@ -463,6 +477,10 @@ const GuidesRow = ({ slug }: { slug: string }) => (
     </nav>
 );
 
+/** The home's hero and lede (the desktop lede adds "No follow-up required."). */
+const HERO = "Every request is tracked until it is done.";
+const LEDE = "Raised here, sent to the team responsible, and visible until it closes.";
+
 /**
  * The home, node for node from "Desktop · Light / 1 Help home" and "Mobile · Light /
  * 390 Help home":
@@ -482,13 +500,14 @@ const GuidesRow = ({ slug }: { slug: string }) => (
  */
 const HelpHome = ({ tickets, topics, slug }: { tickets: Ticket[]; topics: TicketTopic[]; slug: string }) => (
     <div className="flex flex-col gap-6 sm:gap-10">
+        {/* The frame's hero promised "an owner and a date" and its lede "assigned within the
+            minute"; neither is shown to a client any more (owner, 28 Sep 2026), so the words
+            say what does hold: it is tracked, routed and visible until it closes. */}
         <header className="flex flex-col gap-2">
             <Eyebrow>HELP CENTER</Eyebrow>
-            <h1 className="hc-t-display-title sm:hc-t-display-hero w-full text-(--hc-text-primary)">Every request has an owner and a date.</h1>
-            <p className="hc-t-body-input text-(--hc-text-secondary) sm:hidden">Raised here, assigned within the minute, and visible until it closes.</p>
-            <p className="hc-t-body-helper hidden max-w-[680px] text-(--hc-text-secondary) sm:block">
-                Raised here, assigned within the minute, and visible until it closes. No follow-up required.
-            </p>
+            <h1 className="hc-t-display-title sm:hc-t-display-hero w-full text-(--hc-text-primary)">{HERO}</h1>
+            <p className="hc-t-body-input text-(--hc-text-secondary) sm:hidden">{LEDE}</p>
+            <p className="hc-t-body-helper hidden max-w-[680px] text-(--hc-text-secondary) sm:block">{`${LEDE} No follow-up required.`}</p>
         </header>
 
         <Button to={raiseHref(slug, "any")} fill className="sm:hidden">
@@ -500,7 +519,7 @@ const HelpHome = ({ tickets, topics, slug }: { tickets: Ticket[]; topics: Ticket
                 <h2 id="hc-raise" className="hc-t-heading-section text-(--hc-text-primary)">
                     Raise a request
                 </h2>
-                <p className="hc-t-body-helper hidden text-(--hc-text-tertiary) sm:block">Select a category. Each routes directly to the team accountable for it.</p>
+                <p className="hc-t-body-helper hidden text-(--hc-text-tertiary) sm:block">{raiseLede(topics)}</p>
                 <TopicTiles topics={topics} slug={slug} />
             </Card>
             <div className="order-1 flex w-full sm:order-2 sm:w-auto">
@@ -525,6 +544,8 @@ const Composer = ({
     topics,
     proof,
     clientName,
+    websites,
+    submitterName,
     isStaff,
     focusFirstField,
     onCancel,
@@ -535,10 +556,14 @@ const Composer = ({
     focusFirstField?: boolean;
     proof: CallerProof;
     clientName: string;
+    /** The websites this dashboard offers (viewer.websites): the form's checkboxes when there are 2 or more. */
+    websites: Website[];
+    /** What the Submitted by field starts with: the name known for this person, else empty. */
+    submitterName: string;
     /** Staff raise through the same form; the difference is on the server and in the lede. */
     isStaff: boolean;
     onCancel: () => void;
-    onCreated: (reference: string, title: string, priority: Priority | null) => void;
+    onCreated: (sent: CreatedRequest) => void;
 }) => (
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
         <button
@@ -558,21 +583,39 @@ const Composer = ({
             topics={topics}
             fixedTopic={topic ?? undefined}
             clientName={clientName}
+            websites={websites}
+            submitterName={submitterName}
             email={isStaff ? `${proof.email} (HiddenGem Media)` : proof.email}
+            viewerIsStaff={isStaff}
             onSubmit={async (input) => {
                 const res = await createTicket(proof, input);
-                return { reference: res.ticket.reference };
+                return { reference: res.ticket.reference, stored: sentExtrasFrom(res) };
             }}
-            onCreated={(reference, _slug, sent) => onCreated(reference, sent.title, sent.priority)}
+            onCreated={(reference, _slug, sent) =>
+                onCreated({
+                    reference,
+                    title: sent.title,
+                    priority: sent.priority,
+                    websites: sent.websites ?? null,
+                    urls: sent.urls ?? [],
+                    notifyEmail: sent.notifyEmail ?? null,
+                    files: sent.files ?? [],
+                    submittedByName: sent.submittedByName ?? "",
+                })
+            }
         />
     </div>
 );
+
+/** A request that just landed, as the success card shows it: what was sent, and what the server kept. */
+type CreatedRequest = { reference: string; title: string; priority: Priority | null } & SentExtras;
 
 /**
  * What a client sees the moment a request lands: the frame's success card. "Back to
  * portal" returns to the help home; "Report another ticket" reopens the composer.
  */
-const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { reference: string; title: string; priority: Priority | null }; clientName: string; onBack: () => void; onRaiseAnother: () => void }) => {
+const CreatedNote = ({ sent, clientName, slug, onRaiseAnother }: { sent: CreatedRequest; clientName: string; slug: string; onRaiseAnother: () => void }) => {
+    const navigate = useNavigate();
     const headingRef = useRef<HTMLDivElement>(null);
     // Focus moves to the confirmation so the outcome is announced. Submitting a form and
     // being dropped back at its top with no announcement is the classic silent success.
@@ -586,9 +629,17 @@ const CreatedNote = ({ sent, clientName, onBack, onRaiseAnother }: { sent: { ref
                 title={sent.title}
                 clientName={clientName}
                 priority={sent.priority}
+                files={sent.files}
+                urls={sent.urls}
+                completionEmail={sent.notifyEmail}
+                submittedByName={sent.submittedByName}
+                websites={sent.websites}
                 team={false}
                 primary={{ label: "Raise another request", onClick: onRaiseAnother }}
-                secondary={{ label: "Back to help centre", onClick: onBack }}
+                // The request's own page is where its status and the team's updates appear, so
+                // it is the next step; the help centre is one crumb up in the top bar.
+                secondary={{ label: "See this request", onClick: () => navigate(`/${slug}/help/requests/${sent.reference}`) }}
+                slug={slug}
             />
         </div>
     );
@@ -610,6 +661,9 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     // main.tsx's static PAGES_WITHOUT_FLOATING_CHROME array - this hook is the sanctioned
     // way for such a page to opt out.
     useSuppressFloatingThemeToggle();
+    // The Google account's own name, the second choice for the Submitted by field after the
+    // name the server holds for this person.
+    const { user: authUser } = useAuthUser();
 
     const [proof, setProof] = useState<CallerProof | null>(null);
     const [callerResolved, setCallerResolved] = useState(false);
@@ -635,7 +689,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const setFilter = (next: RequestFilter) => setFilterParams(next === "all" ? {} : { filter: next }, { replace: true });
     // After "Raise another request" the fresh composer puts focus on its first field.
     const [raiseAgain, setRaiseAgain] = useState(false);
-    const [created, setCreated] = useState<{ reference: string; title: string; priority: Priority | null } | null>(null);
+    const [created, setCreated] = useState<CreatedRequest | null>(null);
 
     /**
      * The composer is a URL, not a flag: /help?raise=website opens it with that category,
@@ -799,7 +853,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 <CreatedNote
                     sent={created}
                     clientName={viewer?.clientName || clientName}
-                    onBack={() => setCreated(null)}
+                    slug={slug}
                     onRaiseAnother={() => {
                         setCreated(null);
                         setRaiseAgain(true);
@@ -817,10 +871,12 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                     focusFirstField={raiseAgain}
                     proof={proof}
                     clientName={viewer?.clientName || clientName}
+                    websites={viewer?.websites ?? []}
+                    submitterName={submitterNamePrefill([viewer?.name, authUser?.name], proof.email)}
                     isStaff={isStaff}
                     onCancel={() => closeComposer()}
-                    onCreated={(ref, sentTitle, sentPriority) => {
-                        setCreated({ reference: ref, title: sentTitle, priority: sentPriority });
+                    onCreated={(sent) => {
+                        setCreated(sent);
                         // Replace, so the back button from the confirmation does not land
                         // on the emptied form as though nothing had been sent.
                         closeComposer(true);

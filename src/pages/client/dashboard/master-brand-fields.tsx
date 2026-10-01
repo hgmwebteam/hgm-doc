@@ -6,7 +6,7 @@
  * metadata and the compiler they pair with live in master-brand-document.ts.
  */
 import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
-import { Check, Trash01 } from "@untitledui-pro/icons/line";
+import { Check, Star01, Trash01 } from "@untitledui-pro/icons/line";
 import { BadgeWithDot } from "@/components/base/badges/badges";
 import { editInput } from "@/pages/client/dashboard/dashboard-chrome";
 import { type LocalFavorite, filled } from "@/pages/client/dashboard/dashboard-model";
@@ -52,20 +52,29 @@ export const DocSection = ({
     </section>
 );
 
-/** Marks the four sections an AM pastes in from the brand messaging workflow. */
-export const WorkflowBadge = () => (
-    <BadgeWithDot color="warning" size="sm" type="pill-color">
-        From brand messaging workflow
-    </BadgeWithDot>
+/** A plain star: nothing pulls this field from the client's forms or website, so an
+ *  account manager has to go find the answer themselves and type it in. Standalone (rather
+ *  than baked into one badge) so it can sit next to a badge, a heading, or on its own. */
+export const ManualStar = ({ title = "Nothing pulls this in automatically — fill it in by hand" }: { title?: string }) => (
+    <span title={title}>
+        <Star01 className="size-3.5 shrink-0 text-fg-warning-secondary" aria-label={title} />
+    </span>
 );
 
 /** Marks where a section's content pulls from — the onboarding form, the client's
  *  website, or pasted guest reviews — so an AM can see each answer's source at a glance.
- *  Blue on purpose: yellow stays reserved for the workflow sections above. */
-export const SourceBadge = ({ children }: { children: ReactNode }) => (
-    <BadgeWithDot color="blue" size="sm" type="pill-color">
-        {children}
-    </BadgeWithDot>
+ *  Blue on purpose: yellow is reserved for the ManualStar above.
+ *
+ *  `manual` adds a star in front: this "source" isn't actually the client's forms or
+ *  website — it's something the AM has to go find and bring in themselves (e.g. guest
+ *  reviews gathered from booking platforms) before anything can be drafted from it. */
+export const SourceBadge = ({ children, manual }: { children: ReactNode; manual?: boolean }) => (
+    <span className="inline-flex items-center gap-1.5">
+        {manual && <ManualStar />}
+        <BadgeWithDot color="blue" size="sm" type="pill-color">
+            {children}
+        </BadgeWithDot>
+    </span>
 );
 
 /** A labelled field. Renders read-only prose when locked and an input when not, so the
@@ -133,7 +142,7 @@ export const DocField = ({
     );
 };
 
-/** The boxed guests / bedrooms / beds / bathrooms counts on a focus property. */
+/** The boxed guests / beds / bathrooms counts on a focus property. */
 export const DocStat = ({
     label,
     value,

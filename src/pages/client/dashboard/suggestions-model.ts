@@ -140,7 +140,7 @@ export const SCALAR_KEYS = [
 
 export const LIST_COLUMNS = {
     personas: ["name", "summary", "rank", "age", "relationship", "location", "interests", "painPoints", "seeking", "howTheyBook"],
-    focusProperties: ["name", "link", "location", "guests", "bedrooms", "beds", "bathrooms", "description", "features", "terms"],
+    focusProperties: ["name", "link", "location", "guests", "beds", "bathrooms", "description", "features", "terms"],
     restaurants: ["name", "description"],
     activities: ["name", "description"],
     websiteLinks: ["page", "url"],

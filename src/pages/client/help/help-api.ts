@@ -27,8 +27,9 @@
  * form and to show whose request is whose; it is never what authorises
  * anything.
  */
-import { supabase } from "@/lib/supabase";
-import type { Priority, Ticket, TicketCounts, TicketEvent, TicketTopic } from "@/pages/client/help/help-model";
+import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
+import type { Priority, Ticket, TicketCounts, TicketEvent, TicketFile, TicketTopic } from "@/pages/client/help/help-model";
+import { FILE_TYPES, type FileType, type Website, fileUploadFailed, websitesOnRow } from "@/pages/client/help/request-rules";
 import { compressImageFile } from "@/utils/compress-image";
 
 /* ── Slugs ───────────────────────────────────────────────────────────────── */
@@ -115,6 +116,12 @@ export interface Viewer {
     name: string;
     clientName: string;
     accessListEmpty: boolean;
+    /**
+     * The websites this dashboard offers as the form's checkboxes (data.websites, parsed by the
+     * gate): the list ticket-create validates against. Absent from a function deployed before
+     * 29 Sep 2026, so read it as `viewer.websites ?? []`.
+     */
+    websites?: Website[];
 }
 
 const FUNCTIONS_BASE = "/.netlify/functions";
@@ -122,10 +129,12 @@ const FUNCTIONS_BASE = "/.netlify/functions";
 /**
  * POSTs JSON to one portal function and returns its parsed body.
  *
- * Messages for 403 and 422 are passed through from the server verbatim, and a 403 also
- * carries a reason code the screen keys its next action on (a sentence alone cannot tell
- * "not on the list" from "may read, may not act"). Everything else gets one plain line,
- * because a raw 500 body is noise to a client and can carry internals.
+ * Messages for 400, 403, 422, 429 and 503 are passed through from the server verbatim (each
+ * is a sentence written for the person: a file the team cannot open, the day's file limit,
+ * files that cannot be attached right now), and a 403 also carries a reason code the screen
+ * keys its next action on (a sentence alone cannot tell "not on the list" from "may read,
+ * may not act"). Everything else gets one plain line, because a raw 500 body is noise to a
+ * client and can carry internals.
  */
 const callFunction = async <T>(name: string, body: Record<string, unknown>): Promise<T> => {
     // The session token is read at CALL TIME, never stored by this module. Supabase
@@ -158,7 +167,7 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
         const fromServer = typeof payload?.error === "string" ? payload.error.trim() : "";
         const reason = payload?.reason === "not_listed" ? payload.reason : undefined;
         if (res.status === 401) throw new HelpApiError(401, "Your session has expired. Sign in again to use the help centre.");
-        if ((res.status === 403 || res.status === 422 || res.status === 400) && fromServer) throw new HelpApiError(res.status, fromServer, reason);
+        if ([400, 403, 422, 429, 503].includes(res.status) && fromServer) throw new HelpApiError(res.status, fromServer, reason);
         if (res.status === 413) throw new HelpApiError(413, "Those files are too large to send together. Remove one and try again.");
         throw new HelpApiError(res.status, "Something went wrong at our end. Nothing was lost - try again in a moment.");
     }
@@ -175,8 +184,8 @@ export const fetchTopics = (proof: CallerProof): Promise<{ viewer: Viewer; topic
 export const fetchTickets = (proof: CallerProof): Promise<{ viewer: Viewer; tickets: Ticket[]; counts: TicketCounts }> =>
     callFunction("ticket-list", { slug: proof.slug });
 
-/** One request and its full history. */
-export const fetchTicket = (proof: CallerProof, reference: string): Promise<{ viewer: Viewer; ticket: Ticket; events: TicketEvent[] }> =>
+/** One request, its full history and the names of its files. */
+export const fetchTicket = (proof: CallerProof, reference: string): Promise<{ viewer: Viewer; ticket: Ticket; events: TicketEvent[]; files?: TicketFile[] }> =>
     callFunction("ticket-detail", { slug: proof.slug, reference });
 
 /**
@@ -210,28 +219,47 @@ export const withdrawTicket = (proof: CallerProof, reference: string): Promise<{
 
 export interface NewTicketInput {
     topic: string;
+    /** The Submitted by name, cleaned by request-rules.ts. Required: the server refuses a request without one. */
+    submitted_by_name: string;
     title: string;
     detail: string;
     property?: string;
     needed_by?: string;
-    images?: TicketImage[];
-    /** Team only; the server drops it from anyone else. */
+    /** Everyone sets one since 13 Sep 2026. */
     priority?: Priority;
+    /** The pages the request is about, already cleaned by request-rules.ts. */
+    urls?: string[];
+    /** The completion email address; sent only while the field is shown, and required then. */
+    notify_email?: string;
+    /** The NAMES of the websites ticked, in the row's order; sent only while the dashboard offers a choice, and required then. */
+    websites?: string[];
+    /** The form session's upload id and the files uploaded under it (ticket-upload-url). */
+    upload_id?: string;
+    files?: Array<{ file_id: string }>;
 }
 
-export const createTicket = (proof: CallerProof, input: NewTicketInput): Promise<{ ticket: Ticket }> =>
-    callFunction("ticket-create", {
+export const createTicket = async (proof: CallerProof, input: NewTicketInput): Promise<{ ticket: Ticket; files: TicketFile[] }> => {
+    const res = await callFunction<{ ticket: Ticket; files?: TicketFile[] }>("ticket-create", {
         slug: proof.slug,
         topic: input.topic,
+        submitted_by_name: input.submitted_by_name,
         title: input.title,
         detail: input.detail,
         // Omitted rather than sent empty: a `date` column takes null, not "", and an empty
         // property string would show as a blank PROPERTY row on the detail screen.
         ...(input.property?.trim() ? { property: input.property.trim() } : {}),
         ...(input.needed_by ? { needed_by: input.needed_by } : {}),
-        ...(input.images?.length ? { images: input.images } : {}),
         ...(input.priority ? { priority: input.priority } : {}),
+        ...(input.urls?.length ? { urls: input.urls } : {}),
+        ...(input.notify_email ? { notify_email: input.notify_email } : {}),
+        // Sent whenever the form set it, an empty list included: the server's answer to
+        // "none ticked" is the one the person reads.
+        ...(input.websites !== undefined ? { websites: input.websites } : {}),
+        ...(input.upload_id && input.files?.length ? { upload_id: input.upload_id, files: input.files } : {}),
     });
+    // An older function answered without `files`; the success card must not throw on it.
+    return { ticket: res.ticket, files: res.files ?? [] };
+};
 
 /* ── The team's own reads ────────────────────────────────────────────────── */
 
@@ -247,43 +275,31 @@ export const fetchAllTickets = (opts: { before?: string | null; status?: string;
         ...(opts.client_slug ? { client_slug: opts.client_slug } : {}),
     });
 
-/** The clients a team member may raise a request for: every dashboard, by name. */
+/** The clients a team member may raise a request for: every dashboard, by name, with the websites it offers. */
 export interface ClientOption {
     slug: string;
     name: string;
-}
-export const fetchClientOptions = async (): Promise<ClientOption[]> => {
-    const { data } = await supabase.from("dashboard_pages").select("slug, client_name, data").order("client_name", { ascending: true });
-    return ((data ?? []) as Array<{ slug: string; client_name: string | null; data: { client_name?: string } | null }>)
-        .filter((r) => /-dashboard$/.test(r.slug))
-        .map((r) => ({ slug: r.slug, name: (r.client_name ?? r.data?.client_name ?? "").trim() || r.slug.replace(/-dashboard$/, "") }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-};
-
-/* ── Attachments ─────────────────────────────────────────────────────────── */
-
-export interface TicketImage {
-    name: string;
-    mime: string;
-    dataBase64: string;
+    /** data.websites by the same rule the gate reads it with; a malformed list offers nothing, as the server will. */
+    websites: Website[];
 }
 
 /**
- * The form's file rules, as the Field/Upload component states them: "PNG, JPG or WEBP ·
- * up to 10 MB each · up to 5 files". The server allows six and more formats; the form
- * promises five and three, so the promise on the screen is the one that is enforced.
- *
- * A Netlify synchronous function rejects a request body over 6MB outright, and the JSON
- * wrapper plus base64's 4/3 expansion means the real ceiling on raw bytes is well under
- * that. 4MB of encoded payload leaves comfortable headroom for the rest of the body, and
- * every image has already been squeezed to WebP by compressImageFile before it is counted,
- * so hitting this at all takes an unusual number of large files rather than one phone photo.
+ * Two keys out of `data`, not the whole column: the row's data carries every base64 image an
+ * AM uploaded (58 rows of them), and the team's Client select needs a name fallback and the
+ * website list. PostgREST reads a jsonb path server side, so only those two travel.
  */
-export const MAX_IMAGES = 5;
-export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-export const MAX_IMAGE_PAYLOAD_BYTES = 4_000_000;
-const IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp"]);
-const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp)$/i;
+export const fetchClientOptions = async (): Promise<ClientOption[]> => {
+    const { data } = await supabase.from("dashboard_pages").select("slug, client_name, data_client_name:data->>client_name, websites:data->websites").order("client_name", { ascending: true });
+    return ((data ?? []) as unknown as Array<{ slug: string; client_name: string | null; data_client_name: string | null; websites: unknown }>)
+        .filter((r) => /-dashboard$/.test(r.slug))
+        .map((r) => {
+            const sites = websitesOnRow(r.websites);
+            return { slug: r.slug, name: (r.client_name ?? r.data_client_name ?? "").trim() || r.slug.replace(/-dashboard$/, ""), websites: sites.ok ? sites.websites : [] };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+};
+
+/* ── Files ───────────────────────────────────────────────────────────────── */
 
 /**
  * Field caps, held EQUAL to the ones ticket-create.mts enforces rather than merely below
@@ -293,33 +309,121 @@ const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp)$/i;
  * stops a client's sentence at a limit the server would have accepted, with no message,
  * mid-word. Capping looser lets them write something that is then truncated after they
  * press send. Equal is the only setting where the field stops where the rule is. If the
- * server's numbers move, move these with them.
+ * server's numbers move, move these with them. The file, page and address rules live in
+ * request-rules.ts, which the server imports too.
  */
 export const MAX_TITLE = 140;
 export const MAX_DETAIL = 5000;
 export const MAX_PROPERTY = 160;
 
-/** Split a data URL into the mime and base64 halves the contract asks for. */
-const splitDataUrl = (dataUrl: string): { mime: string; dataBase64: string } | null => {
-    const m = /^data:([^;,]+)(?:;[^,]*)?;base64,(.*)$/s.exec(dataUrl);
-    if (!m) return null;
-    return { mime: m[1], dataBase64: m[2] };
-};
-
-/** True for a file the drop zone's rules line admits: PNG, JPG or WEBP, by type or, when the browser gives none, by extension. */
-export const isAllowedImage = (file: File): boolean => (file.type ? IMAGE_MIMES.has(file.type) : IMAGE_EXTENSIONS.test(file.name));
+/** What ticket-upload-url grants for one file: where to put it, as what, under which token. */
+export interface UploadGrant {
+    file_id: string;
+    /** The stored name (request-rules.ts storedFileName). */
+    name: string;
+    mime: string;
+    path: string;
+    token: string;
+}
 
 /**
- * Compresses one picked file and shapes it for ticket-create. The name sent is the
- * original file name (the thumbnail shows the same name and the ORIGINAL byte size, which
- * the caller keeps from the File itself); only the bytes are re-encoded. Throws when the
- * file cannot be read at all, so the form can say which one.
+ * Signed upload URLs for files about to be uploaded. The first call of a form session
+ * passes no upload id and gets one back; later calls pass it, so every file of one request
+ * sits under one upload. `slug` is the client's own help centre (a client, or staff viewing
+ * it); null is the team's form, where the server checks for staff.
  */
-export const prepareImage = async (file: File): Promise<TicketImage> => {
-    const dataUrl = await compressImageFile(file);
-    const parts = splitDataUrl(dataUrl);
-    if (!parts) throw new Error(`${file.name} could not be read.`);
-    return { name: file.name.slice(0, 120), mime: parts.mime, dataBase64: parts.dataBase64 };
+export const requestUploadUrls = (slug: string | null, uploadId: string | null, files: Array<{ name: string; mime: string; bytes: number }>): Promise<{ upload_id: string; bucket: string; files: UploadGrant[] }> =>
+    callFunction("ticket-upload-url", { ...(slug ? { slug } : {}), ...(uploadId ? { upload_id: uploadId } : {}), files });
+
+/**
+ * fetch, carried over XMLHttpRequest, because only XHR reports how much of a request body
+ * has gone (fetch has no upload progress). Handed ONLY to the upload's own storage client
+ * below, which builds the request exactly as supabase-js does (same class, same URL, same
+ * form body); this changes how the bytes travel, not what is sent. A transport failure
+ * rejects with a TypeError, as fetch does.
+ */
+const xhrFetch =
+    (onProgress?: (sent: number, total: number) => void): typeof fetch =>
+    (input, init) =>
+        new Promise<Response>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+            xhr.open(init?.method ?? "GET", url);
+            new Headers(init?.headers).forEach((value, key) => xhr.setRequestHeader(key, value));
+            if (onProgress) xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded, e.total);
+            xhr.onload = () => {
+                const headers = new Headers();
+                for (const line of xhr.getAllResponseHeaders().trim().split(/[\r\n]+/)) {
+                    const at = line.indexOf(":");
+                    if (at > 0) headers.append(line.slice(0, at).trim(), line.slice(at + 1).trim());
+                }
+                const empty = xhr.status === 204 || xhr.status === 205 || xhr.status === 304;
+                resolve(new Response(empty ? null : xhr.responseText, { status: xhr.status, statusText: xhr.statusText, headers }));
+            };
+            xhr.onerror = () => reject(new TypeError("Failed to fetch"));
+            xhr.onabort = () => reject(new DOMException("The upload was stopped.", "AbortError"));
+            init?.signal?.addEventListener("abort", () => xhr.abort());
+            xhr.send((init?.body ?? null) as XMLHttpRequestBodyInit | null);
+        });
+
+/**
+ * Uploads one file's bytes straight to storage with its grant. Never through a function: a
+ * Netlify function takes about 6 MB, a brief can be 25. The Blob's type is the type the
+ * object is stored as (the multipart part carries it), so the caller builds the Blob with
+ * the grant's mime.
+ *
+ * A storage client of its own, of the same class supabase-js builds (taken from the live
+ * client, so the request cannot differ), on the same /storage/v1 base, with the same two
+ * headers supabase-js adds (apikey, and the session's bearer or the public key), but
+ * carried over XHR so `onProgress` hears each chunk leave: a 25 MB PDF shows how far it has
+ * got rather than only that it is going.
+ */
+export const uploadTicketFile = async (
+    grant: { bucket: string; path: string; token: string; mime: string; name: string },
+    blob: Blob,
+    onProgress?: (sent: number, total: number) => void,
+): Promise<void> => {
+    let failed = false;
+    try {
+        const { data } = await supabase.auth.getSession();
+        const bearer = data.session?.access_token ?? SUPABASE_ANON_KEY;
+        const base = new URL(SUPABASE_URL.trim().endsWith("/") ? SUPABASE_URL.trim() : `${SUPABASE_URL.trim()}/`);
+        const Storage = supabase.storage.constructor as new (url: string, headers: Record<string, string>, fetch: typeof globalThis.fetch) => typeof supabase.storage;
+        const storage = new Storage(new URL("storage/v1", base).href, { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${bearer}` }, xhrFetch(onProgress));
+        const { error } = await storage.from(grant.bucket).uploadToSignedUrl(grant.path, grant.token, blob, { contentType: grant.mime, upsert: false });
+        failed = !!error;
+    } catch {
+        failed = true;
+    }
+    if (failed) throw new HelpApiError(0, fileUploadFailed(grant.name));
+};
+
+/** A data URL's bytes and declared type, decoded by hand (a fetch of a data URL is refused by some content security policies). */
+const decodeDataUrl = (dataUrl: string): { mime: string; bytes: Uint8Array<ArrayBuffer> } | null => {
+    const m = /^data:([^;,]*)(?:;[^,]*)?;base64,(.*)$/s.exec(dataUrl);
+    if (!m) return null;
+    const bin = atob(m[2]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { mime: m[1].toLowerCase(), bytes };
+};
+
+/**
+ * The bytes a picked file is uploaded as.
+ *
+ * An image goes through compressImageFile (the house rule for every image upload: at most
+ * 1600px, WebP), and the Blob takes the encoder's type, WebP or JPEG, or the original's
+ * own for a GIF. When the browser cannot draw it (a HEIC in Chrome, whose fallback reads
+ * application/octet-stream) the original bytes go under the picked type's own mime, so the
+ * file still arrives as what it is. A document is the original File re-wrapped with its
+ * type's mime, so a CSV Windows called an Excel file is stored as text/csv.
+ */
+export const prepareUploadBlob = async (file: File, picked: FileType): Promise<Blob> => {
+    if (picked.kind === "document") return new Blob([file], { type: picked.mime });
+    const decoded = decodeDataUrl(await compressImageFile(file));
+    if (!decoded) throw new HelpApiError(0, fileUploadFailed(file.name));
+    const isImageMime = FILE_TYPES.some((t) => t.kind === "image" && t.mime === decoded.mime);
+    return new Blob([decoded.bytes], { type: isImageMime ? decoded.mime : picked.mime });
 };
 
 /* ── The portal row ──────────────────────────────────────────────────────────

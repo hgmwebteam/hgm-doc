@@ -150,13 +150,21 @@ export const emptyPersona = (rank: string): Persona => ({
     keywords: [],
 });
 
+/**
+ * How many focus properties the document holds.
+ *
+ * Focus properties are a selection — the handful a client is marketed on — not their
+ * portfolio; Cabin Collective alone has sixty listings. Five is the section, so it is also
+ * what the Add button stops at and what a draft from the website links fills.
+ */
+export const FOCUS_PROPERTY_MAX = 5;
+
 export const emptyFocusProperty = (): FocusProperty => ({
     id: uid(),
     name: "",
     link: "",
     location: "",
     guests: "",
-    bedrooms: "",
     beds: "",
     bathrooms: "",
     description: "",
@@ -164,6 +172,31 @@ export const emptyFocusProperty = (): FocusProperty => ({
     terms: "",
     reviews: ["", "", ""],
 });
+
+/**
+ * The focus properties a stored row should show: everything a person filled in, plus empty
+ * cards up to the section's size.
+ *
+ * Pressing "+ Add focus property" a dozen times leaves a dozen blank cards in the row, and
+ * they are still there on the next load — Cabin Collective was carrying twelve. Blanks past
+ * the fifth hold nothing, so they are dropped on read and the next Save makes it permanent.
+ *
+ * A filled card is NEVER dropped, whatever the count: a client who genuinely has eight
+ * written up keeps all eight, and it is the Add button that stops rather than this. The one
+ * rule everything here shares is that nothing a person wrote is thrown away by the code.
+ */
+export const trimFocusProperties = (rows: FocusProperty[]): FocusProperty[] => {
+    const isFilled = (p: FocusProperty) =>
+        [p.name, p.link, p.location, p.guests, p.beds, p.bathrooms, p.description, p.features, p.terms].some(filled) || p.reviews.some(filled);
+    const kept = rows.filter(isFilled);
+    for (const p of rows) {
+        if (kept.length >= FOCUS_PROPERTY_MAX) break;
+        if (!isFilled(p)) kept.push(p);
+    }
+    // Back into the order they were stored in, so trimming never reshuffles the section.
+    const keep = new Set(kept.map((p) => p.id));
+    return rows.filter((p) => keep.has(p.id));
+};
 
 export const emptyFavorite = (): LocalFavorite => ({ id: uid(), name: "", description: "" });
 
@@ -342,7 +375,9 @@ export const isUntouchedBrandKit = (brand: DashboardContent["brand"]) =>
     (!brand.fonts.trim() || brand.fonts.trim() === TEMPLATE_CONTENT.brand.fonts) &&
     !(brand.logos ?? []).length &&
     !brand.font_files?.heading &&
+    !brand.font_files?.heading2 &&
     !brand.font_files?.body &&
+    !brand.heading2_font?.trim() &&
     !brand.folder_link.trim();
 
 /** Fresh content for a newly created client copy — no sample numbers. */
@@ -367,6 +402,33 @@ export const createDefaultContent = (base: string): DashboardContent => ({
     pinned_posts: { ...EMPTY_PINNED_POSTS, posts: normalizePinnedPosts() },
     client_visible: [...DEFAULT_CLIENT_VISIBLE],
 });
+
+/**
+ * The row the team's Clients page creates for a new client ("Create dashboard" in
+ * ClientModal): the template's content under the client's own base, and the first person on
+ * the access list when an email is given. One function so the modal and the scripts that
+ * print a dashboard's SQL (the Enjoy Unique Stays pilot, 29 Sep 2026) cannot drift apart.
+ *
+ * `sections: null` puts that person on the dashboard-wide default, which an AM narrows per
+ * person later in the dashboard's access panel. `allowed_emails` is the derived mirror the
+ * Netlify suggestion function reads, written here too so a brand-new row never has the two
+ * out of step. `share_password` stays the fallback for anyone added later without a password
+ * of their own. No `websites`: a list of brand websites is set on purpose, never by a template.
+ */
+export const newDashboardRow = ({ name, email, password }: { name: string; email: string; password: string }) => {
+    const who = email.trim();
+    return {
+        slug: `${slugify(name)}-dashboard`,
+        client_name: name.trim(),
+        client_website: "",
+        data: {
+            ...createDefaultContent(slugify(name)),
+            dashboard_users: who ? [{ email: who, password: password.trim(), sections: null }] : [],
+            allowed_emails: who ? [who] : [],
+            share_password: password.trim(),
+        },
+    };
+};
 
 /** Merge a partial jsonb blob from the DB over the defaults so old rows never crash new sections. */
 export const mergeContent = (partial?: Partial<DashboardContent> | null): DashboardContent => ({
@@ -398,7 +460,7 @@ export const mergeContent = (partial?: Partial<DashboardContent> | null): Dashbo
         ...partial?.foundation,
         taglines: [0, 1, 2].map((i) => partial?.foundation?.taglines?.[i] ?? ""),
         personas: partial?.foundation?.personas ?? [],
-        focusProperties: partial?.foundation?.focusProperties ?? [],
+        focusProperties: trimFocusProperties(partial?.foundation?.focusProperties ?? []),
         restaurants: partial?.foundation?.restaurants ?? [],
         activities: partial?.foundation?.activities ?? [],
         websiteLinks: partial?.foundation?.websiteLinks ?? [],
@@ -530,6 +592,31 @@ const mergeRows = <T>(current: T[], drafted: T[], isFilled: (r: T) => boolean, k
  * Unknown keys are ignored: the drafting function's schema and this document can drift, and
  * when they do the extra keys should vanish here rather than be saved into a client's row.
  */
+/**
+ * One focus property, filled in from a draft of that same property.
+ *
+ * mergeFoundationDraft is the wrong tool for this: it merges row LISTS, so a draft handed
+ * to it while the AM is sitting on a half-filled row appends a second row for the same
+ * cabin instead of finishing the one in front of them. This fills that row in place.
+ *
+ * Same one rule as its sibling — a draft never changes or erases what a person wrote — so
+ * every field is skipped when it already has something, and the row keeps its id. The
+ * reviews list is all-or-nothing: three boxes where one has a quote in it is a list the AM
+ * has started, and dropping drafted quotes between their lines would read as theirs.
+ */
+export const fillFocusProperty = (current: FocusProperty, draft: Record<string, unknown>): FocusProperty => {
+    const next = { ...current };
+    for (const k of ["name", "link", "location", "guests", "beds", "bathrooms", "description", "features", "terms"] as const) {
+        const v = str(draft[k]);
+        if (v && !filled(next[k])) next[k] = v;
+    }
+    if (!next.reviews.some(filled)) {
+        const reviews = strList(draft.reviews);
+        if (reviews.length) next.reviews = reviews;
+    }
+    return next;
+};
+
 export const mergeFoundationDraft = (current: Foundation, draft: Record<string, unknown>): Partial<Foundation> => {
     const patch: Record<string, unknown> = {};
 
@@ -573,7 +660,6 @@ export const mergeFoundationDraft = (current: Foundation, draft: Record<string, 
             link: str(p.link),
             location: str(p.location),
             guests: str(p.guests),
-            bedrooms: str(p.bedrooms),
             beds: str(p.beds),
             bathrooms: str(p.bathrooms),
             description: str(p.description),

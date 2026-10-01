@@ -77,7 +77,7 @@ import { type BrandKitDraft, BrandKitDraftReview } from "@/pages/client/dashboar
 import { brandKitCss, brandKitFileName, brandKitHasContent } from "@/pages/client/dashboard/brand-kit-export";
 import { BrandPreview } from "@/pages/client/dashboard/brand-kit-preview";
 import { ShadeScales } from "@/pages/client/dashboard/brand-kit-shades";
-import { TypeScale, TypographyCards } from "@/pages/client/dashboard/brand-kit-typography";
+import { type FontRole, TypeScale, TypographyCards, hasThirdHeadingFont } from "@/pages/client/dashboard/brand-kit-typography";
 import { readableTextOn, rgbString, wcagLabel } from "@/pages/client/dashboard/color-scale";
 import {
     ClientSearchBar,
@@ -98,6 +98,7 @@ import {
     type DashboardUser,
     EMPTY_PINNED_POSTS,
     type ExampleReel,
+    FOCUS_PROPERTY_MAX,
     type FocusProperty,
     type Foundation,
     type GhlItem,
@@ -116,6 +117,7 @@ import {
     emptyFocusProperty,
     emptyPersona,
     emptyWebsiteLink,
+    fillFocusProperty,
     filled,
     findDashboardUser,
     handleFromProfileUrl,
@@ -161,7 +163,7 @@ import {
     foundationProgress,
     masterDocumentHtml,
 } from "@/pages/client/dashboard/master-brand-document";
-import { DocField, DocRail, DocSection, DocStat, FavoriteTable, SourceBadge, WorkflowBadge } from "@/pages/client/dashboard/master-brand-fields";
+import { DocField, DocRail, DocSection, DocStat, FavoriteTable, ManualStar, SourceBadge } from "@/pages/client/dashboard/master-brand-fields";
 import { OnboardingAnswers } from "@/pages/client/dashboard/onboarding-answers";
 import {
     DEFAULT_OVERVIEW_DOC,
@@ -173,6 +175,9 @@ import {
     overviewSectionNumber,
 } from "@/pages/client/dashboard/overview-doc";
 import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pages/client/dashboard/pinned-posts";
+import { revealCheck } from "@/pages/client/dashboard/reveal-check";
+import { RevealConfirmDialog } from "@/pages/client/dashboard/reveal-confirm-dialog";
+import { stayPageLinks } from "@/pages/client/dashboard/stay-pages";
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
     LANDING_FEEDBACK_KEY,
@@ -437,7 +442,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Brand Kit custom font upload — stored as a data URL like the logos. Fonts can't be
      *  compressed the way images can, so a 1.5MB cap keeps a stray 4MB TTF from bloating
      *  the row every dashboard load pulls down; .woff2 files are far under it. */
-    const onPickFontFile = async (role: "heading" | "body", file: File) => {
+    const onPickFontFile = async (role: FontRole, file: File) => {
         if (file.size > 1_500_000) {
             window.alert("That font file is over 1.5MB — export it as .woff2 (much smaller) and try again.");
             return;
@@ -1457,9 +1462,63 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 }
             }
 
-            if (failed.length) {
+            /* Properties come from the client's own website, not their forms — no form asks
+               for a per-property list. Runs last and on its own error track: a site we can't
+               read (built in JavaScript, or none on file) is an ordinary outcome that must
+               not read as the whole draft having failed. */
+            let propertyNote = "";
+            try {
+                setOverviewStep("Reading their website");
+                const post = async (body: Record<string, unknown>) => {
+                    const res = await fetch("/.netlify/functions/generate-overview", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ slug, ...body }),
+                    });
+                    const text = await res.text();
+                    let json: {
+                        error?: string;
+                        siteText?: string;
+                        links?: { page: string; url: string }[];
+                        properties?: { name: string; link: string }[];
+                    } | null = null;
+                    try {
+                        json = text ? JSON.parse(text) : null;
+                    } catch {
+                        json = null;
+                    }
+                    if (!json) throw new Error(`The server didn't send a usable reply (${res.status}).`);
+                    if (!res.ok || json.error) throw new Error(json.error || `Request failed (${res.status})`);
+                    return json;
+                };
+
+                const site = await post({ group: "site" });
+                setOverviewStep("Listing their properties");
+                const drafted = await post({ group: "properties", siteText: site.siteText, links: site.links });
+                const rows = (drafted.properties ?? []).filter((p) => p.name.trim());
+
+                // Never overwrite a list an AM has already built — the draft fills a blank
+                // Properties block, it doesn't replace one somebody curated.
+                const existing = (content.overview_doc?.properties ?? []).filter((p) => p.name.trim() || p.link.trim());
+                if (!rows.length) propertyNote = "Their website named no properties — add them by hand.";
+                else if (existing.length) propertyNote = `Left the ${existing.length} properties already listed alone — their website named ${rows.length}.`;
+                else patchOverviewDoc({ properties: rows.map((p) => ({ id: uid(), name: p.name.trim(), link: p.link.trim() })) });
+            } catch (err) {
+                console.error("[overview doc] properties failed", err);
+                propertyNote = `Properties: ${err instanceof Error ? err.message : "couldn't read their website."}`;
+            }
+
+            if (failed.length || propertyNote) {
                 setOverviewError((e) =>
-                    `Couldn't draft: ${failed.join(", ")}. ${e || ""}${landed ? " Everything else landed — try again for the rest." : ""}`.trim(),
+                    [
+                        failed.length ? `Couldn't draft: ${failed.join(", ")}.` : "",
+                        e || "",
+                        failed.length && landed ? "Everything else landed — try again for the rest." : "",
+                        propertyNote,
+                    ]
+                        .filter(Boolean)
+                        .join(" ")
+                        .trim(),
                 );
             }
         } finally {
@@ -1575,6 +1634,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const cur = c.client_visible ?? DEFAULT_CLIENT_VISIBLE;
             return { ...c, client_visible: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] };
         });
+    /** The row whose eye was pressed to SHOW it, waiting on the confirm dialog. Hiding skips it.
+     *  The id outlives `revealOpen` so the dialog keeps its title while it fades out. */
+    const [revealAsk, setRevealAsk] = useState<SectionId | null>(null);
+    const [revealOpen, setRevealOpen] = useState(false);
+    const pressEye = (id: SectionId) => {
+        if (revealedToClient(id)) return toggleClientVisible(id);
+        setRevealAsk(id);
+        setRevealOpen(true);
+    };
 
     /**
      * Single choke point: whatever route put a client on a section they can't see —
@@ -2070,6 +2138,88 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         }
     };
 
+    /* ── Section 8 is drafted one property at a time ──
+       A portfolio site keeps each stay on its own page, and the whole-site read carries
+       only three inner pages — ten cabins short on a thirteen-cabin site. So each stay
+       gets its own request: its page read at full length, its own set of fields. Two ways
+       in, and they share this walk: the whole-document draft works down the stay pages in
+       section 11, and a row's own Fill from this link reads the one page pasted into it.
+       Sequential for the same reason the group loop is, and because the AM watches the
+       property names tick past. */
+
+    /** One drafted entry per stay page, merged as each lands. Never throws — a page that
+        fails is named in the result rather than losing the properties already drafted. */
+    const runPropertyWalk = async (token: string, links: { page: string; url: string }[], onStep: (step: string) => void) => {
+        let drafted = 0;
+        const failed: string[] = [];
+        for (const [i, l] of links.entries()) {
+            onStep(`${l.page || "Property"} — ${i + 1} of ${links.length}`);
+            try {
+                const out = await callMasterSection(token, "property", { propertyUrl: l.url });
+                const fields = (out?.fields as Record<string, unknown> | undefined) ?? {};
+                setContent((c) => {
+                    const current = { ...DEFAULT_FOUNDATION, ...c.foundation };
+                    return { ...c, foundation: { ...current, ...mergeFoundationDraft(current, fields) } };
+                });
+                if (Array.isArray(fields.focusProperties) && fields.focusProperties.length) drafted += 1;
+            } catch (err) {
+                console.error("[master draft] property page failed", l.url, err);
+                failed.push(l.page || l.url);
+            }
+        }
+        return { drafted, failed };
+    };
+
+    /* ── Fill ONE property row from the listing link pasted into it ──
+       The section button works down section 11; this works from the box in front of the
+       AM, for the property that isn't in the sitemap, or the row they'd rather finish than
+       redraft. Same request, same server-side guard — the page has to be on the client's
+       own website — and the reply lands in this row instead of appending another. */
+    const [rowFillId, setRowFillId] = useState("");
+    const [rowFillNote, setRowFillNote] = useState<{ id: string; text: string; failed: boolean } | null>(null);
+
+    const fillFocusFromLink = async (id: string) => {
+        if (!slug || isTemplate || rowFillId) return;
+        const row = foundation.focusProperties.find((p) => p.id === id);
+        const link = row?.link.trim();
+        if (!row || !link) return;
+        setRowFillNote(null);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+            setRowFillNote({ id, text: "Your sign-in has expired — reload the page and sign in again.", failed: true });
+            return;
+        }
+        setRowFillId(id);
+        try {
+            const out = await callMasterSection(token, "property", { propertyUrl: link });
+            const fields = (out?.fields as Record<string, unknown> | undefined) ?? {};
+            const drafted = (fields.focusProperties as Record<string, unknown>[] | undefined)?.[0];
+            if (!drafted) {
+                setRowFillNote({ id, text: "That page didn't describe a single property — check the link, or fill this one in by hand.", failed: true });
+                return;
+            }
+            // Read from state rather than the `row` captured above: the AM may have carried
+            // on typing while the page was being read, and what they typed wins.
+            setContent((c) => {
+                const current = { ...DEFAULT_FOUNDATION, ...c.foundation };
+                return {
+                    ...c,
+                    foundation: { ...current, focusProperties: current.focusProperties.map((p) => (p.id === id ? fillFocusProperty(p, drafted) : p)) },
+                };
+            });
+            setRowFillNote({
+                id,
+                text: "Filled from the listing. Anything you'd already typed was left alone — check it, then press Save changes.",
+                failed: false,
+            });
+        } catch (err) {
+            setRowFillNote({ id, text: err instanceof Error ? err.message : "Couldn't read that page — try again.", failed: true });
+        } finally {
+            setRowFillId("");
+        }
+    };
+
     /**
      * Draft the whole Master Brand Document from the client's own material.
      *
@@ -2121,6 +2271,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 setMasterDraftError(err instanceof Error ? `${err.message} Drafting continued without the website.` : "");
             }
 
+            /* Section 8 is drafted from section 11 — the stay pages the crawl just listed,
+               one request each. Where a site keeps no such folder the old whole-site
+               `focus` group still runs, so a single-property client is unaffected. */
+            const stayLinks = stayPageLinks(siteLinks);
+
             const groups: { group: string; label: string; extra?: Record<string, unknown> }[] = [
                 // Also optional website: the brief already tells it to lean on their own
                 // About Us story, which only exists on the site.
@@ -2147,6 +2302,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                 // ordinary states, not errors.
                 if (g.group === "reviews" && !reviewsPaste.trim()) continue;
                 if ((g.group === "properties" || g.group === "focus") && !siteText) continue;
+
+                if (g.group === "focus" && stayLinks.length) {
+                    const { drafted, failed: pages } = await runPropertyWalk(token, stayLinks, (step) => setMasterDraftStep(`Focus properties · ${step}`));
+                    if (drafted) setMasterDraftDone((d) => [...d, `${g.label} (${drafted} of ${stayLinks.length})`]);
+                    // Named, not just logged: eleven cabins drafted and two missed is a
+                    // different thing to check than eleven drafted and nothing missed.
+                    if (pages.length) failed.push(`${g.label} — ${pages.join(", ")}`);
+                    else if (!drafted) failed.push(g.label);
+                    continue;
+                }
 
                 setMasterDraftStep(g.label);
                 try {
@@ -2870,7 +3035,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         : `Show ${s.label} to this client`
                                                                                 }
                                                                                 aria-pressed={revealedToClient(s.id)}
-                                                                                onClick={() => toggleClientVisible(s.id)}
+                                                                                onClick={() => pressEye(s.id)}
                                                                                 className={cx(
                                                                                     "flex size-6 items-center justify-center rounded-md transition duration-100 ease-linear hover:bg-secondary",
                                                                                     revealedToClient(s.id)
@@ -4308,6 +4473,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             Your working brief on this client — what they sell, who they sell it to, and how they want to be
                                                             handled. The client never sees this section.
                                                         </p>
+                                                        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-quaternary">
+                                                            <ManualStar /> marks what Draft can't pull from the forms — look those up or type them in by hand.
+                                                        </p>
 
                                                         <div className="mt-4 flex flex-wrap items-center gap-3">
                                                             {!isTemplate && (
@@ -4518,7 +4686,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     id="baseline"
                                                                     label="Baseline (snapshot)"
                                                                     number={overviewSectionNumber("baseline")}
-                                                                    action={<span className="text-xs text-quaternary">Recorded at kickoff</span>}
+                                                                    action={
+                                                                        <span className="flex items-center gap-1.5 text-xs text-quaternary">
+                                                                            <ManualStar />
+                                                                            Recorded at kickoff — nothing pulls these in
+                                                                        </span>
+                                                                    }
                                                                 >
                                                                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                                                                         {OVERVIEW_BASELINE.map((f) => (
@@ -4908,17 +5081,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="audience"
                                                                         label="Target audience profile"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
                                                                             rows={3}
                                                                             value={foundation.targetAudience}
-                                                                            placeholder={
-                                                                                isTeam
-                                                                                    ? "Paste the target audience profile from the workflow output."
-                                                                                    : "Who your ideal guests are, as a group."
-                                                                            }
+                                                                            placeholder="Who your ideal guests are, as a group."
                                                                             sKey="targetAudience"
                                                                             onChange={(v) => patchFoundation({ targetAudience: v })}
                                                                         />
@@ -4928,17 +5097,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="uvp"
                                                                         label="Unique value proposition"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
                                                                             rows={3}
                                                                             value={foundation.uvp}
-                                                                            placeholder={
-                                                                                isTeam
-                                                                                    ? "Paste the UVP from the workflow output."
-                                                                                    : "What makes this stay worth choosing over any other."
-                                                                            }
+                                                                            placeholder="What makes this stay worth choosing over any other."
                                                                             sKey="uvp"
                                                                             onChange={(v) => patchFoundation({ uvp: v })}
                                                                         />
@@ -4948,7 +5113,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="brand"
                                                                         label="About the brand"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
@@ -5027,7 +5192,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="personas"
                                                                         label="Personas"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                         action={
                                                                             !isLocked && (
                                                                                 <button
@@ -5350,7 +5515,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         label="Focus properties"
                                                                         badge={isTeam ? <SourceBadge>From client's website</SourceBadge> : undefined}
                                                                         action={
-                                                                            !isLocked && (
+                                                                            !isLocked &&
+                                                                            (foundation.focusProperties.length < FOCUS_PROPERTY_MAX ? (
                                                                                 <button
                                                                                     type="button"
                                                                                     onClick={() =>
@@ -5365,7 +5531,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 >
                                                                                     + Add focus property
                                                                                 </button>
-                                                                            )
+                                                                            ) : (
+                                                                                // Said, not just withheld: an Add button that has quietly vanished
+                                                                                // reads as a bug, and the way to make room is to delete a card.
+                                                                                <span className="text-sm text-quaternary">
+                                                                                    {FOCUS_PROPERTY_MAX} of {FOCUS_PROPERTY_MAX} — remove one to add another
+                                                                                </span>
+                                                                            ))
                                                                         }
                                                                     >
                                                                         <div className="flex flex-col gap-4">
@@ -5466,20 +5638,58 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                             />
                                                                                         </div>
 
-                                                                                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                                                                        {/* Read that one listing page and fill the boxes below it. Shown only
+                                                                                            once there is a link to read — an empty box with a button under it
+                                                                                            reads as something you can press. */}
+                                                                                        {isTeam && !isTemplate && !isLocked && !!p.link.trim() && (
+                                                                                            <div className="mt-3">
+                                                                                                <Button
+                                                                                                    size="sm"
+                                                                                                    color="secondary"
+                                                                                                    iconLeading={Stars02}
+                                                                                                    isDisabled={!!rowFillId && rowFillId !== p.id}
+                                                                                                    isLoading={rowFillId === p.id}
+                                                                                                    showTextWhileLoading
+                                                                                                    onClick={() => void fillFocusFromLink(p.id)}
+                                                                                                >
+                                                                                                    {rowFillId === p.id
+                                                                                                        ? "Reading the listing…"
+                                                                                                        : "Fill from this link"}
+                                                                                                </Button>
+                                                                                                {rowFillNote?.id === p.id && (
+                                                                                                    <p
+                                                                                                        role={rowFillNote.failed ? "alert" : undefined}
+                                                                                                        className={cx(
+                                                                                                            "mt-2 flex items-start gap-1.5 text-sm",
+                                                                                                            rowFillNote.failed
+                                                                                                                ? "text-error-primary"
+                                                                                                                : "text-success-primary",
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        {rowFillNote.failed ? (
+                                                                                                            <AlertTriangle
+                                                                                                                className="mt-0.5 size-4 shrink-0"
+                                                                                                                aria-hidden="true"
+                                                                                                            />
+                                                                                                        ) : (
+                                                                                                            <Check
+                                                                                                                className="mt-0.5 size-4 shrink-0"
+                                                                                                                aria-hidden="true"
+                                                                                                            />
+                                                                                                        )}
+                                                                                                        {rowFillNote.text}
+                                                                                                    </p>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                                                                                             <DocStat
                                                                                                 label="Guests"
                                                                                                 value={p.guests}
                                                                                                 isLocked={isLocked}
                                                                                                 sKey={`focusProperties.${p.id}.guests`}
                                                                                                 onChange={(v) => patchFocus(p.id, { guests: v })}
-                                                                                            />
-                                                                                            <DocStat
-                                                                                                label="Bedrooms"
-                                                                                                value={p.bedrooms}
-                                                                                                isLocked={isLocked}
-                                                                                                sKey={`focusProperties.${p.id}.bedrooms`}
-                                                                                                onChange={(v) => patchFocus(p.id, { bedrooms: v })}
                                                                                             />
                                                                                             <DocStat
                                                                                                 label="Beds"
@@ -5653,7 +5863,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="reviews"
                                                                         label="Reviews"
-                                                                        badge={isTeam ? <SourceBadge>From guest reviews</SourceBadge> : undefined}
+                                                                        badge={isTeam ? <SourceBadge manual>From guest reviews</SourceBadge> : undefined}
                                                                     >
                                                                         {/* The team's line is an instruction — it tells an AM what to go and do,
                                                                             and the Paste guest reviews box below acts on it. A client reading that
@@ -6437,8 +6647,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <TypographyCards
                                                                         fonts={content.brand.fonts}
                                                                         files={content.brand.font_files}
+                                                                        heading2={content.brand.heading2_font}
+                                                                        thirdFont={hasThirdHeadingFont(clientBase)}
                                                                         isLocked={isLocked}
                                                                         onFonts={(v) => patchBrand({ fonts: v })}
+                                                                        onHeading2={(v) => patchBrand({ heading2_font: v })}
                                                                         onUpload={(role, file) => void onPickFontFile(role, file)}
                                                                         onClearUpload={(role) =>
                                                                             patchBrand({ font_files: { ...content.brand.font_files, [role]: undefined } })
@@ -6448,6 +6661,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     {/* The Untitled UI type scale in the brand's own fonts, px + fluid clamp(). */}
                                                                     {(content.brand.fonts.trim() ||
                                                                         content.brand.font_files?.heading ||
+                                                                        content.brand.font_files?.heading2 ||
                                                                         content.brand.font_files?.body) && (
                                                                         <div className="mt-8">
                                                                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -6457,7 +6671,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 </span>
                                                                             </div>
                                                                             <div className="mt-2">
-                                                                                <TypeScale fonts={content.brand.fonts} files={content.brand.font_files} />
+                                                                                <TypeScale
+                                                                                    fonts={content.brand.fonts}
+                                                                                    files={content.brand.font_files}
+                                                                                    heading2={content.brand.heading2_font}
+                                                                                />
                                                                             </div>
                                                                         </div>
                                                                     )}
@@ -7371,6 +7589,24 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     </div>
                 </div>
             )}
+
+            {(() => {
+                const item = revealAsk ? NAV_GROUPS.flatMap((g) => g.items).find((i) => i.id === revealAsk) : undefined;
+                return (
+                    <RevealConfirmDialog
+                        open={revealOpen && !!item}
+                        label={item?.label ?? ""}
+                        clientName={clientName}
+                        check={revealAsk ? revealCheck(revealAsk, content) : null}
+                        notBuilt={!!item && navNotBuilt(item)}
+                        onCancel={() => setRevealOpen(false)}
+                        onConfirm={() => {
+                            if (revealAsk && !revealedToClient(revealAsk)) toggleClientVisible(revealAsk);
+                            setRevealOpen(false);
+                        }}
+                    />
+                );
+            })()}
 
             {/* ── Client-input form modal ──
                 The form keeps its own Typeform-style chrome (progress bar, counter,

@@ -1,4 +1,6 @@
 import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
+import { CLIENT_COLUMN_LADDER, CLIENT_HIDDEN_EVENTS, clientEvents, clientView, completionEmailModeNow, isMissingColumn, readDownLadder } from "../lib/ticket-columns.mts";
+import { ticketFiles } from "../lib/ticket-files.mts";
 
 /**
  * One request and its full history.
@@ -10,27 +12,34 @@ import { ConfigError, cleanText, jsonError, readJson, reportingDb, accessTokenFr
  * not exist at all: a different answer for the two would turn this into a way to count how
  * many requests every other client has raised.
  *
- * ── WHY route_failed EVENTS ARE NOT SENT ────────────────────────────────────
+ * ── WHY SOME EVENTS ARE NOT SENT TO A CLIENT ────────────────────────────────
  * `route_failed` means the topic had no Asana board or no default assignee, so the brain
  * refused to open a task with nobody's name on it and told the account manager instead. That
- * is our problem being handled, and its body carries our internals. help-model.ts already
- * leaves the kind out of CLIENT_VISIBLE_EVENTS, but a screen filtering a row it was sent is
- * one refactor away from showing it. It is filtered here so it is never in the browser at
- * all. The ticket simply stays at "Received" for the client, which is true.
+ * is our problem being handled, and its body carries our internals. `assigned` names the
+ * assignee and `promised_date_set` the promised date, and a client is shown neither (owner,
+ * 28 Sep 2026). A screen filtering a row it was sent is one refactor away from showing it, so
+ * all three (CLIENT_HIDDEN_EVENTS) are filtered here and are never in the browser at all, and
+ * the row goes out without its promised date, its assignee and who closed the task
+ * (clientView); a completion goes without its "Completed by" line (clientEvents). The ticket
+ * simply reads as its status for the client, which is true.
  *
  * `team_update` IS sent: it is an update written for them, and actorName() in help-model.ts
  * puts the name of whoever wrote it on the byline.
  *
- * POST application/json { slug, reference } + Authorization: Bearer <session token> -> { ticket, events: [...] }
+ * ── THE COMPLETION EMAIL ADDRESS IS NEVER SENT ──────────────────────────────
+ * Everyone on a dashboard's list can open every request it raised, so an address typed on
+ * one would be readable by all of them. The answer carries only `completion_email_set`: an
+ * address is stored AND the completion email switch is not off, so turning the switch off
+ * takes the promise off every request page at once. The files are listed by name, type and
+ * size, never by where they are kept.
+ *
+ * The websites a multi-site client's request is for go out as stored (tickets.websites, raw):
+ * the screen validates them (request-rules.ts storedWebsitesOf) before drawing anything.
+ *
+ * POST application/json { slug, reference } + Authorization: Bearer <session token>
+ *   -> { viewer, ticket: { ...columns, urls, websites, completion_email_set }, events: [...], files: [{ name, mime, bytes }] }
+ *   (a client's ticket without promised_date, assignee_name, assignee_email or completed_by)
  */
-
-/** Kept in step with ticket-create.mts and ticket-withdraw.mts, which hand back the same row.
- *  The internal routing columns - tenant_id, portal_client_id, asana_task_gid, asana_task_url,
- *  asana_project_gid, derived_subject, routed_at, route_error - are absent by construction
- *  rather than stripped afterwards, so a new column has to be added here on purpose before a
- *  client can ever see it. */
-const TICKET_COLUMNS =
-    "id, reference, topic, title, status, created_at, detail, property, needed_by, priority, image_count, drive_folder_url, client_slug, client_name, submitted_by, submitted_by_name, assignee_name, assignee_email, account_manager_email, account_manager_name, promised_date, completed_at, completed_by, withdrawn_at, withdrawn_by";
 
 /** `mirrored_to_asana` is deliberately not among them: whether we managed to copy an update
  *  into Asana is a fact about our plumbing, not about the client's request. */
@@ -59,12 +68,10 @@ export default async (req: Request) => {
 
         const db = reportingDb();
 
-        const { data: ticket, error } = await db
-            .from("tickets")
-            .select(TICKET_COLUMNS)
-            .eq("reference", reference)
-            .eq("client_slug", gate.caller.slug)
-            .maybeSingle();
+        // The shared list (ticket-columns.mts) plus the pages and the websites, stepping down
+        // one hand-applied column at a time while one is not in the database yet.
+        const read = (cols: string) => db.from("tickets").select(cols).eq("reference", reference).eq("client_slug", gate.caller.slug).maybeSingle();
+        const { data: ticket, error } = await readDownLadder(CLIENT_COLUMN_LADDER, read);
 
         if (error) {
             console.error("[ticket-detail] read failed", error.message);
@@ -72,16 +79,16 @@ export default async (req: Request) => {
         }
         if (!ticket) return jsonError(404, "We could not find a request with that reference.");
 
-        // Staff see route_failed: the Report a ticket success card polls this to say
+        // Staff see every kind: the Report a ticket success card polls this to say
         // "Needs a person" when the brain refused to open an unowned task. A client
-        // still never receives it (the note above stands for them).
+        // never receives the hidden three (the note above stands for them).
         let query = db
             .from("ticket_events")
             .select(EVENT_COLUMNS)
-            .eq("ticket_id", (ticket as { id: string }).id)
+            .eq("ticket_id", (ticket as unknown as { id: string }).id)
             .order("created_at", { ascending: true })
             .limit(MAX_EVENTS);
-        if (gate.via !== "staff") query = query.neq("kind", "route_failed");
+        if (gate.via !== "staff") query = query.not("kind", "in", `(${CLIENT_HIDDEN_EVENTS.join(",")})`);
         const { data: events, error: eventsErr } = await query;
 
         if (eventsErr) {
@@ -94,9 +101,19 @@ export default async (req: Request) => {
         // On the record for staff, with the reference, so "who read REQ-2418"
         // has an answer. After the 404 decision, so a probe for a reference
         // that is not this client's records nothing.
-        await recordAccess(gate, "ticket-detail", String((ticket as { reference?: unknown }).reference ?? "") || null);
+        await recordAccess(gate, "ticket-detail", String((ticket as unknown as { reference?: unknown }).reference ?? "") || null);
 
-        return Response.json({ viewer: viewerOf(gate), ticket, events: events ?? [] });
+        const ticketId = (ticket as unknown as { id: string }).id;
+        // Whether a completion email will go, never to whom. A missing column is "no".
+        let completionEmailSet = false;
+        if (completionEmailModeNow() !== "off") {
+            const { data: addr, error: addrErr } = await db.from("tickets").select("notify_email").eq("id", ticketId).maybeSingle();
+            if (addrErr && !isMissingColumn(addrErr)) console.error("[ticket-detail] completion email read failed", addrErr.message, reference);
+            completionEmailSet = !addrErr && typeof (addr as { notify_email?: unknown } | null)?.notify_email === "string" && !!(addr as { notify_email: string }).notify_email.trim();
+        }
+        const files = await ticketFiles(ticketId);
+
+        return Response.json({ viewer: viewerOf(gate), ticket: { ...clientView(ticket as unknown as Record<string, unknown>, gate.via), completion_email_set: completionEmailSet }, events: clientEvents((events ?? []) as unknown as Record<string, unknown>[], gate.via), files });
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-detail] not configured", err.message);

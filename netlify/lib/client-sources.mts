@@ -226,6 +226,12 @@ export const blankIfPlaceholder = (v: unknown): string => {
 
 const UA = "Mozilla/5.0 (compatible; HiddenGemBrandKit/1.0; +https://hgmportal.com)";
 export const PAGE_CAP = 1_500_000; // bytes of HTML/CSS we will read
+/* One page read on its own gets a bigger allowance than a page read as part of a crawl. A
+   Wix or Squarespace listing page ships its whole editor payload inline and routinely lands
+   between 1.5 and 2.5 MB — cabincollectivebb.com serves 1.70 MB per cabin, of which 8,000
+   characters are the listing. Under the crawl cap every one of those pages simply refused
+   to load, which read as "the page didn't answer" rather than "it was too big". */
+export const SINGLE_PAGE_CAP = 4_000_000;
 export const ASSET_CAP = 600_000; // bytes for a logo file
 const FETCH_MS = 7000;
 
@@ -266,22 +272,41 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
 }
 
 /** Capped, time-bounded fetch. Null on any failure — callers decide what a miss means. */
-export async function grab(url: string, cap: number, timeoutMs = FETCH_MS): Promise<{ body: ArrayBuffer; type: string } | null> {
+/**
+ * The same fetch, with the reason it failed kept.
+ *
+ * `grab` collapses every failure into null, which is right for a crawl that moves on to the
+ * next page and wrong when one page IS the request: an AM told "the page didn't answer" goes
+ * off to check a URL that is fine, when the site actually refused us. Callers that report to
+ * a person use this one.
+ */
+export type GrabResult =
+    | { ok: true; body: ArrayBuffer; type: string }
+    | { ok: false; reason: "refused"; status: number }
+    | { ok: false; reason: "too-big" }
+    | { ok: false; reason: "no-answer" };
+
+export async function grabResult(url: string, cap: number, timeoutMs = FETCH_MS): Promise<GrabResult> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
         const res = await fetch(url, { signal: ctrl.signal, redirect: "follow", headers: { "user-agent": UA } });
-        if (!res.ok) return null;
+        if (!res.ok) return { ok: false, reason: "refused", status: res.status };
         const declared = Number(res.headers.get("content-length") ?? 0);
-        if (declared > cap) return null;
+        if (declared > cap) return { ok: false, reason: "too-big" };
         const body = await res.arrayBuffer();
-        if (body.byteLength > cap) return null;
-        return { body, type: (res.headers.get("content-type") ?? "").toLowerCase() };
+        if (body.byteLength > cap) return { ok: false, reason: "too-big" };
+        return { ok: true, body, type: (res.headers.get("content-type") ?? "").toLowerCase() };
     } catch {
-        return null;
+        return { ok: false, reason: "no-answer" };
     } finally {
         clearTimeout(timer);
     }
+}
+
+export async function grab(url: string, cap: number, timeoutMs = FETCH_MS): Promise<{ body: ArrayBuffer; type: string } | null> {
+    const r = await grabResult(url, cap, timeoutMs);
+    return r.ok ? { body: r.body, type: r.type } : null;
 }
 
 export const asText = (b: ArrayBuffer): string => new TextDecoder("utf-8", { fatal: false }).decode(b);
@@ -437,6 +462,100 @@ export async function sitemapLinks(site: URL, max = 40): Promise<{ page: string;
     // Home first; the rest keep the sitemap's own order.
     return out.sort((a, b) => Number(b.page === "Home") - Number(a.page === "Home")).slice(0, max);
 }
+
+/**
+ * A page we cannot fetch ourselves, read through Jina's reader.
+ *
+ * Some client sites screen out servers. Green Springs Inn runs SiteGround's sgcaptcha,
+ * which answers every request from a datacenter IP — any user agent, Googlebot included —
+ * with a 185-byte stub redirecting to a challenge that needs JavaScript to clear. A cookie
+ * jar doesn't get past it, their WordPress API and sitemap are behind the same wall, and
+ * the Wayback Machine has no copy. r.jina.ai runs a real browser from residential IPs and
+ * returns the page as markdown, which is the one thing that worked.
+ *
+ * A LAST RESORT, never the first call: it sends the URL to a third party, it is slower than
+ * a fetch, and the free tier is rate-limited by IP. Set JINA_API_KEY in the Netlify
+ * environment to lift that limit — the code is the same with or without one.
+ *
+ * It renders JavaScript as a side effect, so it also rescues a site that builds its pages
+ * in the browser, which a plain fetch can never read.
+ */
+async function readThroughReader(url: URL, cap: number, timeoutMs = 8000): Promise<string> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+        const key = process.env.JINA_API_KEY?.trim();
+        const res = await fetch(`https://r.jina.ai/${url.href}`, {
+            signal: ctrl.signal,
+            headers: { accept: "text/plain", ...(key ? { authorization: `Bearer ${key}` } : {}) },
+        });
+        if (!res.ok) return "";
+        return (await res.text()).slice(0, cap).trim();
+    } catch {
+        return "";
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/**
+ * One page of a client's site, read on its own.
+ *
+ * Section 8 of the Master Brand Document is drafted a property at a time — one entry per
+ * stay page listed in section 11 — because the whole-site read only carries three inner
+ * pages, which on a thirteen-cabin portfolio is ten cabins short. Each of those drafts
+ * gets its own request and its own page fetch, so each fits the synchronous budget.
+ *
+ * Throws with a reason an account manager can read, same as readWebsite: a page that came
+ * back empty is a page the model would otherwise fill from imagination.
+ */
+export async function readPage(raw: string, cap = 12_000): Promise<{ url: string; title: string; text: string }> {
+    const url = await assertPublicUrl(raw);
+    const host = url.hostname.replace(/^www\./, "");
+
+    /* The reader is tried only where there is positive evidence a fetch cannot work — a
+       refusal or a wall, both of which come back fast. A timeout is NOT one of those: the
+       4.5s already spent plus the reader's own 8s would overrun the budget this endpoint
+       runs in, and a slow site is slow for the reader too. */
+    const viaReader = async (why: string) => {
+        const text = await readThroughReader(url, cap);
+        if (text.length >= 200) return { url: url.href, title: readerTitle(text), text };
+        throw new Error(`${why} Reading it through a browser service didn't work either, so this one needs filling in by hand.`);
+    };
+
+    const r = await grabResult(url.href, SINGLE_PAGE_CAP, 4500);
+    if (!r.ok) {
+        if (r.reason === "too-big") throw new Error(`${host} sent a page too large to read.`);
+        // A missing page and a refused one are different problems with different fixes:
+        // one is a wrong URL to correct, the other a site we cannot read at all.
+        if (r.reason === "refused") {
+            if (r.status === 404 || r.status === 410) throw new Error(`There's no page at that address on ${host} — check the link.`);
+            if (r.status === 401 || r.status === 403 || r.status === 429 || r.status === 503)
+                return viaReader(`${host} refused an automated request (HTTP ${r.status}).`);
+            throw new Error(`${host} answered HTTP ${r.status} for that page.`);
+        }
+        throw new Error(`${host} didn't answer in time.`);
+    }
+    const html = asText(r.body);
+    const text = stripHtml(html, cap);
+    if (text.length < 200) {
+        /* A bot wall answers 200 (SiteGround's sgcaptcha even answers 202) with a stub that
+           redirects to a challenge, so "almost no text" is ambiguous between a wall and a
+           page built in the browser. Naming which one is the difference between an AM trying
+           a different link and an AM trying the same link again. */
+        if (BOT_WALL.test(html)) return viaReader(`${host} is behind bot protection that only a real browser can pass.`);
+        // A page built in the browser is the reader's other good case: it renders first.
+        return viaReader(`${host} returned almost no readable text — it builds its pages in JavaScript.`);
+    }
+    return { url: url.href, title: pageTitle(html), text };
+}
+
+/** Jina's reader opens with "Title: …"; pageTitle() reads <title> and has no markup here. */
+const readerTitle = (text: string): string => (text.match(/^Title:\s*(.+)$/m)?.[1] ?? "").trim();
+
+/** The challenge pages the common bot walls serve in place of the real one. */
+const BOT_WALL =
+    /sgcaptcha|\/\.well-known\/captcha|cf-browser-verification|cdn-cgi\/challenge|Just a moment\.\.\.|Attention Required!|Checking your browser|__cf_chl|px-captcha|incapsula|_Incapsula_Resource|DataDome/i;
 
 export interface SiteRead {
     site: string;

@@ -4,7 +4,16 @@ import { editInput } from "@/pages/client/dashboard/dashboard-chrome";
 import { TYPE_SCALE, clampFor } from "@/pages/client/dashboard/type-scale";
 
 export type BrandFontFile = { name: string; url: string };
-export type BrandFontFiles = { heading?: BrandFontFile; body?: BrandFontFile };
+export type BrandFontFiles = { heading?: BrandFontFile; heading2?: BrandFontFile; body?: BrandFontFile };
+export type FontRole = keyof BrandFontFiles;
+
+/**
+ * Client bases (slug minus "-dashboard") whose Brand Kit gets a third typeface card,
+ * "Heading font 2", for the two largest Display sizes. Everyone else keeps the two
+ * cards. Asked for Cabin Collective alone, so it is a list rather than a template change.
+ */
+const THIRD_HEADING_FONT_CLIENTS = new Set(["cabin-collective"]);
+export const hasThirdHeadingFont = (clientBase: string) => THIRD_HEADING_FONT_CLIENTS.has(clientBase);
 
 /** The comma-separated fonts field, as up-to-4 trimmed family names. */
 export const splitFamilies = (fonts: string) =>
@@ -16,15 +25,17 @@ export const splitFamilies = (fonts: string) =>
 
 /**
  * Which family each role resolves to. An uploaded file wins over a typed name for its
- * role; the body falls back to the heading so one font still styles the whole scale.
+ * role; the body falls back to the heading so one font still styles the whole scale, and
+ * so does heading 2 (the large Display sizes) — so a kit without one reads as before.
  * Shared with the brand preview and the CSS export so every surface agrees on which
  * font is "the heading font".
  */
-export const resolveRoles = (fonts: string, files: BrandFontFiles | undefined) => {
+export const resolveRoles = (fonts: string, files: BrandFontFiles | undefined, heading2Name?: string) => {
     const typed = splitFamilies(fonts);
     const heading = files?.heading?.name ?? typed[0];
     const body = files?.body?.name ?? typed[1] ?? heading;
-    return { heading, body, headingCustom: !!files?.heading, bodyCustom: !!files?.body };
+    const ownHeading2 = files?.heading2?.name ?? (heading2Name?.trim() || undefined);
+    return { heading, heading2: ownHeading2 ?? heading, body, hasHeading2: !!ownHeading2, headingCustom: !!files?.heading, bodyCustom: !!files?.body };
 };
 
 /** A family name as a CSS font-family value with the one fallback the previews use. */
@@ -54,7 +65,7 @@ const useGoogleFonts = (families: string[]) => {
 /** Register uploaded font files (data URLs) with the browser while mounted. */
 const useCustomFonts = (files: BrandFontFiles | undefined) => {
     useEffect(() => {
-        const faces = [files?.heading, files?.body]
+        const faces = [files?.heading, files?.heading2, files?.body]
             .filter((f): f is BrandFontFile => !!f)
             .map((f) => {
                 const face = new FontFace(f.name, `url(${f.url})`);
@@ -68,37 +79,53 @@ const useCustomFonts = (files: BrandFontFiles | undefined) => {
     }, [files]);
 };
 
-const ROLES = [
+const TWO_ROLES = [
     { role: "heading" as const, label: "Heading font", note: "Used for the Display sizes", placeholder: "e.g. Cormorant Infant" },
     { role: "body" as const, label: "Body font", note: "Used for the Text sizes", placeholder: "e.g. Inter" },
 ];
 
+const THREE_ROLES = [
+    { role: "heading" as const, label: "Heading font 1", note: "Display lg → xs", placeholder: "e.g. Cormorant Infant" },
+    { role: "heading2" as const, label: "Heading font 2", note: "Display 2xl & xl", placeholder: "e.g. Playfair Display" },
+    { role: "body" as const, label: "Body font", note: "Used for the Text sizes", placeholder: "e.g. Inter" },
+];
+
 /**
- * The two typeface cards, side by side — Heading and Body. Each previews its resolved
- * font and, in edit mode, takes a typed family name OR an uploaded font file (the
- * upload wins for that role until it's removed). Typed names live in the ONE stored
- * comma string (slot 0 heading, slot 1 body), so older rows and the generate-from-
- * website filler keep working unchanged; uploads live in brand.font_files.
+ * The typeface cards, side by side — Heading and Body, plus Heading 2 for the clients
+ * in THIRD_HEADING_FONT_CLIENTS. Each previews its resolved font and, in edit mode,
+ * takes a typed family name OR an uploaded font file (the upload wins for that role
+ * until it's removed). Heading and body names live in the ONE stored comma string
+ * (slot 0 heading, slot 1 body), so older rows and the generate-from-website filler
+ * keep working unchanged; heading 2 is its own field (brand.heading2_font) so it can
+ * never shift those slots. Uploads live in brand.font_files.
  */
 export const TypographyCards = ({
     fonts,
     files,
+    heading2 = "",
+    thirdFont = false,
     isLocked,
     onFonts,
+    onHeading2,
     onUpload,
     onClearUpload,
 }: {
     fonts: string;
     files: BrandFontFiles | undefined;
+    heading2?: string;
+    thirdFont?: boolean;
     isLocked: boolean;
     onFonts: (fonts: string) => void;
-    onUpload: (role: "heading" | "body", file: File) => void;
-    onClearUpload: (role: "heading" | "body") => void;
+    onHeading2?: (name: string) => void;
+    onUpload: (role: FontRole, file: File) => void;
+    onClearUpload: (role: FontRole) => void;
 }) => {
     const typed = useMemo(() => splitFamilies(fonts), [fonts]);
-    useGoogleFonts(typed);
+    const toLoad = useMemo(() => (thirdFont && heading2.trim() ? [...typed, heading2.trim()] : typed), [typed, thirdFont, heading2]);
+    useGoogleFonts(toLoad);
     useCustomFonts(files);
-    const resolved = resolveRoles(fonts, files);
+    const resolved = resolveRoles(fonts, files, thirdFont ? heading2 : undefined);
+    const roles = thirdFont ? THREE_ROLES : TWO_ROLES;
 
     /* Local input state keeps typing free (a trailing space would otherwise be trimmed
        away on the round trip); it resyncs only when the stored value changes from
@@ -123,12 +150,25 @@ export const TypographyCards = ({
         );
     };
 
+    /* Same local-state reasoning as `names`, for the one heading-2 input. */
+    const [heading2Name, setHeading2Name] = useState(heading2);
+    useEffect(() => {
+        if (heading2.trim() !== heading2Name.trim()) setHeading2Name(heading2);
+    }, [heading2]); // eslint-disable-line react-hooks/exhaustive-deps -- resync only on outside writes
+
+    const inputValue = (role: FontRole) => (role === "heading2" ? heading2Name : names[role === "heading" ? 0 : 1]);
+    const setInput = (role: FontRole, v: string) => {
+        if (role !== "heading2") return setName(role === "heading" ? 0 : 1, v);
+        setHeading2Name(v);
+        onHeading2?.(v.trim());
+    };
+
     return (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {ROLES.map(({ role, label, note, placeholder }, i) => {
+        <div className={thirdFont ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-4 sm:grid-cols-2"}>
+            {roles.map(({ role, label, note, placeholder }) => {
                 const family = resolved[role];
-                const custom = role === "heading" ? files?.heading : files?.body;
-                const fallbackToHeading = role === "body" && !custom && !typed[1] && !!resolved.heading;
+                const custom = files?.[role];
+                const fallbackToHeading = !custom && !!resolved.heading && ((role === "body" && !typed[1]) || (role === "heading2" && !resolved.hasHeading2));
                 return (
                     <div key={role} className="rounded-2xl bg-primary p-5 ring-1 ring-secondary">
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -156,8 +196,8 @@ export const TypographyCards = ({
                                     <input
                                         type="text"
                                         placeholder={placeholder}
-                                        value={names[i as 0 | 1]}
-                                        onChange={(e) => setName(i as 0 | 1, e.target.value)}
+                                        value={inputValue(role)}
+                                        onChange={(e) => setInput(role, e.target.value)}
                                         className={editInput("min-w-0 flex-1")}
                                     />
                                     <label
@@ -193,10 +233,12 @@ export const TypographyCards = ({
                                 {isLocked && (
                                     <p className="mt-2 text-xs text-quaternary">
                                         {family}
-                                        {fallbackToHeading ? " — same as heading" : custom ? " (uploaded)" : ""}
+                                        {fallbackToHeading ? ` — same as ${thirdFont ? "heading font 1" : "heading"}` : custom ? " (uploaded)" : ""}
                                     </p>
                                 )}
-                                {!isLocked && fallbackToHeading && <p className="mt-2 text-xs text-quaternary">Falls back to the heading font.</p>}
+                                {!isLocked && fallbackToHeading && (
+                                    <p className="mt-2 text-xs text-quaternary">Falls back to {thirdFont ? "heading font 1" : "the heading font"}.</p>
+                                )}
                             </>
                         ) : (
                             <p className="mt-3 text-md text-quaternary italic">No font set yet.</p>
@@ -210,11 +252,12 @@ export const TypographyCards = ({
 
 /**
  * The Untitled UI type scale (see type-scale.ts) rendered in the brand's own fonts —
- * heading font for Display sizes, body font for Text sizes. Each row shows px /
+ * heading font for Display sizes (heading 2 for the large ones, when the kit has one),
+ * body font for Text sizes. Each row shows px /
  * line-height and the CSS clamp() for fluid sizing; click the code to copy it.
  */
-export const TypeScale = ({ fonts, files }: { fonts: string; files?: BrandFontFiles }) => {
-    const resolved = resolveRoles(fonts, files);
+export const TypeScale = ({ fonts, files, heading2 }: { fonts: string; files?: BrandFontFiles; heading2?: string }) => {
+    const resolved = resolveRoles(fonts, files, heading2);
     const [copied, setCopied] = useState("");
     const copy = (label: string, value: string) => {
         void navigator.clipboard.writeText(value).then(() => {
@@ -224,6 +267,7 @@ export const TypeScale = ({ fonts, files }: { fonts: string; files?: BrandFontFi
     };
 
     const heading = fontStack(resolved.heading);
+    const large = fontStack(resolved.heading2) ?? heading;
     const body = fontStack(resolved.body) ?? heading;
 
     return (
@@ -249,7 +293,7 @@ export const TypeScale = ({ fonts, files }: { fonts: string; files?: BrandFontFi
                         <p
                             className="min-w-0 flex-1 truncate text-primary"
                             style={{
-                                fontFamily: t.display ? heading : body,
+                                fontFamily: t.large ? large : t.display ? heading : body,
                                 fontSize: t.px,
                                 lineHeight: `${t.lh}px`,
                                 letterSpacing: t.ls ? `${t.ls}px` : undefined,

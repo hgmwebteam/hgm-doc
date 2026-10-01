@@ -8,13 +8,12 @@ import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyC
  * exactly the rows that exist, so seeding a third topic needs no deploy here or in the
  * bundle.
  *
- * ── WHY turnaround_days IS RETURNED EVEN THOUGH IT IS NULL ──────────────────
- * It is NULL on both seeded topics today, by the owner's decision on the day this was
- * built, and topicTurnaroundLabel() in help-model.ts renders nothing for a NULL. Passing
- * the column through anyway is the point: the day a real turnaround is agreed and written
- * to the row, the chooser starts saying so with no code change on either side. The
- * alternative - omitting the field until it is useful - guarantees a deploy later, and a
- * deploy later is how "usually a few days" ends up hard-coded in a component.
+ * ── WHY turnaround_days IS NOT SENT ────────────────────────────────────────
+ * A topic's turnaround is an estimate, and a client is never shown a planned or estimated
+ * date (owner, 28 Sep 2026). The column stays in the table for the brain (route-ticket.ts),
+ * but it is not selected here, so no screen can turn it into words: the same rule as the
+ * promised date and the assignee, which the ticket functions leave out of a client's
+ * answers (ticket-columns.mts, clientView).
  *
  * ── WHY THIS ONE IS GATED TOO ───────────────────────────────────────────────
  * `ticket_topics` is the one reporting table with a SELECT policy for anon, so this list
@@ -26,10 +25,11 @@ import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyC
  * POST application/json { slug } + Authorization: Bearer <session token> -> { topics: [...] }
  */
 
-/** The four fields help-model.ts's TicketTopic declares. Internal routing columns
+/** The three fields help-model.ts's TicketTopic declares. Internal routing columns
  *  (asana_project_gid, default_assignee_email, queue_label) are deliberately not among
- *  them: a client has no use for the board a request lands on. */
-const TOPIC_COLUMNS = "key, label, description, turnaround_days";
+ *  them: a client has no use for the board a request lands on. Nor is turnaround_days
+ *  (see above). */
+const TOPIC_COLUMNS = "key, label, description";
 
 export default async (req: Request) => {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });

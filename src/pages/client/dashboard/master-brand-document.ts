@@ -14,26 +14,23 @@ import type { MasterDocSection } from "@/utils/master-document-pdf";
  *
  * One list drives the in-page rail, the scroll-spy, the "x of 11 sections filled" readout,
  * the compiled AM document and the PDF — so a section can't appear in the rail and be
- * missing from the export. `workflow` marks the four an AM pastes in from the brand
- * messaging workflow rather than asking the client for; those carry a badge and, for the
- * client, no instruction to go and fill them in themselves.
+ * missing from the export.
  */
 export const FOUNDATION_SECTIONS = [
-    { id: "hosts", label: "About the hosts", workflow: false },
-    { id: "properties", label: "About the properties", workflow: false },
-    { id: "location", label: "Location", workflow: false },
-    { id: "audience", label: "Target audience profile", workflow: true },
-    { id: "uvp", label: "Unique value proposition", workflow: true },
-    { id: "brand", label: "About the brand", workflow: true },
-    { id: "personas", label: "Personas", workflow: true },
-    { id: "focus", label: "Focus properties", workflow: false },
-    { id: "favorites", label: "Local favorites", workflow: false },
-    { id: "reviews", label: "Reviews", workflow: false },
-    { id: "links", label: "Website links", workflow: false },
+    { id: "hosts", label: "About the hosts" },
+    { id: "properties", label: "About the properties" },
+    { id: "location", label: "Location" },
+    { id: "audience", label: "Target audience profile" },
+    { id: "uvp", label: "Unique value proposition" },
+    { id: "brand", label: "About the brand" },
+    { id: "personas", label: "Personas" },
+    { id: "focus", label: "Focus properties" },
+    { id: "favorites", label: "Local favorites" },
+    { id: "reviews", label: "Reviews" },
+    { id: "links", label: "Website links" },
 ] as const;
 
 export type FoundationSectionId = (typeof FOUNDATION_SECTIONS)[number]["id"];
-
 
 /** Which of the eleven sections have any content — drives the rail ticks and the counter. */
 export const foundationProgress = (f: Foundation): Record<FoundationSectionId, boolean> => ({
@@ -179,14 +176,18 @@ export const masterDocumentHtml = (clientName: string, clientWebsite: string, f:
                           ["Location", p.location],
                           [
                               "Sleeps",
-                              [p.guests && `${p.guests} guests`, p.bedrooms && `${p.bedrooms} bed`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`]
-                                  .filter(Boolean)
-                                  .join(" · "),
+                              [p.guests && `${p.guests} guests`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`].filter(Boolean).join(" · "),
                           ],
                           ["Listing description", p.description],
                           ["Features & amenities", p.features],
                           ["Terms & rules", p.terms],
-                          ["Top reviews", p.reviews.filter((r) => r.trim()).map((r) => `“${r.trim()}”`).join("\n")],
+                          [
+                              "Top reviews",
+                              p.reviews
+                                  .filter((r) => r.trim())
+                                  .map((r) => `“${r.trim()}”`)
+                                  .join("\n"),
+                          ],
                       ]),
                   )
                   .join("")}</ul>`
@@ -276,9 +277,7 @@ export const compileMasterDocument = (
                     ["Location", p.location],
                     [
                         "Sleeps",
-                        [p.guests && `${p.guests} guests`, p.bedrooms && `${p.bedrooms} bed`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`]
-                            .filter(Boolean)
-                            .join(" · "),
+                        [p.guests && `${p.guests} guests`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`].filter(Boolean).join(" · "),
                     ],
                     ["Listing description", p.description],
                     ["Features & amenities", p.features],

@@ -211,20 +211,15 @@ const ONBOARDING_SECTIONS: SectionDef[] = [
         icon: Users01,
         questions: [
             {
+                // Free text, not a pick-list: the Master Brand Document's personas need an
+                // age, a location and a booking habit, and a tick against "Families with
+                // kids" carries none of them. Answers written while this was a choice are
+                // already plain lines of text, so they read back unchanged.
                 field: "idealGuest",
-                label: "Who is your ideal guest?",
+                label: "Describe your target audience",
+                hint: "Who they are — consider demographics, income level, travel motivations, lifestyle, and booking behavior.",
                 required: true,
-                choice: {
-                    options: [
-                        "Couples seeking romance",
-                        "Families with kids",
-                        "Friend groups",
-                        "Solo travellers",
-                        "Remote workers",
-                        "Adventure seekers",
-                        "Luxury travellers",
-                    ],
-                },
+                long: true,
             },
             {
                 field: "guestFeelings",
@@ -604,8 +599,25 @@ export interface ClientOnboardingData {
     lastField?: string;
 }
 
+/* A question that used to be multiple choice keeps every answer given to it. The picks
+   are already plain lines in the field, so they need nothing; the free "Other" text sits
+   in a companion key only a choice question reads, and is folded into the field itself
+   here. Without this an answer that was typed under "Other" would silently vanish the
+   day its question became free text. */
+const foldLegacyOther = (answers: Record<string, string>) => {
+    for (const q of [...ONBOARDING_SECTIONS, ...ACCESS_SECTIONS].flatMap((s) => s.questions)) {
+        if (q.choice) continue;
+        const other = (answers[`${q.field}__other`] ?? "").trim();
+        if (!other) continue;
+        const value = (answers[q.field] ?? "").trim();
+        answers[q.field] = value ? `${value}\n${other}` : other;
+        delete answers[`${q.field}__other`];
+    }
+    return answers;
+};
+
 const mergeData = (partial?: Partial<ClientOnboardingData> | null): ClientOnboardingData => ({
-    answers: { ...(partial?.answers ?? {}) },
+    answers: foldLegacyOther({ ...(partial?.answers ?? {}) }),
     submittedAt: partial?.submittedAt,
     lastField: partial?.lastField,
 });
@@ -770,12 +782,21 @@ export const withBrandVisionAnswers = (partial: Partial<ClientOnboardingData> | 
         const v = vision[q.field];
         if (typeof v === "string") {
             if (empty(q.field) && v.trim()) answers[q.field] = v.trim();
-        } else if (q.choice && v && typeof v === "object") {
+        } else if (v && typeof v === "object") {
             const { picked, other } = v as { picked?: unknown; other?: unknown };
             const picks = Array.isArray(picked) ? picked.filter((p): p is string => typeof p === "string" && !!p.trim()) : [];
-            if (empty(q.field) && empty(`${q.field}__other`)) {
-                if (picks.length) answers[q.field] = picks.join("\n");
-                if (typeof other === "string" && other.trim()) answers[`${q.field}__other`] = other.trim();
+            const otherText = typeof other === "string" ? other.trim() : "";
+            if (q.choice) {
+                if (empty(q.field) && empty(`${q.field}__other`)) {
+                    if (picks.length) answers[q.field] = picks.join("\n");
+                    if (otherText) answers[`${q.field}__other`] = otherText;
+                }
+            } else if (empty(q.field)) {
+                // The Brand Vision Form still asks some of these as multiple choice while
+                // this form now asks them as free text — the picks and the "Other" line
+                // arrive as the words they always were.
+                const joined = [...picks, otherText].filter(Boolean).join("\n");
+                if (joined) answers[q.field] = joined;
             }
         }
     }
@@ -1703,6 +1724,13 @@ export const ClientOnboardingFormPage = ({
                 setSubmitState("error");
                 return;
             }
+            // Email the assigned AM — one email per form. Fire-and-forget: the function re-checks
+            // the row, sends at most once, and a failed email must never read as a failed submit.
+            fetch("/.netlify/functions/form-submitted", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slug }),
+            }).catch((e) => console.error("[client onboarding notify]", e));
         }
         setSubmitState("idle");
         setError(null);

@@ -33,8 +33,9 @@ import {
     type TicketStatus,
     type TicketTopic,
     matchesFilter,
-    requestDueLine,
     requestMetaLine,
+    websitesSuffix,
+    requestOutcomeLine,
     requestsSummary,
     topicLabel,
 } from "@/pages/client/help/help-model";
@@ -187,15 +188,21 @@ export const EmptyNote = ({ title, detail, action }: { title: string; detail: st
  * Desktop ("Requests" 117:43, one "Request" frame per row): 76 tall, padding 16 by 20,
  * gap 16, the words filling on the left (the title in label/field, then a 20px meta
  * line: the mono reference and ONE helper text "{topic}  ·  raised {d Mon}", gap 8),
- * then the due line in body/helper text/secondary, then the pill. Rows alternate
+ * then the outcome line in body/helper text/secondary, then the pill. Rows alternate
  * bg/primary and bg/secondary, and every row but the first carries a 1px border/secondary
  * on top drawn INSIDE its 76, so it has 15 of padding above the words instead of 16.
  *
  * Phone ("Request" 121:75): each row is its own card, 124 tall, padding 16, gap 10, with
  * elevation/card: the title in body/input, the meta line (the reference, then the topic
- * label alone), and a footer with the pill first and the due line filling to the right.
+ * label alone), and a footer with the pill first and the outcome line filling to the right.
  *
- * One DOM for both: the words column, then the pill and the due line, which are a footer
+ * The outcome line is there only once a request has closed ("Completed in 3 days",
+ * "Withdrawn"). An open request shows no date at all (owner, 28 Sep 2026: no estimates for
+ * clients): its pill says where it stands, and the row is the frame's row with the "Due"
+ * text gone, so nothing is left as an empty column. The pill stays at the right edge on the
+ * desktop and first in the footer on a phone, whichever rows carry a line.
+ *
+ * One DOM for both: the words column, then the pill and the outcome line, which are a footer
  * row on a phone and (through `sm:contents`) two more items of the row on desktop, the
  * pill ordered last. The meta line's two spellings are both in the DOM and one is hidden
  * per width, because the frame's desktop node holds the raise date and its phone node
@@ -208,8 +215,10 @@ export const EmptyNote = ({ title, detail, action }: { title: string; detail: st
  * last.
  */
 const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: TicketTopic[]; slug: string; index: number }) => {
-    const due = requestDueLine(ticket);
+    const outcome = requestOutcomeLine(ticket);
     const tinted = index % 2 === 1;
+    // "  ·  All 6 websites" or the names, for a multi-site client's request; "" otherwise.
+    const sites = websitesSuffix(ticket);
     return (
         <li>
             <Link
@@ -226,15 +235,18 @@ const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: T
             >
                 <div className="flex min-w-0 flex-col gap-2.5 sm:flex-1 sm:gap-1">
                     <p className="hc-t-body-input text-(--hc-text-primary) sm:hc-t-label-field">{ticket.title}</p>
-                    <div className="flex min-w-0 items-center gap-2">
+                    {/* A phone line that names websites may wrap (two names do not fit 390 beside the
+                        reference, and a cut name is a lost fact); it then sits on the reference's
+                        baseline. Every other row keeps the frame's one centred, truncating line. */}
+                    <div className={cx("flex min-w-0 gap-2", sites ? "items-baseline sm:items-center" : "items-center")}>
                         <MonoRef>{ticket.reference}</MonoRef>
-                        <span className="hc-t-body-helper min-w-0 flex-1 truncate text-(--hc-text-tertiary) sm:hidden">{topicLabel(topics, ticket.topic)}</span>
+                        <span className={cx("hc-t-body-helper min-w-0 flex-1 text-(--hc-text-tertiary) sm:hidden", sites ? "break-words" : "truncate")}>{`${topicLabel(topics, ticket.topic)}${sites}`}</span>
                         <span className="hc-t-body-helper hidden min-w-0 truncate text-(--hc-text-tertiary) sm:inline">{requestMetaLine(topics, ticket)}</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 sm:contents">
                     <StatusPill status={ticket.status} className="shrink-0 sm:order-last" />
-                    {due && <span className="hc-t-body-helper min-w-0 flex-1 text-right whitespace-nowrap text-(--hc-text-secondary) sm:flex-none">{due}</span>}
+                    {outcome && <span className="hc-t-body-helper min-w-0 flex-1 text-right whitespace-nowrap text-(--hc-text-secondary) sm:flex-none">{outcome}</span>}
                 </div>
             </Link>
         </li>
@@ -244,7 +256,7 @@ const RequestRow = ({ ticket, topics, slug, index }: { ticket: Ticket; topics: T
 const emptyCopy: Record<RequestFilter, { title: string; detail: string }> = {
     all: {
         title: "No requests yet",
-        detail: "When you raise your first request it will appear here, with the name of the person who owns it.",
+        detail: "When you raise your first request it will appear here, with where it stands.",
     },
     open: {
         title: "Nothing open",

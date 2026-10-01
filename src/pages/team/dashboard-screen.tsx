@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowUpRight,
     Award01,
+    BookClosed,
     BookOpen01,
     Briefcase01,
     Camera01,
@@ -55,7 +56,7 @@ import {
 } from "@/lib/supabase";
 // Aliased rather than reusing the slugify above: this must match the slug the dashboard's
 // own "+ New Page" wizard produces, so it uses the same function that wizard does.
-import { createDefaultContent, slugify as dashboardSlugify, genSharePassword } from "@/pages/client/dashboard/dashboard-model";
+import { slugify as dashboardSlugify, genSharePassword, newDashboardRow } from "@/pages/client/dashboard/dashboard-model";
 import { LandingPageDirectoryContent } from "@/pages/team/landing-page-directory/landing-page-directory";
 import { SOP_DEPARTMENTS, sopDeptTabId } from "@/pages/team/sops/sop-departments";
 import { SopsContent } from "@/pages/team/sops/sops-content";
@@ -354,6 +355,9 @@ const DEPARTMENTS: Department[] = [
             // Scratch bench for device mockups and drawn backdrops — a reference
             // surface, so it links out rather than rendering a card grid here.
             { id: "mockups", label: "Mockups & backdrops", icon: Image01, to: "/test" },
+            // The Industry Acumen Dictionary — its own route (so /dictionary#term links work), but it
+            // renders this same side menu (DocsSideMenu below), so the menu doesn't move.
+            { id: "dictionary", label: "Dictionary", icon: BookClosed, to: "/dictionary" },
         ],
     },
     {
@@ -448,8 +452,9 @@ const NavRow = ({
         <button
             type="button"
             onClick={onSelect}
+            aria-current={active ? "page" : undefined}
             className={cx(
-                "flex flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium transition duration-100 ease-linear",
+                "flex flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2",
                 active ? "text-brand-700 dark:text-brand-300" : "text-secondary group-hover:text-primary",
             )}
         >
@@ -521,6 +526,7 @@ const Sidebar = ({
     onAddTab,
     onDeleteTab,
     onCollapse,
+    animate = true,
 }: {
     department: Department;
     tabs: DeptTab[];
@@ -535,6 +541,8 @@ const Sidebar = ({
     onAddTab: (label: string, sectionId?: string) => void;
     onDeleteTab: (id: string) => void;
     onCollapse?: () => void;
+    /** false ⇒ the rows appear in place, without the entrance stagger (arriving from another Docs page). */
+    animate?: boolean;
 }) => {
     return (
         <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
@@ -553,7 +561,7 @@ const Sidebar = ({
                         <p className="mb-1 px-2 text-xs font-semibold tracking-widest text-quaternary uppercase">{group.label}</p>
                         <motion.div
                             className="flex flex-col gap-1"
-                            initial="hidden"
+                            initial={animate ? "hidden" : false}
                             animate="show"
                             variants={{ show: { transition: { staggerChildren: 0.05 } } }}
                         >
@@ -577,7 +585,7 @@ const Sidebar = ({
                 <motion.div
                     key={department.id}
                     className="flex flex-col gap-1"
-                    initial="hidden"
+                    initial={animate ? "hidden" : false}
                     animate="show"
                     variants={{ show: { transition: { staggerChildren: 0.05 } } }}
                 >
@@ -609,7 +617,7 @@ const Sidebar = ({
                         <motion.div
                             key={department.id + ":" + section.id}
                             className="flex flex-col gap-1"
-                            initial="hidden"
+                            initial={animate ? "hidden" : false}
                             animate="show"
                             variants={{ show: { transition: { staggerChildren: 0.05 } } }}
                         >
@@ -630,6 +638,53 @@ const Sidebar = ({
                 ))}
             </nav>
         </aside>
+    );
+};
+
+/**
+ * Whether a DocsSideMenu is on screen. The dashboard reads it while it first renders —
+ * before the page it replaces has unmounted — so arriving from /dictionary by any route
+ * (a menu row, the header back arrow, browser Back, the rail's Docs icon) shows the
+ * menu in place instead of replaying its entrance. A reload starts it false again.
+ */
+let docsSideMenuOnScreen = false;
+
+/**
+ * The Docs department's side menu, read-only, for a Docs page on its own route
+ * (/dictionary). It IS the dashboard's Sidebar — same rows, same place — so moving
+ * between Docs pages leaves the menu exactly where it was. `current` is the highlighted
+ * row. Rows open their tab here on /dashboard, or their own page.
+ */
+export const DocsSideMenu = ({ current, onCollapse }: { current: string; onCollapse?: () => void }) => {
+    const navigate = useNavigate();
+    useEffect(() => {
+        docsSideMenuOnScreen = true;
+        return () => {
+            docsSideMenuOnScreen = false;
+        };
+    }, []);
+    const docs = DEPARTMENTS.find((d) => d.id === "docs");
+    if (!docs) return null;
+    const open = (id: string) => {
+        const tab = docs.tabs.find((t) => t.id === id);
+        if (!tab || tab.id === current) return;
+        navigate(tab.to ?? `/dashboard?dept=docs&tab=${tab.id}`);
+    };
+    return (
+        <Sidebar
+            department={docs}
+            tabs={docs.tabs}
+            sections={[]}
+            activeSection={current}
+            onSelect={open}
+            editing={false}
+            canEditTabs={false}
+            customTabIds={[]}
+            onAddTab={() => {}}
+            onDeleteTab={() => {}}
+            onCollapse={onCollapse}
+            animate={false}
+        />
     );
 };
 
@@ -2551,23 +2606,9 @@ const ClientModal = ({
         }
         setPageBusy(true);
         setPageError("");
-        const { error: insErr } = await supabase.from("dashboard_pages").insert({
-            slug: `${base}-dashboard`,
-            client_name: name.trim(),
-            client_website: "",
-            data: {
-                ...createDefaultContent(base),
-                // The first person on the dashboard, with the password generated above as
-                // their own. `sections: null` puts them on the dashboard-wide default, which
-                // is what an AM narrows per person later in the dashboard's access panel.
-                // allowed_emails is the derived mirror the Netlify suggestion function reads
-                // — written here too so a brand-new row never has the two out of step.
-                dashboard_users: pageEmail.trim() ? [{ email: pageEmail.trim(), password: pagePassword.trim(), sections: null }] : [],
-                allowed_emails: pageEmail.trim() ? [pageEmail.trim()] : [],
-                // Kept as the fallback for anyone added later without a password of their own.
-                share_password: pagePassword.trim(),
-            },
-        });
+        // The template row with the first person (and the password generated above as their
+        // own) on its access list: dashboard-model.ts newDashboardRow says what goes in it.
+        const { error: insErr } = await supabase.from("dashboard_pages").insert(newDashboardRow({ name, email: pageEmail, password: pagePassword }));
         setPageBusy(false);
         if (insErr) {
             // 23505 = unique violation (slug taken); 42501 = RLS denied — dashboard_pages
@@ -3755,6 +3796,14 @@ const DashboardLayout = () => {
         return p && DEPARTMENTS.some((d) => d.id === p) ? p : "clients";
     })();
     const [department, setDepartment] = useState(initialDeptId);
+    // Arriving on Docs from a page that shows the same Docs menu (/dictionary), the menu was
+    // already on screen in this exact spot — so it appears in place instead of staggering in.
+    // Used for the first paint only: hiding/showing the menu or switching department later
+    // animates exactly as before.
+    const [menuStill, setMenuStill] = useState(() => initialDeptId === "docs" && docsSideMenuOnScreen);
+    useEffect(() => {
+        if (menuStill) setMenuStill(false);
+    }, []);
     const [activeSection, setActiveSection] = useState(() => {
         const d = DEPARTMENTS.find((x) => x.id === initialDeptId) ?? DEPARTMENTS[0];
         // Link rows (Manual) render no content of their own, so they can't be the landing tab.
@@ -3893,6 +3942,7 @@ const DashboardLayout = () => {
                                 onAddTab={addTab}
                                 onDeleteTab={deleteTab}
                                 onCollapse={toggleNav}
+                                animate={!menuStill}
                             />
                         )}
                         {dept.kind === "sops" ? (

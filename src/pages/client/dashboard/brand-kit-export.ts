@@ -41,10 +41,11 @@ const colorLines = (colors: Brand["colors"]): string[] => {
 };
 
 const fontLines = (brand: Brand): string[] => {
-    const { heading, body } = resolveRoles(brand.fonts, brand.font_files);
+    const { heading, heading2, hasHeading2, body } = resolveRoles(brand.fonts, brand.font_files, brand.heading2_font);
     if (!heading && !body) return [];
     const lines = ["  /* Typography */"];
     if (heading) lines.push(`  --font-heading: "${heading}", sans-serif;`);
+    if (hasHeading2) lines.push(`  --font-heading-2: "${heading2}", sans-serif; /* Display 2xl & xl */`);
     if (body) lines.push(`  --font-body: "${body}", sans-serif;`);
     lines.push("");
     return lines;

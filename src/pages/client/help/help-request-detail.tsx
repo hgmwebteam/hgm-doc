@@ -1,27 +1,41 @@
 /**
- * 03 REQUEST DETAIL - one request, its timing, who owns it, and everything that has
- * happened to it. Built to the Figma file's "3 Request detail" frames (118:26 at 1440,
- * 122:60 at 390) node for node; an automated proof holds the page against them.
+ * 03 REQUEST DETAIL - one request, where it stands, and everything that has happened to
+ * it. Built to the Figma file's "3 Request detail" frames (118:26 at 1440, 122:60 at 390)
+ * node for node, with the owner's changes of 28 Sep 2026 on top (the parity proof carries
+ * them as owner changes); an automated proof holds the page against them.
  *
- * Reading order is the same at both widths: the title and its meta line, the promise
- * block, the four facts, the timeline, the team's updates. On the desktop all of that
- * sits in one card with 24 of padding and 24 between blocks; at 390 the card falls away
- * and the promise, the timeline and each update stand as their own cards in the 16
- * rhythm of the mobile frame, with the facts as bordered tiles two to a row.
+ * Reading order is the same at both widths: the title and its meta line, the status block,
+ * the four facts, the timeline, the team's updates. On the desktop all of that sits in one
+ * card with 24 of padding and 24 between blocks; at 390 the card falls away and the status,
+ * the timeline and each update stand as their own cards in the 16 rhythm of the mobile
+ * frame, with the facts as bordered tiles two to a row.
  *
- * ── NO INVENTED DATES ───────────────────────────────────────────────────────
- * The promise block is drawn only when `promised_date` is set (or the request is
- * closed, when it shows the day it closed). No date, no block: a page that implied a
- * date would be doing exactly what this feature exists to stop. The timeline's stamps
- * are the events' own, and its one forward-looking line ("Expected Friday 12
- * September.") repeats the promised date already on the page.
+ * ── NO ESTIMATED DATES, NO ASSIGNEE ─────────────────────────────────────────
+ * Owner, 28 Sep 2026: "Do not give a date estimate, only show when the date is complete",
+ * then "Remove the assigned to" (and "Actually, leave time elapsed"). So while a request is
+ * open the status block names its status and who confirms completion (the account manager),
+ * with no date; once it is completed or withdrawn it carries that day. The facts are
+ * PROPERTY, SUBMITTED BY, ACCOUNT MANAGER and ELAPSED: SUBMITTED BY stands where the Assigned
+ * to tile was, and the timeline's "Assigned to" step is gone. ELAPSED is time since the
+ * request was raised, never time left. The functions do not send a client the promised date
+ * or the assignee at all (ticket-columns.mts, clientView).
  *
  * ── WHAT IS DELIBERATELY NOT SHOWN ──────────────────────────────────────────
- * `route_failed` and `promised_date_set` never reach the timeline. The first means the
- * topic had no Asana board or no default assignee, so the brain refused to open an
- * unowned task and told the account manager instead: that is us handling it, and to
- * the client the request is simply still "Received", which is the truth. The second is
- * already on the page as the promise block.
+ * `route_failed`, `assigned` and `promised_date_set` never reach a client's timeline; the
+ * function leaves them out (ticket-detail.mts). The first means the topic had no Asana board
+ * or no default assignee, so the brain refused to open an unowned task and told the account
+ * manager instead: that is us handling it, and to the client the request is simply still
+ * "Received", which is the truth. The other two name the assignee and the promised date.
+ *
+ * ── WEBSITES, PAGES AND FILES ───────────────────────────────────────────────
+ * What the request is about and what came with it, as tiles under the four facts: WEBSITES
+ * for a client with several brand sites (Enjoy Unique Stays, 29 Sep 2026: which of them the
+ * request is for, "All 6 websites" first when every one was ticked, each name a link to its
+ * site with the domain after it), full width, then PAGES (each address a link, re-checked
+ * for http or https as it is drawn) and FILES (each file's type, name and size) side by
+ * side. Tiles rather than a fifth fact: the fact row is a fixed grid of four 64px cells the
+ * frame pins, and ten addresses do not fit a cell. They render only when there is something
+ * in them, so a request with none of them looks exactly as the frame draws it.
  *
  * ── TIMES ───────────────────────────────────────────────────────────────────
  * Stamps are shown in the client's own time zone, as the browser renders them, with a
@@ -32,24 +46,28 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { type CallerProof, HelpApiError, fetchTicket, withdrawTicket } from "@/pages/client/help/help-api";
-import { Button, Card, ErrorIcon, Eyebrow, MonoRef, type PillTone, SpinnerIcon, StatusPill } from "@/pages/client/help/help-atoms";
+import { Button, Card, ErrorIcon, Eyebrow, MonoRef, type PillTone, SpinnerIcon, StatusPill, formatFileSize } from "@/pages/client/help/help-atoms";
 import {
     STATUS_META,
     type StepState,
     type Ticket,
     type TicketEvent,
+    type TicketFile,
     type TicketStatus,
     type TicketTopic,
     actorName,
     canWithdraw,
+    displayUrl,
     elapsedLabel,
     formatDayMonth,
     formatDayMonthTime,
     formatWeekdayDayMonth,
     isTeamAddress,
+    isWebLink,
     timelineSteps,
     topicLabel,
 } from "@/pages/client/help/help-model";
+import { FILE_TYPES, type StoredWebsites, storedWebsitesOf } from "@/pages/client/help/request-rules";
 import { cx } from "@/utils/cx";
 import { Linkified } from "@/utils/linkify";
 
@@ -102,37 +120,59 @@ const ErrorNote = ({ message, onRetry }: { message: string; onRetry?: () => void
     </Card>
 );
 
-/* ── The promise block ───────────────────────────────────────────────────── */
+/* ── The status block ────────────────────────────────────────────────────── */
 
 /**
- * The frame's "Promise" (129:94 / 122:80): bg/brand-primary with a 1px border/brand.
- * On the desktop a row, radius/2xl, padding 20 by 24, the date column then the pill,
- * centred; at 390 a column, radius/xl, padding 16, gap 6, with the card shadow, and no
- * line under the date. "COMMITTED" in caption/meta, the date in display/hero
- * (display/title at 390), the line in body/helper text/secondary.
- *
- * Only when there is a date. A closed request shows the day it closed instead, under
- * the matching word, so the biggest type on the page is always a day that is true.
+ * The account manager as the page names them: the full name on the ticket, else the mailbox
+ * name capitalised ("chiara@hiddengem.media" reads as "Chiara"), else "". One answer for the
+ * status sentence and the ACCOUNT MANAGER tile, so the sentence never says "Your account
+ * manager" beside a tile that names her.
  */
-const PromiseBlock = ({ ticket }: { ticket: Ticket }) => {
-    const am = (ticket.account_manager_name ?? "").trim() || "Your account manager";
-    let eyebrow = "";
-    let day = "";
+const accountManagerName = (ticket: Ticket): string => {
+    const name = (ticket.account_manager_name ?? "").trim();
+    const local = (ticket.account_manager_email ?? "").trim().split("@")[0] ?? "";
+    return name || (local ? local.charAt(0).toUpperCase() + local.slice(1) : "");
+};
+
+/**
+ * The frame's "Promise" (129:94 / 122:80), now the request's status: bg/brand-primary with a
+ * 1px border/brand. On the desktop a row, radius/2xl, padding 20 by 24; at 390 a column,
+ * radius/xl, padding 16, gap 6, with the card shadow. The eyebrow in caption/meta, the big
+ * line in display/hero (display/title at 390), the sentence in body/helper text/secondary.
+ *
+ *   open        STATUS, then the status itself ("In progress"), then who confirms
+ *               completion. No date and no pill: the big line is the status, and a request
+ *               that is not done has no date a client is shown (owner, 28 Sep 2026)
+ *   completed   COMPLETED, the day it was completed, and the status pill
+ *   withdrawn   WITHDRAWN, the day it was withdrawn, and the status pill
+ *
+ * The sentence under an open request names the account manager, and, when an address is on
+ * the request and the switch is on, says where its completion notice goes. It is true before
+ * the platform can send: it names the address's purpose, never that an email was or will be
+ * sent. The 390 frame draws no sentence; the one exception is that completion notice.
+ */
+const StatusBlock = ({ ticket }: { ticket: Ticket }) => {
+    const am = accountManagerName(ticket);
+    let eyebrow = "STATUS";
+    let headline: string = STATUS_META[ticket.status].label;
     let line = "";
+    let closed = false;
     if (ticket.status === "completed" && ticket.completed_at) {
         eyebrow = "COMPLETED";
-        day = formatWeekdayDayMonth(ticket.completed_at);
+        headline = formatWeekdayDayMonth(ticket.completed_at);
         line = "Done. Nothing more is needed from you.";
+        closed = true;
     } else if (ticket.status === "withdrawn" && ticket.withdrawn_at) {
         eyebrow = "WITHDRAWN";
-        day = formatWeekdayDayMonth(ticket.withdrawn_at);
+        headline = formatWeekdayDayMonth(ticket.withdrawn_at);
         line = "Nothing more will happen on it. It stays on your list.";
-    } else if (ticket.status !== "completed" && ticket.status !== "withdrawn" && ticket.promised_date) {
-        eyebrow = "COMMITTED";
-        day = formatWeekdayDayMonth(ticket.promised_date);
-        line = `${am} will confirm on completion. No action is required from you.`;
+        closed = true;
+    } else if (canWithdraw(ticket)) {
+        line = ticket.completion_email_set
+            ? `${am || "Your account manager"} will confirm on completion, and the address on this request is where its completion notice goes. No action is required from you.`
+            : `${am || "Your account manager"} will confirm on completion. No action is required from you.`;
     }
-    if (!day) return null;
+    if (!headline) return null;
 
     return (
         <div
@@ -143,10 +183,10 @@ const PromiseBlock = ({ ticket }: { ticket: Ticket }) => {
         >
             <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-1">
                 <Eyebrow>{eyebrow}</Eyebrow>
-                <p className="hc-t-display-title sm:hc-t-display-hero text-(--hc-text-primary)">{day}</p>
-                <p className="hc-t-body-helper hidden text-(--hc-text-secondary) sm:block">{line}</p>
+                <p className="hc-t-display-title sm:hc-t-display-hero text-(--hc-text-primary)">{headline}</p>
+                {line && <p className={cx("hc-t-body-helper text-(--hc-text-secondary)", ticket.completion_email_set && !closed ? "block" : "hidden sm:block")}>{line}</p>}
             </div>
-            <StatusPill label={STATUS_META[ticket.status].label} tone={PILL_TONE[ticket.status]} className="self-start sm:self-center" />
+            {closed && <StatusPill label={STATUS_META[ticket.status].label} tone={PILL_TONE[ticket.status]} className="self-start sm:self-center" />}
         </div>
     );
 };
@@ -158,36 +198,144 @@ const PromiseBlock = ({ ticket }: { ticket: Ticket }) => {
  * bg/secondary tile with 12 by 16 padding on the desktop; at 390 a bg/primary tile
  * with a 1px border/secondary and 12 by 14 padding (13 plus the border).
  */
+/** The tile every fact sits in, shared with the WEBSITES, PAGES and FILES tiles below the row. */
+const FACT_TILE = "rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-primary) px-[13px] py-[11px] sm:border-0 sm:bg-(--hc-bg-secondary) sm:px-4 sm:py-3";
+
 const Fact = ({ label, value }: { label: string; value: string }) => (
-    <div className="flex flex-col gap-1 rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-primary) px-[13px] py-[11px] sm:border-0 sm:bg-(--hc-bg-secondary) sm:px-4 sm:py-3">
+    <div className={cx("flex flex-col gap-1", FACT_TILE)}>
         <Eyebrow>{label}</Eyebrow>
         <p className="hc-t-label-field text-(--hc-text-primary)">{value}</p>
     </div>
 );
 
 /**
- * PROPERTY / ASSIGNED TO / ACCOUNT MANAGER / ELAPSED: one row of four on the desktop
- * (gap 8), two rows of two at 390 (8 across, 16 down, the body's rhythm). Every cell
- * renders even when its value is empty: a missing "Assigned to" is information
- * ("nobody yet"), and collapsing the cell would reflow the grid per request.
+ * PROPERTY / SUBMITTED BY / ACCOUNT MANAGER / ELAPSED: one row of four on the desktop (gap
+ * 8), two rows of two at 390 (8 across, 16 down, the body's rhythm), in the frame's cells.
+ * SUBMITTED BY, the name typed in the form's Submitted by field, stands where ASSIGNED TO was
+ * (owner, 28 Sep 2026), so the grid stays whole at both widths and a phone, whose meta line
+ * stops at the category, sees who raised it too. Every cell renders even when its value is
+ * empty, so the grid never reflows per request.
  */
 const FactRow = ({ ticket }: { ticket: Ticket }) => {
-    const owner = (ticket.assignee_name ?? "").trim();
-    // The manager's full name is on the ticket; the mailbox name, capitalised, is the
-    // fallback when it is missing ("chiara@hiddengem.media" reads as "Chiara").
-    const amName = (ticket.account_manager_name ?? "").trim();
-    const amLocal = (ticket.account_manager_email ?? "").trim().split("@")[0] ?? "";
-    const am = amName || (amLocal ? amLocal.charAt(0).toUpperCase() + amLocal.slice(1) : "");
+    const am = accountManagerName(ticket);
     const property = (ticket.property ?? "").trim();
+    const by = (ticket.submitted_by_name ?? "").trim();
     const elapsed = elapsedLabel(ticket);
     // "Not yet" promises something on an open request; a closed one gets a plain "None".
     const none = canWithdraw(ticket) ? "Not yet" : "None";
     return (
         <div className="grid grid-cols-2 gap-x-2 gap-y-4 sm:grid-cols-4 sm:gap-2">
             <Fact label="PROPERTY" value={property || "Not given"} />
-            <Fact label="ASSIGNED TO" value={owner || none} />
+            <Fact label="SUBMITTED BY" value={by || "Not given"} />
             <Fact label="ACCOUNT MANAGER" value={am || none} />
             <Fact label="ELAPSED" value={elapsed || "Today"} />
+        </div>
+    );
+};
+
+/* ── Websites, pages and files ───────────────────────────────────────────── */
+
+/** The type label a stored file carries (PDF, DOCX), from its mime; "FILE" for anything older. */
+const badgeFor = (mime: string): string => FILE_TYPES.find((t) => t.mime === mime)?.label ?? "FILE";
+
+/**
+ * WEBSITES, PAGES and FILES under the facts, in Fact's tile (bg/secondary on the desktop; a
+ * bordered bg/primary tile at 390). WEBSITES full width above the other two; PAGES and FILES
+ * side by side on the desktop when both are there, one full width when alone; all stacked at
+ * 390. WEBSITES: "All 6 websites" in label/field text/secondary when every one offered was
+ * ticked, then each site's name as a link (label/field text/brand-secondary, underlined, a new
+ * tab) with its domain after it in body/helper text/tertiary, as the form's options show it. PAGES: each address a link in
+ * label/field text/brand-secondary, underlined, opening in a new tab. FILES: the type badge,
+ * the name in label/field, the size in caption/meta. Names and addresses wrap rather than
+ * truncate, so everything that arrived can be read on a phone. Nothing when none exists.
+ */
+const RequestLinks = ({ websites, urls, files }: { websites: StoredWebsites | null; urls: string[]; files: TicketFile[] }) => {
+    // Stored addresses were cleaned on the way in; checked again here because this is
+    // where one becomes a link.
+    const links = urls.filter(isWebLink);
+    const sites = (websites?.chosen ?? []).filter((w) => isWebLink(w.url));
+    if (!sites.length && !links.length && !files.length) return null;
+    const tile = cx("flex min-w-0 flex-col gap-2", FACT_TILE);
+    // Every website offered was ticked: said once, above the list, as the success card says it.
+    const allOf = websites && websites.chosen.length === websites.offered ? websites.offered : 0;
+    // PAGES and FILES as they always were: a request with no websites renders exactly this.
+    const pagesAndFiles =
+        links.length > 0 || files.length > 0 ? (
+            <div className={cx("grid grid-cols-1 gap-4 sm:gap-2", links.length && files.length ? "sm:grid-cols-2" : "")}>
+                {links.length > 0 && (
+                    <section aria-labelledby="hc-pages" className={tile}>
+                        <h2 id="hc-pages" className="hc-t-caption-meta text-(--hc-text-tertiary)">
+                            PAGES
+                        </h2>
+                        {/* Each link a 44px row on a phone (targets never overlap); on the desktop both
+                            lists run at a 28px pitch so the two tiles' lines align. */}
+                        <ul className="flex flex-col">
+                            {links.map((u) => (
+                                <li key={u} className="flex min-h-11 min-w-0 items-center sm:min-h-7">
+                                    <a
+                                        href={u}
+                                        target="_blank"
+                                        rel="noopener noreferrer nofollow"
+                                        className="hc-t-label-field hc-hover min-w-0 break-words rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline underline-offset-2 hover:decoration-2"
+                                    >
+                                        {displayUrl(u)}
+                                        <span className="sr-only"> (opens in a new tab)</span>
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
+                {files.length > 0 && (
+                    <section aria-labelledby="hc-files" className={tile}>
+                        <h2 id="hc-files" className="hc-t-caption-meta text-(--hc-text-tertiary)">
+                            FILES
+                        </h2>
+                        <ul className="flex flex-col">
+                            {files.map((f, i) => (
+                                <li key={`${i}-${f.name}`} className="flex min-h-7 min-w-0 items-start gap-3 py-1">
+                                    <span aria-hidden="true" className="hc-t-caption-meta w-12 shrink-0 rounded-(--hc-radius-sm) bg-(--hc-bg-brand-primary) py-0.5 text-center tracking-normal text-(--hc-text-brand-secondary)">
+                                        {badgeFor(f.mime)}
+                                    </span>
+                                    <span className="hc-t-label-field min-w-0 flex-1 break-words text-(--hc-text-primary)">{f.name}</span>
+                                    {typeof f.bytes === "number" && <span className="hc-t-caption-meta shrink-0 text-(--hc-text-tertiary)">{formatFileSize(f.bytes)}</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
+            </div>
+        ) : null;
+    if (!sites.length) return pagesAndFiles;
+    return (
+        <div className="flex flex-col gap-4 sm:gap-2">
+            <section aria-labelledby="hc-websites" className={tile}>
+                <h2 id="hc-websites" className="hc-t-caption-meta text-(--hc-text-tertiary)">
+                    WEBSITES
+                </h2>
+                {/* The summary stands 4 further from the list than from the heading, so the tile reads heading, summary, list. */}
+                {allOf > 0 && <p className="hc-t-label-field pb-1 text-(--hc-text-secondary)">{`All ${allOf} websites`}</p>}
+                {/* The PAGES list's rhythm: a 44px row on a phone, a 28px pitch on the desktop. Each
+                    link's target fills its row (12 above and below its 20px line on a phone, 4 on the
+                    desktop), so the row, not only the name, is what a thumb has to hit. */}
+                <ul className="flex flex-col">
+                    {sites.map((w) => (
+                        <li key={w.url} className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-2 sm:min-h-7">
+                            <a
+                                href={w.url}
+                                target="_blank"
+                                rel="noopener noreferrer nofollow"
+                                className="hc-t-label-field hc-hover relative min-w-0 break-words rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline underline-offset-2 after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:decoration-2 sm:after:-inset-y-1"
+                            >
+                                {w.name}
+                                <span className="sr-only"> (opens in a new tab)</span>
+                            </a>
+                            <span className="hc-t-body-helper min-w-0 break-words text-(--hc-text-tertiary)">{displayUrl(w.url)}</span>
+                        </li>
+                    ))}
+                </ul>
+            </section>
+            {pagesAndFiles}
         </div>
     );
 };
@@ -225,8 +373,8 @@ const StepDot = ({ state, n }: { state: StepState; n: number }) => (
  * between steps. The 390 frame writes a shorter sentence under a step (just the
  * time), so both sentences are rendered as whole text nodes and one is shown per width.
  */
-const Timeline = ({ ticket, events }: { ticket: Ticket; events: TicketEvent[] }) => {
-    const steps = timelineSteps(ticket, events);
+const Timeline = ({ ticket, events, files }: { ticket: Ticket; events: TicketEvent[]; files: TicketFile[] }) => {
+    const steps = timelineSteps(ticket, events, files);
     return (
         <>
         {/* The build notes ask for h2 Timeline; the frame draws no heading, so it is for readers only. */}
@@ -424,6 +572,7 @@ export const HelpRequestDetail = ({
 }) => {
     const [ticket, setTicket] = useState<Ticket | null>(null);
     const [events, setEvents] = useState<TicketEvent[]>([]);
+    const [files, setFiles] = useState<TicketFile[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [missing, setMissing] = useState(false);
@@ -439,6 +588,7 @@ export const HelpRequestDetail = ({
             const res = await fetchTicket(proof, reference);
             setTicket(res.ticket);
             setEvents(res.events ?? []);
+            setFiles(res.files ?? []);
         } catch (e) {
             // A reference that is not this client's own comes back as a 404 rather than a
             // 403, so there is nothing to distinguish here: either way this client has no
@@ -515,9 +665,10 @@ export const HelpRequestDetail = ({
                     </p>
                 </header>
 
-                <PromiseBlock ticket={ticket} />
+                <StatusBlock ticket={ticket} />
                 <FactRow ticket={ticket} />
-                <Timeline ticket={ticket} events={events} />
+                <RequestLinks websites={storedWebsitesOf(ticket.websites)} urls={Array.isArray(ticket.urls) ? ticket.urls : []} files={files} />
+                <Timeline ticket={ticket} events={events} files={files} />
                 <TeamUpdates events={events} />
             </article>
 

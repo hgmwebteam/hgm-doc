@@ -14,7 +14,13 @@ if (import.meta.env.DEV && (!supabaseUrl || !supabaseAnonKey)) {
 const FALLBACK_URL = "https://placeholder.supabase.co";
 const FALLBACK_KEY = "placeholder-anon-key";
 
-export const supabase = createClient(supabaseUrl || FALLBACK_URL, supabaseAnonKey || FALLBACK_KEY, {
+/** The project URL and public key the client is built with. Exported for the one caller that
+ *  needs a storage client of its own (help-api.ts uploadTicketFile, which reports upload
+ *  progress); everything else uses `supabase`. */
+export const SUPABASE_URL = supabaseUrl || FALLBACK_URL;
+export const SUPABASE_ANON_KEY = supabaseAnonKey || FALLBACK_KEY;
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     // persistSession + detectSessionInUrl are required for the dashboard Google OAuth
     // gate so the session survives the redirect back from Google.
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -195,7 +201,11 @@ export interface DashboardContent {
         logos?: { id: string; name: string; url: string }[];
         /** Uploaded font files (data URLs), one per role. When set, the upload overrides
          *  the typed name for that role. Optional: older rows predate it. */
-        font_files?: { heading?: { name: string; url: string }; body?: { name: string; url: string } };
+        font_files?: { heading?: { name: string; url: string }; heading2?: { name: string; url: string }; body?: { name: string; url: string } };
+        /** A second heading face for the two largest Display sizes (2xl, xl). Only the
+         *  clients in THIRD_HEADING_FONT_CLIENTS get the card that sets it; when unset,
+         *  those sizes use the heading font like everyone else's. */
+        heading2_font?: string;
     };
     instagram: {
         profile_url: string;
@@ -289,7 +299,6 @@ export interface DashboardContent {
             link: string;
             location: string;
             guests: string;
-            bedrooms: string;
             beds: string;
             bathrooms: string;
             description: string;
@@ -377,6 +386,16 @@ export interface DashboardContent {
      * may live here.
      */
     website_setup?: WebsiteSetup;
+    /**
+     * The brand websites of a client that runs several (Enjoy Unique Stays, 29 Sep 2026), in
+     * the order the help centre's request forms offer them as checkboxes: which of them a
+     * request is for. Set by hand SQL for the pilot; the dashboard has no editor for it and
+     * never writes it, and mergeContent carries it through a Save untouched. Read by one rule
+     * everywhere (request-rules.ts websitesOnRow): a list of fewer than 2 offers no choice,
+     * and a malformed one offers none. Public site names, public URLs and platform tenant
+     * slugs only, so nothing in it is secret on this anon-readable row.
+     */
+    websites?: { name: string; url: string; tenant_slug: string }[];
 }
 
 /**

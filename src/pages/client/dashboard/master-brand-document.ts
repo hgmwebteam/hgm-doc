@@ -24,7 +24,7 @@ export const FOUNDATION_SECTIONS = [
     { id: "uvp", label: "Unique value proposition" },
     { id: "brand", label: "About the brand" },
     { id: "personas", label: "Personas" },
-    { id: "focus", label: "Focus properties" },
+    { id: "focus", label: "Property types/Unit types" },
     { id: "favorites", label: "Local favorites" },
     { id: "reviews", label: "Reviews" },
     { id: "links", label: "Website links" },
@@ -166,7 +166,7 @@ export const masterDocumentHtml = (clientName: string, clientWebsite: string, f:
     if (filled(f.personaResonance)) out.push(`<p><strong>Why The Brand Resonates</strong>: ${esc(f.personaResonance.trim())}</p>`);
 
     const focus = f.focusProperties.filter((p) => filled(p.name) || filled(p.link));
-    out.push(heading("Focus properties"));
+    out.push(heading("Property types/Unit types"));
     out.push(
         focus.length
             ? `<ul>${focus
@@ -342,7 +342,7 @@ export const compileMasterDocument = (
             label: "Personas",
             value: [personaBlock, filled(f.personaResonance) && `Why the brand resonates: ${f.personaResonance.trim()}`].filter(Boolean).join("\n\n"),
         },
-        { label: "Focus properties", value: focusBlock },
+        { label: "Property types/Unit types", value: focusBlock },
         {
             label: "Local favorites",
             value: subBlock([

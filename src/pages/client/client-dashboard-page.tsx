@@ -163,7 +163,7 @@ import {
     foundationProgress,
     masterDocumentHtml,
 } from "@/pages/client/dashboard/master-brand-document";
-import { DocField, DocRail, DocSection, DocStat, FavoriteTable, SourceBadge, WorkflowBadge } from "@/pages/client/dashboard/master-brand-fields";
+import { DocField, DocRail, DocSection, DocStat, FavoriteTable, ManualStar, SourceBadge, WorkflowBadge } from "@/pages/client/dashboard/master-brand-fields";
 import { OnboardingAnswers } from "@/pages/client/dashboard/onboarding-answers";
 import {
     DEFAULT_OVERVIEW_DOC,
@@ -4462,6 +4462,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             Your working brief on this client — what they sell, who they sell it to, and how they want to be
                                                             handled. The client never sees this section.
                                                         </p>
+                                                        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-quaternary">
+                                                            <ManualStar /> marks what Draft can't pull from the forms — look those up or type them in by hand.
+                                                        </p>
 
                                                         <div className="mt-4 flex flex-wrap items-center gap-3">
                                                             {!isTemplate && (
@@ -4672,7 +4675,12 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     id="baseline"
                                                                     label="Baseline (snapshot)"
                                                                     number={overviewSectionNumber("baseline")}
-                                                                    action={<span className="text-xs text-quaternary">Recorded at kickoff</span>}
+                                                                    action={
+                                                                        <span className="flex items-center gap-1.5 text-xs text-quaternary">
+                                                                            <ManualStar />
+                                                                            Recorded at kickoff — nothing pulls these in
+                                                                        </span>
+                                                                    }
                                                                 >
                                                                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                                                                         {OVERVIEW_BASELINE.map((f) => (
@@ -5859,7 +5867,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="reviews"
                                                                         label="Reviews"
-                                                                        badge={isTeam ? <SourceBadge>From guest reviews</SourceBadge> : undefined}
+                                                                        badge={isTeam ? <SourceBadge manual>From guest reviews</SourceBadge> : undefined}
                                                                     >
                                                                         {/* The team's line is an instruction — it tells an AM what to go and do,
                                                                             and the Paste guest reviews box below acts on it. A client reading that

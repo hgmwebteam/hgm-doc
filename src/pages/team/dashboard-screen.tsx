@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowUpRight,
     Award01,
+    BookClosed,
     BookOpen01,
     Briefcase01,
     Camera01,
@@ -354,6 +355,8 @@ const DEPARTMENTS: Department[] = [
             // Scratch bench for device mockups and drawn backdrops — a reference
             // surface, so it links out rather than rendering a card grid here.
             { id: "mockups", label: "Mockups & backdrops", icon: Image01, to: "/test" },
+            // The Industry Acumen Dictionary — its own page, so it links out like the bench above.
+            { id: "dictionary", label: "Dictionary", icon: BookClosed, to: "/dictionary" },
         ],
     },
     {

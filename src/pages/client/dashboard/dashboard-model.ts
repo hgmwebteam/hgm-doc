@@ -165,7 +165,6 @@ export const emptyFocusProperty = (): FocusProperty => ({
     link: "",
     location: "",
     guests: "",
-    bedrooms: "",
     beds: "",
     bathrooms: "",
     description: "",
@@ -188,7 +187,7 @@ export const emptyFocusProperty = (): FocusProperty => ({
  */
 export const trimFocusProperties = (rows: FocusProperty[]): FocusProperty[] => {
     const isFilled = (p: FocusProperty) =>
-        [p.name, p.link, p.location, p.guests, p.bedrooms, p.beds, p.bathrooms, p.description, p.features, p.terms].some(filled) || p.reviews.some(filled);
+        [p.name, p.link, p.location, p.guests, p.beds, p.bathrooms, p.description, p.features, p.terms].some(filled) || p.reviews.some(filled);
     const kept = rows.filter(isFilled);
     for (const p of rows) {
         if (kept.length >= FOCUS_PROPERTY_MAX) break;
@@ -607,7 +606,7 @@ const mergeRows = <T>(current: T[], drafted: T[], isFilled: (r: T) => boolean, k
  */
 export const fillFocusProperty = (current: FocusProperty, draft: Record<string, unknown>): FocusProperty => {
     const next = { ...current };
-    for (const k of ["name", "link", "location", "guests", "bedrooms", "beds", "bathrooms", "description", "features", "terms"] as const) {
+    for (const k of ["name", "link", "location", "guests", "beds", "bathrooms", "description", "features", "terms"] as const) {
         const v = str(draft[k]);
         if (v && !filled(next[k])) next[k] = v;
     }
@@ -661,7 +660,6 @@ export const mergeFoundationDraft = (current: Foundation, draft: Record<string, 
             link: str(p.link),
             location: str(p.location),
             guests: str(p.guests),
-            bedrooms: str(p.bedrooms),
             beds: str(p.beds),
             bathrooms: str(p.bathrooms),
             description: str(p.description),

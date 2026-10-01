@@ -34,7 +34,6 @@ export const FOUNDATION_SECTIONS = [
 
 export type FoundationSectionId = (typeof FOUNDATION_SECTIONS)[number]["id"];
 
-
 /** Which of the eleven sections have any content — drives the rail ticks and the counter. */
 export const foundationProgress = (f: Foundation): Record<FoundationSectionId, boolean> => ({
     hosts: filled(f.hosts),
@@ -179,14 +178,18 @@ export const masterDocumentHtml = (clientName: string, clientWebsite: string, f:
                           ["Location", p.location],
                           [
                               "Sleeps",
-                              [p.guests && `${p.guests} guests`, p.bedrooms && `${p.bedrooms} bed`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`]
-                                  .filter(Boolean)
-                                  .join(" · "),
+                              [p.guests && `${p.guests} guests`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`].filter(Boolean).join(" · "),
                           ],
                           ["Listing description", p.description],
                           ["Features & amenities", p.features],
                           ["Terms & rules", p.terms],
-                          ["Top reviews", p.reviews.filter((r) => r.trim()).map((r) => `“${r.trim()}”`).join("\n")],
+                          [
+                              "Top reviews",
+                              p.reviews
+                                  .filter((r) => r.trim())
+                                  .map((r) => `“${r.trim()}”`)
+                                  .join("\n"),
+                          ],
                       ]),
                   )
                   .join("")}</ul>`
@@ -276,9 +279,7 @@ export const compileMasterDocument = (
                     ["Location", p.location],
                     [
                         "Sleeps",
-                        [p.guests && `${p.guests} guests`, p.bedrooms && `${p.bedrooms} bed`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`]
-                            .filter(Boolean)
-                            .join(" · "),
+                        [p.guests && `${p.guests} guests`, p.beds && `${p.beds} beds`, p.bathrooms && `${p.bathrooms} bath`].filter(Boolean).join(" · "),
                     ],
                     ["Listing description", p.description],
                     ["Features & amenities", p.features],

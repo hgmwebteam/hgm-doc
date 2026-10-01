@@ -133,7 +133,7 @@ export const DocField = ({
     );
 };
 
-/** The boxed guests / bedrooms / beds / bathrooms counts on a focus property. */
+/** The boxed guests / beds / bathrooms counts on a focus property. */
 export const DocStat = ({
     label,
     value,

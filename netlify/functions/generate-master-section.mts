@@ -67,7 +67,6 @@ const FOCUS_PROPS = {
     link: str("The listing or property page URL. MUST be copied verbatim from the allowed links given to you, or left empty."),
     location: str("Where this specific property is."),
     guests: str("Maximum guests, digits only, e.g. '8'."),
-    bedrooms: str("Number of bedrooms, digits only."),
     beds: str("Number of beds, digits only."),
     bathrooms: str("Number of bathrooms, digits only, e.g. '2' or '2.5'."),
     description: str("The listing description, in the brand's own voice, 3-5 sentences."),

@@ -299,7 +299,6 @@ export interface DashboardContent {
             link: string;
             location: string;
             guests: string;
-            bedrooms: string;
             beds: string;
             bathrooms: string;
             description: string;

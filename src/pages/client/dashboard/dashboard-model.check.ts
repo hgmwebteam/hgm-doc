@@ -203,7 +203,6 @@ console.log("mergeFoundationDraft: all checks passed");
         link: "https://cabins.com/properties/coach-house",
         location: "Hochatown, OK",
         guests: "6",
-        bedrooms: "2",
         beds: "3",
         bathrooms: "2",
         description: "A cozy cabin among the trees.",
@@ -227,7 +226,7 @@ console.log("mergeFoundationDraft: all checks passed");
     assert.equal(mixed.name, "The Coach House");
     assert.equal(mixed.description, "Our own words for this one.");
     assert.equal(mixed.link, "https://cabins.com/properties/coach-house", "the pasted link is not replaced");
-    assert.equal(mixed.bedrooms, "2", "and the empty boxes still fill");
+    assert.equal(mixed.beds, "3", "and the empty boxes still fill");
 
     /* One quote typed means the list is the AM's; drafted quotes don't interleave. */
     const started = { ...empty, reviews: ["", "A quote they pasted", ""] };

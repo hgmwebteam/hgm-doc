@@ -5672,20 +5672,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                             </div>
                                                                                         )}
 
-                                                                                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                                                                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                                                                                             <DocStat
                                                                                                 label="Guests"
                                                                                                 value={p.guests}
                                                                                                 isLocked={isLocked}
                                                                                                 sKey={`focusProperties.${p.id}.guests`}
                                                                                                 onChange={(v) => patchFocus(p.id, { guests: v })}
-                                                                                            />
-                                                                                            <DocStat
-                                                                                                label="Bedrooms"
-                                                                                                value={p.bedrooms}
-                                                                                                isLocked={isLocked}
-                                                                                                sKey={`focusProperties.${p.id}.bedrooms`}
-                                                                                                onChange={(v) => patchFocus(p.id, { bedrooms: v })}
                                                                                             />
                                                                                             <DocStat
                                                                                                 label="Beds"

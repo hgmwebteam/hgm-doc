@@ -136,7 +136,8 @@ export const SearchBar = () => {
     const [cat, setCat] = useState<CatId>("all");
     // The Industry Acumen Dictionary's terms. Its ~45 KB file loads the first time the
     // panel opens (shared with /dictionary, so it is fetched once), never with the page.
-    // A failed load is retried the next time the panel opens.
+    // If it fails, only a reload can fetch it again: the browser keeps a failed import()
+    // failed for the rest of the page, so the Terms tab offers one.
     const [dictionary, setDictionary] = useState<DictionaryData | null>(null);
     const [dictionaryFailed, setDictionaryFailed] = useState(false);
     const dictionaryLoading = useRef(false);
@@ -216,7 +217,11 @@ export const SearchBar = () => {
         return [...matches, ...termResults];
     }, [query, cat, all, termResults]);
 
-    useEffect(() => { setActiveIdx(0); }, [query, cat]);
+    useEffect(() => {
+        setActiveIdx(0);
+        // The highlight goes back to the first row, so the list goes back to the top with it.
+        listRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    }, [query, cat]);
 
     // Arrowing through a long list (the 253 terms) keeps the highlighted row in view. The
     // list itself is scrolled, never scrollIntoView, which would also scroll the page shell;
@@ -248,7 +253,7 @@ export const SearchBar = () => {
         const p = item.path;
         // A term while already on the Dictionary: replace, don't push. The page opens entries
         // without adding history, so a pushed entry here would make the next Back do nothing.
-        if (item.kind === "Term" && window.location.pathname === "/dictionary") {
+        if (item.kind === "Term" && /^\/dictionary\/?$/i.test(window.location.pathname)) {
             navigate(p, { replace: true });
             return;
         }
@@ -435,8 +440,17 @@ export const SearchBar = () => {
                                                 {cat === "Term" && !dictionary && dictionaryFailed ? (
                                                     <>
                                                         <p className="text-sm font-medium text-secondary">The dictionary couldn’t load</p>
-                                                        <p className="mt-1 text-xs text-tertiary">Close and reopen search to try again, or reload the page.</p>
+                                                        <p className="mt-1 text-xs text-tertiary">The site may have been updated since this page opened.</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => window.location.reload()}
+                                                            className="mt-3 rounded-lg border border-secondary bg-primary px-3 py-1.5 text-xs font-semibold text-secondary outline-focus-ring transition duration-100 ease-linear hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2"
+                                                        >
+                                                            Reload
+                                                        </button>
                                                     </>
+                                                ) : cat === "Term" && !dictionary ? (
+                                                    <p className="text-sm font-medium text-secondary">Loading terms…</p>
                                                 ) : (
                                                     <>
                                                         <p className="text-sm font-medium text-secondary">No matches{query.trim() && <> for “{query}”</>}</p>

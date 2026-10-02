@@ -35,7 +35,7 @@ import {
     XClose,
 } from "@untitledui/icons";
 import { AnimatePresence, motion } from "motion/react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { HelpMenu } from "@/components/application/help-menu";
 import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, NavCollapseButton, useNavCollapsed } from "@/components/application/icon-rail";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
@@ -75,7 +75,7 @@ const ALLOWED_DOMAIN = "hiddengem.media";
 const OWNER_EMAIL = "anhtuan@hiddengem.media";
 
 /* Google "G" mark (official multicolor). */
-const GoogleIcon = ({ className }: { className?: string }) => (
+export const GoogleIcon = ({ className }: { className?: string }) => (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" />
         <path
@@ -654,9 +654,13 @@ let docsSideMenuOnScreen = false;
  * (/dictionary). It IS the dashboard's Sidebar — same rows, same place — so moving
  * between Docs pages leaves the menu exactly where it was. `current` is the highlighted
  * row. Rows open their tab here on /dashboard, or their own page.
+ *
+ * The highlighted row still navigates from a page beneath it: /dictionary/check keeps
+ * Dictionary highlighted, and clicking it goes back to /dictionary.
  */
 export const DocsSideMenu = ({ current, onCollapse }: { current: string; onCollapse?: () => void }) => {
     const navigate = useNavigate();
+    const { pathname } = useLocation();
     useEffect(() => {
         docsSideMenuOnScreen = true;
         return () => {
@@ -667,7 +671,7 @@ export const DocsSideMenu = ({ current, onCollapse }: { current: string; onColla
     if (!docs) return null;
     const open = (id: string) => {
         const tab = docs.tabs.find((t) => t.id === id);
-        if (!tab || tab.id === current) return;
+        if (!tab || (tab.id === current && (!tab.to || tab.to === pathname))) return;
         navigate(tab.to ?? `/dashboard?dept=docs&tab=${tab.id}`);
     };
     return (

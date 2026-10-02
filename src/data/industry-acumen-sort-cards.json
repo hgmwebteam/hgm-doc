@@ -1,0 +1,84 @@
+{
+ "title": "Sort the stack",
+ "version": "2.0 — 2 Oct 2026",
+ "source_of_copy": "claude/sessions_industry-acumen-master.md, Part 3, practice 6 (slides 44 and 45). Edit there first, then regenerate this file.",
+ "made_up_line": "The vendor names are real; every property and owner in this session is made up.",
+ "finish": "That's the stack. Hear the name, place it in a box, ask what it's for.",
+ "rounds": [
+  {
+   "id": "r1",
+   "mode": "vendors",
+   "title": "The four systems",
+   "term_slug": "the-tools-map",
+   "per_box": 3,
+   "boxes": [
+    {"id": "pms", "name": "PMS", "job": "Where every reservation lives and the front desk checks guests in"},
+    {"id": "channel-manager", "name": "Channel manager", "job": "Sends rates and availability to the OTAs so a room isn't sold twice"},
+    {"id": "booking-engine", "name": "Booking engine", "job": "The \"Book now\" page on the property's own website"},
+    {"id": "dynamic-pricing", "name": "Dynamic pricing", "job": "Moves nightly prices up and down with demand"}
+   ],
+   "cards": [
+    {"vendor": "Mews", "box": "pms", "also": ["booking-engine"], "note": "Mews' main product is its PMS; it also sells a booking engine.", "sources": ["https://www.mews.com/en/property-management-system", "https://www.mews.com/en/products/booking-engine"], "checked": "2026-09-25"},
+    {"vendor": "Oracle OPERA Cloud", "box": "pms", "also": [], "note": "The PMS Hyatt and IHG have chosen for their hotels. Worth recognising at a resort that came from a brand.", "sources": ["https://www.oracle.com/hospitality/hotel-property-management/hotel-pms-software/", "https://www.oracle.com/news/announcement/hyatt-selects-oracle-opera-cloud-as-property-management-system-for-its-global-properties-2024-09-17/"], "checked": "2026-09-25"},
+    {"vendor": "Newbook", "box": "pms", "also": ["channel-manager"], "note": "From the campground and holiday-park world, where many glamping stacks start. It also sells channel management.", "sources": ["https://www.newbook.cloud/our-platform/property-management-software/"], "checked": "2026-09-25"},
+    {"vendor": "SiteMinder", "box": "channel-manager", "also": ["booking-engine"], "note": "Known for its channel manager; it also sells a booking engine.", "sources": ["https://www.siteminder.com/channel-manager/", "https://www.siteminder.com/hotel-booking-engine/"], "checked": "2026-09-25"},
+    {"vendor": "STAAH", "box": "channel-manager", "also": ["booking-engine"], "note": "A channel manager aimed at independent properties; it also sells booking software.", "sources": ["https://www.staah.com/"], "checked": "2026-09-25"},
+    {"vendor": "DerbySoft", "box": "channel-manager", "also": [], "note": "Connectivity between larger hotels and the channels they sell through.", "sources": [], "checked": null, "verify": true},
+    {"vendor": "Sabre SynXis", "box": "booking-engine", "also": [], "note": "Sabre's booking engine, sitting on Sabre's central reservation system.", "sources": ["https://investors.sabre.com/news-releases/news-release-details/sabre-launches-synxis-booking-engine-context-suite-industry"], "checked": "2026-09-25"},
+    {"vendor": "Amadeus iHotelier", "box": "booking-engine", "also": [], "note": "Amadeus' booking engine for hotels and resorts.", "sources": [], "checked": null, "verify": true},
+    {"vendor": "Lodgify", "box": "booking-engine", "also": ["channel-manager"], "note": "A vacation-rental website with the booking engine built in; it also syncs with the OTAs.", "sources": [], "checked": null, "verify": true},
+    {"vendor": "Wheelhouse", "box": "dynamic-pricing", "also": [], "note": "Grew up in short-term rentals.", "sources": ["https://hoteltechreport.com/compare/pricelabs-vs-wheelhouse"], "checked": "2026-09-25"},
+    {"vendor": "PriceLabs", "box": "dynamic-pricing", "also": [], "note": "Same world as Wheelhouse.", "sources": ["https://hoteltechreport.com/compare/pricelabs-vs-wheelhouse"], "checked": "2026-09-25"},
+    {"vendor": "IDeaS", "box": "dynamic-pricing", "also": [], "note": "A hotel revenue-management system: the bigger-hotel end of this box.", "sources": ["https://www.epic-rev.com/post/ideas-vs-duetto-the-ultimate-showdown-of-revenue-management-systems-for-hotels"], "checked": "2026-09-25"}
+   ]
+  },
+  {
+   "id": "r2",
+   "mode": "vendors",
+   "title": "Around the guest and the market",
+   "per_box": 3,
+   "boxes": [
+    {"id": "rate-shopping", "name": "Rate shopping and market intelligence", "job": "Watches what nearby properties charge, date by date", "term_slug": "rate-shopping-and-market-intelligence-tools"},
+    {"id": "crm", "name": "CRM", "job": "Holds past guests' stays and spend, so you can market to them", "term_slug": "crm-tools"},
+    {"id": "guest-messaging", "name": "Guest messaging", "job": "Texts and chats with guests before and during the stay", "term_slug": "guest-messaging-tools"},
+    {"id": "upsell", "name": "Upsell", "job": "Sells upgrades and extras before and at arrival", "term_slug": "upsell-tools"}
+   ],
+   "cards": [
+    {"vendor": "Lighthouse", "box": "rate-shopping", "also": [], "note": "Formerly OTA Insight, so owners may still use the old name.", "sources": ["https://www.hospitalitynet.org/news/4118913.html"], "checked": "2026-09-25"},
+    {"vendor": "RateGain", "box": "rate-shopping", "also": ["channel-manager"], "note": "Sells rate-intelligence tools for hotels; it also sells distribution tools.", "sources": ["https://hoteltechreport.com/revenue-management/market-intelligence-tools/rateshopper-by-rategain"], "checked": "2026-09-25"},
+    {"vendor": "AirDNA", "box": "rate-shopping", "also": [], "note": "Market data for vacation rentals: what the area's rentals charge and earn.", "sources": [], "checked": null, "verify": true},
+    {"vendor": "Revinate", "box": "crm", "also": [], "note": "Guest data and email marketing for hotels.", "sources": ["https://hoteltechreport.com/compare/cendyn-crm-vs-revinate-marketing"], "checked": "2026-09-25"},
+    {"vendor": "Cendyn", "box": "crm", "also": [], "note": "A hotel CRM.", "sources": ["https://www.cendyn.com/crm/"], "checked": "2026-09-25"},
+    {"vendor": "GoHighLevel", "box": "crm", "also": [], "note": "HGM's own CRM: where the leads and the email list our funnel builds live. The property's hotel CRM is a second list.", "sources": [], "checked": null, "verify": true},
+    {"vendor": "Duve", "box": "guest-messaging", "also": ["upsell"], "note": "A guest communication hub that sells upsells too.", "sources": ["https://duve.com/guest-communication-for-hospitality/"], "checked": "2026-09-25"},
+    {"vendor": "Canary Technologies", "box": "guest-messaging", "also": ["upsell"], "note": "Guest messaging for hotels, with upsells built in.", "sources": ["https://www.canarytechnologies.com/products/guest-messaging"], "checked": "2026-09-25"},
+    {"vendor": "Whistle", "box": "guest-messaging", "also": [], "note": "Now part of Cloudbeds.", "sources": ["https://www.phocuswire.com/cloudbeds-acquires-guest-engagement-solution-whistle"], "checked": "2026-09-25"},
+    {"vendor": "Oaky", "box": "upsell", "also": [], "note": "Now owned by Plusgrade, still sold as Oaky.", "sources": ["https://oaky.com/en/", "https://hoteltechnologynews.com/2025/10/plusgrade-acquires-oaky-to-build-unified-hotel-upsell-platform/"], "checked": "2026-09-25"},
+    {"vendor": "Nor1", "box": "upsell", "also": [], "note": "Oracle's hotel upsell product; pairs with OPERA.", "sources": ["https://www.oracle.com/hospitality/nor1-hotel-upsell/"], "checked": "2026-09-25"},
+    {"vendor": "UpsellGuru", "box": "upsell", "also": [], "note": "Hotel upsells, including guests bidding for an upgrade.", "sources": [], "checked": null, "verify": true}
+   ]
+  },
+  {
+   "id": "r3",
+   "mode": "jobs",
+   "title": "One suite, many jobs",
+   "intro": "Now the other way round. Here's a suite. Drag in only the jobs it does.",
+   "jobs": [
+    {"id": "pms", "name": "PMS"},
+    {"id": "channel-manager", "name": "Channel manager"},
+    {"id": "booking-engine", "name": "Booking engine"},
+    {"id": "dynamic-pricing", "name": "Dynamic pricing"},
+    {"id": "rate-shopping", "name": "Rate shopping"},
+    {"id": "crm", "name": "CRM"},
+    {"id": "guest-messaging", "name": "Guest messaging"},
+    {"id": "upsell", "name": "Upsell"}
+   ],
+   "suites": [
+    {"vendor": "Cloudbeds", "does": ["pms", "channel-manager", "booking-engine", "guest-messaging"], "distractors": ["dynamic-pricing", "crm", "upsell", "rate-shopping"], "note": "Sold as one suite: PMS, channel manager and booking engine, plus guest messaging since it bought Whistle. So \"we're on Cloudbeds\" still doesn't tell you what they use it for. Ask.", "sources": ["https://www.cloudbeds.com/property-management-system/", "https://www.cloudbeds.com/channel-manager/", "https://www.cloudbeds.com/booking-engine/", "https://www.phocuswire.com/cloudbeds-acquires-guest-engagement-solution-whistle"], "checked": "2026-09-29"},
+    {"vendor": "SiteMinder", "does": ["channel-manager", "booking-engine", "pms"], "distractors": ["dynamic-pricing", "crm", "guest-messaging", "upsell"], "note": "A channel manager that also sells a booking engine, and a small-property PMS through Little Hotelier.", "sources": ["https://www.siteminder.com/channel-manager/", "https://www.siteminder.com/hotel-booking-engine/"], "checked": "2026-09-25", "verify": true, "verify_what": "Little Hotelier as SiteMinder's PMS: confirm on siteminder.com before the dry run; if it isn't, drop pms from does and add it to distractors."},
+    {"vendor": "Mews", "does": ["pms", "booking-engine"], "distractors": ["channel-manager", "dynamic-pricing", "crm", "upsell"], "note": "A PMS with a booking engine. The channel manager and the pricing come from somewhere else.", "sources": ["https://www.mews.com/en/property-management-system", "https://www.mews.com/en/products/booking-engine"], "checked": "2026-09-25"}
+   ]
+  }
+ ],
+ "fallback_cards": ["Mews", "Cloudbeds", "SiteMinder", "Sabre SynXis", "Wheelhouse", "PriceLabs", "Lighthouse", "Revinate", "Cendyn", "Duve", "Whistle", "Oaky"]
+}

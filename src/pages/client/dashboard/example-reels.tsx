@@ -32,9 +32,9 @@ import { cx } from "@/utils/cx";
  * reels is announced. It sits above the phone, not under it, so the name is read before
  * the footage it names.
  *
- * THE CLIENT ANSWERS IN THE SHARED FEEDBACK BOX (client-feedback.tsx), the same one the
- * welcome emails and the landing page carry — one note on the set of three, editable and
- * withdrawable, read and closed by the team in the review list above the stage.
+ * NO FEEDBACK BOX ON THIS SECTION. The dashboard passes no `feedback`, so neither the
+ * client's box nor the team's review list renders. The prop is kept so it can come back by
+ * passing it again (client-feedback.tsx, like the welcome emails and landing page).
  *
  * UPLOADS GO TO THE `videos` BUCKET, never into the row: a reel is tens of MB. The bucket
  * caps a file at 50 MB and only accepts mp4 / webm / mov; an iPhone's HEVC .mov will

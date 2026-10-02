@@ -181,7 +181,6 @@ import { stayPageLinks } from "@/pages/client/dashboard/stay-pages";
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
     LANDING_FEEDBACK_KEY,
-    REELS_FEEDBACK_KEY,
     STORIES_FEEDBACK_KEY,
     type Suggestion,
     type SuggestionItem,
@@ -189,7 +188,6 @@ import {
     flowFeedbackKey,
     isFlowFeedbackKey,
     isLandingFeedbackKey,
-    isReelsFeedbackKey,
     isSectionFeedbackKey,
     isStoriesFeedbackKey,
     labelForKey,
@@ -1041,10 +1039,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const flowRevealed = clientVisible.includes("flow");
     const pinnedRevealed = clientVisible.includes("pinnedposts");
     const landingRevealed = clientVisible.includes("landing");
-    const reelsRevealed = clientVisible.includes("reels");
     const storiesRevealed = clientVisible.includes("pinnedstories");
     /** Any of them is reason enough to load the table for a client. */
-    const anyFeedbackRevealed = foundationRevealed || flowRevealed || pinnedRevealed || landingRevealed || reelsRevealed || storiesRevealed;
+    const anyFeedbackRevealed = foundationRevealed || flowRevealed || pinnedRevealed || landingRevealed || storiesRevealed;
 
     const refreshSuggestions = useCallback(async () => {
         if (!slug || isTemplate) return;
@@ -1336,11 +1333,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const landingFeedback = suggestions.filter((s) => isLandingFeedbackKey(s.field_key));
     const canLandingFeedback = canSectionFeedback(landingRevealed);
     const sendLandingFeedback = sendSectionFeedback(LANDING_FEEDBACK_KEY, "Landing page · feedback");
-
-    /** The example reels — the section's only channel, so it is where every reel note lands. */
-    const reelsFeedback = suggestions.filter((s) => isReelsFeedbackKey(s.field_key));
-    const canReelsFeedback = canSectionFeedback(reelsRevealed);
-    const sendReelsFeedback = sendSectionFeedback(REELS_FEEDBACK_KEY, "Example reels · feedback");
 
     /** The pinned stories, beside their per-slide notes and Approve all (pinned_stories) —
      *  same relationship as the landing page's verdict above. */
@@ -3955,19 +3947,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 ? "Three reels made for your property, shown the way they play on a phone — one at a time. Use the arrows, or tap a phone at the side, to see the next."
                                                                 : "Upload up to three 9:16 reels. Use the arrows to move between slots. The title and line under the phone are what the client reads — and what stands in for the footage when motion is off."}
                                                         </p>
-                                                        <ExampleReelsSection
-                                                            reels={content.reels ?? []}
-                                                            isLocked={isLocked}
-                                                            onChange={updateReel}
-                                                            feedback={{
-                                                                mode: isTeam ? "review" : canReelsFeedback ? "client" : "off",
-                                                                items: reelsFeedback,
-                                                                author: suggestAuthor,
-                                                                send: sendReelsFeedback,
-                                                                withdraw: withdrawFeedback,
-                                                                resolve: resolveFeedback,
-                                                            }}
-                                                        />
+                                                        <ExampleReelsSection reels={content.reels ?? []} isLocked={isLocked} onChange={updateReel} />
                                                     </Reveal>
                                                 )}
 

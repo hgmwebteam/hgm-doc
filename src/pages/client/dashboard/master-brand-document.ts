@@ -14,22 +14,20 @@ import type { MasterDocSection } from "@/utils/master-document-pdf";
  *
  * One list drives the in-page rail, the scroll-spy, the "x of 11 sections filled" readout,
  * the compiled AM document and the PDF — so a section can't appear in the rail and be
- * missing from the export. `workflow` marks the four an AM pastes in from the brand
- * messaging workflow rather than asking the client for; those carry a badge and, for the
- * client, no instruction to go and fill them in themselves.
+ * missing from the export.
  */
 export const FOUNDATION_SECTIONS = [
-    { id: "hosts", label: "About the hosts", workflow: false },
-    { id: "properties", label: "About the properties", workflow: false },
-    { id: "location", label: "Location", workflow: false },
-    { id: "audience", label: "Target audience profile", workflow: true },
-    { id: "uvp", label: "Unique value proposition", workflow: true },
-    { id: "brand", label: "About the brand", workflow: true },
-    { id: "personas", label: "Personas", workflow: true },
-    { id: "focus", label: "Focus properties", workflow: false },
-    { id: "favorites", label: "Local favorites", workflow: false },
-    { id: "reviews", label: "Reviews", workflow: false },
-    { id: "links", label: "Website links", workflow: false },
+    { id: "hosts", label: "About the hosts" },
+    { id: "properties", label: "About the properties" },
+    { id: "location", label: "Location" },
+    { id: "audience", label: "Target audience profile" },
+    { id: "uvp", label: "Unique value proposition" },
+    { id: "brand", label: "About the brand" },
+    { id: "personas", label: "Personas" },
+    { id: "focus", label: "Property types/Unit types" },
+    { id: "favorites", label: "Local favorites" },
+    { id: "reviews", label: "Reviews" },
+    { id: "links", label: "Website links" },
 ] as const;
 
 export type FoundationSectionId = (typeof FOUNDATION_SECTIONS)[number]["id"];
@@ -168,7 +166,7 @@ export const masterDocumentHtml = (clientName: string, clientWebsite: string, f:
     if (filled(f.personaResonance)) out.push(`<p><strong>Why The Brand Resonates</strong>: ${esc(f.personaResonance.trim())}</p>`);
 
     const focus = f.focusProperties.filter((p) => filled(p.name) || filled(p.link));
-    out.push(heading("Focus properties"));
+    out.push(heading("Property types/Unit types"));
     out.push(
         focus.length
             ? `<ul>${focus
@@ -344,7 +342,7 @@ export const compileMasterDocument = (
             label: "Personas",
             value: [personaBlock, filled(f.personaResonance) && `Why the brand resonates: ${f.personaResonance.trim()}`].filter(Boolean).join("\n\n"),
         },
-        { label: "Focus properties", value: focusBlock },
+        { label: "Property types/Unit types", value: focusBlock },
         {
             label: "Local favorites",
             value: subBlock([

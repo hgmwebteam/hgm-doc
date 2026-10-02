@@ -163,7 +163,7 @@ import {
     foundationProgress,
     masterDocumentHtml,
 } from "@/pages/client/dashboard/master-brand-document";
-import { DocField, DocRail, DocSection, DocStat, FavoriteTable, ManualStar, SourceBadge, WorkflowBadge } from "@/pages/client/dashboard/master-brand-fields";
+import { DocField, DocRail, DocSection, DocStat, FavoriteTable, ManualStar, SourceBadge } from "@/pages/client/dashboard/master-brand-fields";
 import { OnboardingAnswers } from "@/pages/client/dashboard/onboarding-answers";
 import {
     DEFAULT_OVERVIEW_DOC,
@@ -175,6 +175,8 @@ import {
     overviewSectionNumber,
 } from "@/pages/client/dashboard/overview-doc";
 import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pages/client/dashboard/pinned-posts";
+import { revealCheck } from "@/pages/client/dashboard/reveal-check";
+import { RevealConfirmDialog } from "@/pages/client/dashboard/reveal-confirm-dialog";
 import { stayPageLinks } from "@/pages/client/dashboard/stay-pages";
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
@@ -1632,6 +1634,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const cur = c.client_visible ?? DEFAULT_CLIENT_VISIBLE;
             return { ...c, client_visible: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] };
         });
+    /** The row whose eye was pressed to SHOW it, waiting on the confirm dialog. Hiding skips it.
+     *  The id outlives `revealOpen` so the dialog keeps its title while it fades out. */
+    const [revealAsk, setRevealAsk] = useState<SectionId | null>(null);
+    const [revealOpen, setRevealOpen] = useState(false);
+    const pressEye = (id: SectionId) => {
+        if (revealedToClient(id)) return toggleClientVisible(id);
+        setRevealAsk(id);
+        setRevealOpen(true);
+    };
 
     /**
      * Single choke point: whatever route put a client on a section they can't see —
@@ -3024,7 +3035,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         : `Show ${s.label} to this client`
                                                                                 }
                                                                                 aria-pressed={revealedToClient(s.id)}
-                                                                                onClick={() => toggleClientVisible(s.id)}
+                                                                                onClick={() => pressEye(s.id)}
                                                                                 className={cx(
                                                                                     "flex size-6 items-center justify-center rounded-md transition duration-100 ease-linear hover:bg-secondary",
                                                                                     revealedToClient(s.id)
@@ -3934,15 +3945,15 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                     </>
                                                 )}
 
-                                                {/* ── Example Reels — three phones, the team's reels playing inside ── */}
+                                                {/* ── Example Reels — one phone in focus, the other two waiting beside it ── */}
                                                 {activeSection === "reels" && (
                                                     <Reveal>
                                                         <SectionEyebrow section={activeSection} />
                                                         <SectionHeading>Example Reels</SectionHeading>
                                                         <p className="mt-3 text-md text-tertiary">
                                                             {isLocked
-                                                                ? "Three reels made for your property, shown the way they play on a phone."
-                                                                : "Upload up to three 9:16 reels. The title and line under each phone are what the client reads — and what stands in for the footage when motion is off."}
+                                                                ? "Three reels made for your property, shown the way they play on a phone — one at a time. Use the arrows, or tap a phone at the side, to see the next."
+                                                                : "Upload up to three 9:16 reels. Use the arrows to move between slots. The title and line under the phone are what the client reads — and what stands in for the footage when motion is off."}
                                                         </p>
                                                         <ExampleReelsSection
                                                             reels={content.reels ?? []}
@@ -5070,17 +5081,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="audience"
                                                                         label="Target audience profile"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
                                                                             rows={3}
                                                                             value={foundation.targetAudience}
-                                                                            placeholder={
-                                                                                isTeam
-                                                                                    ? "Paste the target audience profile from the workflow output."
-                                                                                    : "Who your ideal guests are, as a group."
-                                                                            }
+                                                                            placeholder="Who your ideal guests are, as a group."
                                                                             sKey="targetAudience"
                                                                             onChange={(v) => patchFoundation({ targetAudience: v })}
                                                                         />
@@ -5090,17 +5097,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="uvp"
                                                                         label="Unique value proposition"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
                                                                             rows={3}
                                                                             value={foundation.uvp}
-                                                                            placeholder={
-                                                                                isTeam
-                                                                                    ? "Paste the UVP from the workflow output."
-                                                                                    : "What makes this stay worth choosing over any other."
-                                                                            }
+                                                                            placeholder="What makes this stay worth choosing over any other."
                                                                             sKey="uvp"
                                                                             onChange={(v) => patchFoundation({ uvp: v })}
                                                                         />
@@ -5110,7 +5113,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="brand"
                                                                         label="About the brand"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
@@ -5189,7 +5192,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="personas"
                                                                         label="Personas"
-                                                                        badge={isTeam ? <WorkflowBadge /> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
                                                                         action={
                                                                             !isLocked && (
                                                                                 <button
@@ -5506,10 +5509,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                         </div>
                                                                     </DocSection>
 
-                                                                    {/* ── 8. Focus properties ── */}
+                                                                    {/* ── 8. Property types/Unit types ── */}
                                                                     <DocSection
                                                                         id="focus"
-                                                                        label="Focus properties"
+                                                                        label="Property types/Unit types"
                                                                         badge={isTeam ? <SourceBadge>From client's website</SourceBadge> : undefined}
                                                                         action={
                                                                             !isLocked &&
@@ -7586,6 +7589,24 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     </div>
                 </div>
             )}
+
+            {(() => {
+                const item = revealAsk ? NAV_GROUPS.flatMap((g) => g.items).find((i) => i.id === revealAsk) : undefined;
+                return (
+                    <RevealConfirmDialog
+                        open={revealOpen && !!item}
+                        label={item?.label ?? ""}
+                        clientName={clientName}
+                        check={revealAsk ? revealCheck(revealAsk, content) : null}
+                        notBuilt={!!item && navNotBuilt(item)}
+                        onCancel={() => setRevealOpen(false)}
+                        onConfirm={() => {
+                            if (revealAsk && !revealedToClient(revealAsk)) toggleClientVisible(revealAsk);
+                            setRevealOpen(false);
+                        }}
+                    />
+                );
+            })()}
 
             {/* ── Client-input form modal ──
                 The form keeps its own Typeform-style chrome (progress bar, counter,

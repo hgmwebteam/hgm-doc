@@ -12,11 +12,11 @@ import {
     type PlanEntry,
     buildPlan,
     entryKey,
-    findVariant,
     finishSitting,
     isAnswered,
     latestByTerm,
     rowsToSave,
+    servablePlan,
 } from "@/pages/team/dictionary/check/check-model";
 import { Question } from "@/pages/team/dictionary/check/check-questions";
 import { applyResults, grade, missedTerms, scorePct } from "@/pages/team/dictionary/check/check-score";
@@ -70,13 +70,14 @@ const clearDraft = (attemptId: string) => {
     }
 };
 
-/** The screens of a sitting that still match the bank. A question changed mid-sitting is skipped, and its terms count as missed. */
+/**
+ * The screens of a sitting, from its plan cleaned for the current bank (servablePlan). A sitting
+ * started before a question changed skips what the bank no longer scores the same way, and those
+ * terms keep their earlier status rather than counting as missed.
+ */
 const usableScreens = (plan: PlanEntry[], content: CheckContent) => {
     const items = new Map(content.bank.items.map((i) => [i.id, i]));
-    return plan.flatMap((entry) => {
-        const item = items.get(entry.item);
-        return item && findVariant(item, entry.variant) ? [{ entry, item, key: entryKey(entry) }] : [];
-    });
+    return servablePlan(plan, content.bank).map((entry) => ({ entry, item: items.get(entry.item)!, key: entryKey(entry) }));
 };
 
 type Screen = { entry: PlanEntry; item: BankItem; key: string };
@@ -194,6 +195,8 @@ const Intro = ({
         const total = usableScreens(open.plan, content).length;
         const progress = openAnswered === null ? `${plural(total, "question", "questions")}` : `${openAnswered} of ${total} answered`;
         const same = open.mode === mode;
+        // Started on an older bank: say so plainly, once.
+        const changed = open.bank_version !== bank.version ? " A few questions have changed since you started; those don't count this round." : "";
         return (
             <>
                 <PageTitle>The check</PageTitle>
@@ -229,7 +232,7 @@ const Intro = ({
                                     </>
                                 }
                             >
-                                {same ? `${progress}. It picks up where you left off.` : `It's ${MODE_LABEL[open.mode]}, ${progress}.`}
+                                {same ? `${progress}. It picks up where you left off.${changed}` : `It's ${MODE_LABEL[open.mode]}, ${progress}.${changed}`}
                             </Notice>
                         )}
                     </div>
@@ -461,7 +464,7 @@ const Sitting = ({
         try {
             if (!(await flush())) throw new Error("some answers aren't saved");
             const rows = await listAnswers(userId, attempt.id);
-            const { results, missing } = finishSitting(attempt.plan, latestByTerm(rows));
+            const { results, missing } = finishSitting(servablePlan(attempt.plan, content.bank), latestByTerm(rows));
             await saveAnswers(attempt.id, missing);
             const before = new Map((await listTermStatus(userId)).map((r) => [r.term_slug, r.correct]));
             const after = applyResults(before, results);

@@ -33,8 +33,9 @@ built. Start with its `README.md`.
   only the missed terms count. Taking pairs out would make the rest trivial.
 - **Flashcards blank a little more than the bank's masking rule** (decision 3a). Under the rule,
   four definitions gave their own answer away (EBITDA, Flag, Keys/rooms/units, Booking.com
-  Genius). Flag and Keys moved into the bank's `mask_extra` on 2 Oct; EBITDA's bracket and Genius
-  stay in `FLASHCARD_MASK_EXTRA` in `check-model.ts`.
+  Genius). The flashcards blank EBITDA's bracketed expansion, and `FLASHCARD_MASK_EXTRA` in
+  `check-model.ts` blanks the other three. In the check itself Flag and Keys are true/false
+  items, which never show a definition.
 
 Revised 2 Oct 2026 (Kyle):
 
@@ -46,16 +47,30 @@ Revised 2 Oct 2026 (Kyle):
   jumbled in a tray (pinned to the bottom of the screen on a phone, on the right on a laptop).
   Drag a card, or tap it and then a slot, or Enter on it and a number key; Backspace sends it
   back. `src/pages/team/dictionary/drag-board.tsx` does this for the check and for Sort the stack.
-- **Matching groups are themed**, with the theme in the prompt ("These are all about a
-  property's brand."): brand, rates, rooms and how they're sold, demand and the calendar, measuring
-  marketing. A definition that names its own term is blanked too, in both versions.
+- **Matching groups are themed**, with the theme in the prompt ("These are all about rates and
+  fees."): who owns and runs a property, rates and fees, rooms and how they're sold, demand and
+  the calendar, measuring marketing. A line that names its own term is blanked, in both versions,
+  and where a line blanks a term's bracketed expansion the card leaves it off too (the card reads
+  "OTB", because the call line blanks "on the books"). The validator refuses a group where one
+  card's blanked word is another card's name, since the blank would point at the wrong card.
 - **Eight reverse questions**: a term and four definitions to choose from, the first version of
-  pace, denial, metasearch, incrementality, dynamic pricing, pre-arrival sequence, creative fatigue
-  index and opportunity cost. The options are dictionary slugs (`format: "define"`), so no
-  definition is retyped; the wrong ones are neighbouring terms' definitions of similar length.
+  pace, denial, metasearch, incrementality, dynamic pricing, rate shopping, pre-arrival sequence
+  and opportunity cost. The options are dictionary slugs (`format: "define"`), so no definition
+  is retyped; the wrong ones are neighbouring terms' definitions of similar length, and may be
+  any tier (the term asked about is always tier A or B). The validator refuses an option that
+  isn't a dictionary entry, or whose definition names the term being asked about.
 - **"Not yet" sets a card aside for the next pass.** Every card you haven't seen this pass comes up
   before any you sent back. It used to put a card three places later, which cycled the same four
   cards for anyone who kept saying "Not yet".
+- **A round started on an older bank carries on without the questions that changed**
+  (`servablePlan`). A question or version that no longer exists is left out, and so is any term
+  an item no longer scores; the intro says "A few questions have changed since you started; those
+  don't count this round." Those terms keep their earlier status rather than counting as missed.
+- **Dragging is forgiving.** A copy of the card follows the pointer, every place it can go shows a
+  dashed outline, and the one under it a solid ring and a fill (the place it came from never
+  lights up). A drop that changes nothing changes nothing: it isn't saved, because on a screen
+  answered on another device a re-save of the untouched answer would mark its right answers
+  wrong.
 
 **What can't be promised:** anyone with the Supabase dashboard can read the tables directly.
 The dashboard's SQL editor bypasses row-level security. Rows carry a user id, never a name or

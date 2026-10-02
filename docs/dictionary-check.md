@@ -33,7 +33,29 @@ built. Start with its `README.md`.
   only the missed terms count. Taking pairs out would make the rest trivial.
 - **Flashcards blank a little more than the bank's masking rule** (decision 3a). Under the rule,
   four definitions gave their own answer away (EBITDA, Flag, Keys/rooms/units, Booking.com
-  Genius). See `FLASHCARD_MASK_EXTRA` in `check-model.ts`. Those words belong in the bank builder.
+  Genius). Flag and Keys moved into the bank's `mask_extra` on 2 Oct; EBITDA's bracket and Genius
+  stay in `FLASHCARD_MASK_EXTRA` in `check-model.ts`.
+
+Revised 2 Oct 2026 (Kyle):
+
+- **The copy.** The intro says once that every figure is illustrative and a calculator is
+  welcome. It never says "open book" or "no pass mark" (the score is still for fun), and no
+  question carries an "illustrative" line.
+- **Matching and sorting are drag and drop**, not dropdowns: each definition is a card with one
+  slot above it, every slot the same size so its width gives nothing away, and the terms wait
+  jumbled in a tray (pinned to the bottom of the screen on a phone, on the right on a laptop).
+  Drag a card, or tap it and then a slot, or Enter on it and a number key; Backspace sends it
+  back. `src/pages/team/dictionary/drag-board.tsx` does this for the check and for Sort the stack.
+- **Matching groups are themed**, with the theme in the prompt ("These are all about a
+  property's brand."): brand, rates, rooms and how they're sold, demand and the calendar, measuring
+  marketing. A definition that names its own term is blanked too, in both versions.
+- **Eight reverse questions**: a term and four definitions to choose from, the first version of
+  pace, denial, metasearch, incrementality, dynamic pricing, pre-arrival sequence, creative fatigue
+  index and opportunity cost. The options are dictionary slugs (`format: "define"`), so no
+  definition is retyped; the wrong ones are neighbouring terms' definitions of similar length.
+- **"Not yet" sets a card aside for the next pass.** Every card you haven't seen this pass comes up
+  before any you sent back. It used to put a card three places later, which cycled the same four
+  cards for anyone who kept saying "Not yet".
 
 **What can't be promised:** anyone with the Supabase dashboard can read the tables directly.
 The dashboard's SQL editor bypasses row-level security. Rows carry a user id, never a name or
@@ -49,7 +71,7 @@ Everything is in `src/pages/team/dictionary/check/` unless a path is given. The 
 | :------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `check-model.ts`                                  | The bank's shape, `itemTerms` (the rule: one scored unit, one slug), `bankProblems` (the validator), masking, building a round (`buildPlan`), marking (`markEntry`), what to save (`rowsToSave`), finishing (`finishSitting`). **Start here.** |
 | `check-score.ts`                                  | Weights, `applyResults` ("latest answer wins"), `scorePct`, `grade`, the "Up 9% since last time" line.                                                                                                                                         |
-| `practice-model.ts`                               | The flashcard deck: shuffle, Got it, Not yet (back 3 places).                                                                                                                                                                                  |
+| `practice-model.ts`                               | The flashcard deck: passes, Got it, Not yet (set aside for the next pass).                                                                                                                                                                     |
 | `check-bank-data.ts`                              | `loadCheckBank()`: the bank as a lazy chunk. Never import the JSON statically.                                                                                                                                                                 |
 | `use-check-session.ts`                            | One hook that loads the bank, the dictionary, the session and the person's history, and says when it's ready.                                                                                                                                  |
 | `check-chrome.tsx`                                | The page frame, the notice card, the "Continue with Google" card, loading and error states.                                                                                                                                                    |
@@ -61,6 +83,8 @@ Everything is in `src/pages/team/dictionary/check/` unless a path is given. The 
 | `src/lib/check-attempts.ts`                       | Every Supabase call the check makes.                                                                                                                                                                                                           |
 | `src/data/check-bank.json`                        | The question bank: a byte-for-byte copy of `reference/industry-acumen-check/data/check-bank.json`.                                                                                                                                             |
 | `src/pages/team/dictionary/dictionary-layout.tsx` | The Docs frame shared by `/dictionary` and these three pages.                                                                                                                                                                                  |
+| `src/pages/team/dictionary/drag-board.tsx`        | Drag and drop for cards, slots and boxes (pointer drag, tap-then-tap, keyboard), shared with Sort the stack.                                                                                                                                   |
+| `src/pages/team/dictionary/flashcards.tsx`        | The flashcard game (intro, the 3D card, Got it / Not yet, end screen), shared by the terms and tools decks.                                                                                                                                    |
 
 The results page reuses the dictionary's own card (`dictionary-entry.tsx`) with `showTier={false}`
 and the question's `explanation`. Matching items have no explanation, so their cards show the

@@ -5,6 +5,12 @@ def fm(a, u):
         return f"${a:,.2f}".replace(".00", "")
     return f"{a:g}{u}"
 b = json.load(open("../data/check-bank.json"))
+# The reverse questions' options are dictionary slugs. In the portal repo the dictionary sits three
+# levels up, so the review copy can print the definitions players actually see; elsewhere, slugs.
+try:
+    GLOSS = {e["slug"]: e["gloss"] for e in json.load(open("../../../src/data/ref_dictionary-v2-253.json"))}
+except OSError:
+    GLOSS = {}
 TYPE = {"wordproblem": "Word problem", "numeric": "Calculation (type the number)", "buckets": "Sort into boxes",
         "scenario": "Scenario", "mcq": "Multiple choice", "ordering": "Put in order", "matching": "Matching",
         "truefalse": "True or false"}
@@ -12,14 +18,17 @@ out = ["---", "title: Check question bank — review copy (Industry Acumen)", "s
        "source: generated from data/check-bank.json by tools/render_review.py — edit the builder, never this file", "---", "",
        "# The check — question bank, review copy", "",
        "> **Read first.** One check after both sessions (Kyle, 1 Oct). 90 terms: 30 core at 2 points, 60 reference at 1, total 120. "
-       "Every calculation includes numbers you don't need (Kyle, 1 Oct). Each question has two versions; the second is what a retake serves. "
-       "Answers marked **→**. Matching items pull their definitions and call lines from the dictionary by slug, so they're listed by term only.", ""]
+       "Every calculation includes numbers you don't need (Kyle, 1 Oct). Each question has two versions, and eight have a third, shown first: "
+       "a reverse question (a term, and four of the dictionary's definitions to choose from; Kyle, 2 Oct). A retake serves the version not seen last time. "
+       "Answers marked **→**. Matching items are grouped by theme (Kyle, 2 Oct) and pull their definitions and call lines from the dictionary by slug, "
+       "so they're listed by term only.", ""]
 n = 0
 for it in b["items"]:
     n += 1
     out.append(f"## {n}. {TYPE[it['type']]} · `{it['id']}`")
     if it["type"] == "matching":
-        out.append(f"Terms: {', '.join(it['terms'])}. Version 1 matches to definitions; version 2 to call lines with the term blanked.")
+        theme = it["variants"][0]["prompt"].split(". ")[0]
+        out.append(f"{theme}. Terms: {', '.join(it['terms'])}. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.")
         out.append("")
         continue
     for v in it["variants"]:
@@ -40,6 +49,12 @@ for it in b["items"]:
         elif it["type"] == "numeric":
             a = fm(v["answer"], v["unit"])
             out.append(f"→ **{a}** · {v['explanation']}")
+        elif v.get("format") == "define":
+            out.append(f"Term shown: **{it['term']}**. Options (each slug's definition from the dictionary):")
+            for o in v["options"]:
+                text = GLOSS.get(o, "")
+                out.append(f"- {'**→** ' if o == v['answer'] else ''}`{o}`{': ' + text if text else ''}")
+            out.append(f"→ {v['explanation']}")
         elif "options" in v:
             out.append("Options: " + " · ".join(f"**{o}**" if o == v["answer"] else o for o in v["options"]))
             out.append(f"→ {v['explanation']}")
@@ -58,6 +73,9 @@ out += ["## Flags before this replaces the fixture", "",
 "- **Midweek (item `midweek-gap`).** It's a reference term, but \"midweek\" is out of session copy until the boundary with Dustin's training is agreed. The call lines for rate fence and date classes also say \"midweek\". [NEEDS INPUT, Dustin: the boundary; otherwise drop the item and the term's point.]",
 "- **Time-sensitive facts.** The Airbnb fee, Genius and Mr & Mrs Smith statements come from the dictionary's sources, checked 29 Sep 2026. Re-check them if the check runs past November.",
 "- **Who you're talking to.** Both versions lean on the dictionary entry whose scorecard detail is marked for Nicole to confirm. [CONFIRM, Nicole.]",
-"- **No property names.** Every scenario uses an unnamed lodge or resort, so there's nothing to check against client contacts.", ""]
+"- **No property names.** Every scenario uses an unnamed lodge or resort, so there's nothing to check against client contacts.",
+"- **Reverse questions (new, 2 Oct).** Eight items now open with a term and four definitions: pace, denial, metasearch, incrementality, dynamic pricing, pre-arrival sequence, creative fatigue index, opportunity cost. The wrong options are neighbouring terms' definitions, picked to be close in topic and length. [CONFIRM, Nicole: the distractors and explanations.]",
+"- **Matching regrouped by theme (2 Oct).** Five items: a property's brand (flag moved here from true/false), rates, rooms and how they're sold, demand and the calendar, measuring marketing. Definitions that name their own term are now blanked too (keys, rooms and units; flag).",
+"- **No \"illustrative\" line on questions (2 Oct).** The check's intro says it once.", ""]
 open("../spec/check-bank-review.md", "w").write("\n".join(out))
 print(n, "items rendered")

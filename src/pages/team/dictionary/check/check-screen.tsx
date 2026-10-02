@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen01, Check } from "@untitledui/icons";
+import { ArrowLeft, ArrowRight, Calculator, Check } from "@untitledui/icons";
 import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/base/buttons/button";
 import { ProgressBarBase } from "@/components/base/progress-indicators/progress-indicators";
@@ -85,10 +85,14 @@ const MODE_LABEL: Record<CheckMode, string> = { full: "the whole check", missed:
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-const OpenBookLine = ({ className }: { className?: string }) => (
+/**
+ * Said once, on the intro (Kyle, 2 Oct 2026): every figure is illustrative and a calculator is
+ * welcome. Not "open book", not "no pass mark", and not on each question.
+ */
+const FiguresLine = ({ className }: { className?: string }) => (
     <p className={cx("flex items-start gap-2 text-sm text-tertiary", className)}>
-        <BookOpen01 className="mt-0.5 size-4 shrink-0 text-fg-quaternary" aria-hidden="true" />
-        <span>Open book: the dictionary and cheat sheet are allowed, and a calculator is welcome. Every figure is illustrative.</span>
+        <Calculator className="mt-0.5 size-4 shrink-0 text-fg-quaternary" aria-hidden="true" />
+        <span>Every figure is illustrative, and a calculator is welcome.</span>
     </p>
 );
 
@@ -234,7 +238,6 @@ const Intro = ({
                             {error}
                         </p>
                     )}
-                    <OpenBookLine />
                 </div>
             </>
         );
@@ -281,14 +284,14 @@ const Intro = ({
                 ) : (
                     <p>
                         {hasFinished ? "The whole check again, with the other version of each question: " : "One run through "}
-                        {hasFinished ? `all ${terms} terms` : `the ${terms} terms you've been learning`}, to see which ones you know and which to practise.
-                        There's no pass mark, and only you can see your answers and your score.
+                        {hasFinished ? `all ${terms} terms` : `the ${terms} terms you've been learning`}, to see which ones you know and which to practise. Only
+                        you can see your answers and your score.
                     </p>
                 )}
             </div>
 
             <div className="mt-6 rounded-xl bg-secondary p-4 ring-1 ring-secondary sm:p-5">
-                <OpenBookLine className="text-md text-secondary" />
+                <FiguresLine className="text-md text-secondary" />
                 <ul className="mt-3 flex flex-col gap-1.5 pl-6 text-sm text-tertiary">
                     <li className="list-disc">{plural(questions, "question", "questions")}, one at a time.</li>
                     <li className="list-disc">It saves as you go, so you can leave and pick up where you left off.</li>
@@ -494,8 +497,7 @@ const Sitting = ({
 
     return (
         <>
-            <OpenBookLine />
-            <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-secondary tabular-nums">{finishing ? "Ready to finish" : `${index + 1} of ${screens.length}`}</p>
                 <SaveStatus state={saveState} onRetry={() => void flush()} />
             </div>
@@ -552,6 +554,7 @@ const Sitting = ({
                         seed={`${attempt.id}:${screen.key}`}
                         bank={content.bank}
                         bySlug={content.dict.bySlug}
+                        scrollRef={scrollRef}
                     />
                 </section>
             )}

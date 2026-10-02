@@ -1,5 +1,5 @@
-import { type FC, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown } from "@untitledui/icons";
+import { type FC, type ReactNode, type RefObject, useEffect, useId, useMemo, useRef, useState } from "react";
+import { ArrowDown, ArrowUp } from "@untitledui/icons";
 import { RadioButton, RadioGroup } from "@/components/base/radio-buttons/radio-buttons";
 import {
     type BankItem,
@@ -7,6 +7,7 @@ import {
     type BucketsVariant,
     type CheckBank,
     type CheckResponse,
+    type ChoiceItem,
     type ChoiceVariant,
     type MatchingVariant,
     type NumericVariant,
@@ -15,24 +16,26 @@ import {
     type TrueFalseVariant,
     type WordProblemVariant,
     findVariant,
-    maskText,
-    maskWords,
+    matchingLine,
     seededRandom,
     shuffle,
     shuffledSteps,
     standaloneBlank,
     standalonePrompt,
 } from "@/pages/team/dictionary/check/check-model";
-import { type DictionaryEntry, byTerm } from "@/pages/team/dictionary/dictionary-model";
+import type { DictionaryEntry } from "@/pages/team/dictionary/dictionary-model";
+import { BoardAnnouncer, type DragBoard, KeyBadge, chipClass, targetClass, useDragBoard } from "@/pages/team/dictionary/drag-board";
 import { cx } from "@/utils/cx";
 
 /**
  * One screen of the check: the question and its inputs, for every item type. It shows no
  * feedback, ever: right and wrong appear only on the results page.
  *
- * Everything works from the keyboard and at phone width. Nothing drags: multiple choice and
- * true/false are radio groups (arrow keys move between options), sorting and matching are one
- * native select per row, and ordering has Move up / Move down buttons on every step.
+ * Everything works from the keyboard and at phone width. Multiple choice and true/false are radio
+ * groups (arrow keys move between options). Sorting and matching are drag and drop (Kyle, 2 Oct
+ * 2026: "more of a drag-and-drop feature" than a select), through drag-board.tsx: drag with a mouse
+ * or finger, or tap a card and then its slot, or Enter on a card and a number key. Ordering has
+ * Move up / Move down buttons on every step.
  *
  * Option, chip and line order is shuffled from `seed` (the sitting's id plus the screen), so
  * a resumed sitting shows each question exactly as it did before.
@@ -46,6 +49,8 @@ type QuestionProps = {
     seed: string;
     bank: CheckBank;
     bySlug: Map<string, DictionaryEntry>;
+    /** The pane's scroller, so a drag near its edge scrolls it. */
+    scrollRef?: RefObject<HTMLDivElement | null>;
 };
 
 /* ── Shared parts ───────────────────────────────────────────────── */
@@ -189,41 +194,6 @@ const Options = ({
     </RadioGroup>
 );
 
-/** A native select styled like the portal's inputs: the most dependable choice for keyboard, phone and screen reader alike. */
-const PickSelect = ({
-    labelledBy,
-    placeholder,
-    options,
-    value,
-    onChange,
-}: {
-    labelledBy: string;
-    placeholder: string;
-    options: { value: string; label: string }[];
-    value: string | undefined;
-    onChange: (v: string) => void;
-}) => (
-    <div className="relative grid w-full shrink-0 sm:w-64">
-        <select
-            aria-labelledby={labelledBy}
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-            className={cx(
-                "h-11 w-full appearance-none truncate rounded-lg bg-primary pr-9 pl-3 text-md font-medium shadow-xs ring-1 ring-primary outline-hidden transition duration-100 ease-linear ring-inset focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none",
-                value ? "text-primary" : "text-placeholder",
-            )}
-        >
-            <option value="">{placeholder}</option>
-            {options.map((o) => (
-                <option key={o.value} value={o.value}>
-                    {o.label}
-                </option>
-            ))}
-        </select>
-        <ChevronDown aria-hidden="true" className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-fg-quaternary" />
-    </div>
-);
-
 /* ── Each type ──────────────────────────────────────────────────── */
 
 const WordProblem = ({ item, entry, response, onChange }: QuestionProps) => {
@@ -292,13 +262,26 @@ const Numeric = ({ item, entry, response, onChange }: QuestionProps) => {
     );
 };
 
-const Choice = ({ item, entry, response, onChange, seed }: QuestionProps) => {
+const Choice = ({ item, entry, response, onChange, seed, bySlug }: QuestionProps) => {
     const promptId = useId();
     const v = findVariant(item, entry.variant) as ChoiceVariant;
-    const options = useMemo(() => shuffle(v.options, seededRandom(`${seed}:options`)).map((o) => ({ value: o, label: o })), [v, seed]);
+    const define = v.format === "define";
+    // A reverse question's options are slugs; each shows as that entry's definition.
+    const options = useMemo(
+        () => shuffle(v.options, seededRandom(`${seed}:options`)).map((o) => ({ value: o, label: define ? (bySlug.get(o)?.gloss ?? o) : o })),
+        [v, seed, define, bySlug],
+    );
+    const term = define ? bySlug.get((item as ChoiceItem).term)?.term : null;
     return (
         <>
-            <Prompt id={promptId}>{v.prompt}</Prompt>
+            {define ? (
+                <div id={promptId}>
+                    <p className="text-sm font-semibold text-secondary">{v.prompt}</p>
+                    <p className="mt-2 text-display-xs font-semibold text-pretty text-primary">{term}</p>
+                </div>
+            ) : (
+                <Prompt id={promptId}>{v.prompt}</Prompt>
+            )}
             <Options
                 labelledBy={promptId}
                 options={options}
@@ -333,92 +316,209 @@ const TrueFalse = ({ item, entry, response, onChange }: QuestionProps) => {
     );
 };
 
-const Buckets = ({ item, entry, response, onChange, seed }: QuestionProps) => {
+/** The tray of cards still to place. Sticky at the bottom of the pane on a phone, so a card is always in reach while the slots scroll. */
+const Tray = ({ board, title, empty, children, side = false }: { board: DragBoard; title: string; empty: boolean; children: ReactNode; side?: boolean }) => (
+    <div
+        {...board.dropProps(null)}
+        onClick={board.backToTray}
+        className={cx(
+            "sticky bottom-0 z-10 -mx-1 rounded-xl bg-primary p-3 shadow-lg ring-1 ring-secondary",
+            side && "sm:top-4 sm:bottom-auto sm:mx-0 sm:shadow-xs",
+            targetClass({ carrying: !!board.picked, over: board.over === null }),
+        )}
+    >
+        <p className="text-sm font-semibold text-secondary">{title}</p>
+        {empty ? (
+            <p className="mt-2 text-sm text-tertiary">All placed. Move any card to change it.</p>
+        ) : (
+            <ul className="mt-2 flex flex-wrap gap-2">{children}</ul>
+        )}
+    </div>
+);
+
+const Buckets = ({ item, entry, response, onChange, seed, scrollRef }: QuestionProps) => {
     const promptId = useId();
-    const rowId = useId();
     const v = findVariant(item, entry.variant) as BucketsVariant;
     const chips = useMemo(() => shuffle(v.chips, seededRandom(`${seed}:chips`)), [v, seed]);
     const placed = response?.kind === "boxes" ? response.placed : {};
-    const boxes = v.boxes.map((b) => ({ value: b, label: b }));
+    const label = (term: string) => v.chips.find((c) => c.term === term)?.text ?? term;
+    const board = useDragBoard({
+        targets: v.boxes.map((b) => ({ id: b, label: b })),
+        noun: "box",
+        chipLabel: label,
+        scrollRef,
+        onMove: (term, to) => {
+            const next = { ...placed };
+            if (to === null) delete next[term];
+            else next[term] = to;
+            onChange({ kind: "boxes", placed: next });
+            return { ok: true, message: to === null ? `${label(term)} is back with the cards.` : `${label(term)} is in ${to}.` };
+        },
+    });
+    const inTray = chips.filter((c) => !placed[c.term]);
+
     return (
-        <>
+        <div {...board.rootProps} className="flex flex-col gap-5">
             <Prompt id={promptId}>{v.prompt}</Prompt>
-            <ul aria-labelledby={promptId} className="flex flex-col gap-2">
-                {chips.map((c, i) => (
+            <p className="-mt-2 text-sm text-tertiary">Drag each card into its box, or tap a card and then a box.</p>
+            <ol aria-labelledby={promptId} className="grid gap-3 sm:grid-cols-2">
+                {v.boxes.map((box, i) => (
                     <li
-                        key={c.term}
-                        className="flex flex-col gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary sm:flex-row sm:items-center sm:justify-between"
+                        key={box}
+                        {...board.dropProps(box)}
+                        onClick={() => board.placeInto(box)}
+                        className={cx(
+                            "flex flex-col gap-3 rounded-xl bg-secondary p-3 ring-1 ring-secondary",
+                            targetClass({ carrying: !!board.picked, over: board.over === box }),
+                        )}
                     >
-                        <span id={`${rowId}-${i}`} className="min-w-0 text-md text-pretty text-primary">
-                            {c.text}
-                        </span>
-                        <PickSelect
-                            labelledBy={`${rowId}-${i}`}
-                            placeholder="Put in…"
-                            options={boxes}
-                            value={placed[c.term]}
-                            onChange={(box) => onChange({ kind: "boxes", placed: { ...placed, [c.term]: box } })}
-                        />
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                board.placeInto(box);
+                            }}
+                            className="flex items-center gap-2 rounded-lg text-left outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
+                        >
+                            <KeyBadge n={i + 1} />
+                            <span className="text-md font-semibold text-primary">{box}</span>
+                        </button>
+                        <ul className="flex min-h-11 flex-col gap-2">
+                            {chips
+                                .filter((c) => placed[c.term] === box)
+                                .map((c) => (
+                                    <li key={c.term}>
+                                        <button {...board.chipProps(c.term, box)} className={chipClass({ picked: board.picked === c.term, fill: true })}>
+                                            {c.text}
+                                        </button>
+                                    </li>
+                                ))}
+                        </ul>
                     </li>
                 ))}
-            </ul>
-        </>
+            </ol>
+            <Tray board={board} title="Cards" empty={!inTray.length}>
+                {inTray.map((c) => (
+                    <li key={c.term}>
+                        <button {...board.chipProps(c.term, null)} className={chipClass({ picked: board.picked === c.term })}>
+                            {c.text}
+                        </button>
+                    </li>
+                ))}
+            </Tray>
+            <BoardAnnouncer message={board.message} />
+        </div>
     );
 };
 
 /**
- * Each line belongs to one term: its definition (version 1) or its call line with the term
- * blanked (version 2, by the bank's masking rule). Each row picks the term it describes.
+ * Each definition (version 1) or call line (version 2) is a card with one slot above it, and the
+ * terms wait jumbled in the tray (Kyle, 2 Oct 2026). Every slot is the same size, so a slot's
+ * width says nothing about which term fits it. A line's own term is blanked in both versions.
+ * Dropping a term on a filled slot swaps the two, or sends the old one back to the tray.
  */
-const Matching = ({ item, entry, response, onChange, seed, bySlug }: QuestionProps) => {
+const Matching = ({ item, entry, response, onChange, seed, bySlug, scrollRef }: QuestionProps) => {
     const promptId = useId();
-    const rowId = useId();
     const v = findVariant(item, entry.variant) as MatchingVariant;
-    const terms = item.type === "matching" ? item.terms : [];
+    const terms = useMemo(() => (item.type === "matching" ? item.terms : []), [item]);
     const maskExtra = item.type === "matching" ? item.mask_extra : undefined;
 
     const lines = useMemo(
         () =>
-            shuffle(terms, seededRandom(`${seed}:lines`)).map((slug) => {
-                const e = bySlug.get(slug)!;
-                const text = v.match_on === "usage" ? `“${maskText(e.usage ?? "", maskWords(e, maskExtra?.[slug] ?? []))}”` : e.gloss;
-                return { slug, text };
-            }),
+            shuffle(terms, seededRandom(`${seed}:lines`)).map((slug) => ({ slug, text: matchingLine(bySlug.get(slug)!, v.match_on, maskExtra?.[slug] ?? []) })),
         [terms, v, seed, bySlug, maskExtra],
     );
-    const choices = useMemo(
-        () =>
-            terms
-                .map((s) => bySlug.get(s)!)
-                .sort(byTerm)
-                .map((e) => ({ value: e.slug, label: e.term })),
-        [terms, bySlug],
-    );
+    const words = useMemo(() => shuffle(terms, seededRandom(`${seed}:words`)), [terms, seed]);
     const chosen = response?.kind === "pairs" ? response.chosen : {};
+    const name = (slug: string) => bySlug.get(slug)?.term ?? slug;
+    const slotOf = (term: string) => Object.keys(chosen).find((line) => chosen[line] === term);
+
+    const board = useDragBoard({
+        targets: lines.map((l, i) => ({ id: l.slug, label: `slot ${i + 1}` })),
+        noun: "slot",
+        chipLabel: name,
+        scrollRef,
+        onMove: (term, to) => {
+            const next = { ...chosen };
+            const from = Object.keys(next).find((line) => next[line] === term);
+            if (from) delete next[from];
+            if (to !== null) {
+                const occupant = next[to];
+                if (occupant && from) next[from] = occupant;
+                next[to] = term;
+            }
+            onChange({ kind: "pairs", chosen: next });
+            const n = to === null ? 0 : lines.findIndex((l) => l.slug === to) + 1;
+            return { ok: true, message: to === null ? `${name(term)} is back with the terms.` : `${name(term)} is in slot ${n}.` };
+        },
+    });
+    const inTray = words.filter((t) => !slotOf(t));
 
     return (
-        <>
+        <div {...board.rootProps} className="flex flex-col gap-5">
             <Prompt id={promptId}>{v.prompt}</Prompt>
-            <ul aria-labelledby={promptId} className="flex flex-col gap-2">
-                {lines.map((l, i) => (
-                    <li
-                        key={l.slug}
-                        className="flex flex-col gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary sm:flex-row sm:items-center sm:justify-between"
-                    >
-                        <span id={`${rowId}-${i}`} className={cx("min-w-0 text-md text-pretty text-primary", v.match_on === "usage" && "italic")}>
-                            {l.text}
-                        </span>
-                        <PickSelect
-                            labelledBy={`${rowId}-${i}`}
-                            placeholder="Choose a term"
-                            options={choices}
-                            value={chosen[l.slug]}
-                            onChange={(slug) => onChange({ kind: "pairs", chosen: { ...chosen, [l.slug]: slug } })}
-                        />
-                    </li>
-                ))}
-            </ul>
-        </>
+            <p className="-mt-2 text-sm text-tertiary">
+                Drag each term into the slot above its {v.match_on === "usage" ? "line" : "definition"}, or tap a term and then a slot.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_15rem] sm:items-start">
+                <ol aria-labelledby={promptId} className="flex flex-col gap-2">
+                    {lines.map((l, i) => {
+                        const here = chosen[l.slug];
+                        return (
+                            <li
+                                key={l.slug}
+                                {...board.dropProps(l.slug)}
+                                onClick={() => board.placeInto(l.slug)}
+                                className={cx(
+                                    "flex flex-col gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary",
+                                    targetClass({ carrying: !!board.picked, over: board.over === l.slug }),
+                                )}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <KeyBadge n={i + 1} />
+                                    {/* Keyed apart, so the empty slot's button is never reused as the card's. */}
+                                    {here ? (
+                                        <button
+                                            key={`card-${here}`}
+                                            {...board.chipProps(here, l.slug)}
+                                            className={chipClass({ picked: board.picked === here, fill: true })}
+                                        >
+                                            {name(here)}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            key="empty"
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                board.placeInto(l.slug);
+                                            }}
+                                            aria-label={`Slot ${i + 1}, empty`}
+                                            className="flex min-h-11 w-full items-center rounded-lg border-2 border-dashed border-primary px-3 text-sm text-quaternary outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
+                                        >
+                                            Empty
+                                        </button>
+                                    )}
+                                </div>
+                                <p className={cx("text-md text-pretty text-primary", v.match_on === "usage" && "italic")}>
+                                    {v.match_on === "usage" ? `“${l.text}”` : l.text}
+                                </p>
+                            </li>
+                        );
+                    })}
+                </ol>
+                <Tray board={board} title="Terms" empty={!inTray.length} side>
+                    {inTray.map((t) => (
+                        <li key={t}>
+                            <button {...board.chipProps(t, null)} className={chipClass({ picked: board.picked === t })}>
+                                {name(t)}
+                            </button>
+                        </li>
+                    ))}
+                </Tray>
+            </div>
+            <BoardAnnouncer message={board.message} />
+        </div>
     );
 };
 

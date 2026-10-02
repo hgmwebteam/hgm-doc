@@ -26,8 +26,13 @@ export type BankTable = string[][];
 export type WordProblemBlank = { id: string; term: string; label: string; answer: number; unit: string; tolerance: number; explanation: string };
 export type WordProblemVariant = { id: string; prompt: string; table: BankTable; blanks: WordProblemBlank[] };
 export type NumericVariant = { id: string; prompt: string; table: BankTable; answer: number; unit: string; tolerance: number; explanation: string };
-/** `answer` is the option's text, not its index, so shuffling the options can't break it. */
-export type ChoiceVariant = { id: string; prompt: string; options: string[]; answer: string; explanation: string };
+/**
+ * `answer` is the option's text, not its index, so shuffling the options can't break it.
+ * A `format: "define"` variant is a reverse question (Kyle, 2 Oct 2026): it shows the item's term
+ * and its options are dictionary SLUGS, each shown as that entry's definition; the answer is the
+ * term's own slug. The definitions are never retyped in the bank.
+ */
+export type ChoiceVariant = { id: string; prompt: string; options: string[]; answer: string; explanation: string; format?: "define" };
 export type BucketChip = { text: string; term: string; box: string };
 export type BucketsVariant = { id: string; prompt: string; boxes: string[]; chips: BucketChip[]; explanation: string };
 /** The lines come from the dictionary: each term's `gloss`, or its `usage` with the term blanked. */
@@ -152,6 +157,17 @@ export const bankProblems = (bank: CheckBank, bySlug: Map<string, DictionaryEntr
                     if (!v.options.includes(v.answer)) say(`${v.id}: the answer "${v.answer}" is not one of its options.`);
                     if (v.options.length !== 4) say(`${v.id}: has ${v.options.length} options; it needs 4.`);
                     if (new Set(v.options).size !== v.options.length) say(`${v.id}: an option appears twice.`);
+                    if (v.format === "define") {
+                        if (v.answer !== item.term) say(`${v.id}: a reverse question's answer must be its own term, "${item.term}".`);
+                        const asked = bySlug.get(item.term);
+                        for (const slug of v.options) {
+                            const e = bySlug.get(slug);
+                            if (!e?.gloss?.trim()) say(`${v.id}: option "${slug}" isn't a dictionary entry with a definition.`);
+                            // A definition that names the asked term would give the answer away, or mislead.
+                            else if (asked && maskText(e.gloss, maskWords(asked)) !== e.gloss)
+                                say(`${v.id}: the definition of "${slug}" names "${asked.term}".`);
+                        }
+                    }
                 }
                 break;
             case "buckets":
@@ -163,7 +179,7 @@ export const bankProblems = (bank: CheckBank, bySlug: Map<string, DictionaryEntr
                 }
                 break;
             case "matching":
-                if (item.terms.length > 6) say(`${item.id}: matches ${item.terms.length} terms; the most is 6.`);
+                if (item.terms.length > 6 || item.terms.length < 4) say(`${item.id}: matches ${item.terms.length} terms; it needs 4 to 6.`);
                 for (const v of item.variants) {
                     if (v.match_on !== "gloss" && v.match_on !== "usage") say(`${v.id}: match_on must be "gloss" or "usage".`);
                     for (const slug of item.terms) {
@@ -243,16 +259,22 @@ export const bankMaskExtra = (bank: CheckBank, slug: string): string[] =>
     bank.items.flatMap((i) => (i.type === "matching" ? (i.mask_extra?.[slug] ?? []) : []));
 
 /**
+ * The line a matching question shows for one term: its definition (version 1) or its call line
+ * (version 2), with the term blanked by the bank's masking rule in both. Version 1 is masked
+ * too since 2 Oct 2026, because "owners say keys, the doctrine says units" answered itself.
+ */
+export const matchingLine = (entry: DictionaryEntry, matchOn: "gloss" | "usage", maskExtra: string[] = []): string =>
+    maskText((matchOn === "usage" ? entry.usage : entry.gloss) ?? "", maskWords(entry, maskExtra));
+
+/**
  * Definition-first flashcards blank a little more than the bank's rule, because four
- * definitions give their own answer away under it (found by the bank validator, 1 Oct 2026;
- * Kyle chose to fix it here): EBITDA's definition IS its bracketed expansion; and "flagged",
- * "keys … units" and "Genius" sit in the definitions of Flag, Keys, rooms and units, and
- * Booking.com Genius. So flashcards also blank the bracket text, plus the words below.
- * These belong in the bank builder; move them there when it next changes.
+ * definitions gave their own answer away under it (found by the bank validator, 1 Oct 2026;
+ * Kyle chose to fix it here): EBITDA's definition IS its bracketed expansion, so flashcards also
+ * blank the bracket text. Flag's "flagged" and Keys' "keys … units" moved into the bank's
+ * mask_extra on 2 Oct (they're matching terms, so bankMaskExtra brings them in). Genius is a
+ * true/false term with no matching item to carry a mask_extra, so it stays here.
  */
 export const FLASHCARD_MASK_EXTRA: Record<string, string[]> = {
-    flag: ["flagged"],
-    "keys-rooms-and-units": ["keys", "rooms", "units"],
     "booking-com-genius": ["Genius"],
 };
 
@@ -450,7 +472,7 @@ const inSentence = (label: string) => (/^[A-Z][a-z]+(\s|$)/.test(label) ? label[
  */
 export const standalonePrompt = ({ variant, blank }: StandaloneBlank) => {
     const lead = variant.prompt.match(/^(.*?)\s*Work out\b/)?.[1]?.trim();
-    return `${lead ? `${lead} ` : ""}Work out the ${inSentence(blank.label)}. Not every row is needed. All figures are illustrative.`;
+    return `${lead ? `${lead} ` : ""}Work out the ${inSentence(blank.label)}. Not every row is needed.`;
 };
 
 /**

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { pushCrmCells } from "../lib/crm-sheet.mts";
 import { accountManagerEmail } from "../lib/team-emails.mts";
 
 /**
@@ -74,11 +75,16 @@ export default async (req: Request) => {
 
     const data = (row.data ?? {}) as { answers?: Record<string, string>; submittedAt?: string };
     if (!data.submittedAt) return Response.json({ ok: true, sent: false, reason: "not-submitted" });
-    if (row.am_notified_at) return Response.json({ ok: true, sent: false, reason: "already-sent" });
 
     // Links are stored as "/{base}-dashboard"; match the tail so a full URL typed into the field still counts.
     const { data: clientRows } = await db.from("clients").select("name, am, link").ilike("link", `%/${base}-dashboard`).limit(1);
     const client = clientRows?.[0];
+
+    // The CRM sheet's "Questionnaire" column is the Onboarding Form. Before the already-sent check,
+    // so a resubmit re-asserts it; the write is idempotent and never throws.
+    if (kind === "onboarding") await pushCrmCells((client?.name || row.client_name || base).trim(), { Questionnaire: "Complete" });
+
+    if (row.am_notified_at) return Response.json({ ok: true, sent: false, reason: "already-sent" });
     const to = accountManagerEmail(client?.am);
     if (!to) {
         console.warn(`[form-submitted] ${slug}: no AM email (client row ${client ? "found" : "missing"}, am="${client?.am ?? ""}")`);

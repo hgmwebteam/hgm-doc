@@ -33,6 +33,9 @@ import { CheckResultsScreen } from "@/pages/team/dictionary/check/check-results-
 import { CheckScreen } from "@/pages/team/dictionary/check/check-screen";
 import { PracticeScreen } from "@/pages/team/dictionary/check/practice-screen";
 import { DictionaryScreen } from "@/pages/team/dictionary/dictionary-screen";
+import { AcumenSortScreen } from "@/pages/team/dictionary/tools/acumen-sort-screen";
+import { ToolsPracticeScreen } from "@/pages/team/dictionary/tools/tools-practice-screen";
+import { ToolsReviewScreen } from "@/pages/team/dictionary/tools/tools-review-screen";
 import { EmailPreviewScreen } from "@/pages/team/email-preview-screen";
 import { HomeScreen } from "@/pages/team/home-screen";
 import { HomeTwoScreen } from "@/pages/team/home-two-screen";
@@ -90,6 +93,10 @@ const PAGES_WITHOUT_FLOATING_CHROME = [
     "/dictionary/check",
     "/dictionary/check/results",
     "/dictionary/practice",
+    "/dictionary/tools/review",
+    "/dictionary/tools/practice",
+    // Public, but its plain frame (StandaloneFrame) has its own theme button.
+    "/acumen-sort",
     "/alicia-feedback",
 ];
 
@@ -240,6 +247,13 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/dictionary/check" element={<CheckScreen />} />
                         <Route path="/dictionary/check/results" element={<CheckResultsScreen />} />
                         <Route path="/dictionary/practice" element={<PracticeScreen />} />
+                        {/* Sort the stack (the tools review game) and the tools flashcards, behind TeamGate.
+                            Their card list is src/data/industry-acumen-sort-cards.json (src/pages/team/dictionary/tools/). */}
+                        <Route path="/dictionary/tools/review" element={<ToolsReviewScreen />} />
+                        <Route path="/dictionary/tools/practice" element={<ToolsPracticeScreen />} />
+                        {/* The same game with no sign-in: the live training session's backup. Public, so it must
+                            stay above the client-slug catch-all, and "acumen-sort" is in RESERVED_SLUGS. */}
+                        <Route path="/acumen-sort" element={<AcumenSortScreen />} />
                         {/* Team-only log of what Alicia asks for and what we did. */}
                         <Route path="/alicia-feedback" element={<AliciaFeedbackScreen />} />
                         <Route path="/test" element={<TestScreen />} />

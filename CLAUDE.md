@@ -209,6 +209,17 @@ or wrong per term only, never the typed answer, and each person sees only their 
 aid with no pass mark: don't add any cross-person view or roll-up without asking.** The check needs a
 Google session (the team password has none). See `docs/dictionary-check.md`.
 
+Beside it, the **tools** pages in `src/pages/team/dictionary/tools/`: **Sort the stack**
+(`/dictionary/tools/review`), a three-round drag-and-drop sort for the team training session, and its
+flashcards (`/dictionary/tools/practice`), both behind `TeamGate`. `/acumen-sort` is the same game with no
+sign-in, as the session's backup: public, so its route stays above the client-slug catch-all and
+`acumen-sort` is in `RESERVED_SLUGS`. All three are built from `src/data/industry-acumen-sort-cards.json`,
+whose master is in the Claude project (replace it whole; never edit its wording here), and they refuse
+to play while any card says `"verify": true`, as `sort-model.check.ts` does. The game stores and sends
+nothing (the plain frame's theme button keeps the portal's usual `ui-theme`, as the floating toggle does).
+The check and the game share `dictionary/drag-board.tsx` (drag, tap-then-tap and keyboard placing),
+and the two decks share `dictionary/flashcards.tsx`. See `docs/dictionary-tools.md`.
+
 `reference/` at the repo root is team material (design mockups, SOP screenshots,
 design-tool exports) and is **not** read by the app; only `src/` is bundled and only
 `public/` is served. See [reference/README.md](reference/README.md).

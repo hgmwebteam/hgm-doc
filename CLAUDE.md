@@ -188,6 +188,14 @@ every derived rule (channel links from the domain and the current slugs, the fou
 attention" checks, live/tags status) with no React, and the rest are the screens: picker, cards,
 overview, table, editor, peek, prompt library. Editing rides the dashboard's own edit mode.
 
+Its third row, **Client Asset Collection** (`tab=asset-collection`), is `src/pages/team/asset-collection/`:
+the team's standalone `media-collection-form.html` (the Media Collection Form, which saves a new client's
+landing-page photos and text to Google Drive through a Google Apps Script web app), copied verbatim and
+shown in an unsandboxed `srcDoc` iframe by `asset-collection-screen.tsx`, loaded lazily with `?raw` so it
+is its own chunk. It posts to Apps Script, not Supabase, and stays light in dark mode by its own choice.
+To update it, copy the new file over under the same name; it is in `.prettierignore` so `prettier --write .`
+leaves it alone. Never edit it here.
+
 The **Industry Acumen Dictionary** (`/dictionary`, behind `TeamGate`) is `src/pages/team/dictionary/`:
 `dictionary-model.ts` holds the shape, labels and the in-browser search (pure; `dictionary-model.check.ts`
 pins the brief's searches), `dictionary-screen.tsx` the page. Its data, `src/data/ref_dictionary-v2-253.json`,

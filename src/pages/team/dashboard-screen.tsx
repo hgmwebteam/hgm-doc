@@ -57,6 +57,7 @@ import {
 // Aliased rather than reusing the slugify above: this must match the slug the dashboard's
 // own "+ New Page" wizard produces, so it uses the same function that wizard does.
 import { slugify as dashboardSlugify, genSharePassword, newDashboardRow } from "@/pages/client/dashboard/dashboard-model";
+import { AssetCollectionContent } from "@/pages/team/asset-collection/asset-collection-screen";
 import { LandingPageDirectoryContent } from "@/pages/team/landing-page-directory/landing-page-directory";
 import { SOP_DEPARTMENTS, sopDeptTabId } from "@/pages/team/sops/sop-departments";
 import { SopsContent } from "@/pages/team/sops/sops-content";
@@ -312,14 +313,16 @@ const DEPARTMENTS: Department[] = [
         // Landing Page sits under Workflow as a section of its own, with its own tab list so
         // landing-page work doesn't pile into the website workflow tabs. Its Directory and Prompt
         // Library rows are the two pages of the Landing Page Directory tool
-        // (pages/team/landing-page-directory/), not card grids;
-        // tabs added beside it in edit mode are ordinary card grids.
+        // (pages/team/landing-page-directory/), not card grids, and Client Asset Collection is
+        // the team's standalone Media Collection Form shown in an iframe
+        // (pages/team/asset-collection/); tabs added beside them in edit mode are ordinary card grids.
         sections: [
             {
                 id: "landing-page",
                 label: "Landing Page",
                 tabs: [
                     { id: "landing-page", label: "Directory", icon: LayoutAlt01 },
+                    { id: "asset-collection", label: "Client Asset Collection", icon: LayoutAlt01 },
                     { id: "landing-page-prompts", label: "Prompt Library", icon: LayoutAlt01 },
                 ],
             },
@@ -3953,6 +3956,8 @@ const DashboardLayout = () => {
                             <SopsContent tab={activeSection} onSelectTab={selectTab} />
                         ) : activeSection === "owner-guides" ? (
                             <OwnerGuidesContent editing={editing} isOwner={isOwner} />
+                        ) : dept.id === "website" && activeSection === "asset-collection" ? (
+                            <AssetCollectionContent />
                         ) : dept.id === "website" && (activeSection === "landing-page" || activeSection === "landing-page-prompts") ? (
                             <LandingPageDirectoryContent editing={editing} page={activeSection === "landing-page-prompts" ? "prompts" : "directory"} />
                         ) : dept.kind === "docs" ? (

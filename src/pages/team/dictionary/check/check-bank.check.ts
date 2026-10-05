@@ -17,7 +17,7 @@ import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import bankJson from "@/data/check-bank.json";
 import master from "@/data/ref_dictionary-v2-253.json";
-import { type CheckBank, bankMaskExtra, bankProblems, itemTerms, maskText, maskWords } from "@/pages/team/dictionary/check/check-model";
+import { type CheckBank, bankMaskExtra, bankProblems, itemTerms, matchingLine } from "@/pages/team/dictionary/check/check-model";
 import { termWeights } from "@/pages/team/dictionary/check/check-score";
 import type { DictionaryEntry } from "@/pages/team/dictionary/dictionary-model";
 
@@ -40,18 +40,38 @@ console.log(
 console.log(`Dictionary: ${entries.length} entries · tier A ${dictTier("A")} · tier B ${dictTier("B")} · tier C ${dictTier("C")}`);
 console.log(`Scored: ${countTier("A")} A × ${bank.weights.A} + ${countTier("B")} B × ${bank.weights.B} = ${points} points across ${scored.length} terms`);
 
-/* What matching v2 shows: each call line with its term blanked. */
+/* What matching shows: each group's theme, then every call line (v2) with its term blanked, and
+   any definition (v1) the masking changed. A line that still names its term is a free point. */
 const lines = bank.items.flatMap((item) =>
     item.type === "matching"
         ? item.terms.map((slug) => {
               const e = bySlug.get(slug)!;
-              const masked = maskText(e.usage ?? "", maskWords(e, bankMaskExtra(bank, slug)));
-              return { slug, masked, blanked: masked !== e.usage };
+              const extra = bankMaskExtra(bank, slug);
+              const masked = matchingLine(e, "usage", extra);
+              const gloss = matchingLine(e, "gloss", extra);
+              return { item: item.id, slug, masked, blanked: masked !== e.usage, gloss, glossMasked: gloss !== e.gloss };
           })
         : [],
 );
+console.log("\nMatching groups:");
+for (const item of bank.items)
+    if (item.type === "matching") console.log(`  ${item.id.padEnd(16)} ${item.variants[0].prompt.split(". ")[0]}: ${item.terms.join(", ")}`);
 console.log(`\nMatching call lines blanked: ${lines.filter((l) => l.blanked).length} of ${lines.length}`);
 for (const l of lines) console.log(`  ${l.blanked ? "ok" : "--"}  ${l.slug.padEnd(32)} ${l.masked}`);
+const glossed = lines.filter((l) => l.glossMasked);
+console.log(`Definitions that named their own term, now blanked: ${glossed.length}`);
+for (const l of glossed) console.log(`  ok  ${l.slug.padEnd(32)} ${l.gloss}`);
+
+/* The reverse questions: the term, and the four definitions it offers. */
+const reverse = bank.items.flatMap((item) =>
+    item.type === "mcq" || item.type === "scenario" ? item.variants.filter((v) => v.format === "define").map((v) => ({ item, v })) : [],
+);
+console.log(`\nReverse questions: ${reverse.length}`);
+for (const { item, v } of reverse) {
+    const asked = bySlug.get(item.term)!;
+    const lengths = v.options.map((o) => bySlug.get(o)?.gloss.length ?? 0);
+    console.log(`  ${asked.term} — options: ${v.options.join(", ")} (definition lengths ${lengths.join("/")})`);
+}
 
 const problems = bankProblems(bank, bySlug);
 console.log(`\n${problems.length} problem(s)`);

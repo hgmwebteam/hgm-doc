@@ -51,6 +51,7 @@ import { ImageLightbox } from "@/components/shared-assets/image-lightbox";
 import { Reveal } from "@/components/shared-assets/reveal";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
+import { syncCrmSheet } from "@/lib/crm-sheet";
 import { recordDashboardSave } from "@/lib/dashboard-updates";
 import { type DashboardContent, type HostOnboardingData, type OverviewDoc, supabase } from "@/lib/supabase";
 import {
@@ -1945,6 +1946,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             // write must not read to the AM as a save that failed. Writes nothing when the
             // diff is empty, so re-locking an untouched page leaves no trace.
             void recordDashboardSave({ slug, clientName: clientName.trim(), before, after: content });
+            // Same never-fatal rule: the CRM sheet's onboarding columns follow what this save changed.
+            void syncCrmSheet(slug, before, content);
             // Accepted suggestions become "accepted" in the DB only now, after the values
             // they carry are really saved. On error they simply stay pending — re-accepting
             // applies the same value again, so nothing is lost either way.

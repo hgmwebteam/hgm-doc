@@ -17,6 +17,7 @@ import {
     type PlanEntry,
     type TermStatus,
     WORD_PROBLEMS_AFTER,
+    bankMaskExtra,
     bankProblems,
     buildPlan,
     explanationFor,
@@ -29,6 +30,7 @@ import {
     markEntry,
     maskText,
     maskWords,
+    matchingLine,
     nextVariant,
     parseNumber,
     rowsToSave,
@@ -74,7 +76,7 @@ assert.deepEqual(bankProblems(bank, bySlug), [], "the real bank is clean");
 }
 {
     const b = clone();
-    b.items.find((i) => i.id === "pace")!.variants.pop();
+    b.items.find((i) => i.id === "pace")!.variants.splice(1);
     assert.ok(has(bankProblems(b, bySlug), "pace: has 1 variant(s)"), "fewer than two variants");
 }
 {
@@ -91,6 +93,30 @@ assert.deepEqual(bankProblems(bank, bySlug), [], "the real bank is clean");
     const b = clone();
     b.items.push({ id: "extra", type: "truefalse", term: "pixel-c-term-that-does-not-exist", variants: [] } as unknown as BankItem);
     assert.ok(has(bankProblems(b, bySlug), "extra: has 0 variant(s)"), "an item with no variants");
+}
+/* Reverse questions: options are dictionary slugs, the answer is the item's own term, and no
+   option's definition may name the term being asked about. */
+{
+    const b = clone();
+    const d = b.items.find((i) => i.id === "pace")!.variants[0] as { format?: string; answer: string };
+    assert.equal(d.format, "define", "pace opens with its reverse question");
+    d.answer = "pickup";
+    assert.ok(has(bankProblems(b, bySlug), `pace-d1: a reverse question's answer must be its own term, "pace"`), "a reverse answer must be the term");
+}
+{
+    const b = clone();
+    (b.items.find((i) => i.id === "pace")!.variants[0] as { options: string[] }).options[1] = "not-a-slug";
+    assert.ok(has(bankProblems(b, bySlug), `option "not-a-slug" isn't a dictionary entry with a definition`), "reverse options are dictionary slugs");
+}
+{
+    // OTB's definition ends "... before any further pickup", so a reverse question asking about
+    // Pickup can't offer it.
+    const b = clone();
+    const it = b.items.find((i) => i.id === "pace") as unknown as { term: string; variants: { answer: string; options: string[] }[] };
+    it.term = "pickup";
+    it.variants[0].answer = "pickup";
+    it.variants[0].options = ["pickup", "pace", "booking-curve", "otb-on-the-books"];
+    assert.ok(has(bankProblems(b, bySlug), `the definition of "otb-on-the-books" names "Pickup"`), "an option that names the asked term is refused");
 }
 {
     const tierC = entries.find((e) => e.tier === "C")!;
@@ -122,6 +148,19 @@ assert.equal(maskText("Rate plans and a rate plan", ["Rate plan"]), `${MASK} and
 assert.equal(maskText("A pirate's rate", ["rate"]), `A pirate's ${MASK}`, "only whole words");
 assert.ok(maskWords(e("otb-on-the-books")).includes("OTB"), "the term without its brackets");
 assert.ok(maskWords(e("resort-fee-amenity-fee")).includes("amenity fee"), "each half of a / term");
+
+// Matching masks version 1's definitions too (2 Oct): "owners say keys, the doctrine says units" answered itself.
+assert.equal(
+    matchingLine(e("keys-rooms-and-units"), "gloss", bankMaskExtra(bank, "keys-rooms-and-units")),
+    `The three words for the same inventory; owners say ${MASK}, the doctrine says ${MASK}.`,
+);
+assert.ok(!/flagged/i.test(matchingLine(e("flag"), "gloss", bankMaskExtra(bank, "flag"))), "flag's definition no longer names flagged");
+assert.ok(matchingLine(e("pixel"), "usage").includes(MASK), "call lines are still blanked");
+for (const it of bank.items) {
+    if (it.type !== "matching") continue;
+    assert.ok(it.terms.length >= 4 && it.terms.length <= 6, `${it.id} matches 4 to 6 terms`);
+    assert.match(it.variants[0].prompt, /^These are all about .+\. Match each term to its definition\.$/, `${it.id} names its theme`);
+}
 
 // The four definitions that gave themselves away under the bank's rule (decision 3a).
 for (const slug of ["ebitda", "flag", "keys-rooms-and-units", "booking-com-genius"]) {
@@ -196,7 +235,10 @@ assert.equal(adr.variant, "wp-month-v2", "a missed blank uses the other variant'
 assert.ok(adr.blank, "and is served alone");
 const alone = standaloneBlank(item("wp-month"), adr)!;
 assert.equal(alone.blank.term, "adr-average-daily-rate");
-assert.equal(standalonePrompt(alone), "An owner sends you their November numbers. Work out the ADR. Not every row is needed. All figures are illustrative.");
+assert.equal(standalonePrompt(alone), "An owner sends you their November numbers. Work out the ADR. Not every row is needed.");
+for (const it of bank.items)
+    for (const v of it.variants as { prompt?: string; statement?: string }[])
+        assert.ok(!/illustrative/i.test(`${v.prompt ?? ""} ${v.statement ?? ""}`), `no question says "illustrative" (${it.id})`);
 
 const rates = missed.find((p) => p.item === "match-rates")!;
 assert.equal(rates.variant, "match-rates-v2", "a partly missed matching item comes back on its other variant");
@@ -234,8 +276,12 @@ assert.ok(ok(markEntry(item("cap-rate"), whole("cap-rate"), { kind: "number", va
 assert.ok(!ok(markEntry(item("cap-rate"), whole("cap-rate"), { kind: "number", value: "7.1" })), "outside ± 0.05");
 assert.ok(!ok(markEntry(item("noi"), whole("noi"), undefined)), "unanswered is missed");
 // Choice: the option's text, so shuffling can't break it.
-assert.ok(ok(markEntry(item("pace"), whole("pace"), { kind: "choice", value: "Pace" })));
-assert.ok(!ok(markEntry(item("pace"), whole("pace"), { kind: "choice", value: "Pickup" })));
+assert.ok(ok(markEntry(item("pace"), whole("pace", 1), { kind: "choice", value: "Pace" })), "the scenario version: the option's text");
+// A reverse question: the options are slugs, shown as definitions; the right one is the term's own.
+assert.ok(ok(markEntry(item("pace"), whole("pace"), { kind: "choice", value: "pace" })), "the term's own definition is right");
+assert.ok(!ok(markEntry(item("pace"), whole("pace"), { kind: "choice", value: "pickup" })), "a neighbour's definition is wrong");
+assert.equal(bank.items.filter((i) => (i.variants as { format?: string }[]).some((v) => v.format === "define")).length, 8, "eight reverse questions");
+assert.ok(!ok(markEntry(item("pace"), whole("pace", 1), { kind: "choice", value: "Pickup" })));
 // True or false.
 assert.ok(ok(markEntry(item("ebitda"), whole("ebitda"), { kind: "bool", value: true })));
 assert.ok(ok(markEntry(item("ebitda"), whole("ebitda", 1), { kind: "bool", value: false })));
@@ -257,7 +303,7 @@ assert.ok(isAnswered(item("ebitda"), whole("ebitda"), { kind: "bool", value: fal
     const chosen = Object.fromEntries(m.terms.map((t) => [t, t]));
     [chosen["rack-rate"], chosen["rate-plan"]] = ["rate-plan", "rack-rate"];
     const marks = markEntry(item("match-rates"), whole("match-rates"), { kind: "pairs", chosen });
-    assert.equal([...marks.values()].filter(Boolean).length, 4, "two swapped pairs, four right");
+    assert.equal([...marks.values()].filter(Boolean).length, m.terms.length - 2, "two swapped pairs, the rest right");
     // A partly missed item scores only its listed terms.
     assert.deepEqual([...markEntry(item("match-rates"), rates, { kind: "pairs", chosen }).keys()].sort(), ["rack-rate", "rate-plan"]);
 }

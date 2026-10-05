@@ -6,11 +6,11 @@ source: generated from data/check-bank.json by tools/render_review.py — edit t
 
 # The check — question bank, review copy
 
-> **Read first.** One check after both sessions (Kyle, 1 Oct). 90 terms: 30 core at 2 points, 60 reference at 1, total 120. Every calculation includes numbers you don't need (Kyle, 1 Oct). Each question has two versions; the second is what a retake serves. Answers marked **→**. Matching items pull their definitions and call lines from the dictionary by slug, so they're listed by term only.
+> **Read first.** One check after both sessions (Kyle, 1 Oct). 90 terms: 30 core at 2 points, 60 reference at 1, total 120. Every calculation includes numbers you don't need (Kyle, 1 Oct). Each question has two versions, and eight have a third, shown first: a reverse question (a term, and four of the dictionary's definitions to choose from; Kyle, 2 Oct). A retake serves the version not seen last time. Answers marked **→**. Matching items are grouped by theme (Kyle, 2 Oct) and pull their definitions and call lines from the dictionary by slug, so they're listed by term only.
 
 ## 1. Word problem · `wp-month`
 **V1**
-An owner sends you their April numbers. Work out the four figures below. Not every row is needed. All figures are illustrative.
+An owner sends you their April numbers. Work out the four figures below. Not every row is needed.
 
 | | |
 |---|---|
@@ -33,7 +33,7 @@ An owner sends you their April numbers. Work out the four figures below. Not eve
 - Ancillary revenue → **$135,000** · Everything beyond the room: $553,500 total − $418,500 room revenue = $135,000.
 
 **V2**
-An owner sends you their November numbers. Work out the four figures below. Not every row is needed. All figures are illustrative.
+An owner sends you their November numbers. Work out the four figures below. Not every row is needed.
 
 | | |
 |---|---|
@@ -58,7 +58,7 @@ An owner sends you their November numbers. Work out the four figures below. Not 
 
 ## 2. Word problem · `wp-ads`
 **V1**
-Here's one month of a resort's Meta ads. No promo codes or discounts were used. Work out the four figures below. Not every row is needed. All figures are illustrative.
+Here's one month of a resort's Meta ads. No promo codes or discounts were used. Work out the four figures below. Not every row is needed.
 
 | | |
 |---|---|
@@ -78,7 +78,7 @@ Here's one month of a resort's Meta ads. No promo codes or discounts were used. 
 - Effective commission → **12%** · Cost of winning the bookings ÷ their value: $4,800 ÷ $40,000 = 12%. A percentage of booking value, so it sits on one line with an OTA's commission.
 
 **V2**
-Here's one month of a resort's Meta ads. No promo codes or discounts were used. Work out the four figures below. Not every row is needed. All figures are illustrative.
+Here's one month of a resort's Meta ads. No promo codes or discounts were used. Work out the four figures below. Not every row is needed.
 
 | | |
 |---|---|
@@ -99,7 +99,7 @@ Here's one month of a resort's Meta ads. No promo codes or discounts were used. 
 
 ## 3. Calculation (type the number) · `flow-through`
 **V1**
-An owner compares June with June last year. What was the flow-through on the extra revenue? Answer as a percentage. Not every row is needed. All figures are illustrative.
+An owner compares June with June last year. What was the flow-through on the extra revenue? Answer as a percentage. Not every row is needed.
 
 | | This year | Last year |
 |---|---|---|
@@ -112,7 +112,7 @@ An owner compares June with June last year. What was the flow-through on the ext
 → **30%** · Change in GOP ÷ change in total revenue: ($268,000 − $232,000) ÷ ($820,000 − $700,000) = $36,000 ÷ $120,000 = 30%. NOI and room revenue aren't the flow-through inputs.
 
 **V2**
-An owner compares August with August last year. What was the flow-through on the extra revenue? Answer as a percentage. Not every row is needed. All figures are illustrative.
+An owner compares August with August last year. What was the flow-through on the extra revenue? Answer as a percentage. Not every row is needed.
 
 | | This year | Last year |
 |---|---|---|
@@ -126,7 +126,7 @@ An owner compares August with August last year. What was the flow-through on the
 
 ## 4. Calculation (type the number) · `noi`
 **V1**
-From a lodge's annual P&L, what is NOI? Not every line is needed. All figures are illustrative.
+From a lodge's annual P&L, what is NOI? Not every line is needed.
 
 | | |
 |---|---|
@@ -141,7 +141,7 @@ From a lodge's annual P&L, what is NOI? Not every line is needed. All figures ar
 → **$220,000** · GOP − management fees − fixed charges (property tax and insurance): $310,000 − $45,000 − $28,000 − $17,000 = $220,000. Interest and depreciation come off below NOI.
 
 **V2**
-From a lodge's annual P&L, what is NOI? Not every line is needed. All figures are illustrative.
+From a lodge's annual P&L, what is NOI? Not every line is needed.
 
 | | |
 |---|---|
@@ -157,7 +157,7 @@ From a lodge's annual P&L, what is NOI? Not every line is needed. All figures ar
 
 ## 5. Calculation (type the number) · `effective-otb`
 **V1**
-For August, an owner sends you this. What is the effective OTB, as a percentage of the month's nights? Not every row is needed. All figures are illustrative.
+For August, an owner sends you this. What is the effective OTB, as a percentage of the month's nights? Not every row is needed.
 
 | | |
 |---|---|
@@ -171,7 +171,7 @@ For August, an owner sends you this. What is the effective OTB, as a percentage 
 → **80%** · Only refundable bookings are weighted: 50% + 40% × (1 − 0.25) = 50% + 30% = 80%. Non-refundable bookings count in full.
 
 **V2**
-For October, an owner sends you this. What is the effective OTB, as a percentage of the month's nights? Not every row is needed. All figures are illustrative.
+For October, an owner sends you this. What is the effective OTB, as a percentage of the month's nights? Not every row is needed.
 
 | | |
 |---|---|
@@ -186,7 +186,7 @@ For October, an owner sends you this. What is the effective OTB, as a percentage
 
 ## 6. Calculation (type the number) · `cap-rate`
 **V1**
-A buyer offers to buy a resort. What cap rate is the offer? Not every row is needed. All figures are illustrative.
+A buyer offers to buy a resort. What cap rate is the offer? Not every row is needed.
 
 | | |
 |---|---|
@@ -199,7 +199,7 @@ A buyer offers to buy a resort. What cap rate is the offer? Not every row is nee
 → **7%** · NOI ÷ price: $1,225,000 ÷ $17,500,000 = 7%. GOP comes before the owner's fixed costs, so it isn't what a buyer prices on.
 
 **V2**
-A buyer offers to buy a resort. What cap rate is the offer? Not every row is needed. All figures are illustrative.
+A buyer offers to buy a resort. What cap rate is the offer? Not every row is needed.
 
 | | |
 |---|---|
@@ -251,6 +251,15 @@ Options: **Comp set** · Date classes · Flagged properties · OTB
 → The comp set is the basis of every index on an STR report.
 
 ## 10. Scenario · `denial`
+**D1**
+What does this term mean?
+Term shown: **denial**. Options (each slug's definition from the dictionary):
+- **→** `denial`: Demand that tried to book a date and could not because it was sold out.
+- `regret`: Demand that looked at a date and left without booking, usually on price or restriction.
+- `orphan-night`: A single night left stranded between two bookings, too short for most guests to want.
+- `cancellation-rate`: The share of bookings cancelled before arrival; markedly higher on OTA bookings.
+→ A denial is demand that couldn't book because the date was sold out. A regret looked and left while rooms were still open; an orphan night is a single night stranded between two bookings.
+
 **V1**
 An owner says: "We were full every Saturday in July and still had people calling who we couldn't fit in." What are those callers?
 Options: **Denials** · Regrets · Orphan nights · Pickup
@@ -306,6 +315,15 @@ Options: **Rate parity** · Rack rate · Rate plan · Metasearch
 → That's rate parity. With it in place, owners compete on value-adds rather than a cheaper price.
 
 ## 15. Scenario · `metasearch`
+**D1**
+What does this term mean?
+Term shown: **metasearch**. Options (each slug's definition from the dictionary):
+- **→** `metasearch`: Google Hotel Ads, Tripadvisor, Trivago — rate comparison that passes traffic on to a booking channel.
+- `otas-and-niche-marketplaces`: Booking.com, Expedia, Airbnb, Vrbo, plus Hipcamp, Glamping Hub, Mr & Mrs Smith.
+- `rate-parity`: A contractual commitment not to undercut an OTA's rate — Expedia or Booking.com, say — on your own site.
+- `channel-mix`: The split of bookings across channels — direct, each OTA, phone, walk-in — and the clearest read on OTA dependence.
+→ Metasearch compares rates and passes the guest on to a booking channel; it doesn't take the booking itself. The OTAs and marketplaces take the booking, and rate parity is a contract term.
+
 **V1**
 A guest searched a resort's name on Google, saw its own rate next to Expedia's and Booking.com's, and clicked through to book direct. Where was she comparing?
 Options: **Metasearch** · Rate shopping · The tools map · OTAs and niche marketplaces
@@ -339,6 +357,15 @@ Options: **45 days** · 55 days · 3 nights · 31 days
 → Lead time runs from booking to arrival: March 1 to April 15 is 45 days. The Instagram date and length of stay don't count.
 
 ## 18. Scenario · `pace`
+**D1**
+What does this term mean?
+Term shown: **pace**. Options (each slug's definition from the dictionary):
+- **→** `pace`: How fast bookings are arriving for a future date against last year or target.
+- `pickup`: New reservations added in a period for a future date; the velocity read.
+- `booking-curve`: The shape reservations accumulate in ahead of a stay date, which differs by segment.
+- `otb-on-the-books`: Rooms and revenue already reserved for a future date, before any further pickup.
+→ Pace compares where bookings stand for a future date with last year or target. Pickup is the new bookings in a period, OTB is what's already booked, and the booking curve is the shape they build in.
+
 **V1**
 An owner says: "Today we're 58% booked for October. This time last year we were 51%." What is she reading?
 Options: **Pace** · Pickup · Effective OTB · Occupancy %
@@ -394,6 +421,15 @@ Options: **CAPI** · The pixel · UTM tags · First-party data
 → Browser events with no server events means no CAPI connection.
 
 ## 23. Scenario · `incrementality`
+**D1**
+What does this term mean?
+Term shown: **incrementality**. Options (each slug's definition from the dictionary):
+- **→** `incrementality`: Whether a booking actually happened because of the advertising, or would have happened anyway.
+- `cannibalization`: When an ad, promotion or channel takes bookings the resort would have gotten anyway, instead of creating new ones. The numbers look like growth, but revenue has only moved around, often at a higher cost.
+- `attribution-window`: How long after seeing or clicking an ad a booking still counts.
+- `click-vs-view-through`: Whether the booking followed someone clicking the ad, or merely seeing it.
+→ Incrementality asks whether the ads caused the booking at all. Cannibalization is what it catches: bookings you'd have had anyway. The attribution window and click vs view-through only decide which bookings an ad gets credit for.
+
 **V1**
 A resort switched off prospecting ads in one region for two weeks and compared bookings with a similar region where the ads kept running. What was it testing?
 Options: **Incrementality** · Cannibalization · Attribution window · Frequency
@@ -417,144 +453,144 @@ Options: **No — the tag is on the link, not the person** · Yes — UTMs follo
 
 ## 25. Multiple choice · `capture-rate`
 **V1**
-Last month a lodge had 1,000 rooms occupied and 2,000 in-house guest nights. Its restaurant served 1,500 dinner covers: 700 to in-house guests and 800 to locals. Restaurant revenue was $63,000. What was the dinner capture rate? All figures are illustrative.
+Last month a lodge had 1,000 rooms occupied and 2,000 in-house guest nights. Its restaurant served 1,500 dinner covers: 700 to in-house guests and 800 to locals. Restaurant revenue was $63,000. What was the dinner capture rate?
 Options: **35%** · 75% · 70% · 47%
 → Covers from in-house guests ÷ in-house guests: 700 ÷ 2,000 = 35%. Locals don't count, and it divides by guests, not rooms.
 
 **V2**
-A resort had 1,600 rooms occupied and 3,200 in-house guest nights last month. Its restaurant served 2,000 breakfast covers, 1,280 of them to in-house guests. What was the breakfast capture rate? All figures are illustrative.
+A resort had 1,600 rooms occupied and 3,200 in-house guest nights last month. Its restaurant served 2,000 breakfast covers, 1,280 of them to in-house guests. What was the breakfast capture rate?
 Options: **40%** · 64% · 80% · 62.5%
 → 1,280 in-house covers ÷ 3,200 in-house guests = 40%.
 
 ## 26. Multiple choice · `pickup`
 **V1**
-Labour Day weekend: last Monday a lodge had 31 units on the books; today it has 39. Two cancellations this week are already reflected in today's number. It has 50 units. What was the pickup? All figures are illustrative.
+Labour Day weekend: last Monday a lodge had 31 units on the books; today it has 39. Two cancellations this week are already reflected in today's number. It has 50 units. What was the pickup?
 Options: **8 units** · 10 units · 11 units · 39 units
 → OTB today − OTB at the last reading: 39 − 31 = 8. The 50 units and the cancellations (already in today's figure) don't change it.
 
 **V2**
-For a holiday week, a resort had 120 room nights on the books at the last reading and has 141 now, out of 200 available. ADR on the books is $280. What was the pickup? All figures are illustrative.
+For a holiday week, a resort had 120 room nights on the books at the last reading and has 141 now, out of 200 available. ADR on the books is $280. What was the pickup?
 Options: **21 room nights** · 59 room nights · 141 room nights · 70.5%
 → 141 − 120 = 21. What's left to sell (59) is a different number.
 
 ## 27. Multiple choice · `cancellation-rate`
 **V1**
-Last quarter a resort took 640 bookings, 400 of them through OTAs. 48 were cancelled before arrival and 12 more were no-shows. What was the cancellation rate? All figures are illustrative.
+Last quarter a resort took 640 bookings, 400 of them through OTAs. 48 were cancelled before arrival and 12 more were no-shows. What was the cancellation rate?
 Options: **7.5%** · 9.4% · 12% · 1.9%
 → Cancelled bookings ÷ total bookings: 48 ÷ 640 = 7.5%. No-shows are a separate measure, and the OTA count is a distractor.
 
 **V2**
-A lodge took 900 bookings last year, 300 of them direct. 81 were cancelled and 18 were no-shows. What was the cancellation rate? All figures are illustrative.
+A lodge took 900 bookings last year, 300 of them direct. 81 were cancelled and 18 were no-shows. What was the cancellation rate?
 Options: **9%** · 11% · 27% · 2%
 → 81 ÷ 900 = 9%.
 
 ## 28. Multiple choice · `repeat-rate`
 **V1**
-A resort hosted 1,500 guests on 600 bookings last year. 270 of the guests had stayed before, and its email list has 4,000 subscribers. What was the repeat rate? All figures are illustrative.
+A resort hosted 1,500 guests on 600 bookings last year. 270 of the guests had stayed before, and its email list has 4,000 subscribers. What was the repeat rate?
 Options: **18%** · 45% · 6.75% · 40%
 → Returning guests ÷ total guests: 270 ÷ 1,500 = 18%. Bookings and the email list aren't part of it.
 
 **V2**
-A lodge hosted 2,000 guests on 800 bookings. 240 guests had stayed before. What was the repeat rate? All figures are illustrative.
+A lodge hosted 2,000 guests on 800 bookings. 240 guests had stayed before. What was the repeat rate?
 Options: **12%** · 30% · 40% · 8.3%
 → 240 ÷ 2,000 = 12%.
 
 ## 29. Multiple choice · `roas`
 **V1**
-A month of Meta ads: spend $5,000, 400,000 impressions, 14 attributed bookings worth $35,000. The resort's total revenue that month was $210,000. What was the ROAS? All figures are illustrative.
+A month of Meta ads: spend $5,000, 400,000 impressions, 14 attributed bookings worth $35,000. The resort's total revenue that month was $210,000. What was the ROAS?
 Options: **7** · 42 · $357 · 14%
 → Attributed revenue ÷ ad spend: $35,000 ÷ $5,000 = 7. Total revenue isn't attributed revenue; $357 is the cost per booking.
 
 **V2**
-A month of Meta ads: spend $9,000, attributed booking revenue $54,000, 18 attributed bookings. Room revenue for the month was $300,000. What was the ROAS? All figures are illustrative.
+A month of Meta ads: spend $9,000, attributed booking revenue $54,000, 18 attributed bookings. Room revenue for the month was $300,000. What was the ROAS?
 Options: **6** · 33.3 · $500 · 17%
 → $54,000 ÷ $9,000 = 6.
 
 ## 30. Multiple choice · `incremental-cpb`
 **V1**
-Meta spend was $8,000 for 32 attributed bookings. A holdout test suggests 20 of them wouldn't have happened without the ads. What is the incremental CPB? All figures are illustrative.
+Meta spend was $8,000 for 32 attributed bookings. A holdout test suggests 20 of them wouldn't have happened without the ads. What is the incremental CPB?
 Options: **$400** · $250 · $667 · $160
 → Spend ÷ bookings that wouldn't have happened without the ads: $8,000 ÷ 20 = $400. $250 is the blended CPB.
 
 **V2**
-Meta spend was $12,000 for 40 attributed bookings. A holdout suggests 24 were incremental. What is the incremental CPB? All figures are illustrative.
+Meta spend was $12,000 for 40 attributed bookings. A holdout suggests 24 were incremental. What is the incremental CPB?
 Options: **$500** · $300 · $750 · $1,000
 → $12,000 ÷ 24 = $500, higher than the $300 blended figure, as it usually is.
 
 ## 31. Multiple choice · `blended-cpb`
 **V1**
-Total Meta spend was $10,000 for 40 attributed bookings. A holdout suggests 28 were incremental, and one ad set spent $2,000 of the total for 4 bookings. What is the blended CPB? All figures are illustrative.
+Total Meta spend was $10,000 for 40 attributed bookings. A holdout suggests 28 were incremental, and one ad set spent $2,000 of the total for 4 bookings. What is the blended CPB?
 Options: **$250** · $357 · $500 · $200
 → Total spend ÷ all attributed bookings: $10,000 ÷ 40 = $250. $357 is incremental; $500 is one ad set.
 
 **V2**
-Total Meta spend was $6,600 for 22 attributed bookings worth $55,000. What is the blended CPB? All figures are illustrative.
+Total Meta spend was $6,600 for 22 attributed bookings worth $55,000. What is the blended CPB?
 Options: **$300** · $2,500 · 12% · $333
 → $6,600 ÷ 22 = $300.
 
 ## 32. Multiple choice · `hook-rate`
 **V1**
-A Reel had 200,000 impressions, 50,000 three-second plays, 15,000 ThruPlays and 2,400 link clicks. Using the dictionary's formula, what was the hook rate? All figures are illustrative.
+A Reel had 200,000 impressions, 50,000 three-second plays, 15,000 ThruPlays and 2,400 link clicks. Using the dictionary's formula, what was the hook rate?
 Options: **25%** · 30% · 7.5% · 1.2%
 → 3-second plays ÷ impressions: 50,000 ÷ 200,000 = 25%. 30% is the hold rate.
 
 **V2**
-A video ad had 120,000 impressions, 42,000 three-second plays and 10,500 ThruPlays. What was the hook rate? All figures are illustrative.
+A video ad had 120,000 impressions, 42,000 three-second plays and 10,500 ThruPlays. What was the hook rate?
 Options: **35%** · 25% · 8.75% · 4×
 → 42,000 ÷ 120,000 = 35%.
 
 ## 33. Multiple choice · `hold-rate`
 **V1**
-A video ad had 150,000 impressions, 36,000 three-second plays, 9,000 ThruPlays and 1,800 link clicks. Using the dictionary's formula, what was the hold rate? All figures are illustrative.
+A video ad had 150,000 impressions, 36,000 three-second plays, 9,000 ThruPlays and 1,800 link clicks. Using the dictionary's formula, what was the hold rate?
 Options: **25%** · 24% · 6% · 20%
 → ThruPlays ÷ 3-second plays: 9,000 ÷ 36,000 = 25%. 24% is the hook rate.
 
 **V2**
-A Reel had 80,000 impressions, 20,000 three-second plays and 8,000 ThruPlays. What was the hold rate? All figures are illustrative.
+A Reel had 80,000 impressions, 20,000 three-second plays and 8,000 ThruPlays. What was the hold rate?
 Options: **40%** · 25% · 10% · 2.5×
 → 8,000 ÷ 20,000 = 40%.
 
 ## 34. Multiple choice · `email-click-rate`
 **V1**
-A newsletter was sent to 12,500 people. 12,000 were delivered, 5,400 were opened and 360 people clicked. What was the click rate? All figures are illustrative.
+A newsletter was sent to 12,500 people. 12,000 were delivered, 5,400 were opened and 360 people clicked. What was the click rate?
 Options: **3%** · 2.9% · 6.7% · 45%
 → Clicks ÷ delivered emails: 360 ÷ 12,000 = 3%.
 
 **V2**
-An email went to 8,400 people. 8,000 were delivered, 3,600 opened and 200 clicked. What was the click rate? All figures are illustrative.
+An email went to 8,400 people. 8,000 were delivered, 3,600 opened and 200 clicked. What was the click rate?
 Options: **2.5%** · 2.4% · 5.6% · 45%
 → 200 ÷ 8,000 = 2.5%.
 
 ## 35. Multiple choice · `lp-conversion`
 **V1**
-A landing page got 6,200 ad clicks, 5,000 sessions, 7,800 page views and 350 sign-ups. What was the landing-page conversion rate? All figures are illustrative.
+A landing page got 6,200 ad clicks, 5,000 sessions, 7,800 page views and 350 sign-ups. What was the landing-page conversion rate?
 Options: **7%** · 5.6% · 4.5% · 14.3%
 → Conversions ÷ sessions: 350 ÷ 5,000 = 7%. Ad clicks and page views aren't sessions.
 
 **V2**
-A landing page had 2,400 sessions, 3,100 page views and 216 sign-ups. What was the conversion rate? All figures are illustrative.
+A landing page had 2,400 sessions, 3,100 page views and 216 sign-ups. What was the conversion rate?
 Options: **9%** · 7% · 11% · 70%
 → 216 ÷ 2,400 = 9%.
 
 ## 36. Multiple choice · `channel-mix`
 **V1**
-A resort took 600 bookings last year: 150 direct, 270 through Booking.com, 120 through Expedia and 60 by phone. Booking.com charged $97,000 in commission. What share of bookings came through Booking.com? All figures are illustrative.
+A resort took 600 bookings last year: 150 direct, 270 through Booking.com, 120 through Expedia and 60 by phone. Booking.com charged $97,000 in commission. What share of bookings came through Booking.com?
 Options: **45%** · 25% · 65% · 35%
 → Bookings by channel ÷ total bookings: 270 ÷ 600 = 45%.
 
 **V2**
-A lodge took 800 bookings: 280 direct, 320 Booking.com, 160 Expedia and 40 Airbnb. What share came through OTAs? All figures are illustrative.
+A lodge took 800 bookings: 280 direct, 320 Booking.com, 160 Expedia and 40 Airbnb. What share came through OTAs?
 Options: **65%** · 60% · 35% · 40%
 → (320 + 160 + 40) ÷ 800 = 65%. Airbnb counts as an OTA.
 
 ## 37. Multiple choice · `cpa`
 **V1**
-A campaign's conversion is a newsletter sign-up. It spent $2,400, got 3,000 clicks, 120 sign-ups and 6 bookings. What was the CPA? All figures are illustrative.
+A campaign's conversion is a newsletter sign-up. It spent $2,400, got 3,000 clicks, 120 sign-ups and 6 bookings. What was the CPA?
 Options: **$20** · $0.80 · $400 · $5
 → Ad spend ÷ conversions, where the conversion is the sign-up: $2,400 ÷ 120 = $20.
 
 **V2**
-A lead campaign spent $3,600 for 150 leads and 9 bookings. The defined conversion is a lead. What was the CPA? All figures are illustrative.
+A lead campaign spent $3,600 for 150 leads and 9 bookings. The defined conversion is a lead. What was the CPA?
 Options: **$24** · $400 · $0.04 · $16.67
 → $3,600 ÷ 150 = $24.
 
@@ -565,23 +601,26 @@ Order: Total revenue → Departmental and undistributed costs come off → GOP �
 → Revenue → GOP (after departmental and undistributed costs) → NOI (after management fees and fixed charges).
 
 **V2**
-Put these lines from a lodge's P&L in order, top to bottom. All figures are illustrative.
+Put these lines from a lodge's P&L in order, top to bottom.
 Order: $900,000 total revenue → $310,000 GOP → $215,000 NOI → $140,000 after loan interest and depreciation
 → Each rung is smaller than the one above. Debt and depreciation come off below NOI.
 
-## 39. Matching · `match-rates`
-Terms: rack-rate, rate-plan, rate-fence, package-rate, resort-fee-amenity-fee, overbooking. Version 1 matches to definitions; version 2 to call lines with the term blanked.
+## 39. Matching · `match-brand`
+These are all about a property's brand. Terms: boutique, flagged, flag, franchise. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
 
-## 40. Matching · `match-property`
-Terms: boutique, flagged, franchise, keys-rooms-and-units, room-type, crs-central-reservation-system. Version 1 matches to definitions; version 2 to call lines with the term blanked.
+## 40. Matching · `match-rates`
+These are all about rates and what goes into them. Terms: rack-rate, rate-plan, rate-fence, package-rate, resort-fee-amenity-fee. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
 
-## 41. Matching · `match-demand`
-Terms: changeover-day, date-classes, feeder-market, shoulder-season, slow-season, otb-on-the-books. Version 1 matches to definitions; version 2 to call lines with the term blanked.
+## 41. Matching · `match-inventory`
+These are all about rooms and how they're sold. Terms: keys-rooms-and-units, room-type, overbooking, crs-central-reservation-system. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
 
-## 42. Matching · `match-marketing`
-Terms: impressions, reach, pixel, deliverability, email-open-rate, attribution-window. Version 1 matches to definitions; version 2 to call lines with the term blanked.
+## 42. Matching · `match-demand`
+These are all about demand and the calendar. Terms: changeover-day, date-classes, feeder-market, shoulder-season, slow-season, otb-on-the-books. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
 
-## 43. True or false · `ebitda`
+## 43. Matching · `match-marketing`
+These are all about measuring marketing. Terms: impressions, reach, pixel, deliverability, email-open-rate, attribution-window. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
+
+## 44. True or false · `ebitda`
 **V1**
 *"On a current USALI P&L, the line owners still call NOI is labelled EBITDA."* → **True**
 → USALI renamed the old Net Operating Income line EBITDA; owners and buyers still say NOI.
@@ -590,7 +629,7 @@ Terms: impressions, reach, pixel, deliverability, email-open-rate, attribution-w
 *"EBITDA is calculated before management fees come off."* → **False**
 → EBITDA is GOP − management fees − fixed charges, so the fees are already off.
 
-## 44. True or false · `genius`
+## 45. True or false · `genius`
 **V1**
 *"Booking.com Genius trades a discount for Genius members in exchange for more visibility on Booking.com."* → **True**
 → That's the deal: a member discount for more visibility.
@@ -599,7 +638,7 @@ Terms: impressions, reach, pixel, deliverability, email-open-rate, attribution-w
 *"A property can join Genius without offering Genius members a discount."* → **False**
 → A property opts in by offering Genius members a discount.
 
-## 45. True or false · `airbnb-fee`
+## 46. True or false · `airbnb-fee`
 **V1**
 *"Under Airbnb's host-only fee, the whole service fee is charged to the host instead of being split with the guest."* → **True**
 → The split fee shares it; the host-only (single) fee puts all of it on the host.
@@ -607,15 +646,6 @@ Terms: impressions, reach, pixel, deliverability, email-open-rate, attribution-w
 **V2**
 *"Airbnb is moving all hosts onto the split fee."* → **False**
 → It's the other way: Airbnb is moving all hosts to the single, host-only fee.
-
-## 46. True or false · `flag`
-**V1**
-*"A property that operates under a chain's brand carries a flag."* → **True**
-→ The flag is the chain brand; to be flagged is to carry one.
-
-**V2**
-*"Carrying a flag means a property is independent."* → **False**
-→ A flag is a chain brand, the opposite of independent.
 
 ## 47. True or false · `review-score`
 **V1**
@@ -654,6 +684,15 @@ Terms: impressions, reach, pixel, deliverability, email-open-rate, attribution-w
 → HGM's decision maths uses 7-day click only; view-through is context.
 
 ## 51. Scenario · `dynamic-pricing`
+**D1**
+What does this term mean?
+Term shown: **dynamic-pricing**. Options (each slug's definition from the dictionary):
+- **→** `dynamic-pricing`: Rates moving automatically with demand; the category Wheelhouse and PriceLabs sit in.
+- `rate-shopping`: Watching what the comp set is charging, usually through a tool.
+- `comp-set`: The set of properties an owner benchmarks against, and the basis of every index on an STR report.
+- `revenue-management-the-function`: The job itself; at this ICP it may be the owner, a part-timer, or an outsourced firm.
+→ Dynamic pricing moves rates automatically with demand. Rate shopping watches what the comp set charges, and revenue management is the job that may use both.
+
 **V1**
 An owner says: "Our rates now change automatically every night depending on how fast dates are filling. We set it up through PriceLabs." What is this?
 Options: **Dynamic pricing** · Rate shopping · A rate fence · Revenue management (the function)
@@ -731,6 +770,15 @@ Options: **Who you are talking to** · Comp set · Revenue management (the funct
 → Each seat answers for different numbers, so you shape the update to the person.
 
 ## 58. Scenario · `pre-arrival`
+**D1**
+What does this term mean?
+Term shown: **pre-arrival-sequence**. Options (each slug's definition from the dictionary):
+- **→** `pre-arrival-sequence`: The window where upsell and expectation-setting actually work.
+- `upsell-tools`: Paid upgrades before and at arrival; Oaky (part of Plusgrade since 2025).
+- `guest-lifetime-value`: Total value of a guest across every stay rather than one booking.
+- `repeat-rate`: The share of guests who come back — the cheapest demand a property has.
+→ The pre-arrival sequence is the window before the stay where upsells and setting expectations work. Upsell tools are what sell the extras; repeat rate and lifetime value are about guests coming back.
+
 **V1**
 Two days before check-in, guests get an email with directions, the dinner menu and an offer to book a spa treatment. What is that email part of?
 Options: **The pre-arrival sequence** · Retargeting · Guest lifetime value · Review score
@@ -742,6 +790,15 @@ Options: **In the pre-arrival sequence, while they're looking forward to the tri
 → Guests are most excited, and most open to extras, before they arrive.
 
 ## 59. Scenario · `creative-fatigue`
+**D1**
+What does this term mean?
+Term shown: **creative-fatigue-index**. Options (each slug's definition from the dictionary):
+- **→** `creative-fatigue-index`: The doctrine's composite for when creative is worn out.
+- `frequency`: How many times the average person saw it; the fatigue diagnostic.
+- `hook-rate`: The share of impressions where someone watched at least the first three seconds of a video.
+- `reach`: The number of distinct people an ad was shown to.
+→ The creative fatigue index is the composite that says a creative is worn out. Frequency feeds into it, the hook rate measures the first three seconds, and reach counts distinct people.
+
 **V1**
 The same video has run for ten weeks. Frequency is up from 1.8 to 4.2, CTR has halved and CPM is flat. What is most likely telling you to refresh it?
 Options: **The creative fatigue index** · Incrementality · Deliverability · The attribution window
@@ -764,8 +821,17 @@ Options: **The retargeting pool shrinks because nobody new is coming in** · Ret
 → Prospecting fills the pool retargeting draws from. Cut it and the pool empties.
 
 ## 61. Scenario · `opportunity-cost`
+**D1**
+What does this term mean?
+Term shown: **opportunity-cost**. Options (each slug's definition from the dictionary):
+- **→** `opportunity-cost`: The value of the best option you gave up by choosing another. In hospitality, it's usually the revenue a room, date or budget could have earned if it had been used differently.
+- `cannibalization`: When an ad, promotion or channel takes bookings the resort would have gotten anyway, instead of creating new ones. The numbers look like growth, but revenue has only moved around, often at a higher cost.
+- `soft-dates`: Upcoming dates where bookings are pacing below target or below last year, signalling weak demand. These are the nights a property most needs help filling, and the best place to aim promotions and ad spend.
+- `effective-commission-ec`: The full cost of winning a booking as a percentage of its value, so a direct booking and an OTA booking compare on one line.
+→ Opportunity cost is the value of the option you gave up by choosing another. Cannibalization is taking bookings you'd have had anyway, and soft dates are nights pacing behind.
+
 **V1**
-A retreat group wants the whole lodge for the last week of August at $18,000. Individual guests usually bring in about $26,000 that week. What is the $26,000 you'd give up? All figures are illustrative.
+A retreat group wants the whole lodge for the last week of August at $18,000. Individual guests usually bring in about $26,000 that week. What is the $26,000 you'd give up?
 Options: **The opportunity cost** · Cannibalization · Regret · The rack rate
 → The value of the best option you gave up by choosing another.
 
@@ -782,3 +848,6 @@ Options: **The opportunity cost** · Pickup · ROAS · Regret
 - **Time-sensitive facts.** The Airbnb fee, Genius and Mr & Mrs Smith statements come from the dictionary's sources, checked 29 Sep 2026. Re-check them if the check runs past November.
 - **Who you're talking to.** Both versions lean on the dictionary entry whose scorecard detail is marked for Nicole to confirm. [CONFIRM, Nicole.]
 - **No property names.** Every scenario uses an unnamed lodge or resort, so there's nothing to check against client contacts.
+- **Reverse questions (new, 2 Oct).** Eight items now open with a term and four definitions: pace, denial, metasearch, incrementality, dynamic pricing, pre-arrival sequence, creative fatigue index, opportunity cost. The wrong options are neighbouring terms' definitions, picked to be close in topic and length. [CONFIRM, Nicole: the distractors and explanations.]
+- **Matching regrouped by theme (2 Oct).** Five items: a property's brand (flag moved here from true/false), rates, rooms and how they're sold, demand and the calendar, measuring marketing. Definitions that name their own term are now blanked too (keys, rooms and units; flag).
+- **No "illustrative" line on questions (2 Oct).** The check's intro says it once.

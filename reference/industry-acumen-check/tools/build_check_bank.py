@@ -34,7 +34,6 @@ items = []
 def add(**kw):
     items.append(kw)
 
-ILL = "All figures are illustrative."
 
 # ================================================================ CORE — word problems (each blank is its own term)
 def wp_month(rooms, nights, sold, room_rev, spa, fnb, other, bookings, ota_comm, ad_spend, cancelled, ly_room_rev, month):
@@ -56,7 +55,7 @@ def wp_month(rooms, nights, sold, room_rev, spa, fnb, other, bookings, ota_comm,
         [f"Room revenue, {month} last year", m(ly_room_rev)],
     ]
     return {
-        "prompt": f"An owner sends you their {month} numbers. Work out the four figures below. Not every row is needed. {ILL}",
+        "prompt": f"An owner sends you their {month} numbers. Work out the four figures below. Not every row is needed.",
         "table": table,
         "blanks": [
             {"id": "occ", "term": "occupancy", "label": "Occupancy", "answer": round(occ, 1), "unit": "%", "tolerance": 0.5,
@@ -78,7 +77,7 @@ add(id="wp-month", type="wordproblem", variants=[
 def wp_ads(spend, impr, reach, link, allclicks, leads, bookings, rev, pixel_roas):
     cpm = spend / impr * 1000; freq = impr / reach; cpb = spend / bookings; ec = spend / rev * 100
     return {
-        "prompt": f"Here's one month of a resort's Meta ads. No promo codes or discounts were used. Work out the four figures below. Not every row is needed. {ILL}",
+        "prompt": f"Here's one month of a resort's Meta ads. No promo codes or discounts were used. Work out the four figures below. Not every row is needed.",
         "table": [["Ad spend", m(spend)], ["Impressions", f"{impr:,}"], ["Reach (people)", f"{reach:,}"],
                   ["Link clicks", f"{link:,}"], ["All clicks", f"{allclicks:,}"], ["Leads (email sign-ups)", f"{leads}"],
                   ["Direct bookings attributed to the ads", f"{bookings}"], ["Value of those bookings", m(rev)],
@@ -103,7 +102,7 @@ add(id="wp-ads", type="wordproblem", variants=[
 # ================================================================ CORE — standalone numeric
 def flow(ty_rev, ly_rev, ty_rooms, ly_rooms, ty_gop, ly_gop, ty_noi, ly_noi, ty_occ, ly_occ, month):
     ft = (ty_gop - ly_gop) / (ty_rev - ly_rev) * 100
-    return {"prompt": f"An owner compares {month} with {month} last year. What was the flow-through on the extra revenue? Answer as a percentage. Not every row is needed. {ILL}",
+    return {"prompt": f"An owner compares {month} with {month} last year. What was the flow-through on the extra revenue? Answer as a percentage. Not every row is needed.",
             "table": [["", "This year", "Last year"], ["Total revenue", m(ty_rev), m(ly_rev)], ["Room revenue", m(ty_rooms), m(ly_rooms)],
                       ["GOP", m(ty_gop), m(ly_gop)], ["NOI", m(ty_noi), m(ly_noi)], ["Occupancy", f"{ty_occ}%", f"{ly_occ}%"]],
             "answer": round(ft, 1), "unit": "%", "tolerance": 0.5,
@@ -115,7 +114,7 @@ add(id="flow-through", type="numeric", term="flow-through", variants=[
 
 def noi(gop, fee, tax, ins, interest, dep, extra_label, extra):
     v = gop - fee - tax - ins
-    return {"prompt": f"From a lodge's annual P&L, what is NOI? Not every line is needed. {ILL}",
+    return {"prompt": f"From a lodge's annual P&L, what is NOI? Not every line is needed.",
             "table": [["GOP", m(gop)], ["Management company fee", m(fee)], ["Property tax", m(tax)], ["Insurance", m(ins)],
                       ["Mortgage interest", m(interest)], ["Depreciation", m(dep)], [extra_label, m(extra)]],
             "answer": v, "unit": "$", "tolerance": 0.5,
@@ -127,7 +126,7 @@ add(id="noi", type="numeric", term="noi-net-operating-income", variants=[
 
 def eotb(month, nonref, ref, cancel, stly, adr, pickup):
     v = nonref + ref * (1 - cancel / 100)
-    return {"prompt": f"For {month}, an owner sends you this. What is the effective OTB, as a percentage of the month's nights? Not every row is needed. {ILL}",
+    return {"prompt": f"For {month}, an owner sends you this. What is the effective OTB, as a percentage of the month's nights? Not every row is needed.",
             "table": [["On the books, non-refundable", f"{nonref}% of nights"], ["On the books, refundable", f"{ref}% of nights"],
                       ["Refundable bookings that usually cancel", f"{cancel}%"], ["On the books same time last year", f"{stly}%"],
                       ["ADR on the books", m(adr)], ["Pickup in the last 7 days", f"{pickup} room nights"]],
@@ -140,7 +139,7 @@ add(id="effective-otb", type="numeric", term="effective-otb", variants=[
 
 def cap(price, noi_v, gop, rev, debt_label, debt):
     v = noi_v / price * 100
-    return {"prompt": f"A buyer offers to buy a resort. What cap rate is the offer? Not every row is needed. {ILL}",
+    return {"prompt": f"A buyer offers to buy a resort. What cap rate is the offer? Not every row is needed.",
             "table": [["Offer price", m(price)], ["NOI, last twelve months", m(noi_v)], ["GOP, last twelve months", m(gop)],
                       ["Total revenue, last twelve months", m(rev)], [debt_label, m(debt)]],
             "answer": round(v, 1), "unit": "%", "tolerance": 0.05,
@@ -168,8 +167,12 @@ add(id="tools-buckets", type="buckets", variants=[
 ])
 
 # ================================================================ MCQ helper
-def mcq(id, term, v1, v2, kind="scenario"):
+def mcq(id, term, v1, v2, kind="scenario", define=None):
     vs = []
+    if define:
+        distractors, expl = define
+        vs.append({"id": f"{id}-d1", "format": "define", "prompt": "What does this term mean?",
+                   "options": [term, *distractors], "answer": term, "explanation": expl})
     for i, (prompt, options, answer, expl) in enumerate((v1, v2), 1):
         vs.append({"id": f"{id}-v{i}", "prompt": prompt, "options": options, "answer": answer, "explanation": expl})
     add(id=id, type=kind, term=term, variants=vs)
@@ -197,7 +200,9 @@ mcq("denial", "denial",
      "A denial is demand that tried to book and couldn't because the date was sold out. In a regret the room was available."),
     ("A booking engine logged 140 searches for New Year's Eve after the resort sold out. What are those searches?",
      ["Denials", "Regrets", "Cancellations", "Soft dates"], "Denials",
-     "Searches that hit no availability are denials, the evidence an owner can use for raising the rate on those dates."))
+     "Searches that hit no availability are denials, the evidence an owner can use for raising the rate on those dates."),
+    define=(['regret', 'orphan-night', 'cancellation-rate'],
+            "A denial is demand that couldn't book because the date was sold out. A regret looked and left while rooms were still open; an orphan night is a single night stranded between two bookings."))
 
 mcq("regret", "regret",
     ("Hundreds of people looked at a resort's September weekends on the booking page and left without booking. Rooms were still open. What is that?",
@@ -239,7 +244,9 @@ mcq("metasearch", "metasearch",
      "Metasearch compares rates and passes the guest on to a booking channel. It doesn't take the booking itself."),
     ("Trivago sent a resort 40 clicks last month, but every booking happened on Booking.com or the resort's own site. What is Trivago here?",
      ["Metasearch", "An OTA", "A CRS", "A booking engine"], "Metasearch",
-     "Metasearch sites compare and pass the guest on; OTAs take the booking."))
+     "Metasearch sites compare and pass the guest on; OTAs take the booking."),
+    define=(['otas-and-niche-marketplaces', 'rate-parity', 'channel-mix'],
+            "Metasearch compares rates and passes the guest on to a booking channel; it doesn't take the booking itself. The OTAs and marketplaces take the booking, and rate parity is a contract term."))
 
 mcq("booking-curve", "booking-curve",
     ("An owner says: \"Wedding weekends fill from January, but our summer leisure guests mostly book in the last six weeks.\" What are you comparing when you look at those two shapes?",
@@ -263,7 +270,9 @@ mcq("pace", "pace",
      "Pace compares bookings for a future date against last year or target. Here October is 7 percentage points ahead."),
     ("An owner says: \"We picked up 12 bookings this week.\" You ask: \"And how does that compare with this time last year?\" What are you asking about?",
      ["Pace", "Pickup", "The booking curve", "OTB"], "Pace",
-     "Pickup is the raw count of new bookings; pace is how the position compares with last year or target."))
+     "Pickup is the raw count of new bookings; pace is how the position compares with last year or target."),
+    define=(['pickup', 'booking-curve', 'otb-on-the-books'],
+            "Pace compares where bookings stand for a future date with last year or target. Pickup is the new bookings in a period, OTB is what's already booked, and the booking curve is the shape they build in."))
 
 mcq("transient-group", "transient-vs-group",
     ("This July a lodge had 34 couples booking on their own through its site, plus one wedding that took 20 rooms under a contract. Which split is this?",
@@ -305,7 +314,9 @@ mcq("incrementality", "incrementality",
      "A holdout like this tests whether the ads caused the bookings, which is incrementality."),
     ("Meta says the ads drove 30 bookings. The owner asks: \"Would those people have booked anyway?\" What is the owner's question about?",
      ["Incrementality", "ROAS", "Click vs view-through", "CPM"], "Incrementality",
-     "Attribution says which ad a booking followed; incrementality says whether the ad caused it."))
+     "Attribution says which ad a booking followed; incrementality says whether the ad caused it."),
+    define=(['cannibalization', 'attribution-window', 'click-vs-view-through'],
+            "Incrementality asks whether the ads caused the booking at all. Cannibalization is what it catches: bookings you'd have had anyway. The attribution window and click vs view-through only decide which bookings an ad gets credit for."))
 
 mcq("utm", "utm",
     ("Every link in a resort's October newsletter ends with ?utm_source=newsletter&utm_campaign=fall-escape. What are those tags called?",
@@ -318,106 +329,106 @@ mcq("utm", "utm",
 
 # ================================================================ REFERENCE — calculation MCQ (extra numbers on purpose)
 mcq("capture-rate", "capture-rate",
-    (f"Last month a lodge had 1,000 rooms occupied and 2,000 in-house guest nights. Its restaurant served 1,500 dinner covers: 700 to in-house guests and 800 to locals. Restaurant revenue was $63,000. What was the dinner capture rate? {ILL}",
+    (f"Last month a lodge had 1,000 rooms occupied and 2,000 in-house guest nights. Its restaurant served 1,500 dinner covers: 700 to in-house guests and 800 to locals. Restaurant revenue was $63,000. What was the dinner capture rate?",
      ["35%", "75%", "70%", "47%"], "35%",
      "Covers from in-house guests ÷ in-house guests: 700 ÷ 2,000 = 35%. Locals don't count, and it divides by guests, not rooms."),
-    (f"A resort had 1,600 rooms occupied and 3,200 in-house guest nights last month. Its restaurant served 2,000 breakfast covers, 1,280 of them to in-house guests. What was the breakfast capture rate? {ILL}",
+    (f"A resort had 1,600 rooms occupied and 3,200 in-house guest nights last month. Its restaurant served 2,000 breakfast covers, 1,280 of them to in-house guests. What was the breakfast capture rate?",
      ["40%", "64%", "80%", "62.5%"], "40%",
      "1,280 in-house covers ÷ 3,200 in-house guests = 40%."), kind="mcq")
 
 mcq("pickup", "pickup",
-    (f"Labour Day weekend: last Monday a lodge had 31 units on the books; today it has 39. Two cancellations this week are already reflected in today's number. It has 50 units. What was the pickup? {ILL}",
+    (f"Labour Day weekend: last Monday a lodge had 31 units on the books; today it has 39. Two cancellations this week are already reflected in today's number. It has 50 units. What was the pickup?",
      ["8 units", "10 units", "11 units", "39 units"], "8 units",
      "OTB today − OTB at the last reading: 39 − 31 = 8. The 50 units and the cancellations (already in today's figure) don't change it."),
-    (f"For a holiday week, a resort had 120 room nights on the books at the last reading and has 141 now, out of 200 available. ADR on the books is $280. What was the pickup? {ILL}",
+    (f"For a holiday week, a resort had 120 room nights on the books at the last reading and has 141 now, out of 200 available. ADR on the books is $280. What was the pickup?",
      ["21 room nights", "59 room nights", "141 room nights", "70.5%"], "21 room nights",
      "141 − 120 = 21. What's left to sell (59) is a different number."), kind="mcq")
 
 mcq("cancellation-rate", "cancellation-rate",
-    (f"Last quarter a resort took 640 bookings, 400 of them through OTAs. 48 were cancelled before arrival and 12 more were no-shows. What was the cancellation rate? {ILL}",
+    (f"Last quarter a resort took 640 bookings, 400 of them through OTAs. 48 were cancelled before arrival and 12 more were no-shows. What was the cancellation rate?",
      ["7.5%", "9.4%", "12%", "1.9%"], "7.5%",
      "Cancelled bookings ÷ total bookings: 48 ÷ 640 = 7.5%. No-shows are a separate measure, and the OTA count is a distractor."),
-    (f"A lodge took 900 bookings last year, 300 of them direct. 81 were cancelled and 18 were no-shows. What was the cancellation rate? {ILL}",
+    (f"A lodge took 900 bookings last year, 300 of them direct. 81 were cancelled and 18 were no-shows. What was the cancellation rate?",
      ["9%", "11%", "27%", "2%"], "9%",
      "81 ÷ 900 = 9%."), kind="mcq")
 
 mcq("repeat-rate", "repeat-rate",
-    (f"A resort hosted 1,500 guests on 600 bookings last year. 270 of the guests had stayed before, and its email list has 4,000 subscribers. What was the repeat rate? {ILL}",
+    (f"A resort hosted 1,500 guests on 600 bookings last year. 270 of the guests had stayed before, and its email list has 4,000 subscribers. What was the repeat rate?",
      ["18%", "45%", "6.75%", "40%"], "18%",
      "Returning guests ÷ total guests: 270 ÷ 1,500 = 18%. Bookings and the email list aren't part of it."),
-    (f"A lodge hosted 2,000 guests on 800 bookings. 240 guests had stayed before. What was the repeat rate? {ILL}",
+    (f"A lodge hosted 2,000 guests on 800 bookings. 240 guests had stayed before. What was the repeat rate?",
      ["12%", "30%", "40%", "8.3%"], "12%",
      "240 ÷ 2,000 = 12%."), kind="mcq")
 
 mcq("roas", "roas-return-on-ad-spend",
-    (f"A month of Meta ads: spend $5,000, 400,000 impressions, 14 attributed bookings worth $35,000. The resort's total revenue that month was $210,000. What was the ROAS? {ILL}",
+    (f"A month of Meta ads: spend $5,000, 400,000 impressions, 14 attributed bookings worth $35,000. The resort's total revenue that month was $210,000. What was the ROAS?",
      ["7", "42", "$357", "14%"], "7",
      "Attributed revenue ÷ ad spend: $35,000 ÷ $5,000 = 7. Total revenue isn't attributed revenue; $357 is the cost per booking."),
-    (f"A month of Meta ads: spend $9,000, attributed booking revenue $54,000, 18 attributed bookings. Room revenue for the month was $300,000. What was the ROAS? {ILL}",
+    (f"A month of Meta ads: spend $9,000, attributed booking revenue $54,000, 18 attributed bookings. Room revenue for the month was $300,000. What was the ROAS?",
      ["6", "33.3", "$500", "17%"], "6",
      "$54,000 ÷ $9,000 = 6."), kind="mcq")
 
 mcq("incremental-cpb", "incremental-cpb",
-    (f"Meta spend was $8,000 for 32 attributed bookings. A holdout test suggests 20 of them wouldn't have happened without the ads. What is the incremental CPB? {ILL}",
+    (f"Meta spend was $8,000 for 32 attributed bookings. A holdout test suggests 20 of them wouldn't have happened without the ads. What is the incremental CPB?",
      ["$400", "$250", "$667", "$160"], "$400",
      "Spend ÷ bookings that wouldn't have happened without the ads: $8,000 ÷ 20 = $400. $250 is the blended CPB."),
-    (f"Meta spend was $12,000 for 40 attributed bookings. A holdout suggests 24 were incremental. What is the incremental CPB? {ILL}",
+    (f"Meta spend was $12,000 for 40 attributed bookings. A holdout suggests 24 were incremental. What is the incremental CPB?",
      ["$500", "$300", "$750", "$1,000"], "$500",
      "$12,000 ÷ 24 = $500, higher than the $300 blended figure, as it usually is."), kind="mcq")
 
 mcq("blended-cpb", "blended-cpb",
-    (f"Total Meta spend was $10,000 for 40 attributed bookings. A holdout suggests 28 were incremental, and one ad set spent $2,000 of the total for 4 bookings. What is the blended CPB? {ILL}",
+    (f"Total Meta spend was $10,000 for 40 attributed bookings. A holdout suggests 28 were incremental, and one ad set spent $2,000 of the total for 4 bookings. What is the blended CPB?",
      ["$250", "$357", "$500", "$200"], "$250",
      "Total spend ÷ all attributed bookings: $10,000 ÷ 40 = $250. $357 is incremental; $500 is one ad set."),
-    (f"Total Meta spend was $6,600 for 22 attributed bookings worth $55,000. What is the blended CPB? {ILL}",
+    (f"Total Meta spend was $6,600 for 22 attributed bookings worth $55,000. What is the blended CPB?",
      ["$300", "$2,500", "12%", "$333"], "$300",
      "$6,600 ÷ 22 = $300."), kind="mcq")
 
 mcq("hook-rate", "hook-rate",
-    (f"A Reel had 200,000 impressions, 50,000 three-second plays, 15,000 ThruPlays and 2,400 link clicks. Using the dictionary's formula, what was the hook rate? {ILL}",
+    (f"A Reel had 200,000 impressions, 50,000 three-second plays, 15,000 ThruPlays and 2,400 link clicks. Using the dictionary's formula, what was the hook rate?",
      ["25%", "30%", "7.5%", "1.2%"], "25%",
      "3-second plays ÷ impressions: 50,000 ÷ 200,000 = 25%. 30% is the hold rate."),
-    (f"A video ad had 120,000 impressions, 42,000 three-second plays and 10,500 ThruPlays. What was the hook rate? {ILL}",
+    (f"A video ad had 120,000 impressions, 42,000 three-second plays and 10,500 ThruPlays. What was the hook rate?",
      ["35%", "25%", "8.75%", "4×"], "35%",
      "42,000 ÷ 120,000 = 35%."), kind="mcq")
 
 mcq("hold-rate", "hold-rate",
-    (f"A video ad had 150,000 impressions, 36,000 three-second plays, 9,000 ThruPlays and 1,800 link clicks. Using the dictionary's formula, what was the hold rate? {ILL}",
+    (f"A video ad had 150,000 impressions, 36,000 three-second plays, 9,000 ThruPlays and 1,800 link clicks. Using the dictionary's formula, what was the hold rate?",
      ["25%", "24%", "6%", "20%"], "25%",
      "ThruPlays ÷ 3-second plays: 9,000 ÷ 36,000 = 25%. 24% is the hook rate."),
-    (f"A Reel had 80,000 impressions, 20,000 three-second plays and 8,000 ThruPlays. What was the hold rate? {ILL}",
+    (f"A Reel had 80,000 impressions, 20,000 three-second plays and 8,000 ThruPlays. What was the hold rate?",
      ["40%", "25%", "10%", "2.5×"], "40%",
      "8,000 ÷ 20,000 = 40%."), kind="mcq")
 
 mcq("email-click-rate", "email-click-rate",
-    (f"A newsletter was sent to 12,500 people. 12,000 were delivered, 5,400 were opened and 360 people clicked. What was the click rate? {ILL}",
+    (f"A newsletter was sent to 12,500 people. 12,000 were delivered, 5,400 were opened and 360 people clicked. What was the click rate?",
      ["3%", "2.9%", "6.7%", "45%"], "3%",
      "Clicks ÷ delivered emails: 360 ÷ 12,000 = 3%."),
-    (f"An email went to 8,400 people. 8,000 were delivered, 3,600 opened and 200 clicked. What was the click rate? {ILL}",
+    (f"An email went to 8,400 people. 8,000 were delivered, 3,600 opened and 200 clicked. What was the click rate?",
      ["2.5%", "2.4%", "5.6%", "45%"], "2.5%",
      "200 ÷ 8,000 = 2.5%."), kind="mcq")
 
 mcq("lp-conversion", "landing-page-conversion-rate",
-    (f"A landing page got 6,200 ad clicks, 5,000 sessions, 7,800 page views and 350 sign-ups. What was the landing-page conversion rate? {ILL}",
+    (f"A landing page got 6,200 ad clicks, 5,000 sessions, 7,800 page views and 350 sign-ups. What was the landing-page conversion rate?",
      ["7%", "5.6%", "4.5%", "14.3%"], "7%",
      "Conversions ÷ sessions: 350 ÷ 5,000 = 7%. Ad clicks and page views aren't sessions."),
-    (f"A landing page had 2,400 sessions, 3,100 page views and 216 sign-ups. What was the conversion rate? {ILL}",
+    (f"A landing page had 2,400 sessions, 3,100 page views and 216 sign-ups. What was the conversion rate?",
      ["9%", "7%", "11%", "70%"], "9%",
      "216 ÷ 2,400 = 9%."), kind="mcq")
 
 mcq("channel-mix", "channel-mix",
-    (f"A resort took 600 bookings last year: 150 direct, 270 through Booking.com, 120 through Expedia and 60 by phone. Booking.com charged $97,000 in commission. What share of bookings came through Booking.com? {ILL}",
+    (f"A resort took 600 bookings last year: 150 direct, 270 through Booking.com, 120 through Expedia and 60 by phone. Booking.com charged $97,000 in commission. What share of bookings came through Booking.com?",
      ["45%", "25%", "65%", "35%"], "45%",
      "Bookings by channel ÷ total bookings: 270 ÷ 600 = 45%."),
-    (f"A lodge took 800 bookings: 280 direct, 320 Booking.com, 160 Expedia and 40 Airbnb. What share came through OTAs? {ILL}",
+    (f"A lodge took 800 bookings: 280 direct, 320 Booking.com, 160 Expedia and 40 Airbnb. What share came through OTAs?",
      ["65%", "60%", "35%", "40%"], "65%",
      "(320 + 160 + 40) ÷ 800 = 65%. Airbnb counts as an OTA."), kind="mcq")
 
 mcq("cpa", "cpa",
-    (f"A campaign's conversion is a newsletter sign-up. It spent $2,400, got 3,000 clicks, 120 sign-ups and 6 bookings. What was the CPA? {ILL}",
+    (f"A campaign's conversion is a newsletter sign-up. It spent $2,400, got 3,000 clicks, 120 sign-ups and 6 bookings. What was the CPA?",
      ["$20", "$0.80", "$400", "$5"], "$20",
      "Ad spend ÷ conversions, where the conversion is the sign-up: $2,400 ÷ 120 = $20."),
-    (f"A lead campaign spent $3,600 for 150 leads and 9 bookings. The defined conversion is a lead. What was the CPA? {ILL}",
+    (f"A lead campaign spent $3,600 for 150 leads and 9 bookings. The defined conversion is a lead. What was the CPA?",
      ["$24", "$400", "$0.04", "$16.67"], "$24",
      "$3,600 ÷ 150 = $24."), kind="mcq")
 
@@ -426,23 +437,26 @@ add(id="profit-ladder", type="ordering", term="the-profit-ladder", variants=[
     {"id": "profit-ladder-v1", "prompt": "Put the profit ladder in order, from the top of the P&L down.",
      "steps": ["Total revenue", "Departmental and undistributed costs come off", "GOP", "Management fees and fixed charges come off", "NOI"],
      "explanation": "Revenue → GOP (after departmental and undistributed costs) → NOI (after management fees and fixed charges)."},
-    {"id": "profit-ladder-v2", "prompt": f"Put these lines from a lodge's P&L in order, top to bottom. {ILL}",
+    {"id": "profit-ladder-v2", "prompt": f"Put these lines from a lodge's P&L in order, top to bottom.",
      "steps": ["$900,000 total revenue", "$310,000 GOP", "$215,000 NOI", "$140,000 after loan interest and depreciation"],
      "explanation": "Each rung is smaller than the one above. Debt and depreciation come off below NOI."},
 ])
 
 # ================================================================ REFERENCE — matching (definitions pulled by slug)
-MASK_EXTRA = {"overbooking": ["overbook"], "keys-rooms-and-units": ["keys"], "date-classes": ["date class"],
-              "otb-on-the-books": ["on the books", "OTB"]}
-def match(id, terms):
+MASK_EXTRA = {"overbooking": ["overbook"], "keys-rooms-and-units": ["keys", "rooms", "units"], "date-classes": ["date class"],
+              "otb-on-the-books": ["on the books", "OTB"], "flag": ["flagged"]}
+# Each item's terms share one theme (Kyle, 2 Oct 2026), named in the prompt so the player knows the
+# terms are neighbours: telling close neighbours apart is the point.
+def match(id, terms, theme):
     add(id=id, type="matching", terms=terms, mask_extra={t: MASK_EXTRA[t] for t in terms if t in MASK_EXTRA}, variants=[
-        {"id": f"{id}-v1", "prompt": "Match each term to its definition.", "match_on": "gloss"},
-        {"id": f"{id}-v2", "prompt": "Match each term to the line you'd say on a call. The term is blanked in each line.", "match_on": "usage"},
+        {"id": f"{id}-v1", "prompt": f"These are all about {theme}. Match each term to its definition.", "match_on": "gloss"},
+        {"id": f"{id}-v2", "prompt": f"These are all about {theme}. Match each term to the line you'd say on a call. The term is blanked in each line.", "match_on": "usage"},
     ])
-match("match-rates", ["rack-rate", "rate-plan", "rate-fence", "package-rate", "resort-fee-amenity-fee", "overbooking"])
-match("match-property", ["boutique", "flagged", "franchise", "keys-rooms-and-units", "room-type", "crs-central-reservation-system"])
-match("match-demand", ["changeover-day", "date-classes", "feeder-market", "shoulder-season", "slow-season", "otb-on-the-books"])
-match("match-marketing", ["impressions", "reach", "pixel", "deliverability", "email-open-rate", "attribution-window"])
+match("match-brand", ["boutique", "flagged", "flag", "franchise"], "a property's brand")
+match("match-rates", ["rack-rate", "rate-plan", "rate-fence", "package-rate", "resort-fee-amenity-fee"], "rates and what goes into them")
+match("match-inventory", ["keys-rooms-and-units", "room-type", "overbooking", "crs-central-reservation-system"], "rooms and how they're sold")
+match("match-demand", ["changeover-day", "date-classes", "feeder-market", "shoulder-season", "slow-season", "otb-on-the-books"], "demand and the calendar")
+match("match-marketing", ["impressions", "reach", "pixel", "deliverability", "email-open-rate", "attribution-window"], "measuring marketing")
 
 # ================================================================ REFERENCE — true/false
 def tf(id, term, s1, a1, e1, s2, a2, e2):
@@ -458,9 +472,6 @@ tf("genius", "booking-com-genius",
 tf("airbnb-fee", "airbnb-host-only-vs-split-fee",
    "Under Airbnb's host-only fee, the whole service fee is charged to the host instead of being split with the guest.", True, "The split fee shares it; the host-only (single) fee puts all of it on the host.",
    "Airbnb is moving all hosts onto the split fee.", False, "It's the other way: Airbnb is moving all hosts to the single, host-only fee.")
-tf("flag", "flag",
-   "A property that operates under a chain's brand carries a flag.", True, "The flag is the chain brand; to be flagged is to carry one.",
-   "Carrying a flag means a property is independent.", False, "A flag is a chain brand, the opposite of independent.")
 tf("review-score", "review-score",
    "A property's review score affects where it ranks on OTAs.", True, "Review scores feed ranking and rate power on every OTA.",
    "Review scores matter on Google and Tripadvisor but have no effect on OTA ranking.", False, "They feed OTA ranking too.")
@@ -481,7 +492,9 @@ mcq("dynamic-pricing", "dynamic-pricing",
      "Rates moving automatically with demand is dynamic pricing, the category PriceLabs and Wheelhouse sit in."),
     ("Wheelhouse raised a cabin's Saturday rate by $40 overnight because the weekend was filling fast. What kind of tool is Wheelhouse?",
      ["Dynamic pricing", "CRM", "Rate shopping", "Channel manager"], "Dynamic pricing",
-     "Wheelhouse moves rates with demand. It doesn't create demand; it prices what's already there."))
+     "Wheelhouse moves rates with demand. It doesn't create demand; it prices what's already there."),
+    define=(['rate-shopping', 'comp-set', 'revenue-management-the-function'],
+            'Dynamic pricing moves rates automatically with demand. Rate shopping watches what the comp set charges, and revenue management is the job that may use both.'))
 mcq("rate-shopping", "rate-shopping",
     ("An owner says: \"Every Monday I check what the three resorts down the road are charging for the next month.\" What is she doing?",
      ["Rate shopping", "Building a comp set", "Dynamic pricing", "Reading pace"], "Rate shopping",
@@ -531,14 +544,18 @@ mcq("pre-arrival", "pre-arrival-sequence",
      "The window where upsell and expectation-setting actually work."),
     ("When is usually the best moment to offer a booked guest a dinner reservation?",
      ["In the pre-arrival sequence, while they're looking forward to the trip", "At checkout", "In the post-stay review request", "Before they've booked"],
-     "In the pre-arrival sequence, while they're looking forward to the trip", "Guests are most excited, and most open to extras, before they arrive."))
+     "In the pre-arrival sequence, while they're looking forward to the trip", "Guests are most excited, and most open to extras, before they arrive."),
+    define=(['upsell-tools', 'guest-lifetime-value', 'repeat-rate'],
+            'The pre-arrival sequence is the window before the stay where upsells and setting expectations work. Upsell tools are what sell the extras; repeat rate and lifetime value are about guests coming back.'))
 mcq("creative-fatigue", "creative-fatigue-index",
     ("The same video has run for ten weeks. Frequency is up from 1.8 to 4.2, CTR has halved and CPM is flat. What is most likely telling you to refresh it?",
      ["The creative fatigue index", "Incrementality", "Deliverability", "The attribution window"], "The creative fatigue index",
      "Rising frequency with falling engagement is fatigue: people have seen the ad too often."),
     ("Bookings from an ad slipped. Searches for the area are steady and the audience hasn't changed, but people have now seen the ad six times each. What's the likely cause?",
      ["Creative fatigue", "Soft dates", "Regret", "Cannibalization"], "Creative fatigue",
-     "Results slipping because people have seen the same ad too often, not because demand has gone."))
+     "Results slipping because people have seen the same ad too often, not because demand has gone."),
+    define=(['frequency', 'hook-rate', 'reach'],
+            'The creative fatigue index is the composite that says a creative is worn out. Frequency feeds into it, the hook rate measures the first three seconds, and reach counts distinct people.'))
 mcq("retarget-prospect", "retargeting-vs-prospecting",
     ("Campaign A shows ads to people who visited the booking page in the last 30 days. Campaign B finds people who've never heard of the lodge. What are A and B?",
      ["A is retargeting; B is prospecting", "A is prospecting; B is retargeting", "A is search; B is discovery", "A is transient; B is group"],
@@ -547,12 +564,14 @@ mcq("retarget-prospect", "retargeting-vs-prospecting",
      ["The retargeting pool shrinks because nobody new is coming in", "Retargeting gets more expensive per click right away", "Nothing; retargeting is always better", "Meta will pause the account"],
      "The retargeting pool shrinks because nobody new is coming in", "Prospecting fills the pool retargeting draws from. Cut it and the pool empties."))
 mcq("opportunity-cost", "opportunity-cost",
-    (f"A retreat group wants the whole lodge for the last week of August at $18,000. Individual guests usually bring in about $26,000 that week. What is the $26,000 you'd give up? {ILL}",
+    (f"A retreat group wants the whole lodge for the last week of August at $18,000. Individual guests usually bring in about $26,000 that week. What is the $26,000 you'd give up?",
      ["The opportunity cost", "Cannibalization", "Regret", "The rack rate"], "The opportunity cost",
      "The value of the best option you gave up by choosing another."),
     ("You hold your best cabin for a possible wedding party and turn away three couples while you wait. In relation to the hold, what is the revenue those couples would have brought?",
      ["The opportunity cost", "Pickup", "ROAS", "Regret"], "The opportunity cost",
-     "Holding the cabin had a price: the bookings you turned away."))
+     "Holding the cabin had a price: the bookings you turned away."),
+    define=(['cannibalization', 'soft-dates', 'effective-commission-ec'],
+            "Opportunity cost is the value of the option you gave up by choosing another. Cannibalization is taking bookings you'd have had anyway, and soft dates are nights pacing behind."))
 
 # ================================================================ VALIDATE
 def units(it):
@@ -585,13 +604,17 @@ for it in items:
         if it["type"] in ("mcq", "scenario"):
             assert v["answer"] in v["options"], v["id"]
             assert len(set(v["options"])) == len(v["options"]) == 4, v["id"]
+            if v.get("format") == "define":
+                # Options are slugs; the page shows each one's dictionary definition.
+                assert v["answer"] == it["term"], v["id"]
+                assert all(o in TIER for o in v["options"]), (v["id"], [o for o in v["options"] if o not in TIER])
     if it["type"] == "matching":
-        assert len(it["terms"]) <= 6
+        assert 4 <= len(it["terms"]) <= 6, it["id"]
 missing = set(TIER) - set(seen)
 assert not missing, missing
 
-bank = {"masking_rule": "On matching v2 (usage lines), blank out, case-insensitive and with an optional plural s: the term, the term without any bracketed expansion, each part of a term split on ' / ', its aliases, and the item's mask_extra words for that slug.",
-        "version": "1.0.0-draft", "status": "draft — for Nicole and Kyle's read before it replaces the fixture",
+bank = {"masking_rule": "On matching, in both the definitions (v1) and the call lines (v2), blank out, case-insensitive and with an optional plural s: the term, the term without any bracketed expansion, each part of a term split on ' / ', its aliases, and the item's mask_extra words for that slug.",
+        "version": "1.1.0-draft", "status": "draft — for Nicole and Kyle's read before it replaces the fixture",
         "weights": {"A": 2, "B": 1}, "illustrative_note": "Every figure in the check is illustrative.",
         "items": items}
 json.dump(bank, open("../data/check-bank.json", "w"), indent=1, ensure_ascii=False)

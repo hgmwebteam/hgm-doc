@@ -14,12 +14,14 @@ import { cx } from "@/utils/cx";
  * caller changes in `onMove` and can refuse (a full box) with a message. A move to where the card
  * already is never reaches `onMove`: nothing changed, so nothing must be saved (on a screen
  * answered on another device, saving an untouched answer would mark its right answers wrong).
- * Every move, refusal and pick-up is announced in a polite live region.
+ * Every move, refusal and pick-up is announced in a polite live region, a repeated line too.
  *
  * While a card is dragged, a copy of it follows the pointer in a fixed layer on top of the page
  * and the card itself fades where it was. The copy can't be clipped by a scrolling tray or carried
  * off by a sticky one, it ignores the pointer so the slot underneath can be found, and nothing
- * re-renders per move. The pane's own scroller scrolls when a drag heads for its edge.
+ * re-renders per move. The pane's own scroller scrolls when a drag heads for its edge. A touch
+ * that heads the way a card lets the page pan (a tray row that scrolls sideways) is left to the
+ * browser's scroll, and starts no drag.
  */
 
 /** The drop id of the tray: the cards' starting place, where a card goes back to. */
@@ -54,6 +56,8 @@ type Gesture = {
     /** The copy that follows the pointer, once the press has become a drag. */
     ghost: HTMLElement | null;
     active: boolean;
+    /** Which ways the browser may pan the page for this press (never, for a mouse). */
+    pans: { x: boolean; y: boolean };
 };
 
 /** Movement before a press becomes a drag; anything less is a tap. */
@@ -70,6 +74,26 @@ const dropAt = (x: number, y: number): string | null | undefined => {
     const id = el?.closest<HTMLElement>("[data-drop]")?.dataset.drop;
     if (id === undefined) return undefined;
     return id === TRAY ? null : id;
+};
+
+/**
+ * Which ways the browser may pan the page for a touch that starts on `target` inside `card`: the
+ * touch-action of every element from the target up to the card, combined. A tray card that scrolls
+ * its row sideways is pan-x; a grip inside a card that pans is none, so it drags.
+ */
+const touchPans = (target: EventTarget | null, card: HTMLElement) => {
+    let x = true;
+    let y = true;
+    for (let el: Element | null = target instanceof Element ? target : card; el; el = el.parentElement) {
+        const action = getComputedStyle(el).touchAction;
+        if (action === "none") return { x: false, y: false };
+        if (action !== "auto" && action !== "manipulation") {
+            x &&= /pan-(x|left|right)/.test(action);
+            y &&= /pan-(y|up|down)/.test(action);
+        }
+        if (el === card) break;
+    }
+    return { x, y };
 };
 
 /** The copy of a card that a drag carries: same size and look, on a fixed layer, inert. */
@@ -116,28 +140,58 @@ export const useDragBoard = (options: Options) => {
     const atRef = useRef(new Map<string, string | null>());
     /** After a move, where focus goes once the card has re-rendered in its new place. */
     const pendingFocus = useRef<{ chipId: string; nextInTray: boolean; onlyIfLost: boolean } | null>(null);
+    const lastSaid = useRef("");
+    const sayAgain = useRef<number | null>(null);
 
-    const move = useCallback((chipId: string, to: string | null, byKeyboard = false) => {
-        const { chipLabel, onMove } = opts.current;
-        // Nothing to do: say so, and don't tell the caller (it would save an unchanged answer).
-        if (atRef.current.has(chipId) && atRef.current.get(chipId) === to) {
-            setPicked(null);
-            setMessage(`${chipLabel(chipId)} stays where it is.`);
-            return true;
+    /**
+     * Announce a line. The same line twice running changes nothing in the live region, so nothing
+     * would be heard (a second try at a full box): clear it, then say it again a moment later.
+     */
+    const say = useCallback((text: string) => {
+        if (sayAgain.current !== null) window.clearTimeout(sayAgain.current);
+        sayAgain.current = null;
+        if (!text || text !== lastSaid.current) {
+            lastSaid.current = text;
+            setMessage(text);
+            return;
         }
-        const root = rootRef.current;
-        const hadFocus = !!root && root.contains(document.activeElement);
-        const result = onMove(chipId, to);
-        setMessage(result.message);
-        if (result.ok) {
-            setPicked(null);
-            // The moved card remounts in its new container, and so may the button that was pressed
-            // (an empty slot, a card that got swapped out). If focus was on the board, keep it there.
-            // A number key moves on to the next card in the tray; anything else stays on the card.
-            if (hadFocus) pendingFocus.current = { chipId, nextInTray: byKeyboard && to !== null, onlyIfLost: !byKeyboard };
-        }
-        return result.ok;
+        setMessage("");
+        sayAgain.current = window.setTimeout(() => {
+            sayAgain.current = null;
+            setMessage(text);
+        }, 100);
     }, []);
+    useEffect(
+        () => () => {
+            if (sayAgain.current !== null) window.clearTimeout(sayAgain.current);
+        },
+        [],
+    );
+
+    const move = useCallback(
+        (chipId: string, to: string | null, byKeyboard = false) => {
+            const { chipLabel, onMove } = opts.current;
+            // Nothing to do: say so, and don't tell the caller (it would save an unchanged answer).
+            if (atRef.current.has(chipId) && atRef.current.get(chipId) === to) {
+                setPicked(null);
+                say(`${chipLabel(chipId)} stays where it is.`);
+                return true;
+            }
+            const root = rootRef.current;
+            const hadFocus = !!root && root.contains(document.activeElement);
+            const result = onMove(chipId, to);
+            say(result.message);
+            if (result.ok) {
+                setPicked(null);
+                // The moved card remounts in its new container, and so may the button that was pressed
+                // (an empty slot, a card that got swapped out). If focus was on the board, keep it there.
+                // A number key moves on to the next card in the tray; anything else stays on the card.
+                if (hadFocus) pendingFocus.current = { chipId, nextInTray: byKeyboard && to !== null, onlyIfLost: !byKeyboard };
+            }
+            return result.ok;
+        },
+        [say],
+    );
 
     useEffect(() => {
         const want = pendingFocus.current;
@@ -219,6 +273,13 @@ export const useDragBoard = (options: Options) => {
             g.y = e.clientY;
             if (!g.active) {
                 if (Math.hypot(g.x - g.startX, g.y - g.startY) < DRAG_START_PX) return;
+                // A touch heading the way the card lets the page pan is the browser's scroll, which
+                // cancels the pointer a moment later: a drag started now would only flash its copy.
+                const sideways = Math.abs(g.x - g.startX) > Math.abs(g.y - g.startY);
+                if (sideways ? g.pans.x : g.pans.y) {
+                    gesture.current = null;
+                    return;
+                }
                 g.active = true;
                 g.ghost = makeGhost(g.el);
                 g.el.style.opacity = "0.35";
@@ -241,7 +302,7 @@ export const useDragBoard = (options: Options) => {
             window.setTimeout(() => (suppressClick.current = false), 0);
             const target = dropAt(e.clientX, e.clientY);
             if (target === undefined) {
-                setMessage(`${opts.current.chipLabel(g.chipId)} went back where it was.`);
+                say(`${opts.current.chipLabel(g.chipId)} went back where it was.`);
                 release(g, false);
                 return;
             }
@@ -272,7 +333,7 @@ export const useDragBoard = (options: Options) => {
             document.documentElement.style.cursor = "";
             gesture.current = null;
         };
-    }, [move]);
+    }, [move, say]);
 
     // A round that becomes checked (or reset) drops whatever was picked up.
     useEffect(() => {
@@ -298,37 +359,38 @@ export const useDragBoard = (options: Options) => {
         }
         if (e.key === "Escape" && picked) {
             e.preventDefault();
-            setMessage(`${opts.current.chipLabel(picked)} put down.`);
+            say(`${opts.current.chipLabel(picked)} put down.`);
             setPicked(null);
         }
     };
 
     /**
-     * Tap or Enter on a card: pick it up, put it down, or drop the picked card onto this card's slot.
+     * Tap or Enter on a card: pick it up, put it down, or drop the picked card into this card's
+     * place, as a tap on the place itself would (so a card in the tray sends a placed one back).
      * A card in the same place as the picked one (the tray, or the same box) is picked up instead.
      */
     const activateChip = (chipId: string, at: string | null) => {
         if (suppressClick.current || opts.current.disabled) return;
         const { chipLabel, targets, noun } = opts.current;
-        if (picked && picked !== chipId && at !== null && atRef.current.get(picked) !== at) {
+        if (picked && picked !== chipId && atRef.current.get(picked) !== at) {
             move(picked, at);
             return;
         }
         if (picked === chipId) {
             setPicked(null);
-            setMessage(`${chipLabel(chipId)} put down.`);
+            say(`${chipLabel(chipId)} put down.`);
             return;
         }
         setPicked(chipId);
         const keys = targets.length > 1 ? `Press 1 to ${targets.length}` : "Press 1";
-        setMessage(`${chipLabel(chipId)} picked up. ${keys} for the ${noun}, or tap one.${at !== null ? " Backspace sends it back." : ""}`);
+        say(`${chipLabel(chipId)} picked up. ${keys} for the ${noun}, or tap one.${at !== null ? " Backspace sends it back." : ""}`);
     };
 
     /** Tap or Enter on a slot or box. (Not the click a drag ends with.) */
     const placeInto = (targetId: string) => {
         if (suppressClick.current || opts.current.disabled) return;
         if (picked) move(picked, targetId);
-        else setMessage(`Pick a card up first, then choose the ${opts.current.noun}.`);
+        else say(`Pick a card up first, then choose the ${opts.current.noun}.`);
     };
 
     /** Tap on the tray while carrying a card from a slot. */
@@ -365,7 +427,18 @@ export const useDragBoard = (options: Options) => {
                 disabled: options.disabled,
                 onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
                     if (opts.current.disabled || e.button !== 0 || !e.isPrimary) return;
-                    gesture.current = { chipId, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, el: e.currentTarget, ghost: null, active: false };
+                    gesture.current = {
+                        chipId,
+                        pointerId: e.pointerId,
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        x: e.clientX,
+                        y: e.clientY,
+                        el: e.currentTarget,
+                        ghost: null,
+                        active: false,
+                        pans: e.pointerType === "mouse" ? { x: false, y: false } : touchPans(e.target, e.currentTarget),
+                    };
                 },
                 onClick: (e: { stopPropagation: () => void }) => {
                     e.stopPropagation();

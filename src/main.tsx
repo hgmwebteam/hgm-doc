@@ -247,8 +247,8 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/dictionary/check" element={<CheckScreen />} />
                         <Route path="/dictionary/check/results" element={<CheckResultsScreen />} />
                         <Route path="/dictionary/practice" element={<PracticeScreen />} />
-                        {/* Sort the stack (the tools review game) and the tools flashcards, behind TeamGate.
-                            Their card list is src/data/industry-acumen-sort-cards.json (src/pages/team/dictionary/tools/). */}
+                        {/* Sort the stack (the tools review game) and the tools training, behind TeamGate (src/pages/team/dictionary/tools/).
+                            The game is built from src/data/industry-acumen-sort-cards.json, the training from src/data/vendor-icons.json. */}
                         <Route path="/dictionary/tools/review" element={<ToolsReviewScreen />} />
                         <Route path="/dictionary/tools/practice" element={<ToolsPracticeScreen />} />
                         {/* The same game with no sign-in: the live training session's backup. Public, so it must

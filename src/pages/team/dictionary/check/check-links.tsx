@@ -16,8 +16,8 @@ import { TEAM_DOMAIN } from "@/pages/team/dictionary/check/use-check-session";
  * are, and the check asks them to sign in.
  *
  * On the right of the same row, the tools: "Review the tools" (Sort the stack) and "Practise
- * the tools" (their flashcards), from src/pages/team/dictionary/tools/. On a phone they wrap
- * under the check's buttons.
+ * the tools" (the tools training: every vendor in the icon manifest), from
+ * src/pages/team/dictionary/tools/. On a phone they wrap under the check's buttons.
  */
 
 type Summary = { open: boolean; latest: CheckAttempt | null };

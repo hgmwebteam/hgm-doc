@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { useSearchParams } from "react-router";
 import { TeamGate } from "@/pages/team/dashboard-screen";
 import { CheckPage } from "@/pages/team/dictionary/check/check-chrome";
-import { SortCardsGate, SortStack, StandaloneFrame } from "@/pages/team/dictionary/tools/sort-stack";
+import { SortCardsGate, StandaloneFrame } from "@/pages/team/dictionary/tools/sort-stack";
 
 /**
  * `/dictionary/tools/review` — "Review the tools": Sort the stack, behind the team sign-in, in
@@ -14,7 +14,7 @@ export const ToolsReviewScreen = () => {
     const [params] = useSearchParams();
     const present = params.has("present");
     const scrollRef = useRef<HTMLDivElement>(null);
-    const game = <SortCardsGate>{(data) => <SortStack data={data} present={present} scrollRef={scrollRef} />}</SortCardsGate>;
+    const game = <SortCardsGate present={present} scrollRef={scrollRef} />;
 
     if (present)
         return (

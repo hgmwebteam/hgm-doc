@@ -1,7 +1,7 @@
 /**
  * Self-check for sort-model.ts and the card list behind Sort the stack (/dictionary/tools/review
- * and /acumen-sort) and the tools flashcards (/dictionary/tools/practice). It is the brief's
- * check-cards.js, in the repo's .check.ts convention.
+ * and /acumen-sort). It is the brief's check-cards.js, in the repo's .check.ts convention. The
+ * icons and the tools training have their own, vendor-icons.check.ts, which doesn't stop at the gate.
  *
  * Run it from the repo root after changing the card list or the model:
  *   npx esbuild src/pages/team/dictionary/tools/sort-model.check.ts --bundle \
@@ -11,10 +11,10 @@
  * In order: the real card list's shape (the brief's build checks: every card's box is a real box,
  * every vendor box holds exactly three cards, every also names a real box, every suite has at least
  * two jobs and two distractors; plus every checked card says when); then the game's rules (the
- * full box, the also line, round 3's tray marks, the tally) and the flashcards, on a copy of the
- * list with verify switched off; and LAST the gate. While any card or suite still says
- * "verify": true it FAILS and lists them, as the brief asks. Everything before the gate reports
- * first, so a failure there is about the gate alone.
+ * full box, the also line, round 3's tray marks, the tally), on a copy of the list with verify
+ * switched off; and LAST the gate. While any card or suite still says "verify": true it FAILS and
+ * lists them, as the brief asks. Everything before the gate reports first, so a failure there is
+ * about the gate alone.
  *
  * The rules are pinned by role (the first card of the first box, the first suite…), never by a
  * vendor's name, so correcting the card list doesn't break them. Where a rule needs a card with,
@@ -33,7 +33,6 @@ import {
     type Suite,
     type VendorCard,
     type VendorRound,
-    alsoLine,
     boxCountLine,
     canCheck,
     cardLabel,
@@ -48,8 +47,6 @@ import {
     moveCard,
     newBoard,
     placeOf,
-    practiceCards,
-    practiceClue,
     roundLine,
     sortProblems,
     stageBoxes,
@@ -68,7 +65,6 @@ const section = (name: string) => console.log(`\n${name}`);
 const vendorRounds = (d: SortData) => d.rounds.filter((r): r is VendorRound => r.mode === "vendors");
 const jobsRounds = (d: SortData) => d.rounds.filter((r): r is JobsRound => r.mode === "jobs");
 const entriesOf = (d: SortData) => d.rounds.flatMap((r): (VendorCard | Suite)[] => (r.mode === "vendors" ? r.cards : r.suites));
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 console.log(`${real.title} · ${real.version} · ${real.rounds.length} rounds`);
 
@@ -327,12 +323,12 @@ section("Marking a vendor round");
     pass(`the tally: ${n} of ${n}, ${n - 2} of ${n} for a swap, ${n - 1} of ${n} when one of the swap is rescued by its also`);
 
     // An also may name another round's box (RateGain, in round 2, is also sold as a channel
-    // manager). It can't fire in its own round, but its flashcard names it.
+    // manager). It's allowed, but it can't fire in its own round.
     const roundBoxes = new Map(vendorRounds(real).map((r) => [r.id, new Set(r.boxes.map((b) => b.id))]));
     const crossing = vendorRounds(real).flatMap((r) =>
         r.cards.filter((c) => c.also.some((a) => !roundBoxes.get(r.id)!.has(a))).map((c) => `${c.vendor} (${r.id})`),
     );
-    if (crossing.length) console.log(`  note an also from another round, shown on the flashcard only: ${crossing.join(", ")}`);
+    if (crossing.length) console.log(`  note an also from another round, which can't fire in its own: ${crossing.join(", ")}`);
 }
 
 section("Round 3: one suite, many jobs");
@@ -360,6 +356,7 @@ section("Round 3: one suite, many jobs");
     for (const j of distractors.slice(1)) assert.deepEqual(marks.get(j), { right: true, also: false }, `${j}: a distractor left in the tray is right`);
     assert.equal(tallyLine(tally(marks)), `${2 + distractors.length - 1} of ${total}`, `${vendor}: two of its jobs in, the other distractors left out`);
     assert.deepEqual(markJob(stage.suite, does[does.length - 1], false), { right: false, also: false });
+    assert.equal(doesLine([J.jobs[0], J.jobs[1]]), `Does: ${J.jobs[0].name}, ${J.jobs[1].name}`, "the line under a checked suite");
 
     for (const s of stages.filter((x) => x.kind === "jobs")) {
         assert.ok(s.kind === "jobs");
@@ -367,57 +364,10 @@ section("Round 3: one suite, many jobs");
         for (const job of s.suite.does) b = place(b, s, job, SUITE);
         assert.equal(tallyLine(tally(markBoard(s, b))), `${b.order.length} of ${b.order.length}`, `${s.suite.vendor}: its own jobs in, the rest left out`);
     }
-    pass(`the tray is marked too (${vendor}: ${2 + distractors.length - 1} of ${total}); every suite can be got fully right`);
+    pass(`the tray is marked too (${vendor}: ${2 + distractors.length - 1} of ${total}); every suite can be got fully right; its Does: line`);
 }
 
-/* ── 4. The flashcards ──────────────────────────────────────────── */
-
-section("The tools flashcards");
-{
-    const deck = practiceCards(fixture);
-    const cardVendors = new Set(vendorRounds(fixture).flatMap((r) => r.cards.map((c) => c.vendor)));
-    const suiteOnly = jobsRounds(fixture).flatMap((r) => r.suites.map((s) => s.vendor).filter((v) => !cardVendors.has(v)));
-    assert.equal(deck.length, cardVendors.size + suiteOnly.length, "one card per vendor, and one per suite that isn't already a card");
-    assert.equal(new Set(deck.map((c) => c.vendor)).size, deck.length, "keyed by vendor, no repeats");
-    assert.deepEqual(
-        deck.filter((c) => c.kind === "suite").map((c) => c.vendor),
-        suiteOnly,
-    );
-    console.log(`  ${deck.length} cards; suite only: ${suiteOnly.join(", ") || "none"}`);
-
-    const boxes = new Map(vendorRounds(fixture).flatMap((r) => r.boxes.map((b) => [b.id, b.name] as const)));
-    for (const r of vendorRounds(fixture))
-        for (const c of r.cards) {
-            const card = deck.find((x) => x.vendor === c.vendor)!;
-            assert.ok(card.kind === "card");
-            assert.equal(card.box.name, boxes.get(c.box), `${c.vendor}'s box`);
-            if (c.also.length) assert.equal(alsoLine(card.also), `Also: ${c.also.map((a) => boxes.get(a)).join(", ")}`, `${c.vendor}'s also line`);
-        }
-    for (const r of jobsRounds(fixture))
-        for (const s of r.suites.filter((x) => suiteOnly.includes(x.vendor))) {
-            const card = deck.find((x) => x.vendor === s.vendor)!;
-            assert.ok(card.kind === "suite");
-            assert.equal(doesLine(card.does), `Does: ${s.does.map((j) => r.jobs.find((x) => x.id === j)!.name).join(", ")}`, `${s.vendor}'s Does line`);
-        }
-    assert.equal(alsoLine([{ id: "x", name: "Booking engine", job: "" }]), "Also: Booking engine");
-    pass("Vendor first: the box and its also line, or Does: for a suite");
-
-    for (const c of deck) {
-        const named = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRe(c.vendor)}(?![\\p{L}\\p{N}])`, "iu");
-        assert.ok(!named.test(practiceClue(c)), `the Box first side of ${c.vendor} shows its own name: ${practiceClue(c)}`);
-        if (named.test(c.note)) assert.ok(practiceClue(c).includes("___"), `${c.vendor}'s name is blanked to ___`);
-    }
-    pass("no Box first card shows its own vendor's name; where the note names it, it reads ___");
-
-    // Not a failure: a note naming part of a multi-word vendor ("Sabre's booking engine" on
-    // the Sabre SynXis card) is a strong hint on the Box first side. Printed for the card list's owner.
-    for (const c of deck)
-        for (const w of c.vendor.includes(" ") ? c.vendor.split(/\s+/).filter((x) => x.length > 2) : [])
-            if (new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRe(w)}(?![\\p{L}\\p{N}])`, "iu").test(practiceClue(c)))
-                console.log(`  note ${c.vendor}: its Box first note still says "${w}"`);
-}
-
-/* ── 5. The gate ────────────────────────────────────────────────── */
+/* ── 4. The gate ────────────────────────────────────────────────── */
 
 const waiting = unverified(real);
 console.log(`\nEverything above: PASS`);
@@ -426,7 +376,8 @@ for (const w of waiting) console.log(`  ✗ Round ${w.round} (${w.roundTitle}): 
 if (waiting.length)
     console.log(
         "\n  Check each one's box and note against the vendor's own site, set verify to false and fill in checked\n" +
-            "  (and sources), or swap the card for one that has been checked. Until then the tools pages stay closed.\n",
+            "  (and sources), or swap the card for one that has been checked. Until then the game stays closed\n" +
+            "  (the tools training doesn't wait for it).\n",
     );
 assert.deepEqual(
     waiting.map((w) => w.vendor),

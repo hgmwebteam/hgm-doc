@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useSearchParams } from "react-router";
-import { SortCardsGate, SortStack, StandaloneFrame } from "@/pages/team/dictionary/tools/sort-stack";
+import { SortCardsGate, StandaloneFrame } from "@/pages/team/dictionary/tools/sort-stack";
 
 /**
  * `/acumen-sort` — Sort the stack with no sign-in: the backup for the live training session, in
@@ -16,7 +16,7 @@ export const AcumenSortScreen = () => {
     const scrollRef = useRef<HTMLDivElement>(null);
     return (
         <StandaloneFrame present={present} scrollRef={scrollRef}>
-            <SortCardsGate>{(data) => <SortStack data={data} present={present} scrollRef={scrollRef} />}</SortCardsGate>
+            <SortCardsGate present={present} scrollRef={scrollRef} />
         </StandaloneFrame>
     );
 };

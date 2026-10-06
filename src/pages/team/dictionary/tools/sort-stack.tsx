@@ -36,7 +36,8 @@ import {
     trayCards,
     unverified,
 } from "@/pages/team/dictionary/tools/sort-model";
-import { useSortCards } from "@/pages/team/dictionary/tools/tools-data";
+import { useToolsData } from "@/pages/team/dictionary/tools/tools-data";
+import { type VendorIcons, iconSlug, iconUrl } from "@/pages/team/dictionary/tools/vendor-icons";
 import { useTheme } from "@/providers/theme-provider";
 import { cx } from "@/utils/cx";
 
@@ -50,6 +51,10 @@ import { cx } from "@/utils/cx";
  *   - "Check my stack" marks every card (round 3: the tray too) with an icon and a word, and
  *     shows the right box and the note. Cards stay put until "Try again".
  *   - ?present: large type, Round 1 / 2 / 3 tabs and "Show answers", for screen sharing.
+ *
+ * Every vendor shows its icon (vendor-icons.ts), found from its name in code: 40 px on the left
+ * of a vendor card and 96 px above round 3's suite box. Each image offers both files, so the
+ * browser fetches the 512 px one only where the screen needs it, ?present included.
  *
  * Every word on the board comes from the card list except the few UI strings below. Nothing is
  * stored or sent: the game lives in this component's state, and a refresh starts clean.
@@ -125,8 +130,8 @@ export const StandaloneFrame = ({
 const WaitingNotice = ({ entries }: { entries: Unverified[] }) => (
     <Notice title="Some cards are still being checked">
         <p>
-            Until every card has been checked against the vendor's own site, the tools pages stay closed. In industry-acumen-sort-cards.json, check each card's
-            box and note, set verify to false and fill in checked.
+            Until every card has been checked against the vendor's own site, the game stays closed. In industry-acumen-sort-cards.json, check each card's box
+            and note, set verify to false and fill in checked.
         </p>
         <ul className="mt-3 flex list-disc flex-col gap-1.5 pl-5">
             {entries.map((e) => (
@@ -139,9 +144,16 @@ const WaitingNotice = ({ entries }: { entries: Unverified[] }) => (
     </Notice>
 );
 
-const BrokenNotice = ({ problems }: { problems: string[] }) => (
+/** A broken card list or manifest: what's paused (`line`; by default the card list's, which pauses every tools page) and why. */
+export const BrokenNotice = ({
+    problems,
+    line = "The card list has a problem, so these pages are paused until it's fixed.",
+}: {
+    problems: string[];
+    line?: string;
+}) => (
     <Notice title="The tools are being updated">
-        <p>The card list has a problem, so these pages are paused until it's fixed.</p>
+        <p>{line}</p>
         <details className="mt-3">
             <summary className="cursor-pointer text-secondary">What needs fixing</summary>
             <ul className="mt-2 list-disc pl-5">
@@ -166,33 +178,93 @@ const FailedNotice = () => (
     </Notice>
 );
 
+/** A tools page until its data is in: "Loading…", or the reload notice when a chunk failed. `title` heads the page. */
+export const ToolsLoading = ({ title, failed }: { title?: string; failed: boolean }) => (
+    <>
+        {title && <PageTitle>{title}</PageTitle>}
+        <div className={cx(title && "mt-6")}>{failed ? <FailedNotice /> : <p className="py-6 text-sm text-tertiary">Loading…</p>}</div>
+    </>
+);
+
 /**
- * Loads the card list, then refuses to go on while it's broken (sortProblems) or while any card
- * or suite is still marked verify (the brief's rule). There is no way round it in the page.
- * `title` heads the page while it waits; without one, the card list's own title does once loaded.
+ * Sort the stack behind its gate: loads the card list and the vendor icons, then refuses to start
+ * the game while the list is broken (sortProblems) or while any card or suite is still marked
+ * verify (the brief's rule). There is no way round it in the page. Over its notice, the page
+ * keeps the card list's own title. A card with no icon still plays, without one.
  */
-export const SortCardsGate = ({ title, children }: { title?: string; children: (data: SortData) => ReactNode }) => {
-    const cards = useSortCards();
-    if (cards.status === "ready") {
-        const problems = sortProblems(cards.data);
-        const waiting = problems.length ? [] : unverified(cards.data);
-        if (!problems.length && !waiting.length) return <>{children(cards.data)}</>;
-        return (
-            <>
-                <PageTitle>{title ?? cards.data.title}</PageTitle>
-                <div className="mt-6">{problems.length ? <BrokenNotice problems={problems} /> : <WaitingNotice entries={waiting} />}</div>
-            </>
-        );
-    }
+export const SortCardsGate = ({ present, scrollRef }: { present: boolean; scrollRef: RefObject<HTMLDivElement | null> }) => {
+    const loaded = useToolsData();
+    if (loaded.status !== "ready") return <ToolsLoading failed={loaded.status === "failed"} />;
+    const { cards, icons } = loaded.data;
+    const problems = sortProblems(cards);
+    const waiting = problems.length ? [] : unverified(cards);
+    if (!problems.length && !waiting.length) return <SortStack data={cards} icons={icons} present={present} scrollRef={scrollRef} />;
     return (
         <>
-            {title && <PageTitle>{title}</PageTitle>}
-            <div className={cx(title && "mt-6")}>{cards.status === "loading" ? <p className="py-6 text-sm text-tertiary">Loading…</p> : <FailedNotice />}</div>
+            <PageTitle>{cards.title}</PageTitle>
+            <div className="mt-6">{problems.length ? <BrokenNotice problems={problems} /> : <WaitingNotice entries={waiting} />}</div>
         </>
     );
 };
 
 /* ── The board's parts ──────────────────────────────────────────── */
+
+/** A vendor card's icon (rounds 1 and 2): small enough that a 360 px phone still has room for its 16 px name. */
+const CARD_ICON = 40;
+/** A suite's icon, large above its box (round 3). */
+const SUITE_ICON = 96;
+/**
+ * A vendor card with its icon: the icon 6 px in from the card's edges, so the card is 52 px tall
+ * (EmptySlot matches). In a box a placed card also keeps 44 px clear for its grip, which leaves
+ * its name the box's width less 124 px (132 in ?present). The grids' column switches (`grid` in
+ * StageBoard) keep the narrowest box wide enough for the longest name in today's list, "Canary
+ * Technologies" (161 px at 16 px, 197 px at ?present's 20 px), to stay on one line. Except in
+ * ?present from 1152 to 1440 px, where four boxes across win: a presenter has to see all four, so a
+ * long name may take two lines there and grow its row a little.
+ */
+const ICON_CARD = "gap-2.5 py-1.5 pl-1.5";
+
+/** What an icon asks for: both files and the size it's drawn at, so the browser picks; or, when `large`, the 512 px file outright. */
+const iconSources = (slug: string, size: number, large: boolean) =>
+    large ? { src: iconUrl(slug, 512) } : { src: iconUrl(slug, 128), srcSet: `${iconUrl(slug, 128)} 128w, ${iconUrl(slug, 512)} 512w`, sizes: `${size}px` };
+
+/**
+ * A vendor's icon, `size` px square. It fetches the 128 px file unless the screen needs more
+ * (srcSet: the 96 px suite icon on a 2x or 3x screen gets the 512), and the 512 px file outright when
+ * `large` (the training's logo). Its alt is empty because everywhere it's drawn the vendor's name
+ * is printed beside it; an icon on its own would take the manifest's alt instead. It never takes
+ * the pointer, so a press on it is a press on its card, and the browser never starts dragging the
+ * image itself.
+ */
+export const VendorIcon = ({ slug, size, large = false }: { slug: string; size: number; large?: boolean }) => (
+    <img
+        {...iconSources(slug, size, large)}
+        width={size}
+        height={size}
+        alt=""
+        decoding="async"
+        draggable={false}
+        className="pointer-events-none shrink-0 select-none"
+    />
+);
+
+const preloaded = new Map<string, HTMLImageElement>();
+
+/**
+ * Starts fetching an icon before it's drawn (the next board's, the training's next cards), asking
+ * for exactly what VendorIcon will, so the one drawn comes from the browser's cache instead of
+ * appearing a moment after its card. Kept in memory only, like everything else here.
+ */
+export const preloadIcon = (slug: string, size: number, large = false) => {
+    const { src, srcSet, sizes } = iconSources(slug, size, large);
+    const key = `${src} ${sizes ?? ""}`;
+    if (preloaded.has(key) || typeof Image === "undefined") return;
+    const img = new Image();
+    if (sizes) img.sizes = sizes;
+    if (srcSet) img.srcset = srcSet;
+    img.src = src;
+    preloaded.set(key, img);
+};
 
 /** Right or wrong, as an icon and a word: never colour alone. */
 const MarkPill = ({ mark, large }: { mark: Mark; large: boolean }) => (
@@ -208,14 +280,31 @@ const MarkPill = ({ mark, large }: { mark: Mark; large: boolean }) => (
     </span>
 );
 
-/** A card after checking: the vendor, its mark, why an also counts, the right box if it isn't this one, and its note. */
-const VendorResult = ({ card, at, mark, boxName, large }: { card: VendorCard; at: string; mark: Mark; boxName: string; large: boolean }) => {
+/** A card after checking: the vendor and its icon, its mark, why an also counts, the right box if it isn't this one, and its note. */
+const VendorResult = ({
+    card,
+    icon,
+    at,
+    mark,
+    boxName,
+    large,
+}: {
+    card: VendorCard;
+    icon: ReactNode;
+    at: string;
+    mark: Mark;
+    boxName: string;
+    large: boolean;
+}) => {
     const text = large ? "text-lg" : "text-md";
     return (
         <div className="rounded-lg bg-primary px-3.5 py-2.5 shadow-xs ring-1 ring-primary ring-inset">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-                <span className={cx("font-medium text-pretty text-primary", large ? "text-xl" : "text-md")}>{card.vendor}</span>
-                <MarkPill mark={mark} large={large} />
+            <div className="flex items-center gap-3">
+                {icon}
+                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                    <span className={cx("font-medium text-pretty text-primary", large ? "text-xl" : "text-md")}>{card.vendor}</span>
+                    <MarkPill mark={mark} large={large} />
+                </div>
             </div>
             {mark.also && <p className={cx("mt-1.5 font-medium text-pretty text-secondary", text)}>{ALSO_RIGHT}</p>}
             {at !== card.box && (
@@ -241,23 +330,36 @@ const JobResult = ({ name, mark, large }: { name: string; mark: Mark; large: boo
     </span>
 );
 
-/** A card in "Show answers": nothing to move, so not a button. */
-const AnswerCard = ({ name, note, large }: { name: string; note?: string; large: boolean }) => (
-    <span
-        className={cx(
-            "block min-h-11 rounded-lg bg-primary px-3.5 py-2 shadow-xs ring-1 ring-primary ring-inset",
-            !note && "inline-flex items-center",
-            large ? "text-xl" : "text-md",
-        )}
-    >
-        <span className="block font-medium text-pretty text-primary">{name}</span>
-        {note && <span className={cx("mt-1 block text-pretty text-tertiary", large ? "text-lg" : "text-md")}>{note}</span>}
-    </span>
-);
+/** A card in "Show answers": nothing to move, so not a button. A vendor's card has its icon. */
+const AnswerCard = ({ name, note, icon, large }: { name: string; note?: string; icon?: ReactNode; large: boolean }) => {
+    const title = <span className="block font-medium text-pretty text-primary">{name}</span>;
+    return (
+        <span
+            className={cx(
+                "block min-h-11 rounded-lg bg-primary px-3.5 py-2 shadow-xs ring-1 ring-primary ring-inset",
+                !note && "inline-flex items-center",
+                large ? "text-xl" : "text-md",
+            )}
+        >
+            {icon ? (
+                <span className="flex items-center gap-3">
+                    {icon}
+                    {title}
+                </span>
+            ) : (
+                title
+            )}
+            {note && <span className={cx("mt-1 block text-pretty text-tertiary", large ? "text-lg" : "text-md")}>{note}</span>}
+        </span>
+    );
+};
 
-/** An empty place in a box, the size of a card, so a box doesn't grow (and move the boxes under it) as cards go in. */
-const EmptySlot = ({ large }: { large: boolean }) => (
-    <span aria-hidden="true" className={cx("block rounded-lg border border-dashed border-primary", large ? "min-h-12" : "min-h-11")} />
+/**
+ * An empty place in a box, the size of a card, so a box doesn't grow (and move the boxes under it)
+ * as cards go in. A vendor card (`vendor`) is its icon's height and its padding: 52 px.
+ */
+const EmptySlot = ({ large, vendor = false }: { large: boolean; vendor?: boolean }) => (
+    <span aria-hidden="true" className={cx("block rounded-lg border border-dashed border-primary", vendor ? "min-h-13" : large ? "min-h-12" : "min-h-11")} />
 );
 
 /**
@@ -277,13 +379,12 @@ const STRIP_CARD =
  */
 const CLEAR_OF_BAR = "scroll-mb-(--tray-clear)";
 
-/** The handle a finger drags a placed vendor card by: elsewhere on the card, a vertical swipe scrolls the page. */
+/**
+ * The handle a finger drags a placed vendor card by: elsewhere on the card, a vertical swipe scrolls
+ * the page. It covers the card's right end, edge to edge, and the card keeps that strip clear (`pr-11`).
+ */
 const Grip = () => (
-    <span
-        data-grip
-        aria-hidden="true"
-        className="-my-2 -mr-3.5 ml-auto flex w-11 shrink-0 touch-none items-center justify-center self-stretch text-fg-quaternary"
-    >
+    <span data-grip aria-hidden="true" className="absolute inset-y-0 right-0 flex w-11 touch-none items-center justify-center text-fg-quaternary">
         <DotsGrid className="size-4" />
     </span>
 );
@@ -291,14 +392,16 @@ const Grip = () => (
 type DropTarget = { drop: { "data-drop": string }; onPlace: () => void; carrying: boolean; over: boolean };
 
 /**
- * A box: its number key, name and job line, its cards, and its count. While the board is live
- * (`target`), a tap anywhere on it places the card being carried, and its heading is a button,
- * so a screen reader on a phone, with no number keys, can place a card too.
+ * A box: its number key, name and job line, its cards, and its count; a suite's box has the suite's
+ * icon above it. While the board is live (`target`), a tap anywhere on it places the card being
+ * carried (on a suite's icon too, which drops into the box like the box itself), and its heading
+ * is a button, so a screen reader on a phone, with no number keys, can place a card too.
  */
 const BoxFrame = ({
     n,
     name,
     job,
+    icon,
     count,
     large,
     target,
@@ -308,6 +411,7 @@ const BoxFrame = ({
     n: number | null;
     name: string;
     job?: string;
+    icon?: ReactNode;
     count: string;
     large: boolean;
     target?: DropTarget;
@@ -326,14 +430,15 @@ const BoxFrame = ({
             </span>
         </>
     );
-    return (
+    // Where a card drops: the box, or the icon and the box together. On one element only, so a tap places once.
+    const drop = target ? { ...target.drop, onClick: target.onPlace } : {};
+    const box = (
         <div
             role="group"
             aria-labelledby={nameId}
-            {...target?.drop}
-            onClick={target?.onPlace}
+            {...(icon ? {} : drop)}
             className={cx(
-                "flex flex-col rounded-xl bg-secondary p-3 ring-1 ring-secondary ring-inset",
+                "flex flex-1 flex-col rounded-xl bg-secondary p-3 ring-1 ring-secondary ring-inset",
                 large && "p-4",
                 target && targetClass({ carrying: target.carrying, over: target.over }),
             )}
@@ -356,6 +461,13 @@ const BoxFrame = ({
             {after}
         </div>
     );
+    if (!icon) return box;
+    return (
+        <div {...drop} className="flex flex-col">
+            <div className={large ? "mb-4" : "mb-3"}>{icon}</div>
+            {box}
+        </div>
+    );
 };
 
 /** After round 3's last suite: the card list's finish line, and back to round 1. */
@@ -374,6 +486,7 @@ const jobsOf = (jobs: readonly SortJob[], ids: readonly string[]): SortJob[] => 
 
 type StageProps = {
     data: SortData;
+    icons: VendorIcons;
     stages: Stage[];
     at: number;
     answers: boolean;
@@ -389,7 +502,7 @@ type StageProps = {
  * Next, Try again, Start over and round tab, so nothing carries over: not a card in hand, not
  * the last announcement, not a refusal.
  */
-const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focusOnMount }: StageProps) => {
+const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo, focusOnMount }: StageProps) => {
     const stage = stages[at];
     const [board, setBoard] = useState<Board>(() => newBoard(stage, Math.random));
     const [checked, setChecked] = useState(false);
@@ -412,9 +525,30 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
     const locked = checked || answers;
     const large = present;
     const buttonSize = present ? "xl" : "lg";
+    const tryAgain = (
+        <Button size={buttonSize} color="secondary" iconLeading={RefreshCw01} onClick={() => goTo(at)}>
+            Try again
+        </Button>
+    );
     const last = at === stages.length - 1;
     const label = (id: string) => cardLabel(stage, id);
     const boxName = (id: string) => boxes.find((b) => b.id === id)?.label ?? id;
+    /** A vendor's icon, or nothing if the manifest has none for its name (vendor-icons.check.ts fails on that). */
+    const vendorIcon = (vendor: string, size = CARD_ICON) => {
+        const slug = iconSlug(icons, vendor);
+        return slug ? <VendorIcon slug={slug} size={size} /> : null;
+    };
+
+    // The next board's icons start loading now, so round 2's cards and each suite's icon are there when Next is pressed.
+    useEffect(() => {
+        const next = stages[at + 1];
+        if (!next) return;
+        const wanted: [string, number][] = next.kind === "vendors" ? next.round.cards.map((c) => [c.vendor, CARD_ICON]) : [[next.suite.vendor, SUITE_ICON]];
+        for (const [vendor, size] of wanted) {
+            const slug = iconSlug(icons, vendor);
+            if (slug) preloadIcon(slug, size);
+        }
+    }, [stages, at, icons]);
 
     useEffect(() => {
         const want = after.current;
@@ -498,6 +632,7 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
      * A card that can move. In the tray it fits the phone's one-row strip; in a box it keeps clear
      * of the pinned bar when it takes focus. A vendor card in a box (`fill`) lets a vertical swipe
      * scroll the page, so on touch and pen it drags by its grip; a mouse drags it from anywhere.
+     * A vendor card has the vendor's icon on its left; the drag's copy clones it, icon and all.
      */
     const chip = (id: string, where: string | null, fill = false) => {
         const props = drag.chipProps(id, where);
@@ -505,12 +640,19 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
             if (fill && e.pointerType !== "mouse" && !(e.target as Element).closest("[data-grip]")) return;
             props.onPointerDown(e);
         };
+        const icon = stage.kind === "vendors" ? vendorIcon(id) : null;
         return (
             <button
                 {...props}
                 onPointerDown={onPointerDown}
-                className={cx(chipClass({ picked: drag.picked === id, fill, large }), where === null ? STRIP_CARD : CLEAR_OF_BAR, fill && "touch-pan-y")}
+                className={cx(
+                    chipClass({ picked: drag.picked === id, fill, large }),
+                    icon && ICON_CARD,
+                    where === null ? STRIP_CARD : CLEAR_OF_BAR,
+                    fill && "touch-pan-y pr-11",
+                )}
             >
+                {icon}
                 {label(id)}
                 {fill && <Grip />}
             </button>
@@ -524,7 +666,9 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
         return { drop: drag.dropProps(id), onPlace: () => drag.placeInto(id), carrying: carrying && !refuses, over: drag.over === id && !refuses };
     };
 
-    const grid = present ? "grid gap-4 @2xl:grid-cols-2 @6xl:grid-cols-4" : "grid gap-3 @xl:grid-cols-2";
+    // Columns only once the narrowest box keeps a placed card's longest name on one line (ICON_CARD): two from a
+    // 608 px board (boxes 298 px), and in ?present two from 704 px and four from 1376 px (a 1440 px screen; boxes 332 px).
+    const grid = present ? "grid gap-4 @2xl:grid-cols-2 @6xl:grid-cols-4" : "grid gap-3 @min-[38rem]:grid-cols-2";
 
     /* What the board shows: the boxes (live or marked), or the answers. */
     let body: ReactNode;
@@ -540,7 +684,7 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
                                 <ul className="flex flex-col gap-2">
                                     {cards.map((c) => (
                                         <li key={c.vendor}>
-                                            <AnswerCard name={c.vendor} note={c.note} large={large} />
+                                            <AnswerCard name={c.vendor} note={c.note} icon={vendorIcon(c.vendor)} large={large} />
                                         </li>
                                     ))}
                                 </ul>
@@ -549,9 +693,7 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
                     })}
                 </div>
                 <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <Button size={buttonSize} color="secondary" iconLeading={RefreshCw01} onClick={() => goTo(at)}>
-                        Try again
-                    </Button>
+                    {tryAgain}
                     {stage.roundIndex < data.rounds.length - 1 && (
                         <Button size={buttonSize} iconTrailing={ArrowRight} onClick={() => goTo(firstStageOf(stages, stage.roundIndex + 1))}>
                             Next
@@ -570,6 +712,7 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
                             key={suite.vendor}
                             n={null}
                             name={suite.vendor}
+                            icon={vendorIcon(suite.vendor, SUITE_ICON)}
                             count={jobsLine(suite.does.length)}
                             large={large}
                             after={<p className={cx("mt-3 text-pretty text-tertiary", large ? "text-lg" : "text-md")}>{suite.note}</p>}
@@ -584,11 +727,7 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
                         </BoxFrame>
                     ))}
                 </div>
-                <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <Button size={buttonSize} color="secondary" iconLeading={RefreshCw01} onClick={() => goTo(at)}>
-                        Try again
-                    </Button>
-                </div>
+                <div className="mt-6 flex flex-wrap items-center gap-3">{tryAgain}</div>
                 <Finish line={data.finish} onStartOver={() => goTo(0)} large={large} />
             </>
         );
@@ -619,7 +758,14 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
                                             return (
                                                 <li key={id}>
                                                     {mark && card ? (
-                                                        <VendorResult card={card} at={box.id} mark={mark} boxName={boxName(card.box)} large={large} />
+                                                        <VendorResult
+                                                            card={card}
+                                                            icon={vendorIcon(id)}
+                                                            at={box.id}
+                                                            mark={mark}
+                                                            boxName={boxName(card.box)}
+                                                            large={large}
+                                                        />
                                                     ) : (
                                                         chip(id, box.id, true)
                                                     )}
@@ -629,7 +775,7 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
                                         {!marks &&
                                             Array.from({ length: Math.max(0, stage.round.per_box - inBox.length) }, (_, k) => (
                                                 <li key={`empty-${k}`} aria-hidden="true">
-                                                    <EmptySlot large={large} />
+                                                    <EmptySlot large={large} vendor />
                                                 </li>
                                             ))}
                                     </ul>
@@ -639,7 +785,14 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
                     </div>
                 ) : (
                     <>
-                        <BoxFrame n={1} name={stage.suite.vendor} count={jobsLine(inSuite.length)} large={large} target={target(SUITE)}>
+                        <BoxFrame
+                            n={1}
+                            name={stage.suite.vendor}
+                            icon={vendorIcon(stage.suite.vendor, SUITE_ICON)}
+                            count={jobsLine(inSuite.length)}
+                            large={large}
+                            target={target(SUITE)}
+                        >
                             {inSuite.length ? (
                                 <ul className="flex flex-wrap gap-2">
                                     {inSuite.map((id) => {
@@ -735,9 +888,7 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
                                 >
                                     {tallyLine(tally(marks))}
                                 </p>
-                                <Button size={buttonSize} color="secondary" iconLeading={RefreshCw01} onClick={() => goTo(at)}>
-                                    Try again
-                                </Button>
+                                {tryAgain}
                                 {last ? (
                                     <Button size={buttonSize} onClick={() => goTo(0)}>
                                         Start over
@@ -791,7 +942,17 @@ const StageBoard = ({ data, stages, at, answers, present, scrollRef, goTo, focus
  * The game: the card list's title, its made-up line, and one board at a time. In ?present, the
  * board sits under Round 1 / 2 / 3 tabs, with "Show answers" beside them.
  */
-export const SortStack = ({ data, present = false, scrollRef }: { data: SortData; present?: boolean; scrollRef: RefObject<HTMLDivElement | null> }) => {
+const SortStack = ({
+    data,
+    icons,
+    present,
+    scrollRef,
+}: {
+    data: SortData;
+    icons: VendorIcons;
+    present: boolean;
+    scrollRef: RefObject<HTMLDivElement | null>;
+}) => {
     const stages = useMemo(() => gameStages(data), [data]);
     const [view, setView] = useState({ at: 0, attempt: 0, answers: false });
     const stage = stages[view.at];
@@ -806,6 +967,7 @@ export const SortStack = ({ data, present = false, scrollRef }: { data: SortData
         <StageBoard
             key={`${view.at}:${view.attempt}`}
             data={data}
+            icons={icons}
             stages={stages}
             at={view.at}
             answers={view.answers}

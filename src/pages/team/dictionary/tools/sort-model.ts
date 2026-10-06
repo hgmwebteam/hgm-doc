@@ -1,9 +1,10 @@
-import { type Random, maskText, shuffle } from "@/pages/team/dictionary/check/check-model";
+import { type Random, shuffle } from "@/pages/team/dictionary/check/check-model";
 
 /**
  * Sort the stack: the model behind the tools review game (/dictionary/tools/review, and the
- * no-sign-in copy at /acumen-sort) and the tools flashcards (/dictionary/tools/practice).
- * No React, so sort-model.check.ts can pin all of it against the real card list.
+ * no-sign-in copy at /acumen-sort). No React, so sort-model.check.ts can pin all of it against
+ * the real card list. The tools training (/dictionary/tools/practice) is built from the vendor
+ * icons' manifest (vendor-icons.ts) and takes only the boxes' wording from the card list.
  *
  * The card list is src/data/industry-acumen-sort-cards.json. Its wording is Kyle's and its
  * master is the Claude project file named in `source_of_copy`: edit there, then copy it in.
@@ -48,7 +49,8 @@ export type SortData = {
 /** The number keys place a picked-up card, and they stop at 9. */
 const MAX_BOXES = 9;
 
-const isText = (v: unknown): v is string => typeof v === "string" && v.trim() !== "";
+/** A non-blank string. Shared with vendor-icons.ts, whose manifest also reaches the page by a cast. */
+export const isText = (v: unknown): v is string => typeof v === "string" && v.trim() !== "";
 const listOf = (v: unknown): unknown[] | null => (Array.isArray(v) ? v : null);
 const field = (v: unknown, key: string): unknown => (v && typeof v === "object" ? (v as Record<string, unknown>)[key] : undefined);
 const quoted = (v: unknown) => `"${String(v)}"`;
@@ -344,47 +346,5 @@ export const tallyLine = ({ right, total }: Tally) => `${right} of ${total}`;
 /** The refusal when a box is full. */
 export const fullLine = (box: string, capacity: number) => `${box} already has ${capacity} cards. Move one out first.`;
 
-/* ── The flashcards (/dictionary/tools/practice) ────────────────── */
-
-export type PracticeCard =
-    | { vendor: string; kind: "card"; box: SortBox; also: SortBox[]; note: string }
-    | { vendor: string; kind: "suite"; does: SortJob[]; note: string };
-
-/**
- * The tools deck: one card for every vendor in the vendor rounds (24), then one for each round 3
- * suite whose vendor isn't already a card (Cloudbeds, whose many boxes are the point of round 3).
- * Keyed by vendor name.
- */
-export const practiceCards = (data: SortData): PracticeCard[] => {
-    const boxes = new Map(data.rounds.flatMap((r) => (r.mode === "vendors" ? r.boxes.map((b) => [b.id, b] as const) : [])));
-    const cards: PracticeCard[] = [];
-    const seen = new Set<string>();
-    for (const r of data.rounds) {
-        if (r.mode !== "vendors") continue;
-        for (const c of r.cards) {
-            const box = boxes.get(c.box);
-            if (!box || seen.has(c.vendor)) continue;
-            seen.add(c.vendor);
-            cards.push({ vendor: c.vendor, kind: "card", box, also: c.also.flatMap((id) => boxes.get(id) ?? []), note: c.note });
-        }
-    }
-    for (const r of data.rounds) {
-        if (r.mode !== "jobs") continue;
-        const jobs = new Map(r.jobs.map((j) => [j.id, j]));
-        for (const s of r.suites) {
-            if (seen.has(s.vendor)) continue;
-            seen.add(s.vendor);
-            cards.push({ vendor: s.vendor, kind: "suite", does: s.does.flatMap((id) => jobs.get(id) ?? []), note: s.note });
-        }
-    }
-    return cards;
-};
-
-/** The note with the vendor's own name blanked to ___, for the side that asks for the vendor. */
-export const practiceClue = (card: PracticeCard): string => maskText(card.note, [card.vendor]);
-
-/** "Also: Booking engine". */
-export const alsoLine = (boxes: readonly SortBox[]) => `Also: ${boxes.map((b) => b.name).join(", ")}`;
-
-/** "Does: PMS, Channel manager, Booking engine, Guest messaging". */
+/** Under a checked suite: "Does: PMS, Channel manager, Booking engine, Guest messaging". */
 export const doesLine = (jobs: readonly SortJob[]) => `Does: ${jobs.map((j) => j.name).join(", ")}`;

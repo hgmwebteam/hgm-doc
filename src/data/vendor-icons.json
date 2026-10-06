@@ -1,5 +1,5 @@
 {
- "version": "1.0",
+ "version": "1.1",
  "made": "2026-10-05",
  "tile": {
   "size_px": 512,
@@ -594,8 +594,8 @@
     "upsell"
    ],
    "alt": "Mews logo",
-   "confidence": "check by eye",
-   "note": "Pink tile with a three-ellipse mark; not seen on Mews' own site in my check (the site shows a black wordmark). Please eyeball it."
+   "confidence": "identified",
+   "note": "Pink tile with a three-ellipse mark: Mews' own site icon and share image (the header logo is a black MEWS wordmark). Checked 5 Oct 2026; Kyle confirmed it by eye on 6 Oct."
   },
   "newbook": {
    "name": "Newbook",

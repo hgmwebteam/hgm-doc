@@ -10,7 +10,7 @@ import { type Random, shuffle } from "@/pages/team/dictionary/check/check-model"
  * master is the Claude project file named in `source_of_copy`: edit there, then copy it in.
  * Rounds 1 and 2 ("vendors") are a tray of vendor cards and four boxes that each take exactly
  * `per_box` cards. Round 3 ("jobs") turns it round: one suite at a time is the only box, and
- * the tray is the suite's jobs mixed with jobs it doesn't do.
+ * the tray is the suite's jobs mixed with any jobs it doesn't do.
  *
  * THE GATE: while any card or suite says `"verify": true`, nothing plays. The pages show what's
  * waiting and the check script fails (the brief: "Refuse to build if any card in the data has
@@ -58,10 +58,12 @@ const quoted = (v: unknown) => `"${String(v)}"`;
 /**
  * Everything wrong with a card list, as plain sentences; empty when it's fine to play. The
  * brief's build checks: every card's box is one of its round's boxes, every box holds exactly
- * `per_box` cards, every also names a real box, every suite has at least two jobs and two
- * distractors. It also catches what would break the page (a missing name, a duplicate id, more
- * boxes than number keys). Unchecked cards (`verify: true`) are not a problem here: see
- * `unverified`, which the pages and the check script apply after this.
+ * `per_box` cards, every also names a real box, every suite has at least two jobs. The brief
+ * also asked for two distractors a suite, but a suite may now have none: the 5 Oct vendor check
+ * found Cloudbeds sells all eight jobs, so its tray is all right answers. It also catches what
+ * would break the page (a missing name, a duplicate id, more boxes than number keys). Unchecked
+ * cards (`verify: true`) are not a problem here: see `unverified`, which the pages and the check
+ * script apply after this.
  *
  * The JSON reaches the page by a cast, so this trusts nothing about its shape.
  */
@@ -178,7 +180,7 @@ export const sortProblems = (data: SortData): string[] => {
                 const does = listOf(field(suite, "does"));
                 const distractors = listOf(field(suite, "distractors"));
                 if (!does || does.length < 2) say(`${r}: ${vendor} needs at least two jobs in does.`);
-                if (!distractors || distractors.length < 2) say(`${r}: ${vendor} needs at least two distractors.`);
+                if (!distractors) say(`${r}: ${vendor}'s distractors must be a list (empty if it has none).`);
                 const seen = new Set<unknown>();
                 for (const id of [...(does ?? []), ...(distractors ?? [])]) {
                     if (seen.has(id))

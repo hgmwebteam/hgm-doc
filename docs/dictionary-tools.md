@@ -32,6 +32,7 @@ Kyle's decisions of 2 Oct 2026). The vendor check of the same day is
   waiting (and each entry's `verify_what`), and `sort-model.check.ts` fails. This is the brief's "Refuse
   to build if any card in the data has verify: true". There is no bypass in the pages, on purpose. The
   training doesn't wait (Kyle, 5 Oct 2026): it's built from the manifest, not the unchecked cards.
+  Since card list 2.1 (6 Oct 2026) nothing is waiting and the game plays (see "The card list since 2.1").
 - **Nothing is stored or sent.** The game and the deck live in component state; a refresh starts
   clean. After the page itself the only requests are two lazy chunks (the card list and the icon
   manifest) and the icons, which are static files on this site. On the gated routes the Docs frame is
@@ -79,6 +80,8 @@ The rules are `sort-model.ts`; the gestures are the shared `drag-board.tsx`.
   while a card from elsewhere is carried it doesn't show the "can go here" outline.
 - **Round 3** (`mode: "jobs"`): one board per suite, in the list's order. The suite is the only box;
   the tray is its `does` mixed with its `distractors`. "Check my stack" wakes up once one job is in.
+  A suite may have no distractors (the brief asked for two; Cloudbeds sells all eight jobs), and then
+  every job in its tray goes in.
 - **Placing a card**: tap it, then tap a box (or the tray's **Tray** button to send a placed card
   back); or drag it; or Tab to it, Enter, and the box's number key (Backspace sends it back, Escape
   puts it down). Every move is announced. The Tray button is how a screen reader on a phone, with
@@ -118,23 +121,49 @@ sides), so it shows no "Show first" picker.
 - **The slides' boxes were checked, and two were wrong.** Kyle asked for the slides' boxes, "but verify
   please". On 5 and 6 Oct each of the 44 vendors was checked against its own site
   (`reference/industry-acumen-sort/verification-2026-10-05.md`): 18 right, 24 right but they sell more
-  than the slides show, 2 wrong. So, on Kyle's say (6 Oct), **the portal's copy of the manifest differs
-  from the master**: it leaves out Google (Google Hotels is metasearch; none of the eight boxes fits)
-  and Mews' CRM (Mews sends hotels to other companies' CRMs), and Google's icons are gone from
-  `public/vendor-icons/`. Make the same change in the Claude project's master before its next copy
-  comes in, or it will bring both back. The 24 vendors' extra boxes were checked once only and are in
-  the report for later; the training doesn't show them. Nothing in the code names a vendor's boxes.
-  The check also found Mews' pink tile genuine and current, so its "check by eye" flag can be cleared
-  in the master.
+  than the slides show, 2 wrong. So, on Kyle's say (6 Oct), **the portal's copy of the manifest (1.1)
+  leads the master (1.0)**: it leaves out Google (Google Hotels is metasearch; none of the eight boxes
+  fits) and Mews' CRM (Mews sends hotels to other companies' CRMs), Google's icons are gone from
+  `public/vendor-icons/`, and Mews' pink tile is marked identified (the check found it genuine and
+  Kyle confirmed it by eye). Upload this copy to the Claude project in place of its master before the
+  next copy comes in, or that copy will bring all three back. The 24 vendors' extra boxes were checked
+  once only and are in the report for later; the training doesn't show them. Nothing in the code
+  names a vendor's boxes.
 - **Where the slides and the game disagree.** The training shows the slides; the game marks by the
-  card list. `vendor-icons.check.ts` prints each clash as a note. Today there are six: in round 1,
-  Mews (the slides add Guest messaging and Upsell), Newbook (only the game says Channel manager)
-  and Amadeus iHotelier (the slides' Amadeus also covers Demand360, so they add Rate shopping and
-  market intelligence); in round 3, Cloudbeds (only the game says Guest messaging; only the slides say
-  Dynamic pricing, Rate shopping and market intelligence, and CRM), SiteMinder (only the game says PMS)
-  and Mews (the slides add Guest messaging and Upsell). The vendor check says round 3 is the one to
-  fix: Cloudbeds sells all eight jobs, Mews' only true distractor is CRM, and SiteMinder's PMS is Little
-  Hotelier's. Those are changes to the card list's master.
+  card list, which since 2.1 accepts every box a vendor sells (below). `vendor-icons.check.ts` prints
+  each difference as a note: 11 today, and in all of them the game accepts more than the training
+  teaches. The two boxes only the slides give (Mews' Guest messaging and Upsell, and Amadeus' Rate
+  shopping, which is Demand360) aren't boxes in round 1, so the game never marks wrong what the
+  training teaches. Adding the extra boxes to the training is the "for later" above.
+
+## The card list since 2.1
+
+On 6 Oct 2026 Kyle asked for the verify flags, round 3 and round 1 to be settled from the 5 Oct vendor
+check, and the renames left for later. So **2.1 was edited here, not in the master**, and the Claude
+project's master needs it before its next copy comes in (`source_of_copy` says so too).
+
+- **One rule for what counts**: a box is right when the vendor sells that job under the card's name,
+  in a plan or as a paid add-on (the report's "a paid add-on counts"), so the game never marks a true
+  answer wrong. A sister product under another name doesn't count: SiteMinder's PMS is Little
+  Hotelier, so PMS is wrong for SiteMinder in round 1 and round 3 alike.
+- **Round 1 and 2 alsos added**: Mews (channel manager, dynamic pricing), Newbook (booking engine,
+  dynamic pricing), Lodgify (PMS, dynamic pricing), SiteMinder and STAAH (dynamic pricing), Amadeus
+  iHotelier (channel manager), GoHighLevel and Revinate (guest messaging). Mews, Newbook and Lodgify
+  are now right in any round 1 box: all-in-one systems, which is the lesson. Each note says what else
+  it sells.
+- **Left as they were, on the researcher's advice**: Oracle OPERA Cloud (its channel manager is a
+  separate product, OPERA Cloud Distribution), RateGain (its upsells are a feature of its booking
+  engine) and Lighthouse (messaging and upsells through KITT, a side product). Sabre SynXis (channel
+  manager) and Whistle (upsell) wait with their renames.
+- **Round 3**: Cloudbeds does all eight jobs, with no distractors; SiteMinder does six (PMS and CRM are
+  wrong); Mews does six (CRM is wrong). Mews' tray leaves out rate shopping, as the report advised:
+  Mews RMS tracks competitors' rates, but it isn't taught as a rate shopper.
+- **The seven verify flags** (DerbySoft, Amadeus iHotelier, Lodgify, AirDNA, GoHighLevel, UpsellGuru
+  and the SiteMinder suite) were settled from the report's vendor pages, `checked` 2026-10-05.
+  UpsellGuru's source is its own page, which is safe only because sources are never shown to players.
+- **Still to do, with the renames**: SynXis by Aven Hospitality (formerly Sabre), Whistle as Cloudbeds
+  Guest Experience, Oaky as Oaky by Plusgrade, and the third-party sources on cards this change didn't
+  touch (the report lists each one's own page).
 
 ## The vendor icons
 
@@ -163,9 +192,10 @@ on white and in dark mode), made in the Claude project on 5 Oct 2026: the kit's 
 - **To update them**: unpack the Claude project's set with `claude/vendor_icons_unpack.py` (the
   handoff record says how), then replace `public/vendor-icons/512/` with its `logos/`,
   `public/vendor-icons/128/` with its `logos-128/` and `src/data/vendor-icons.json` with its
-  `logos.json`, each whole. Never edit the manifest here. Run both checks below.
-- **Still to look at**: Mews is the one icon still marked "check by eye" (a pink tile with a
-  three-ellipse mark; Mews' own site shows a black wordmark). The check prints it as a note.
+  `logos.json`, each whole. Never edit the manifest here (1.1's changes, above, were Kyle's call), and
+  check a new copy still leaves out Google and Mews' CRM. Run both checks below.
+- **Mews' pink tile** is genuine: it's Mews' own site icon, though its header logo is a black wordmark.
+  It was the last icon marked "check by eye", and is now identified.
 - **Trademarks**: these are the vendors' trademarks, used only to identify their products on internal
   training pages. Don't use them on client-facing material or in marketing (Google's is the Google
   Shopping tag mark: if it ever leaves an internal page, follow Google's brand rules). The files are
@@ -187,14 +217,15 @@ Everything is in `src/pages/team/dictionary/tools/` unless a path is given.
 | `acumen-sort-screen.tsx`                   | `/acumen-sort`: the plain frame, no gate. `"acumen-sort"` is in `RESERVED_SLUGS` (`src/pages/templates/template-one-screen.tsx`).                                        |
 | `tools-practice-screen.tsx`                | `/dictionary/tools/practice`: the training's faces, on `FlashcardDeck` (`../flashcards.tsx`), with its own pause for a broken list or manifest.                          |
 | `../drag-board.tsx`                        | The shared drag and drop (also the check's matching and sorting questions).                                                                                              |
-| `src/data/industry-acumen-sort-cards.json` | The card list. Its master is the Claude project file named in `source_of_copy`: edit there, then copy it in.                                                             |
-| `src/data/vendor-icons.json`               | The icon manifest, a copy of the Claude project's `vendor-icons-manifest.json`, replaced whole.                                                                          |
+| `src/data/industry-acumen-sort-cards.json` | The card list. Its master is the Claude project file named in `source_of_copy`: edit there, then copy it in. 2.1 was edited here (above).                                |
+| `src/data/vendor-icons.json`               | The icon manifest, a copy of the Claude project's `vendor-icons-manifest.json`, replaced whole. 1.1 leads the master (above).                                            |
 | `public/vendor-icons/`                     | The icons: `128/` and `512/`, one PNG per slug.                                                                                                                          |
 
 ## Changing the card list
 
 1. Edit the master (see `source_of_copy`), then copy it over `src/data/industry-acumen-sort-cards.json`
-   whole. Don't hand-edit the copy.
+   whole. Don't hand-edit the copy. (2.1 is the one exception, made here at Kyle's request: until the
+   master has it, a new copy would undo it, so compare before replacing.)
 2. To clear a card for play: check its box and note against the vendor's own site, set `verify` to
    `false` (or remove it) and fill in `checked` (`YYYY-MM-DD`) and `sources`.
 3. Run both checks below. `sort-model.check.ts` must end in `sort-model: PASS`; a new vendor needs its
@@ -207,7 +238,7 @@ are being updated", with the problems under "What needs fixing"); a manifest tha
 ## Checks
 
 ```bash
-# The card list and the rules. Fails, listing them, while any entry is still verify: true.
+# The card list and the rules. Passes today; fails, listing them, if any entry says verify: true.
 npx esbuild src/pages/team/dictionary/tools/sort-model.check.ts --bundle \
   --platform=node --format=cjs --alias:@=./src --outfile=/tmp/hgm-check/sort-model.cjs \
   --log-level=warning && node /tmp/hgm-check/sort-model.cjs
@@ -225,8 +256,8 @@ copies of the data, so correcting cards doesn't break them. `vendor-icons.check.
 manifest's eight boxes aren't exactly the card list's (in any order: the card list's order is the
 game's number keys, the slides' is the training's), a vendor has no name, alt or box, an icon's PNG
 is missing or the wrong size, a `card_name_to_slug` entry names no vendor, or a card or suite in the
-card list has no icon. It prints, without failing, the icons still to check by eye and where the
-slides and the game disagree.
+card list has no icon. It prints, without failing, any icon still to check by eye (none today) and
+where the slides and the game disagree.
 
 ## For the session
 

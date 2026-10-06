@@ -10,7 +10,7 @@
  *
  * In order: the real card list's shape (the brief's build checks: every card's box is a real box,
  * every vendor box holds exactly three cards, every also names a real box, every suite has at least
- * two jobs and two distractors; plus every checked card says when); then the game's rules (the
+ * two jobs, though it may have no distractors; plus every checked card says when); then the game's rules (the
  * full box, the also line, round 3's tray marks, the tally), on a copy of the list with verify
  * switched off; and LAST the gate. While any card or suite still says "verify": true it FAILS and
  * lists them, as the brief asks. Everything before the gate reports first, so a failure there is
@@ -98,10 +98,10 @@ section("The card list (src/data/industry-acumen-sort-cards.json)");
         assert.ok(r.suites.length > 0, `${r.id} has suites`);
         for (const s of r.suites) {
             assert.ok(s.does.length >= 2, `${s.vendor} does at least two jobs`);
-            assert.ok(s.distractors.length >= 2, `${s.vendor} has at least two distractors`);
+            assert.ok(Array.isArray(s.distractors), `${s.vendor}'s distractors are a list`);
         }
     }
-    pass("round 3: every suite has at least two jobs and two distractors");
+    pass("round 3: every suite has at least two jobs, and its distractors (if any) as a list");
 
     // The brief: "set verify to false and fill in checked". So a card that isn't waiting on
     // verify must carry its checked date: the gate can't be opened by flipping the flag alone.
@@ -158,8 +158,17 @@ section("What sortProblems catches");
     pass("a box with a fourth card");
 
     assert.deepEqual(
-        broken((d) => (r3(d).suites[r3(d).suites.length - 1].distractors = [lastSuite.distractors[0]])),
-        [`${R}: ${lastSuite.vendor} needs at least two distractors.`],
+        broken((d) => ((r3(d).suites[r3(d).suites.length - 1] as { distractors: unknown }).distractors = "crm")),
+        [`${R}: ${lastSuite.vendor}'s distractors must be a list (empty if it has none).`],
+    );
+    assert.deepEqual(
+        broken((d) => (r3(d).suites[r3(d).suites.length - 1].distractors = [])),
+        [],
+        "a suite that does every job it shows has no distractors, and that's fine",
+    );
+    assert.deepEqual(
+        broken((d) => (r3(d).suites[r3(d).suites.length - 1].does = [lastSuite.does[0]])),
+        [`${R}: ${lastSuite.vendor} needs at least two jobs in does.`],
     );
     assert.deepEqual(
         broken((d) => r3(d).suites[r3(d).suites.length - 1].distractors.push(lastSuite.does[0])),
@@ -169,7 +178,7 @@ section("What sortProblems catches");
         broken((d) => (r3(d).suites[0].does = [firstSuite.does[0], "spa"])),
         [`${R}: ${firstSuite.vendor} names "spa", which isn't one of the round's jobs.`],
     );
-    pass("a suite short of distractors, a job on both sides, a job that doesn't exist");
+    pass("distractors that aren't a list (none is fine), one job short, a job on both sides, a job that doesn't exist");
 
     assert.deepEqual(
         broken((d) => ((r1(d).cards[1] as { verify?: unknown }).verify = "yes")),
@@ -333,7 +342,9 @@ section("Marking a vendor round");
 
 section("Round 3: one suite, many jobs");
 {
-    const stage = stages[firstStageOf(stages, jIndex)] as Extract<Stage, { kind: "jobs" }>;
+    // The first suite with a job it doesn't do, since a suite may have none to leave out.
+    const stage = stages.find((s): s is Extract<Stage, { kind: "jobs" }> => s.kind === "jobs" && s.suite.distractors.length > 0);
+    assert.ok(stage, "a suite with at least one distractor, to pin the tray's marks on");
     const { does, distractors, vendor } = stage.suite;
     let board = newBoard(stage, random);
     assert.deepEqual([...board.order].sort(), [...does, ...distractors].sort(), "its jobs and its distractors, mixed");

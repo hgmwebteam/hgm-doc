@@ -1,6 +1,6 @@
 ---
 title: Session 2 tools slides — vendor check, 5 Oct 2026
-status: "findings for Kyle; nothing in the data files has been changed"
+status: "findings for Kyle. Acted on 6 Oct 2026 (card list 2.1, manifest 1.1): see docs/dictionary-tools.md, 'The card list since 2.1'. The text below is as it stood on 5 Oct."
 method: "One researcher per vendor (44 in all) read the vendor's own website and recorded, for each of the eight boxes, whether the vendor sells that job as core, as an add-on, only through a partner, or not at all, with quotes and URLs. A second agent tried to refute the researcher only where the researcher found the slides wrong or could not tell. That was 2 vendors, Google and Mews (both found wrong; none came back 'could not tell'), and both second checks re-fetched every cited page, matched every quote and agreed. For the other 42 the first check stands alone, a trim Kyle chose on 6 Oct to keep the cost down."
 ---
 

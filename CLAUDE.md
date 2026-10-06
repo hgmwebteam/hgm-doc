@@ -225,9 +225,11 @@ sign-in, as the session's backup: public, so its route stays above the client-sl
 whose master is in the Claude project (replace it whole; never edit its wording here), and refuses
 to play while any card says `"verify": true`, as `sort-model.check.ts` does. The training doesn't wait on
 verify: it's one flashcard per vendor in the icon manifest `src/data/vendor-icons.json` (also a Claude
-project copy, replaced whole), with the boxes the session 2 slides give it on the back. The portal's copy
-leaves out Google and Mews' CRM, which the 5 Oct vendor check found wrong
-(`reference/industry-acumen-sort/verification-2026-10-05.md`): the master needs the same change first. Both draw the icons
+project copy, replaced whole), with the boxes the session 2 slides give it on the back. Both portal copies
+lead their masters: on 6 Oct, at Kyle's request, card list 2.1 (verify flags settled, round 3 reworked,
+more accepted boxes) and manifest 1.1 (no Google, no Mews CRM, Mews' tile identified) were edited here
+from the 5 Oct vendor check (`reference/industry-acumen-sort/verification-2026-10-05.md`). The Claude
+project needs these copies before another comes in, so compare any new copy before replacing. Both draw the icons
 from `public/vendor-icons/{128,512}/`: the game finds a card's icon by vendor name through the manifest's
 `card_name_to_slug` (never a logo field in the card list), the training by the manifest's own slugs, as
 `vendor-icons.check.ts` checks. The game stores and sends nothing (the plain frame's theme button keeps

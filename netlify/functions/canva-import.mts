@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { CANVA_API, getCanvaAccessToken } from "../lib/canva.mts";
+import { CANVA_API, dropConnection, getCanvaAccessToken, recoverRejectedToken } from "../lib/canva.mts";
 import { NOT_CONFIGURED, callerEmail, isDashboardSlug, isTeamEmail, readAuthEnv } from "../lib/client-sources.mts";
 
 /**
@@ -93,16 +93,42 @@ export default async (req: Request) => {
                 : `The portal's Canva connection stopped working (${tokenResult.detail ?? "refresh refused"}) — connect it again.`;
         return Response.json({ error, code: "canva_not_configured" }, { status: 501 });
     }
-    const token = tokenResult.token;
+    let token = tokenResult.token;
+    const reconnect = (error: string) => Response.json({ error, code: "canva_not_configured" }, { status: 501 });
 
     /* ── start: confirm the design and kick off the export ── */
     if (action === "start") {
         const designId = String(body.designId ?? "");
         if (!isDesignId(designId)) return Response.json({ error: "That doesn't look like a Canva design link." }, { status: 400 });
 
-        const meta = await canvaFetch(token, `/designs/${designId}`);
-        if (meta.status === 401 || meta.status === 403) {
-            return Response.json({ error: "Canva refused the portal's token — connect Canva again.", code: "canva_not_configured" }, { status: 501 });
+        let meta = await canvaFetch(token, `/designs/${designId}`);
+        // 401: the token itself is dead even though its stored expiry said otherwise
+        // (Canva revoked it, or it was the legacy pasted token). Refresh once and retry;
+        // when that fails the stored row is gone, so the status call shows Connect Canva.
+        if (meta.status === 401) {
+            const fresh = await recoverRejectedToken(admin);
+            if (!fresh) return reconnect("Canva signed the portal out — press Connect Canva to sign it back in.");
+            token = fresh;
+            meta = await canvaFetch(token, `/designs/${designId}`);
+            if (meta.status === 401) {
+                await dropConnection(admin);
+                return reconnect("Canva signed the portal out — press Connect Canva to sign it back in.");
+            }
+        }
+        // 403 is NOT a bad token. Canva's code says which: a connection made before a scope
+        // was added needs reconnecting; anything else (permission_denied) means the connected
+        // Canva account can't open this design, which reconnecting would never fix.
+        if (meta.status === 403) {
+            if (meta.json.code === "missing_scope") {
+                await dropConnection(admin);
+                return reconnect("The portal's Canva connection is missing a permission — press Connect Canva to grant it.");
+            }
+            return Response.json(
+                {
+                    error: "The Canva account connected to the portal can't open this design. In Canva, share it with that account (or move it into the HiddenGem team), then import again.",
+                },
+                { status: 403 },
+            );
         }
         if (meta.status === 404)
             return Response.json({ error: "Canva can't find that design. Is it shared with the HiddenGem team account?" }, { status: 404 });

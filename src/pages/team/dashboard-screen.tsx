@@ -54,6 +54,9 @@ import {
     filterPrivateClients,
     supabase,
 } from "@/lib/supabase";
+// Only OWNER_EMAIL can UNLOCK edit mode (add/edit/delete cards & clients). Everyone
+// else can view. Requires a real Supabase session — the password bypass has no user.
+import { ACCOUNT_MANAGERS, MARKETING_ASSISTANTS, OWNER_EMAIL, WEB_TEAM } from "@/lib/team-roster";
 // Aliased rather than reusing the slugify above: this must match the slug the dashboard's
 // own "+ New Page" wizard produces, so it uses the same function that wizard does.
 import { slugify as dashboardSlugify, genSharePassword, newDashboardRow } from "@/pages/client/dashboard/dashboard-model";
@@ -66,9 +69,6 @@ import { useTheme } from "@/providers/theme-provider";
 import { compressImageFile } from "@/utils/compress-image";
 import { cx } from "@/utils/cx";
 import { teamPhoto } from "@/utils/team-photos";
-// Only OWNER_EMAIL can UNLOCK edit mode (add/edit/delete cards & clients). Everyone
-// else can view. Requires a real Supabase session — the password bypass has no user.
-import { ACCOUNT_MANAGERS, MARKETING_ASSISTANTS, OWNER_EMAIL, WEB_TEAM } from "@/lib/team-roster";
 
 // Shared team passwords for the sign-in gate — any one of them unlocks viewing.
 // They carry no identity, so they never grant OWNER_EMAIL edit rights below.
@@ -3183,7 +3183,7 @@ const ClientCard = ({
                     clickable && "cursor-pointer hover:shadow-md",
                 )}
             >
-                <div className="relative size-12 shrink-0 overflow-hidden rounded-lg">
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-xl">
                     {client.logo_url ? (
                         <div className="flex size-full items-center justify-center bg-secondary ring-1 ring-secondary">
                             <img src={client.logo_url} alt={`${client.name} logo`} className="size-full object-contain p-1" draggable={false} />
@@ -3192,7 +3192,7 @@ const ClientCard = ({
                         <img src={client.cover_url} alt={client.name} className="size-full object-cover" draggable={false} />
                     ) : (
                         <div className="flex size-full items-center justify-center" style={{ background: gradientFor(client.name || "Client") }}>
-                            <span className="text-lg font-bold text-white/90">{(client.name || "C").charAt(0).toUpperCase()}</span>
+                            <span className="text-xl font-bold text-white/90">{(client.name || "C").charAt(0).toUpperCase()}</span>
                         </div>
                     )}
                 </div>

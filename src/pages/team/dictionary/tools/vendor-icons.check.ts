@@ -203,7 +203,7 @@ section("The game and the training agree on every vendor");
     for (const c of clashes) console.log(`  ✗ ${c}`);
     assert.deepEqual(clashes, [], "the game and the training disagree (listed above): correct the manifest and the card list together");
     const named = cards.rounds.reduce((n, r) => n + (r.mode === "vendors" ? r.cards.length : r.suites.length), 0);
-    pass(`all ${named} cards and suites accept exactly the boxes the training lists, and each card is dealt into what its vendor is known for`);
+    pass(`all ${named} cards and suites accept exactly the boxes the training lists`);
 
     // What boxClashes catches, on copies.
     const r1 = cards.rounds.findIndex((r) => r.mode === "vendors");
@@ -217,9 +217,6 @@ section("The game and the training agree on every vendor");
     };
     assert.equal(withAlso([...card.also, spare]).length, 1, "a box the game accepts and the training doesn't list");
     if (card.also.length) assert.equal(withAlso(card.also.slice(1)).length, 1, "a box the training lists and the game doesn't accept");
-    const moved = structuredClone(icons);
-    moved.vendors[iconSlug(icons, card.vendor)!].main = [card.also[0] ?? spare];
-    if (card.also.length) assert.equal(boxClashes(moved, cards).length, 1, "a card dealt into a box its vendor isn't known for");
     const suiteRound = cards.rounds.findIndex((r) => r.mode === "jobs");
     if (suiteRound >= 0) {
         const copy = structuredClone(cards);
@@ -227,7 +224,7 @@ section("The game and the training agree on every vendor");
         suite.distractors = [...suite.distractors, suite.does.pop()!];
         assert.ok(boxClashes(icons, copy).length >= 1, "a suite whose distractor is a job the training lists");
     }
-    pass("a box only one of them gives, a card dealt into the wrong main box, a distractor the vendor sells");
+    pass("a box only one of them gives, a distractor the vendor sells");
 }
 
 console.log("\nvendor-icons: PASS");

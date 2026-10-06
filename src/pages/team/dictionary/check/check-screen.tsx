@@ -5,6 +5,7 @@ import { Button } from "@/components/base/buttons/button";
 import { ProgressBarBase } from "@/components/base/progress-indicators/progress-indicators";
 import { type CheckAttempt, discardAttempt, finishAttempt, listAnswers, listTermStatus, saveAnswers, startAttempt } from "@/lib/check-attempts";
 import { CheckPage, Notice, PageTitle, SessionFallback } from "@/pages/team/dictionary/check/check-chrome";
+import { clearDraft, readDraft, writeDraft } from "@/pages/team/dictionary/check/check-drafts";
 import {
     type BankItem,
     type CheckMode,
@@ -38,37 +39,6 @@ import { cx } from "@/utils/cx";
  * device restores every answer; on another device, answered screens are marked and can be
  * answered again (decision 1a, 2026-10-01).
  */
-
-/* ── What's typed, kept in this browser ─────────────────────────── */
-
-type Draft = { responses: Record<string, CheckResponse>; at: number };
-const draftKey = (attemptId: string) => `hgm_check_draft:${attemptId}`;
-
-const readDraft = (attemptId: string): Draft => {
-    try {
-        const raw = localStorage.getItem(draftKey(attemptId));
-        const d = raw ? (JSON.parse(raw) as Partial<Draft>) : null;
-        return { responses: d?.responses && typeof d.responses === "object" ? d.responses : {}, at: typeof d?.at === "number" ? d.at : -1 };
-    } catch {
-        return { responses: {}, at: -1 };
-    }
-};
-
-const writeDraft = (attemptId: string, draft: Draft) => {
-    try {
-        localStorage.setItem(draftKey(attemptId), JSON.stringify(draft));
-    } catch {
-        /* storage full or blocked: Supabase still has right or wrong for everything answered */
-    }
-};
-
-const clearDraft = (attemptId: string) => {
-    try {
-        localStorage.removeItem(draftKey(attemptId));
-    } catch {
-        /* nothing to clear */
-    }
-};
 
 /**
  * The screens of a sitting, from its plan cleaned for the current bank (servablePlan). A sitting

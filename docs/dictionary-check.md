@@ -2,11 +2,11 @@
 
 Three pages under the Industry Acumen Dictionary, behind the same team sign-in:
 
-| Route                       | What it is                                                                                               |
-| :-------------------------- | :------------------------------------------------------------------------------------------------------- |
-| `/dictionary/check`         | The check. `?mode=full` (default) or `?mode=missed`.                                                     |
-| `/dictionary/check/results` | The signed-in person's latest finished round: score, grade, and the terms to review as dictionary cards. |
-| `/dictionary/practice`      | Flashcards. `?set=missed` (default) or `?set=all`.                                                       |
+| Route                       | What it is                                                                                                                     |
+| :-------------------------- | :----------------------------------------------------------------------------------------------------------------------------- |
+| `/dictionary/check`         | The check. `?mode=full` (default) or `?mode=missed`.                                                                           |
+| `/dictionary/check/results` | The signed-in person's latest finished round: score, grade, the terms to review as dictionary cards, and "Reset your results". |
+| `/dictionary/practice`      | Flashcards. `?set=missed` (default) or `?set=all`.                                                                             |
 
 The loop: take the check → see the results → practise the missed terms → retake the missed terms
 (or the whole check) → repeat. Each round, fewer terms come back and the score goes up.
@@ -20,6 +20,11 @@ built. Start with its `README.md`.
   below 50) are for fun, and nothing on the pages may read as a problem. The words are "the
   check", never quiz, test or exam, and the pages never show tier labels, item numbers, or "you
   got question 7 wrong".
+- **You can start again from nothing** (Kyle, 6 Oct 2026). "Reset your results", at the foot of the
+  results page and behind a second press, deletes every one of your own rounds, finished or not, and
+  your answers with them, plus this browser's drafts. It needs migration `20261006120000_check_reset.sql`
+  in the database: without it nothing is deleted and the page says "the portal's database needs an
+  update first". The tools check has its own reset, on its own results page (`docs/dictionary-tools.md`).
 - **Nobody sees anyone else's results.** Each person sees only their own sittings and answers.
   A team roll-up (how many people finished, the weakest terms) was specified, then dropped
   (Kyle, 1 Oct 2026): any view across people turns a study aid into something people are
@@ -91,8 +96,9 @@ Everything is in `src/pages/team/dictionary/check/` unless a path is given. The 
 | `use-check-session.ts`                            | One hook that loads the bank, the dictionary, the session and the person's history, and says when it's ready.                                                                                                                                  |
 | `check-chrome.tsx`                                | The page frame, the notice card, the "Continue with Google" card, loading and error states.                                                                                                                                                    |
 | `check-screen.tsx`                                | The check: intro, resume, the round itself, saving, finishing.                                                                                                                                                                                 |
+| `check-drafts.ts`                                 | What's typed, kept in this browser per round (read, write, clear, and clear every round's for a reset).                                                                                                                                        |
 | `check-questions.tsx`                             | One screen's question and inputs, for all seven item types.                                                                                                                                                                                    |
-| `check-results-screen.tsx`                        | The results page.                                                                                                                                                                                                                              |
+| `check-results-screen.tsx`                        | The results page, and "Reset your results".                                                                                                                                                                                                    |
 | `practice-screen.tsx`                             | The flashcards.                                                                                                                                                                                                                                |
 | `check-links.tsx`                                 | The buttons under the dictionary's heading.                                                                                                                                                                                                    |
 | `src/lib/check-attempts.ts`                       | Every Supabase call the check makes.                                                                                                                                                                                                           |
@@ -137,14 +143,16 @@ blanked. Then it prints `PASS`, or the list of problems.
 
 ## Supabase
 
-One migration: `supabase/migrations/20261001120000_dictionary_check.sql`. Its opening comment
-explains every rule. In short:
+Two migrations: `supabase/migrations/20261001120000_dictionary_check.sql`, whose opening comment
+explains every rule, and `20261006120000_check_reset.sql`, which adds one policy for "Reset your
+results". In short:
 
 - **`check_attempts`**: one row per round: mode, bank version, the plan (the questions and
   versions in order, so a resumed round looks the same on any device), and the score it left
   you with. You can read and start your own. You can finish your own while it's open, and only
-  the four columns that finish it. You can delete your own while it's open ("Start again"). A
-  unique index allows one open round per person.
+  the four columns that finish it. You can delete your own while it's open ("Start again"), and,
+  with the reset migration, your own finished ones too ("Reset your results"); answers go with them
+  (ON DELETE CASCADE). A unique index allows one open round per person.
 - **`check_answers`**: one row per term per answer: question, version, right or wrong. Rows are
   only ever added. Changing an answer adds a newer row, and the newest wins. You can add rows
   only to your own open round.
@@ -165,6 +173,12 @@ Two triggers do what a policy can't:
 The policies were tested before they shipped, against the migration file in real Postgres
 (PGlite), with two users, a non-team Google account and anon. 37 cases passed, and a copy of
 the migration without `security_invoker` correctly failed the "B can't see A's status" case.
+The reset policy was tested the same way on 6 Oct 2026, with and without its migration (18
+cases): you can delete your own finished round and its answers and status go with it; another
+user, a non-team account and anon delete nothing; without the migration, finished rounds stay.
+
+**The reset migration has to be run by hand** in the Supabase SQL editor, as the first one was:
+paste `supabase/migrations/20261006120000_check_reset.sql` and run it. It's re-runnable.
 
 ## When something's wrong
 

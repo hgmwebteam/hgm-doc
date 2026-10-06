@@ -1,13 +1,14 @@
-# The tools: Sort the stack and the tools training
+# The tools: the tools check (Sort the stack) and the tools training
 
-Three pages next to the Industry Acumen Dictionary's check. The game is built from Sort the stack's
+Four pages next to the Industry Acumen Dictionary's check. The game is built from Sort the stack's
 card list; the training from the vendor icons' manifest, worded with the card list's boxes:
 
-| Route                        | Sign-in | What it is                                                                                                                                       |
-| :--------------------------- | :------ | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/dictionary/tools/review`   | Team    | "Review the tools": Sort the stack, the three-round drag-and-drop sort, in the dictionary's Docs frame.                                          |
-| `/dictionary/tools/practice` | Team    | "Practise the tools": the tools training, flashcards of the vendors on the session 2 tools slides (43; Google is left out, see below). Open now. |
-| `/acumen-sort`               | None    | The same game with no sign-in: the live training session's backup, in a plain frame with no team chrome.                                         |
+| Route                              | Sign-in | What it is                                                                                                                                                       |
+| :--------------------------------- | :------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/dictionary/tools/review`         | Team    | The tools check: Sort the stack, the three-round drag-and-drop sort, in the dictionary's Docs frame. A finished run is kept in this browser.                     |
+| `/dictionary/tools/review/results` | Team    | The tools check's results: this browser's latest run, its score and grade, the tools to refresh on, and "Reset your tools results".                              |
+| `/dictionary/tools/practice`       | Team    | "Practise the tools": the tools training, flashcards of the vendors on the session 2 tools slides (43; Google is left out). `?set=missed`: the tools to refresh. |
+| `/acumen-sort`                     | None    | The same game with no sign-in: the live training session's backup, in a plain frame with no team chrome. It keeps nothing.                                       |
 
 `?present` works on both game routes: large type, **Round 1 / 2 / 3** tabs and **Show answers**, full
 width for screen sharing. On `/dictionary/tools/review?present` the Docs frame drops away but TeamGate
@@ -33,9 +34,12 @@ Kyle's decisions of 2 Oct 2026). The vendor check of the same day is
   to build if any card in the data has verify: true". There is no bypass in the pages, on purpose. The
   training doesn't wait (Kyle, 5 Oct 2026): it's built from the manifest, not the unchecked cards.
   Since card list 2.1 (6 Oct 2026) nothing is waiting and the game plays (see "The card list since 2.1").
-- **Nothing is stored or sent.** The game and the deck live in component state; a refresh starts
-  clean. After the page itself the only requests are two lazy chunks (the card list and the icon
-  manifest) and the icons, which are static files on this site. On the gated routes the Docs frame is
+- **Nothing is sent.** The game and the deck live in component state; a refresh starts clean. The
+  one thing kept is the tools check's record, in this browser only (`localStorage`, key
+  `hgm_tools_check`; Kyle, 6 Oct 2026), so slide 44's "Nothing leaves your device" stays true and
+  team-password visitors can use it too. `/acumen-sort` and `?present` keep nothing. After the page
+  itself the only requests are two lazy chunks (the card list and the icon manifest) and the icons,
+  which are static files on this site. On the gated routes the Docs frame is
   shared chrome: its header search reads client lists from Supabase when someone focuses it, as on
   every Docs page. `/acumen-sort` and `?present` have no such chrome.
 - **The wording is the card list's.** Titles, round titles, box names and job lines, notes, the
@@ -78,6 +82,13 @@ Kyle's decisions of 2 Oct 2026). The vendor check of the same day is
 
 The rules are `sort-model.ts`; the gestures are the shared `drag-board.tsx`.
 
+- **No two runs are the same** (card list 3.0). Each box's cards in the card list are a pool, and so
+  are round 3's suites: every run deals `per_box` (three) from each box's pool and `per_run` (three)
+  of the suites (`drawRun`), and the game plays that drawn copy as if it were the whole list. Pools
+  today: PMS 6, Channel manager 6, Booking engine 5, Dynamic pricing 6, Rate shopping 5, CRM 6, Guest
+  messaging 6, Upsell 4, and 6 suites. A box's pool takes any vendor that sells the job, so a suite
+  can be dealt as a channel manager (Guesty, Cloudbeds); it's right in every box it sells either way.
+  **Start over** deals a new run; **Try again** and `?present`'s round tabs reshuffle the same one.
 - **Rounds 1 and 2** (`mode: "vendors"`): twelve vendor cards in a shuffled tray, four boxes that
   each take exactly `per_box` (three). A full box refuses a fourth card, visibly and aloud, and
   while a card from elsewhere is carried it doesn't show the "can go here" outline.
@@ -94,8 +105,31 @@ The rules are `sort-model.ts`; the gestures are the shared `drag-board.tsx`.
   answers; the tally ("10 of 12") takes it after Check my stack. The heading carries where the board
   is ("Round 3 of 3 · Suite 2 of 3", as its description) and, in round 3, the suite's name, since
   the three suites share one title.
-- **Show answers** (`?present`): every card in its box with its note; in round 3, all the suites
-  with their jobs and notes, and the finish line.
+- **Show answers** (`?present`): every card the run dealt, in its box with its note; in round 3,
+  the run's suites with their jobs and notes, and the finish line.
+
+## The tools check's results
+
+On `/dictionary/tools/review` (not `?present`, not `/acumen-sort`), a run is the tools check. When
+the last board is checked it's kept in this browser (`tools-results-model.ts`) and **See your
+results** opens `/dictionary/tools/review/results`, laid out like the terms check's results.
+
+- **The score**: each vendor card a point, right or not; each suite a point shared over its jobs (5
+  of 7 right is 5/7 of a point). The grade is the terms check's Ontario scale, for fun and never a
+  pass mark; an R comes with "These names take a few rounds. Practise the ones below and try again."
+  Under it, "Up 4% since last time · 2 fewer tools to refresh" against the run before.
+- **The tools to refresh on**: each vendor's latest result across runs (a suite counts as right only
+  with every job right; a name shown twice in a run takes the later board). Each shows its logo, what
+  it falls under, what else it sells, and the game's note. Since every run deals different tools, the
+  list shrinks as they come round again right. `?set=missed` on the training deals just these.
+- **Checking the last board again** (Try again, then Check my stack) replaces the run it saved rather
+  than adding one. The latest 20 runs are kept.
+- **Reset your tools results**, at the bottom, behind a second press, clears this browser's record.
+- **A browser that won't keep it** (a private window, storage turned off) gets a line saying there's
+  no results page this time, and the game plays as before.
+- The dictionary's buttons follow it: "Take the tools check", then "Retake the tools check" and "3
+  tools to refresh" (to the results) once this browser has a run, and "Practise the tools" opens the
+  missed set while there are any.
 
 ## The tools training
 
@@ -135,12 +169,29 @@ sides), so it shows no "Show first" picker.
   CRMs). Google's icons are gone from `public/vendor-icons/`. Mews' pink tile is marked identified. It
   also adds `main` to every vendor and completes every vendor's `categories`. Upload this copy to the
   Claude project in place of its master before the next copy comes in, or that copy will undo all of it.
+- **The Tech Stack Guide wins (manifest 1.3).** The guide PDF (v2.1, on `/dictionary` under
+  Resources) left out four boxes that rested on thin evidence: WebRezPro's dynamic pricing, Lodgify's
+  upsell, Lighthouse's PMS and HubSpot's guest messaging. Kyle chose the guide (6 Oct), so 1.3 drops
+  them, and the training, the game and the guide agree.
 - **The game and the training can't disagree.** `boxClashes` (`vendor-icons.ts`) lists every card or
   suite whose accepted boxes (box plus `also`, or `does`) aren't exactly its vendor's `categories`,
-  every card dealt into a box that isn't its vendor's `main`, and every distractor its vendor sells.
+  and every distractor its vendor sells. A card's box is only the pool it's dealt from, so it needn't
+  be the vendor's `main`.
   `vendor-icons.check.ts` fails on any of them, so a vendor is corrected in both files at once. The
   Amadeus entry covers two products, so its iHotelier card may accept fewer boxes than the entry. The
   pages don't run it: a clash is a content question, caught by the check before it ships.
+
+## The card list since 3.0
+
+3.0 (6 Oct 2026) makes every box a pool and round 3 a pool of suites, dealt per run (above): 23 cards
+in round 1, 21 in round 2, 6 suites with `per_run: 3`. The new cards and suites (RMS Cloud, Little
+Hotelier, Hostaway, Guesty, Cloudbeds, WebRezPro, Beyond, Duetto, RoomPriceGenie, Atomize, KeyData,
+STR, Amadeus Demand360, HubSpot, Mailchimp, Klaviyo, Akia, Enso Connect, Kipsu, Plusgrade; suites
+Little Hotelier, Newbook and Revinate) take their boxes from the manifest and their notes from the 5
+Oct vendor check, with the vendor's own pages as sources. RateGain moved to round 1's channel-manager
+pool. Rate shopping's job line became "Shows what nearby properties charge, and how the market is
+doing", so it's true for the benchmarking tools too (STR, KeyData, Demand360). `sortProblems` now asks
+for at least `per_box` cards a box, and `per_run` no more than the suites there are.
 
 ## The card list since 2.2
 
@@ -222,26 +273,28 @@ on white and in dark mode), made in the Claude project on 5 Oct 2026: the kit's 
 
 Everything is in `src/pages/team/dictionary/tools/` unless a path is given.
 
-| File                                       | What it holds                                                                                                                                                            |
-| :----------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sort-model.ts`                            | The card list's shape, `sortProblems` (the validator, in plain sentences), `unverified` (the gate), the boards, moving and marking, the tally. No React. **Start here.** |
-| `sort-model.check.ts`                      | The brief's `check-cards.js`: the real list's shape, the rules on a verified copy, and the gate last.                                                                    |
-| `vendor-icons.ts`                          | The manifest's shape, `iconUrl` and `iconSlug` (a vendor's icon by name), and the training: `trainingProblems` and `trainingCards`. No React.                            |
-| `vendor-icons.check.ts`                    | The icons and the training against the card list, the files on disk, and the slides-versus-game notes. Never reads verify.                                               |
-| `tools-data.ts`                            | `useToolsData()`: the card list and the manifest as two lazy chunks. Never import either JSON statically.                                                                |
-| `sort-stack.tsx`                           | The game (`SortStack`), its gate (`SortCardsGate`: loading, broken, waiting on verify), `VendorIcon` and `preloadIcon`, and the plain frame (`StandaloneFrame`).         |
-| `tools-review-screen.tsx`                  | `/dictionary/tools/review`: TeamGate and the Docs frame, or TeamGate and the plain frame for `?present`.                                                                 |
-| `acumen-sort-screen.tsx`                   | `/acumen-sort`: the plain frame, no gate. `"acumen-sort"` is in `RESERVED_SLUGS` (`src/pages/templates/template-one-screen.tsx`).                                        |
-| `tools-practice-screen.tsx`                | `/dictionary/tools/practice`: the training's faces, on `FlashcardDeck` (`../flashcards.tsx`), with its own pause for a broken list or manifest.                          |
-| `../drag-board.tsx`                        | The shared drag and drop (also the check's matching and sorting questions).                                                                                              |
-| `src/data/industry-acumen-sort-cards.json` | The card list. Its master is the Claude project file named in `source_of_copy`: edit there, then copy it in. 2.1 was edited here (above).                                |
-| `src/data/vendor-icons.json`               | The icon manifest, a copy of the Claude project's `vendor-icons-manifest.json`, replaced whole. 1.1 leads the master (above).                                            |
-| `public/vendor-icons/`                     | The icons: `128/` and `512/`, one PNG per slug.                                                                                                                          |
+| File                                       | What it holds                                                                                                                                                                                      |
+| :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sort-model.ts`                            | The card list's shape, `sortProblems` (the validator, in plain sentences), `unverified` (the gate), `drawRun` (a run's deal), the boards, moving and marking, the tally. No React. **Start here.** |
+| `sort-model.check.ts`                      | The brief's `check-cards.js`: the real list's shape, a run's draw, the rules on a drawn run, and the gate last.                                                                                    |
+| `tools-results-model.ts`                   | The tools check's results: a board's result, the score, the tools to refresh, this browser's record (read, write, clear). Pinned by `tools-results-model.check.ts`.                                |
+| `tools-results-screen.tsx`                 | `/dictionary/tools/review/results`: the score and grade, the tools to refresh on, "Reset your tools results".                                                                                      |
+| `vendor-icons.ts`                          | The manifest's shape, `iconUrl` and `iconSlug` (a vendor's icon by name), and the training: `trainingProblems` and `trainingCards`. No React.                                                      |
+| `vendor-icons.check.ts`                    | The icons and the training against the card list, the files on disk, and the slides-versus-game notes. Never reads verify.                                                                         |
+| `tools-data.ts`                            | `useToolsData()`: the card list and the manifest as two lazy chunks. Never import either JSON statically.                                                                                          |
+| `sort-stack.tsx`                           | The game (`SortStack`), its gate (`SortCardsGate`: loading, broken, waiting on verify), `VendorIcon` and `preloadIcon`, and the plain frame (`StandaloneFrame`).                                   |
+| `tools-review-screen.tsx`                  | `/dictionary/tools/review`: TeamGate and the Docs frame, or TeamGate and the plain frame for `?present`.                                                                                           |
+| `acumen-sort-screen.tsx`                   | `/acumen-sort`: the plain frame, no gate. `"acumen-sort"` is in `RESERVED_SLUGS` (`src/pages/templates/template-one-screen.tsx`).                                                                  |
+| `tools-practice-screen.tsx`                | `/dictionary/tools/practice`: the training's faces, on `FlashcardDeck` (`../flashcards.tsx`), with its own pause for a broken list or manifest.                                                    |
+| `../drag-board.tsx`                        | The shared drag and drop (also the check's matching and sorting questions).                                                                                                                        |
+| `src/data/industry-acumen-sort-cards.json` | The card list. Its master is the Claude project file named in `source_of_copy`: edit there, then copy it in. 2.1 to 3.0 were edited here (above).                                                  |
+| `src/data/vendor-icons.json`               | The icon manifest, a copy of the Claude project's `vendor-icons-manifest.json`, replaced whole. 1.1 to 1.3 lead the master (above).                                                                |
+| `public/vendor-icons/`                     | The icons: `128/` and `512/`, one PNG per slug.                                                                                                                                                    |
 
 ## Changing the card list
 
 1. Edit the master (see `source_of_copy`), then copy it over `src/data/industry-acumen-sort-cards.json`
-   whole. Don't hand-edit the copy. (2.1 and 2.2 are the exceptions, made here at Kyle's request: until the
+   whole. Don't hand-edit the copy. (2.1 to 3.0 are the exceptions, made here at Kyle's request: until the
    master has them, a new copy would undo them, so compare before replacing.) A vendor's boxes live in
    both files: change its card's `also` (or suite's `does`) and its manifest `categories` together.
 2. To clear a card for play: check its box and note against the vendor's own site, set `verify` to
@@ -266,11 +319,16 @@ npx esbuild src/pages/team/dictionary/tools/vendor-icons.check.ts --bundle \
   --platform=node --format=cjs --alias:@=./src --outfile=/tmp/hgm-check/vendor-icons.cjs \
   --log-level=warning && node /tmp/hgm-check/vendor-icons.cjs
 
+# The tools check's score, tools to refresh and this browser's record.
+npx esbuild src/pages/team/dictionary/tools/tools-results-model.check.ts --bundle \
+  --platform=node --format=cjs --alias:@=./src --outfile=/tmp/hgm-check/tools-results-model.cjs \
+  --log-level=warning && node /tmp/hgm-check/tools-results-model.cjs
+
 npx tsc -b
 ```
 
 The rule tests work by role (the first card of the first box, the first suite, the first vendor) on
-copies of the data, so correcting cards doesn't break them. `vendor-icons.check.ts` fails when the
+copies of the data (the game's rules on one drawn run), so correcting cards doesn't break them. `vendor-icons.check.ts` fails when the
 manifest's eight boxes aren't exactly the card list's (in any order: the card list's order is the
 game's number keys, the slides' is the training's), a vendor has no name, alt or box, an icon's PNG
 is missing or the wrong size, a `card_name_to_slug` entry names no vendor, or a card or suite in the
@@ -281,13 +339,15 @@ card list has no icon, a vendor has no main box, or the game and the training di
 
 - QR codes: `reference/industry-acumen-sort/qr-acumen-sort.png` (https://hgmportal.com/acumen-sort, no
   sign-in, for the room) and `qr-acumen-sort-team.png` (https://hgmportal.com/dictionary/tools/review).
-- Present from `/dictionary/tools/review?present` or `/acumen-sort?present`.
+- Present from `/dictionary/tools/review?present` or `/acumen-sort?present`. Every run is dealt fresh,
+  so the room and the presenter see different cards; slide 46's fixed answers no longer match a run
+  (`reference/industry-acumen-sort/slide-corrections-2026-10-06.md`).
 
 ## UI strings the code adds
 
 Everything else is the data's, or the brief's own words ("Round 1 of 3", "3 of 3", "n jobs", "Check my
 stack", "Try again", "Next", "Start over", "Show answers", "Round 1 / 2 / 3", the also line, "10 of
-12"), or Kyle's ("Review the tools", "Practise the tools", "Does:", "Back to the dictionary").
+12"), or Kyle's ("Practise the tools", "Does:", "Back to the dictionary").
 
 - On the board: "Suite 1 of 3"; "Right" and "Wrong", and after them in round 3 "SiteMinder does this"
   / "SiteMinder doesn't do this" (the suite's name); "Box: …" (the right box on a card that isn't in
@@ -305,6 +365,15 @@ stack", "Try again", "Next", "Start over", "Show answers", "Round 1 / 2 / 3", th
   "The vendor icons' manifest has a problem, so the training is paused until it's fixed.") / "What
   needs fixing"; "The cards couldn't load" (with the check's reload line and button); "Loading…".
 - The plain frame's logo, whose alt text is "HiddenGem Media".
+- The tools check: "Take the tools check" / "Retake the tools check", "3 tools to refresh"; on the last
+  board "See your results" and, when storage is blocked, "This browser won't keep your results (a
+  private window, or storage turned off), so there's no results page this time."; on the results page
+  "Your tools results", "Thanks for completing the tools check.", "Score", "Grade", the R line,
+  "Kept in this browser only.", "Practise the tools to refresh" / "Practise all the tools", "Retake
+  the tools check", "Tools to refresh on" / "Nothing to refresh", its count line, "Falls under:",
+  "Also sells:", "You've got every tool you've been dealt right.", "You haven't finished the tools
+  check yet", "Reset your tools results", "Reset your tools results?", its line, "Reset them" / "Keep
+  them"; on the training's missed set its intro, "See your results", and "Nothing to refresh on".
 - The training: the title "Time to practise the tools."; the intro "43 cards: a tool's logo and name,
   then what it falls under and what else it sells." (the count is the manifest's); the face labels
   "Vendor" and "Falls under"; "Also sells" over the rest of a vendor's boxes;

@@ -509,6 +509,89 @@ const AddTabRow = ({ onAdd }: { onAdd: (label: string) => void }) => {
     );
 };
 
+/* The side menu's width is the viewer's own preference, shared by every department so the
+   menu doesn't jump between them. Drag its right edge, arrow keys on the focused edge, or
+   double-click to reset. */
+const SIDE_MENU_WIDTH_KEY = "dashboard-side-menu-width";
+const SIDE_MENU_MIN = 200;
+const SIDE_MENU_MAX = 480;
+const SIDE_MENU_DEFAULT = 240;
+
+const clampSideMenu = (w: number) => Math.min(SIDE_MENU_MAX, Math.max(SIDE_MENU_MIN, Math.round(w)));
+
+const readSideMenuWidth = () => {
+    try {
+        const n = Number(localStorage.getItem(SIDE_MENU_WIDTH_KEY));
+        return n ? clampSideMenu(n) : SIDE_MENU_DEFAULT;
+    } catch {
+        return SIDE_MENU_DEFAULT;
+    }
+};
+
+const ResizableSideMenu = ({ children }: { children: ReactNode }) => {
+    const [width, setWidth] = useState(readSideMenuWidth);
+    const widthRef = useRef(width);
+
+    const apply = (w: number, persist: boolean) => {
+        widthRef.current = clampSideMenu(w);
+        setWidth(widthRef.current);
+        if (!persist) return;
+        try {
+            localStorage.setItem(SIDE_MENU_WIDTH_KEY, String(widthRef.current));
+        } catch {
+            /* private window: the width just won't be remembered */
+        }
+    };
+
+    const onPointerDown = (e: React.PointerEvent) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = widthRef.current;
+        const move = (ev: PointerEvent) => apply(startWidth + ev.clientX - startX, false);
+        const up = () => {
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            apply(widthRef.current, true);
+        };
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+    };
+
+    const onKeyDown = (e: React.KeyboardEvent) => {
+        const step = e.shiftKey ? 40 : 10;
+        if (e.key === "ArrowLeft") apply(widthRef.current - step, true);
+        else if (e.key === "ArrowRight") apply(widthRef.current + step, true);
+        else if (e.key === "Home") apply(SIDE_MENU_MIN, true);
+        else if (e.key === "End") apply(SIDE_MENU_MAX, true);
+        else return;
+        e.preventDefault();
+    };
+
+    return (
+        <aside style={{ width }} className="relative flex h-full shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+            {children}
+            <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize menu"
+                aria-valuenow={width}
+                aria-valuemin={SIDE_MENU_MIN}
+                aria-valuemax={SIDE_MENU_MAX}
+                tabIndex={0}
+                title="Drag to resize · double-click to reset"
+                onPointerDown={onPointerDown}
+                onKeyDown={onKeyDown}
+                onDoubleClick={() => apply(SIDE_MENU_DEFAULT, true)}
+                className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize touch-none transition duration-100 ease-linear outline-none hover:bg-brand-solid/40 focus-visible:bg-brand-solid"
+            />
+        </aside>
+    );
+};
+
 const Sidebar = ({
     department,
     tabs,
@@ -540,7 +623,7 @@ const Sidebar = ({
     animate?: boolean;
 }) => {
     return (
-        <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+        <ResizableSideMenu>
             {/* Department header */}
             <div className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary px-5">
                 <h2 className="text-md font-semibold text-primary">{department.header}</h2>
@@ -632,7 +715,7 @@ const Sidebar = ({
                     </div>
                 ))}
             </nav>
-        </aside>
+        </ResizableSideMenu>
     );
 };
 
@@ -3527,7 +3610,7 @@ const ClientListContent = ({ editing, navCollapsed = false, onCollapse }: { edit
         <>
             {/* Client List sidebar (tier + AM grouping) */}
             {!navCollapsed && (
-                <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+                <ResizableSideMenu>
                     <div className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary px-5">
                         <h2 className="text-md font-semibold text-primary">Client List</h2>
                         {onCollapse && <NavCollapseButton onClick={onCollapse} />}
@@ -3568,7 +3651,7 @@ const ClientListContent = ({ editing, navCollapsed = false, onCollapse }: { edit
                             </SidebarGroup>
                         </motion.div>
                     </nav>
-                </aside>
+                </ResizableSideMenu>
             )}
 
             {/* Main */}

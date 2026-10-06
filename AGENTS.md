@@ -69,6 +69,27 @@ Every image-upload handler MUST go through `compressImageFile()` from `src/utils
 
 All UI is built on React Aria Components using the compound pattern (`Select.Item`, `Select.ComboBox`). Match existing component structure and add size/color variants. Reference: [.claude/rules/components.md](.claude/rules/components.md).
 
+### Untitled UI PRO first — research before you build
+
+Before building or redesigning any page, section or component, check Untitled UI PRO. This machine has a
+PRO licence (`~/.untitledui/config.json`), so PRO components, page templates and `@untitledui-pro/icons`
+are all available. Hand-write only what PRO has no match for.
+
+1. **Search** — `npx untitledui@latest search "<what you need>"`. It returns components and full page
+   templates (e.g. `dashboards-02/10`, `informational-02/06`).
+2. **Preview templates outside the repo.** `npx untitledui@latest example <template>` writes files and
+   installs packages. Run it in a scratch copy of the project, read the template there, and bring over only
+   the parts you use.
+3. **Add one component at a time** — `npx untitledui@latest add <component> --yes`.
+4. **Run `git diff` after every `add`.** The CLI quietly overwrites shared vendored files with newer
+   versions. It has rewritten `src/components/base/buttons/button.tsx` (a different props API that every
+   page depends on), `tooltip.tsx`, `src/utils/is-react-component.ts` and `package.json`. Revert any shared
+   file it touched (`git checkout -- <file>`) and keep only the new component's folder, unless a site-wide
+   Untitled upgrade was asked for.
+5. **Say what you used** — name the PRO components or template behind a change, or why none fit.
+
+Outside references (Mobbin, other sites) come after PRO: for layout ideas, not for components.
+
 ## Commands
 
 ```bash

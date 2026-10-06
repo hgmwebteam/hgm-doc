@@ -40,6 +40,7 @@ import {
     firstStageOf,
     fullLine,
     gameStages,
+    jobFact,
     jobsLine,
     markBoard,
     markJob,
@@ -369,13 +370,23 @@ section("Round 3: one suite, many jobs");
     assert.deepEqual(markJob(stage.suite, does[does.length - 1], false), { right: false, also: false });
     assert.equal(doesLine([J.jobs[0], J.jobs[1]]), `Does: ${J.jobs[0].name}, ${J.jobs[1].name}`, "the line under a checked suite");
 
+    // A mark alone on a job left out read backwards ("CRM ✓ Right" as "the suite does CRM"), so the
+    // jobs left out, and the wrong ones put in, say outright whether the suite does them.
+    assert.equal(jobFact(stage.suite, does[0], true), "", "a job rightly in the suite needs nothing more");
+    assert.equal(jobFact(stage.suite, distractors[0], true), `${vendor} doesn't do this`, "a job wrongly put in");
+    assert.equal(jobFact(stage.suite, distractors[0], false), `${vendor} doesn't do this`, "a job rightly left out");
+    assert.equal(jobFact(stage.suite, does[0], false), `${vendor} does this`, "a job wrongly left out");
+
     for (const s of stages.filter((x) => x.kind === "jobs")) {
         assert.ok(s.kind === "jobs");
         let b = newBoard(s, random);
         for (const job of s.suite.does) b = place(b, s, job, SUITE);
         assert.equal(tallyLine(tally(markBoard(s, b))), `${b.order.length} of ${b.order.length}`, `${s.suite.vendor}: its own jobs in, the rest left out`);
     }
-    pass(`the tray is marked too (${vendor}: ${2 + distractors.length - 1} of ${total}); every suite can be got fully right; its Does: line`);
+    pass(
+        `the tray is marked too (${vendor}: ${2 + distractors.length - 1} of ${total}); every suite can be got fully right; its Does: line; ` +
+            `a job left out says "${vendor} does this" or "${vendor} doesn't do this"`,
+    );
 }
 
 /* ── 4. The gate ────────────────────────────────────────────────── */

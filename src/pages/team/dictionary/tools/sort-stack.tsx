@@ -21,6 +21,7 @@ import {
     firstStageOf,
     fullLine,
     gameStages,
+    jobFact,
     jobsLine,
     markBoard,
     moveCard,
@@ -317,8 +318,8 @@ const VendorResult = ({
     );
 };
 
-/** A job card in round 3 after checking, in the suite or left in the tray. */
-const JobResult = ({ name, mark, large }: { name: string; mark: Mark; large: boolean }) => (
+/** A job card in round 3 after checking, in the suite or left out, with what its mark means for the suite (`jobFact`). */
+const JobResult = ({ name, mark, fact, large }: { name: string; mark: Mark; fact: string; large: boolean }) => (
     <span
         className={cx(
             "inline-flex min-h-11 flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg bg-primary px-3.5 py-2 font-medium text-primary shadow-xs ring-1 ring-primary ring-inset",
@@ -327,6 +328,12 @@ const JobResult = ({ name, mark, large }: { name: string; mark: Mark; large: boo
     >
         {name}
         <MarkPill mark={mark} large={large} />
+        {fact && (
+            <span className={cx("font-normal text-secondary", large ? "text-lg" : "text-sm")}>
+                <span className="sr-only">. </span>
+                {fact}
+            </span>
+        )}
     </span>
 );
 
@@ -797,7 +804,15 @@ const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo
                                 <ul className="flex flex-wrap gap-2">
                                     {inSuite.map((id) => {
                                         const mark = marks?.get(id);
-                                        return <li key={id}>{mark ? <JobResult name={label(id)} mark={mark} large={large} /> : chip(id, SUITE)}</li>;
+                                        return (
+                                            <li key={id}>
+                                                {mark ? (
+                                                    <JobResult name={label(id)} mark={mark} fact={jobFact(stage.suite, id, true)} large={large} />
+                                                ) : (
+                                                    chip(id, SUITE)
+                                                )}
+                                            </li>
+                                        );
                                     })}
                                 </ul>
                             ) : (
@@ -813,16 +828,17 @@ const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo
                     </>
                 )}
 
-                {/* Checked: round 3's tray stays on the page, marked, since a job the suite does left here is wrong. */}
+                {/* Checked: round 3's jobs left in the tray stay on the page as "Left out", marked, since a job the
+                    suite does left out is wrong. Each says whether the suite does it: a mark alone read backwards. */}
                 {marks && stage.kind === "jobs" && tray.length > 0 && (
                     <div className="mt-5">
                         <p id={trayLabelId} className={cx("font-medium text-tertiary", large ? "text-md" : "text-sm")}>
-                            Tray
+                            Left out
                         </p>
                         <div role="group" aria-labelledby={trayLabelId} className="mt-2 flex flex-wrap gap-2">
                             {tray.map((id) => {
                                 const mark = marks.get(id);
-                                return mark && <JobResult key={id} name={label(id)} mark={mark} large={large} />;
+                                return mark && <JobResult key={id} name={label(id)} mark={mark} fact={jobFact(stage.suite, id, false)} large={large} />;
                             })}
                         </div>
                     </div>

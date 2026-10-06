@@ -67,9 +67,12 @@ Kyle's decisions of 2 Oct 2026). The vendor check of the same day is
 - **Focus is never hidden under the pinned bar.** A box's heading and the cards in it keep the bar's
   height clear below them (`scroll-margin-bottom`, from the bar's measured height), so Tab and a
   keyboard move scroll them out from under it.
-- **After "Check my stack"** cards are locked until "Try again" (which reshuffles). Round 3's tray
-  stays on the page, marked: a job the suite does left in the tray is wrong, a distractor left there
-  is right. Every mark is an icon and a word, never colour alone, and never a vendor icon's colour.
+- **After "Check my stack"** cards are locked until "Try again" (which reshuffles). Round 3's jobs
+  left in the tray stay on the page under **Left out**, marked: a job the suite does left out is
+  wrong, a distractor left out is right. Each job left out, and each wrong one put in, also says
+  whether the suite does it ("SiteMinder does this" / "SiteMinder doesn't do this", `jobFact`): a mark
+  alone on a job left out read backwards, "CRM ✓ Right" as "SiteMinder does CRM" (Kyle, 6 Oct). Every
+  mark is an icon and a word, never colour alone, and never a vendor icon's colour.
 
 ## How it plays
 
@@ -271,9 +274,10 @@ Everything else is the data's, or the brief's own words ("Round 1 of 3", "3 of 3
 stack", "Try again", "Next", "Start over", "Show answers", "Round 1 / 2 / 3", the also line, "10 of
 12"), or Kyle's ("Review the tools", "Practise the tools", "Does:", "Back to the dictionary").
 
-- On the board: "Suite 1 of 3"; "Right" and "Wrong"; "Box: …" (the right box on a card that isn't in
+- On the board: "Suite 1 of 3"; "Right" and "Wrong", and after them in round 3 "SiteMinder does this"
+  / "SiteMinder doesn't do this" (the suite's name); "Box: …" (the right box on a card that isn't in
   it); "1 job" (the singular of "n jobs"); "PMS already has 3 cards. Move one out first."; "Tray"
-  (the tray's button and name, and the label over round 3's marked tray).
+  (the tray's button and name); "Left out" (the label over round 3's marked jobs left out).
 - Read to a screen reader only: "Mews in PMS, 2 of 3.", "PMS in Cloudbeds.", "Mews back in the tray.",
   and round 3's heading with its suite, "One suite, many jobs: Cloudbeds" (the card list's title and
   suite name, joined by a colon). drag-board.tsx, shared with the check, adds its own: picked up, put

@@ -317,6 +317,18 @@ export const markVendor = (card: VendorCard, at: string | null): Mark => {
 /** A job is right in the suite when the suite does it, and right left in the tray when it doesn't. */
 export const markJob = (suite: Suite, job: string, inSuite: boolean): Mark => ({ right: suite.does.includes(job) === inSuite, also: false });
 
+/**
+ * What a marked job says about the suite, after its "Right" or "Wrong". On a job left out, the mark
+ * alone reads backwards: "CRM ✓ Right" looked like "SiteMinder does CRM" (Kyle, 6 Oct 2026). So a job
+ * left out, or wrongly put in, says outright whether the suite does it. A job rightly in the suite
+ * needs nothing more: "".
+ */
+export const jobFact = (suite: Suite, job: string, inSuite: boolean): string => {
+    const does = suite.does.includes(job);
+    if (inSuite && does) return "";
+    return does ? `${suite.vendor} does this` : `${suite.vendor} doesn't do this`;
+};
+
 /** Every card on a checked board, tray included, marked right or wrong. */
 export const markBoard = (stage: Stage, board: Board): Map<string, Mark> => {
     if (stage.kind === "vendors") return new Map(stage.round.cards.map((c) => [c.vendor, markVendor(c, placeOf(board, c.vendor))]));

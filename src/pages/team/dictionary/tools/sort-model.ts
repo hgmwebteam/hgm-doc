@@ -12,6 +12,10 @@ import { type Random, shuffle } from "@/pages/team/dictionary/check/check-model"
  * `per_box` cards. Round 3 ("jobs") turns it round: one suite at a time is the only box, and
  * the tray is the suite's jobs mixed with any jobs it doesn't do.
  *
+ * Each box's cards are a pool, and round 3's suites too: every run deals `per_box` cards from each
+ * box's pool and `per_run` suites (drawRun), so no two runs are the same. The game then plays the
+ * drawn copy of the card list as if it were the whole list.
+ *
  * THE GATE: while any card or suite says `"verify": true`, nothing plays. The pages show what's
  * waiting and the check script fails (the brief: "Refuse to build if any card in the data has
  * verify: true"). There is no bypass, on purpose.
@@ -29,7 +33,8 @@ export type VendorRound = { id: string; mode: "vendors"; title: string; term_slu
 
 export type SortJob = { id: string; name: string };
 export type Suite = Provenance & { vendor: string; does: string[]; distractors: string[]; note: string };
-export type JobsRound = { id: string; mode: "jobs"; title: string; intro: string; jobs: SortJob[]; suites: Suite[] };
+/** `per_run`: how many of `suites` a run deals, in their list order. Every suite when it's left out. */
+export type JobsRound = { id: string; mode: "jobs"; title: string; intro: string; per_run?: number; jobs: SortJob[]; suites: Suite[] };
 
 export type SortRound = VendorRound | JobsRound;
 
@@ -57,8 +62,9 @@ const quoted = (v: unknown) => `"${String(v)}"`;
 
 /**
  * Everything wrong with a card list, as plain sentences; empty when it's fine to play. The
- * brief's build checks: every card's box is one of its round's boxes, every box holds exactly
- * `per_box` cards, every also names a real box, every suite has at least two jobs. The brief
+ * brief's build checks: every card's box is one of its round's boxes, every box's pool holds at
+ * least `per_box` cards (a run deals that many from it), every also names a real box, every suite
+ * has at least two jobs, and a jobs round deals no more suites than it has. The brief
  * also asked for two distractors a suite, but a suite may now have none: the 5 Oct vendor check
  * found Cloudbeds sells all eight jobs, so its tray is all right answers. It also catches what
  * would break the page (a missing name, a duplicate id, more boxes than number keys). Unchecked
@@ -151,7 +157,7 @@ export const sortProblems = (data: SortData): string[] => {
             });
             if (per !== null)
                 for (const [bid, n] of here)
-                    if (n !== per) say(`${r}: the box ${quoted(names.get(bid))} has ${n} ${n === 1 ? "card" : "cards"}; every box takes ${per}.`);
+                    if (n < per) say(`${r}: the box ${quoted(names.get(bid))} has ${n} ${n === 1 ? "card" : "cards"}; a run deals ${per} from each box.`);
             return;
         }
 
@@ -170,6 +176,9 @@ export const sortProblems = (data: SortData): string[] => {
 
             const suites = listOf(field(round, "suites")) ?? [];
             if (!suites.length) say(`${r} has no suites.`);
+            const perRun = field(round, "per_run");
+            if (perRun !== undefined && !(typeof perRun === "number" && Number.isInteger(perRun) && perRun > 0 && perRun <= suites.length))
+                say(`${r}: per_run must be a whole number from 1 to the number of suites (${suites.length}).`);
             const suiteNames = new Set<string>();
             suites.forEach((suite, k) => {
                 const vendor = field(suite, "vendor");
@@ -218,6 +227,39 @@ export const unverified = (data: SortData): Unverified[] =>
             .filter((e) => e.verify === true)
             .map((e) => ({ vendor: e.vendor, round: i + 1, roundTitle: round.title, ...(e.verify_what ? { what: e.verify_what } : {}) }));
     });
+
+/* ── A run ──────────────────────────────────────────────────────── */
+
+/** `n` of `items`, chosen at random, kept in their list order. */
+const pick = <T>(items: readonly T[], n: number, random: Random): T[] => {
+    const chosen = new Set(shuffle([...items.keys()], random).slice(0, n));
+    return items.filter((_, i) => chosen.has(i));
+};
+
+/**
+ * One run of the game: a copy of the card list with `per_box` cards dealt from each box's pool
+ * and `per_run` of round 3's suites, so every board is solvable (each dealt card's own box has
+ * room for it) and no two runs are the same. Expects sortProblems to have found nothing. A
+ * round's title, boxes and jobs are untouched; only its cards and suites are the drawn ones.
+ */
+export const drawRun = (data: SortData, random: Random): SortData => ({
+    ...data,
+    rounds: data.rounds.map(
+        (round): SortRound =>
+            round.mode === "vendors"
+                ? {
+                      ...round,
+                      cards: round.boxes.flatMap((b) =>
+                          pick(
+                              round.cards.filter((c) => c.box === b.id),
+                              round.per_box,
+                              random,
+                          ),
+                      ),
+                  }
+                : { ...round, suites: pick(round.suites, round.per_run ?? round.suites.length, random) },
+    ),
+});
 
 /* ── Rounds and boards ──────────────────────────────────────────── */
 

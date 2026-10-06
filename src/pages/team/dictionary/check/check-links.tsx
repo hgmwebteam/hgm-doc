@@ -4,6 +4,7 @@ import { Button } from "@/components/base/buttons/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { type CheckAttempt, listAttempts } from "@/lib/check-attempts";
 import { TEAM_DOMAIN } from "@/pages/team/dictionary/check/use-check-session";
+import { TOOLS_RESULTS, readToolsRecord, toRefresh } from "@/pages/team/dictionary/tools/tools-results-model";
 
 /**
  * The check's way in, under the dictionary's heading: "Take the check" and "Practise the
@@ -15,9 +16,12 @@ import { TEAM_DOMAIN } from "@/pages/team/dictionary/check/use-check-session";
  * when the person's own history arrives; a password visitor (no session) keeps them as they
  * are, and the check asks them to sign in.
  *
- * On the right of the same row, the tools: "Review the tools" (Sort the stack) and "Practise
- * the tools" (the tools training: every vendor in the icon manifest), from
- * src/pages/team/dictionary/tools/. On a phone they wrap under the check's buttons.
+ * On the right of the same row, the tools, worded the same way: "Take the tools check" (Sort the
+ * stack), "Retake the tools check" once this browser has a finished run, with "3 tools to refresh"
+ * linking to its results, and "Practise the tools" (the tools training: every vendor in the icon
+ * manifest), from src/pages/team/dictionary/tools/. The tools check is kept in this browser, so
+ * these come from localStorage, not Supabase, and work with the team password too. On a phone
+ * they wrap under the check's buttons.
  */
 
 type Summary = { open: boolean; latest: CheckAttempt | null };
@@ -44,6 +48,13 @@ export const CheckLinks = () => {
         };
     }, [userId]);
 
+    // Read after mount, like the check's history: the first render is the same on every visit.
+    const [tools, setTools] = useState<{ taken: boolean; refresh: number } | null>(null);
+    useEffect(() => {
+        const record = readToolsRecord();
+        setTools({ taken: record.runs.length > 0, refresh: toRefresh(record).length });
+    }, []);
+
     const toReview = summary?.latest?.missed_count ?? 0;
     const checkLabel = summary?.open ? "Resume the check" : summary?.latest ? "Retake the check" : "Take the check";
     const practiseSet = summary?.latest && toReview > 0 ? "missed" : "all";
@@ -65,11 +76,16 @@ export const CheckLinks = () => {
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <Button size="sm" color="secondary" iconLeading={LayersThree01} href="/dictionary/tools/review">
-                    Review the tools
+                    {tools?.taken ? "Retake the tools check" : "Take the tools check"}
                 </Button>
-                <Button size="sm" color="secondary" iconLeading={RefreshCw01} href="/dictionary/tools/practice">
+                <Button size="sm" color="secondary" iconLeading={RefreshCw01} href={`/dictionary/tools/practice${tools?.refresh ? "?set=missed" : ""}`}>
                     Practise the tools
                 </Button>
+                {tools?.taken && tools.refresh > 0 && (
+                    <Button size="sm" color="link-color" href={TOOLS_RESULTS}>
+                        {`${tools.refresh} ${tools.refresh === 1 ? "tool" : "tools"} to refresh`}
+                    </Button>
+                )}
             </div>
         </div>
     );

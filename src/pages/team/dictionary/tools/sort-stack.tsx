@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode, type PointerEvent as ReactPointerEvent, type RefObject, useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowRight, Check, DotsGrid, Eye, Moon01, RefreshCw01, Sun, XClose } from "@untitledui/icons";
+import { AlertCircle, ArrowRight, BarChartSquare02, Check, DotsGrid, Eye, Moon01, RefreshCw01, Sun, XClose } from "@untitledui/icons";
 import { Tabs } from "@/components/application/tabs/tabs";
 import { Button } from "@/components/base/buttons/button";
 import { Notice, PageTitle } from "@/pages/team/dictionary/check/check-chrome";
@@ -18,6 +18,7 @@ import {
     canCheck,
     cardLabel,
     doesLine,
+    drawRun,
     firstStageOf,
     fullLine,
     gameStages,
@@ -38,6 +39,7 @@ import {
     unverified,
 } from "@/pages/team/dictionary/tools/sort-model";
 import { useToolsData } from "@/pages/team/dictionary/tools/tools-data";
+import { type BoardResult, TOOLS_RESULTS, boardResult, finishRun, readToolsRecord, writeToolsRecord } from "@/pages/team/dictionary/tools/tools-results-model";
 import { type VendorIcons, iconSlug, iconUrl } from "@/pages/team/dictionary/tools/vendor-icons";
 import { useTheme } from "@/providers/theme-provider";
 import { cx } from "@/utils/cx";
@@ -47,6 +49,9 @@ import { cx } from "@/utils/cx";
  * /dictionary/tools/review (behind the team sign-in) and /acumen-sort (no sign-in, the live
  * session's backup). The rules are sort-model.ts; the gestures are drag-board.tsx.
  *
+ *   - Every run is dealt from the card list's pools (drawRun): three cards from each box's pool,
+ *     and three of round 3's suites, so no two runs are the same. Start over deals a new run;
+ *     Try again and ?present's round tabs reshuffle the same one.
  *   - Rounds 1 and 2: twelve vendor cards in a shuffled tray, four boxes of exactly three.
  *   - Round 3: one suite at a time is the only box; drag in the jobs it does, leave the rest.
  *   - "Check my stack" marks every card (round 3: the tray too) with an icon and a word, and
@@ -58,7 +63,10 @@ import { cx } from "@/utils/cx";
  * browser fetches the 512 px one only where the screen needs it, ?present included.
  *
  * Every word on the board comes from the card list except the few UI strings below. Nothing is
- * stored or sent: the game lives in this component's state, and a refresh starts clean.
+ * sent: the game lives in this component's state, and a refresh starts clean. On
+ * /dictionary/tools/review (not ?present, not /acumen-sort) a finished run is the tools check:
+ * its result is kept in this browser (tools-results-model.ts) and "See your results" opens
+ * /dictionary/tools/review/results.
  *
  * The tray is pinned to the bottom of the pane with the round's buttons, so the next card is
  * always in reach while the boxes scroll. It stays there, empty or not, for as long as the board
@@ -193,13 +201,22 @@ export const ToolsLoading = ({ title, failed }: { title?: string; failed: boolea
  * verify (the brief's rule). There is no way round it in the page. Over its notice, the page
  * keeps the card list's own title. A card with no icon still plays, without one.
  */
-export const SortCardsGate = ({ present, scrollRef }: { present: boolean; scrollRef: RefObject<HTMLDivElement | null> }) => {
+export const SortCardsGate = ({
+    present,
+    scrollRef,
+    record = false,
+}: {
+    present: boolean;
+    scrollRef: RefObject<HTMLDivElement | null>;
+    /** Keep a finished run in this browser as the tools check, and offer its results page. */
+    record?: boolean;
+}) => {
     const loaded = useToolsData();
     if (loaded.status !== "ready") return <ToolsLoading failed={loaded.status === "failed"} />;
     const { cards, icons } = loaded.data;
     const problems = sortProblems(cards);
     const waiting = problems.length ? [] : unverified(cards);
-    if (!problems.length && !waiting.length) return <SortStack data={cards} icons={icons} present={present} scrollRef={scrollRef} />;
+    if (!problems.length && !waiting.length) return <SortStack data={cards} icons={icons} present={present} scrollRef={scrollRef} record={record} />;
     return (
         <>
             <PageTitle>{cards.title}</PageTitle>
@@ -477,7 +494,7 @@ const BoxFrame = ({
     );
 };
 
-/** After round 3's last suite: the card list's finish line, and back to round 1. */
+/** After round 3's last suite: the card list's finish line, and a new run from round 1. */
 const Finish = ({ line, onStartOver, large }: { line: string; onStartOver: () => void; large: boolean }) => (
     <div className="mt-4 flex flex-col items-start gap-3 border-t border-secondary pt-4">
         <p className={cx("max-w-[60ch] font-medium text-pretty text-primary", large ? "text-xl" : "text-md")}>{line}</p>
@@ -500,6 +517,14 @@ type StageProps = {
     present: boolean;
     scrollRef: RefObject<HTMLDivElement | null>;
     goTo: (index: number) => void;
+    /** Start over: a new run, dealt fresh from the pools, from round 1. */
+    startOver: () => void;
+    /** Every "Check my stack", with the board's result, for the tools check. */
+    onChecked: (at: number, result: BoardResult) => void;
+    /** After the last board is checked: the results page, once the run is saved; null when there's none. */
+    resultsHref: string | null;
+    /** The run couldn't be kept: this browser refuses storage (a private window, or storage turned off). */
+    resultsBlocked: boolean;
     /** Every board but the page's first takes focus on its heading: the button that brought it here is gone. */
     focusOnMount: boolean;
 };
@@ -509,7 +534,21 @@ type StageProps = {
  * Next, Try again, Start over and round tab, so nothing carries over: not a card in hand, not
  * the last announcement, not a refusal.
  */
-const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo, focusOnMount }: StageProps) => {
+const StageBoard = ({
+    data,
+    icons,
+    stages,
+    at,
+    answers,
+    present,
+    scrollRef,
+    goTo,
+    startOver,
+    onChecked,
+    resultsHref,
+    resultsBlocked,
+    focusOnMount,
+}: StageProps) => {
     const stage = stages[at];
     const [board, setBoard] = useState<Board>(() => newBoard(stage, Math.random));
     const [checked, setChecked] = useState(false);
@@ -587,6 +626,7 @@ const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo
     const check = () => {
         setChecked(true);
         setRefusal("");
+        onChecked(at, boardResult(stage, markBoard(stage, board)));
         after.current = { focus: "tally", toEnd: stage.kind === "jobs" };
     };
 
@@ -735,7 +775,7 @@ const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo
                     ))}
                 </div>
                 <div className="mt-6 flex flex-wrap items-center gap-3">{tryAgain}</div>
-                <Finish line={data.finish} onStartOver={() => goTo(0)} large={large} />
+                <Finish line={data.finish} onStartOver={startOver} large={large} />
             </>
         );
     } else {
@@ -844,6 +884,11 @@ const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo
                     </div>
                 )}
                 {marks && last && <p className={cx("mt-5 max-w-[60ch] font-medium text-pretty text-primary", large ? "text-xl" : "text-md")}>{data.finish}</p>}
+                {marks && last && resultsBlocked && (
+                    <p className="mt-2 max-w-[60ch] text-sm text-pretty text-tertiary">
+                        This browser won't keep your results (a private window, or storage turned off), so there's no results page this time.
+                    </p>
+                )}
 
                 {/* Pinned to the bottom of the pane: the tray while cards are moving, so the next one is always in
                     reach as the boxes scroll, and the round's buttons. The board's -mb-12 cancels the frame's
@@ -906,9 +951,16 @@ const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo
                                 </p>
                                 {tryAgain}
                                 {last ? (
-                                    <Button size={buttonSize} onClick={() => goTo(0)}>
-                                        Start over
-                                    </Button>
+                                    <>
+                                        {resultsHref && (
+                                            <Button size={buttonSize} iconLeading={BarChartSquare02} href={resultsHref}>
+                                                See your results
+                                            </Button>
+                                        )}
+                                        <Button size={buttonSize} color={resultsHref ? "secondary" : "primary"} onClick={startOver}>
+                                            Start over
+                                        </Button>
+                                    </>
                                 ) : (
                                     <Button size={buttonSize} iconTrailing={ArrowRight} onClick={() => goTo(at + 1)}>
                                         Next
@@ -959,24 +1011,51 @@ const StageBoard = ({ data, icons, stages, at, answers, present, scrollRef, goTo
  * board sits under Round 1 / 2 / 3 tabs, with "Show answers" beside them.
  */
 const SortStack = ({
-    data,
+    data: list,
     icons,
     present,
     scrollRef,
+    record,
 }: {
     data: SortData;
     icons: VendorIcons;
     present: boolean;
     scrollRef: RefObject<HTMLDivElement | null>;
+    record: boolean;
 }) => {
+    /** This run: the card list with its cards and suites dealt from the pools. Start over deals another. */
+    const [data, setData] = useState(() => drawRun(list, Math.random));
     const stages = useMemo(() => gameStages(data), [data]);
     const [view, setView] = useState({ at: 0, attempt: 0, answers: false });
     const stage = stages[view.at];
+    /** Each board's latest checked result in this run, and whether the run is saved (so a re-check replaces it). */
+    const results = useRef(new Map<number, BoardResult>());
+    const [saved, setSaved] = useState<"no" | "yes" | "blocked">("no");
 
-    /** A fresh, reshuffled board: Next, Try again, Start over and the round tabs all come here. */
+    /** A fresh, reshuffled board: Next, Try again and the round tabs all come here. */
     const goTo = (index: number) => {
         setView((v) => ({ at: index, attempt: v.attempt + 1, answers: false }));
         scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    };
+
+    /** Start over: a new run from round 1, dealt fresh, with nothing carried over from the last. */
+    const startOver = () => {
+        setData(drawRun(list, Math.random));
+        results.current = new Map();
+        setSaved("no");
+        goTo(0);
+    };
+
+    /**
+     * The tools check: once every board in the run has been checked, the run is kept in this
+     * browser. Checking the last board again (after Try again) replaces it rather than adding one.
+     */
+    const onChecked = (at: number, result: BoardResult) => {
+        results.current.set(at, result);
+        if (!record || results.current.size < stages.length) return;
+        const ordered = stages.map((_, i) => results.current.get(i)!);
+        const ok = writeToolsRecord(finishRun(readToolsRecord(), ordered, new Date(), saved === "yes"));
+        setSaved(ok ? "yes" : "blocked");
     };
 
     const board = (
@@ -990,6 +1069,10 @@ const SortStack = ({
             present={present}
             scrollRef={scrollRef}
             goTo={goTo}
+            startOver={startOver}
+            onChecked={onChecked}
+            resultsHref={saved === "yes" ? TOOLS_RESULTS : null}
+            resultsBlocked={saved === "blocked"}
             focusOnMount={view.attempt > 0}
         />
     );

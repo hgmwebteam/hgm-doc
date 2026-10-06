@@ -73,6 +73,19 @@ export async function discardAttempt(attemptId: string): Promise<void> {
     if (error) throw error;
 }
 
+/**
+ * "Reset your results": removes every sitting the person has, finished ones included, and their
+ * answers with them (ON DELETE CASCADE). Finished sittings can only be removed once
+ * supabase/migrations/20261006120000_check_reset.sql is in place; without it the database skips
+ * them silently, so this returns how many sittings are left, and anything above 0 means the reset
+ * didn't go through.
+ */
+export async function resetAttempts(userId: string): Promise<number> {
+    const { error } = await supabase.from("check_attempts").delete().eq("user_id", userId);
+    if (error) throw error;
+    return (await listAttempts(userId)).length;
+}
+
 /** Adds answer rows to an open sitting. Answers are never edited: a changed answer is a newer row. */
 export async function saveAnswers(attemptId: string, rows: AnswerRow[]): Promise<void> {
     if (!rows.length) return;

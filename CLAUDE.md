@@ -215,11 +215,13 @@ the tier comes from the dictionary. Run `check-bank.check.ts` after changing eit
 `check_attempts` / `check_answers` / the `check_term_status` view (migration `20261001120000`): right
 or wrong per term only, never the typed answer, and each person sees only their own. **It's a learning
 aid with no pass mark: don't add any cross-person view or roll-up without asking.** The check needs a
-Google session (the team password has none). See `docs/dictionary-check.md`.
+Google session (the team password has none). "Reset your results" deletes a person's own rounds; it needs
+migration `20261006120000_check_reset.sql`, run by hand in the SQL editor. See `docs/dictionary-check.md`.
 
 Beside it, the **tools** pages in `src/pages/team/dictionary/tools/`: **Sort the stack**
-(`/dictionary/tools/review`), a three-round drag-and-drop sort for the team training session, and the
-tools training (`/dictionary/tools/practice`), both behind `TeamGate`. `/acumen-sort` is the same game with no
+(`/dictionary/tools/review`), a three-round drag-and-drop sort for the team training session that doubles
+as the **tools check**, its results (`/dictionary/tools/review/results`), and the tools training
+(`/dictionary/tools/practice`), all behind `TeamGate`. `/acumen-sort` is the same game with no
 sign-in, as the session's backup: public, so its route stays above the client-slug catch-all and
 `acumen-sort` is in `RESERVED_SLUGS`. The game is built from `src/data/industry-acumen-sort-cards.json`,
 whose master is in the Claude project (replace it whole; never edit its wording here), and refuses
@@ -228,16 +230,20 @@ verify: it's one flashcard per vendor in the icon manifest `src/data/vendor-icon
 project copy, replaced whole), with what the vendor is known for (`main`) and everything else it sells on the back.
 The training and the game give **one answer per vendor**: a box counts when the vendor sells that job under its
 own name, in a plan or as a paid add-on, and `vendor-icons.check.ts` fails (`boxClashes`) unless a card's box
-and `also` (or a suite's `does`) are exactly its vendor's manifest boxes, so change both files together. Both
-portal copies lead their masters: on 6 Oct, at Kyle's request, card list 2.1 and 2.2 and manifest 1.1 and 1.2
-were edited here from the 5 Oct vendor check (`reference/industry-acumen-sort/verification-2026-10-05.md`);
-the rule, the answer key and the slide changes the deck still needs are in
-`reference/industry-acumen-sort/slide-corrections-2026-10-06.md`. The Claude
+and `also` (or a suite's `does`) are exactly its vendor's manifest boxes, so change both files together. Every
+box in the card list is a **pool**: each run deals three cards a box and three of round 3's six suites
+(`drawRun`), so no two runs match. A finished run on `/dictionary/tools/review` is kept in this browser only
+(`tools-results-model.ts`, key `hgm_tools_check`; never Supabase, so slide 44's "Nothing leaves your device"
+holds), with its score, the tools to refresh and a reset on the results page. Both portal copies lead their
+masters: on 6 Oct, at Kyle's request, card list 2.1 to 3.0 and manifest 1.1 to 1.3 were edited here from the
+5 Oct vendor check (`reference/industry-acumen-sort/verification-2026-10-05.md`), and 1.3 follows the Client
+Tech Stack Guide PDF where the two differed. The rule, the answer key and everything the Claude project still
+needs are in `reference/industry-acumen-sort/slide-corrections-2026-10-06.md`. The Claude
 project needs these copies before another comes in, so compare any new copy before replacing. Both draw the icons
 from `public/vendor-icons/{128,512}/`: the game finds a card's icon by vendor name through the manifest's
 `card_name_to_slug` (never a logo field in the card list), the training by the manifest's own slugs, as
-`vendor-icons.check.ts` checks. The game stores and sends nothing (the plain frame's theme button keeps
-the portal's usual `ui-theme`, as the floating toggle does).
+`vendor-icons.check.ts` checks. The game sends nothing (the plain frame's theme button keeps the
+portal's usual `ui-theme`, as the floating toggle does).
 The check and the game share `dictionary/drag-board.tsx` (drag, tap-then-tap and keyboard placing),
 and the two decks share `dictionary/flashcards.tsx`. See `docs/dictionary-tools.md`.
 

@@ -134,8 +134,9 @@ export const trainingCards = (icons: VendorIcons, data: SortData): TrainingCard[
  * plain sentences; empty when they agree. The training shows the manifest; the game marks by the
  * card list. So, for every card and suite in the card list:
  *
- * - a card's box (where the round deals it) is what its vendor is known for (`main`), and the card
- *   accepts exactly the vendor's boxes (its box and `also` together are `categories`);
+ * - a card accepts exactly the vendor's boxes (its box and `also` together are `categories`). Its
+ *   box is the pool the round deals it from, which needn't be what the vendor is known for: a
+ *   box's pool takes any vendor that sells the job (Guesty, a PMS, is dealt as a channel manager);
  * - a suite does exactly the vendor's boxes, and none of its distractors is one of them.
  *
  * A manifest entry covering several products (Amadeus: iHotelier and Demand360) answers for all of
@@ -158,15 +159,7 @@ export const boxClashes = (icons: VendorIcons, data: SortData): string[] => {
         if (onlyTraining.length) problems.push(`${who}: the training lists ${names(onlyTraining)} for ${v.name}, which the game doesn't accept.`);
     };
     data.rounds.forEach((r, i) => {
-        if (r.mode === "vendors")
-            for (const c of r.cards) {
-                compare(`${c.vendor}, round ${i + 1}`, [c.box, ...c.also], c.vendor);
-                const slug = iconSlug(icons, c.vendor);
-                if (slug && !icons.vendors[slug].main.includes(c.box))
-                    problems.push(
-                        `${c.vendor}, round ${i + 1}: the round deals it as ${names([c.box])}, but the training says it's known for ${names(icons.vendors[slug].main)}.`,
-                    );
-            }
+        if (r.mode === "vendors") for (const c of r.cards) compare(`${c.vendor}, round ${i + 1}`, [c.box, ...c.also], c.vendor);
         else
             for (const s of r.suites) {
                 compare(`${s.vendor}, round ${i + 1} suite`, s.does, s.vendor);

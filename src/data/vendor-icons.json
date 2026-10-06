@@ -1,5 +1,5 @@
 {
- "version": "1.2",
+ "version": "1.3",
  "made": "2026-10-06",
  "tile": {
   "size_px": 512,
@@ -472,8 +472,7 @@
     41
    ],
    "categories": [
-    "crm",
-    "guest-messaging"
+    "crm"
    ],
    "main": [
     "crm"
@@ -588,7 +587,6 @@
     40
    ],
    "categories": [
-    "pms",
     "channel-manager",
     "booking-engine",
     "dynamic-pricing",
@@ -649,8 +647,7 @@
     "channel-manager",
     "booking-engine",
     "dynamic-pricing",
-    "guest-messaging",
-    "upsell"
+    "guest-messaging"
    ],
    "main": [
     "booking-engine"
@@ -1107,7 +1104,6 @@
    "categories": [
     "pms",
     "booking-engine",
-    "dynamic-pricing",
     "upsell"
    ],
    "main": [

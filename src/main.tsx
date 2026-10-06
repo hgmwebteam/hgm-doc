@@ -35,6 +35,7 @@ import { PracticeScreen } from "@/pages/team/dictionary/check/practice-screen";
 import { DictionaryScreen } from "@/pages/team/dictionary/dictionary-screen";
 import { AcumenSortScreen } from "@/pages/team/dictionary/tools/acumen-sort-screen";
 import { ToolsPracticeScreen } from "@/pages/team/dictionary/tools/tools-practice-screen";
+import { ToolsResultsScreen } from "@/pages/team/dictionary/tools/tools-results-screen";
 import { ToolsReviewScreen } from "@/pages/team/dictionary/tools/tools-review-screen";
 import { EmailPreviewScreen } from "@/pages/team/email-preview-screen";
 import { HomeScreen } from "@/pages/team/home-screen";
@@ -96,6 +97,7 @@ const PAGES_WITHOUT_FLOATING_CHROME = [
     "/dictionary/check/results",
     "/dictionary/practice",
     "/dictionary/tools/review",
+    "/dictionary/tools/review/results",
     "/dictionary/tools/practice",
     // Public, but its plain frame (StandaloneFrame) has its own theme button.
     "/acumen-sort",
@@ -252,6 +254,7 @@ createRoot(document.getElementById("root")!).render(
                         {/* Sort the stack (the tools review game) and the tools training, behind TeamGate (src/pages/team/dictionary/tools/).
                             The game is built from src/data/industry-acumen-sort-cards.json, the training from src/data/vendor-icons.json. */}
                         <Route path="/dictionary/tools/review" element={<ToolsReviewScreen />} />
+                        <Route path="/dictionary/tools/review/results" element={<ToolsResultsScreen />} />
                         <Route path="/dictionary/tools/practice" element={<ToolsPracticeScreen />} />
                         {/* The same game with no sign-in: the live training session's backup. Public, so it must
                             stay above the client-slug catch-all, and "acumen-sort" is in RESERVED_SLUGS. */}

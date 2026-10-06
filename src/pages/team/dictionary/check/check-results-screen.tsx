@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "@untitledui/icons";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/base/buttons/button";
+import { resetAttempts } from "@/lib/check-attempts";
 import { CheckPage, Notice, PageTitle, SessionFallback } from "@/pages/team/dictionary/check/check-chrome";
+import { clearAllDrafts } from "@/pages/team/dictionary/check/check-drafts";
 import { explanationFor } from "@/pages/team/dictionary/check/check-model";
 import { R_LINE, grade as gradeFor, missedTerms, progressLine, scorePct } from "@/pages/team/dictionary/check/check-score";
 import { useCheckSession } from "@/pages/team/dictionary/check/use-check-session";
@@ -19,9 +21,84 @@ import { DictionaryEntryCard } from "@/pages/team/dictionary/dictionary-entry";
  * The score shown is the one that sitting left the person with (check_attempts.score_pct), so
  * it lines up with "Up 9% since last time", which compares it with the sitting before. The
  * cards come from current status, which is the same thing unless the bank has since changed.
+ *
+ * At the bottom, "Reset your results", behind a second press, deletes every one of the person's
+ * own sittings and answers (resetAttempts), and this browser's drafts with them. It needs
+ * supabase/migrations/20261006120000_check_reset.sql; without it nothing is deleted and the page
+ * says so.
  */
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "Reset your results": a quiet link that turns into a confirm card, so one press can't delete them. */
+const ResetResults = ({ userId, onReset }: { userId: string; onReset: () => Promise<unknown> }) => {
+    const [confirm, setConfirm] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const ref = useRef<HTMLDivElement>(null);
+    const swapped = useRef(false);
+    // The pressed button vanishes with the swap; focus moves to what replaced it.
+    useEffect(() => {
+        if (!swapped.current) return;
+        swapped.current = false;
+        ref.current?.focus({ preventScroll: true });
+    }, [confirm]);
+    const toggle = (on: boolean) => {
+        swapped.current = true;
+        setConfirm(on);
+    };
+    const reset = async () => {
+        setBusy(true);
+        setError("");
+        try {
+            const left = await resetAttempts(userId);
+            if (left > 0) {
+                setError("Your results couldn't be deleted yet: the portal's database needs an update first. Nothing has changed.");
+                setBusy(false);
+                return;
+            }
+            clearAllDrafts();
+            await onReset();
+        } catch (e) {
+            console.error("[check] couldn't reset:", e);
+            setError("That didn't go through. Try again in a moment.");
+            setBusy(false);
+        }
+    };
+    return (
+        <section aria-label="Reset" className="mt-12 border-t border-secondary pt-6">
+            <div ref={ref} tabIndex={-1} className="outline-none">
+                {confirm ? (
+                    <Notice
+                        title="Reset your check results?"
+                        actions={
+                            <>
+                                <Button size="md" color="primary-destructive" onClick={reset} isLoading={busy} showTextWhileLoading>
+                                    Delete my results
+                                </Button>
+                                <Button size="md" color="secondary" onClick={() => toggle(false)} isDisabled={busy}>
+                                    Keep them
+                                </Button>
+                            </>
+                        }
+                    >
+                        This deletes every round of the check you've taken, finished or not, and your answers in them, so your score and your terms to review
+                        start again from nothing. It can't be undone. Only your own results are affected.
+                    </Notice>
+                ) : (
+                    <Button size="sm" color="link-gray" onClick={() => toggle(true)}>
+                        Reset your results
+                    </Button>
+                )}
+            </div>
+            {error && (
+                <p role="alert" className="mt-3 text-sm text-error-primary">
+                    {error}
+                </p>
+            )}
+        </section>
+    );
+};
 
 const Results = () => {
     const session = useCheckSession();
@@ -39,7 +116,7 @@ const Results = () => {
         );
     }
 
-    const { content, history } = session;
+    const { content, history, userId, reload } = session;
     const latest = history.finished[0];
 
     if (!latest) {
@@ -161,6 +238,8 @@ const Results = () => {
                     <p className="mt-1 text-md text-tertiary">You got every term right.</p>
                 )}
             </section>
+
+            <ResetResults userId={userId} onReset={reload} />
         </>
     );
 };

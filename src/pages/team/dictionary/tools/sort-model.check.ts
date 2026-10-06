@@ -9,10 +9,10 @@
  *     --log-level=warning && node /tmp/hgm-check/sort-model.cjs
  *
  * In order: the real card list's shape (the brief's build checks: every card's box is a real box,
- * every vendor box holds exactly three cards, every also names a real box, every suite has at least
- * two jobs, though it may have no distractors; plus every checked card says when); then the game's rules (the
- * full box, the also line, round 3's tray marks, the tally), on a copy of the list with verify
- * switched off; and LAST the gate. While any card or suite still says "verify": true it FAILS and
+ * every vendor box is a pool of at least three cards, every also names a real box, every suite has
+ * at least two jobs, though it may have no distractors; plus every checked card says when); then a
+ * run's draw (drawRun); then the game's rules (the full box, the also line, round 3's tray marks,
+ * the tally), on one drawn run of the list with verify switched off; and LAST the gate. While any card or suite still says "verify": true it FAILS and
  * lists them, as the brief asks. Everything before the gate reports first, so a failure there is
  * about the gate alone.
  *
@@ -37,6 +37,7 @@ import {
     canCheck,
     cardLabel,
     doesLine,
+    drawRun,
     firstStageOf,
     fullLine,
     gameStages,
@@ -83,13 +84,17 @@ section("The card list (src/data/industry-acumen-sort-cards.json)");
         ["vendors", "vendors", "jobs"],
         "the brief's three rounds: two vendor rounds, then the jobs round",
     );
+    const pools: string[] = [];
     for (const round of vendorRounds(real)) {
-        assert.equal(round.per_box, 3, `${round.id}: every box takes exactly three cards`);
+        assert.equal(round.per_box, 3, `${round.id}: a run deals three cards from every box`);
         assert.equal(round.boxes.length, 4, `${round.id}: four boxes`);
-        assert.equal(round.cards.length, 12, `${round.id}: twelve cards`);
-        for (const box of round.boxes) assert.equal(round.cards.filter((c) => c.box === box.id).length, 3, `${round.id}: ${box.name} has three cards`);
+        for (const box of round.boxes) {
+            const n = round.cards.filter((c) => c.box === box.id).length;
+            assert.ok(n >= 3, `${round.id}: ${box.name}'s pool has at least three cards`);
+            pools.push(`${box.name} ${n}`);
+        }
     }
-    pass("rounds 1 and 2: four boxes, twelve cards, exactly three in every box");
+    pass(`rounds 1 and 2: four boxes each, every box a pool of at least three (${pools.join(", ")})`);
 
     const allBoxIds = new Set(vendorRounds(real).flatMap((r) => r.boxes.map((b) => b.id)));
     for (const r of vendorRounds(real)) for (const c of r.cards) for (const a of c.also) assert.ok(allBoxIds.has(a), `${c.vendor}'s also ${a} is a box`);
@@ -97,12 +102,17 @@ section("The card list (src/data/industry-acumen-sort-cards.json)");
 
     for (const r of jobsRounds(real)) {
         assert.ok(r.suites.length > 0, `${r.id} has suites`);
+        assert.ok((r.per_run ?? r.suites.length) <= r.suites.length, `${r.id} deals no more suites than it has`);
         for (const s of r.suites) {
             assert.ok(s.does.length >= 2, `${s.vendor} does at least two jobs`);
             assert.ok(Array.isArray(s.distractors), `${s.vendor}'s distractors are a list`);
         }
     }
-    pass("round 3: every suite has at least two jobs, and its distractors (if any) as a list");
+    pass(
+        `round 3: ${jobsRounds(real)
+            .map((r) => `${r.per_run ?? r.suites.length} of ${r.suites.length} suites a run`)
+            .join("; ")}, each with at least two jobs and its distractors (if any) as a list`,
+    );
 
     // The brief: "set verify to false and fill in checked". So a card that isn't waiting on
     // verify must carry its checked date: the gate can't be opened by flipping the flag alone.
@@ -136,11 +146,24 @@ section("What sortProblems catches");
     const lastSuite = r3(real).suites[r3(real).suites.length - 1];
     const firstSuite = r3(real).suites[0];
 
+    // A pool of exactly three, so moving one card out leaves the box short.
+    const trimmed = (d: SortData) => {
+        const keep = r1(d)
+            .cards.filter((c) => c.box === first.box)
+            .slice(0, 3);
+        r1(d).cards = r1(d).cards.filter((c) => c.box !== first.box || keep.includes(c));
+    };
     assert.deepEqual(
-        broken((d) => (r1(d).cards[0].box = "front-desk")),
-        [`Round 1: ${first.vendor}'s box "front-desk" isn't one of the round's boxes.`, `Round 1: the box "${firstBox.name}" has 2 cards; every box takes 3.`],
+        broken((d) => {
+            trimmed(d);
+            r1(d).cards[0].box = "front-desk";
+        }),
+        [
+            `Round 1: ${first.vendor}'s box "front-desk" isn't one of the round's boxes.`,
+            `Round 1: the box "${firstBox.name}" has 2 cards; a run deals 3 from each box.`,
+        ],
     );
-    pass("a card whose box doesn't exist, and the box it leaves short");
+    pass("a card whose box doesn't exist, and the pool it leaves short");
 
     assert.deepEqual(
         broken((d) => (r1(d).cards[0].also = ["spa"])),
@@ -153,10 +176,27 @@ section("What sortProblems catches");
     pass("an also that isn't a box, or repeats the card's own box");
 
     assert.deepEqual(
-        broken((d) => r1(d).cards.push({ ...first, vendor: "A fourth vendor" })),
-        [`Round 1: the box "${firstBox.name}" has 4 cards; every box takes 3.`],
+        broken((d) => r1(d).cards.push({ ...first, vendor: "Another vendor" })),
+        [],
+        "a bigger pool is fine",
     );
-    pass("a box with a fourth card");
+    assert.deepEqual(
+        broken((d) => {
+            trimmed(d);
+            r1(d).cards = r1(d).cards.filter((c) => c.vendor !== first.vendor);
+        }),
+        [`Round 1: the box "${firstBox.name}" has 2 cards; a run deals 3 from each box.`],
+    );
+    assert.deepEqual(
+        broken((d) => (r3(d).per_run = r3(d).suites.length + 1)),
+        [`${R}: per_run must be a whole number from 1 to the number of suites (${r3(real).suites.length}).`],
+    );
+    assert.deepEqual(
+        broken((d) => delete r3(d).per_run),
+        [],
+        "no per_run deals every suite",
+    );
+    pass("any pool of at least three; a pool too small for a run; a run of more suites than there are");
 
     assert.deepEqual(
         broken((d) => ((r3(d).suites[r3(d).suites.length - 1] as { distractors: unknown }).distractors = "crm")),
@@ -195,11 +235,55 @@ section("What sortProblems catches");
     pass("a verify that isn't true or false, too many boxes for the number keys, no rounds");
 }
 
-/* ── 3. The rules, on a copy of the list with verify switched off ─ */
+/* ── 3. A run's draw ────────────────────────────────────────────── */
 
-// The real list is blocked by its verify flags, so the rules are pinned on a copy with every flag
-// switched off. Where a rule needs a card with (or without) an also, the copy sets it below.
-const fixture = structuredClone(real);
+section("A run (drawRun)");
+{
+    const draw = drawRun(real, seededRandom("draw one"));
+    assert.deepEqual(sortProblems(draw), [], "a drawn run is a valid card list");
+    for (const [i, round] of real.rounds.entries()) {
+        const drawn = draw.rounds[i];
+        if (round.mode === "vendors" && drawn.mode === "vendors") {
+            for (const box of round.boxes) {
+                const pool = round.cards.filter((c) => c.box === box.id);
+                const dealt = drawn.cards.filter((c) => c.box === box.id);
+                assert.equal(dealt.length, round.per_box, `${round.id}: ${round.per_box} dealt from ${box.name}`);
+                assert.deepEqual(
+                    dealt,
+                    pool.filter((c) => dealt.includes(c)),
+                    `${round.id}: ${box.name}'s cards come from its pool, in its order`,
+                );
+            }
+            assert.deepEqual(drawn.boxes, round.boxes, "the boxes are untouched");
+        } else if (round.mode === "jobs" && drawn.mode === "jobs") {
+            assert.equal(drawn.suites.length, round.per_run ?? round.suites.length, `${round.id}: per_run suites`);
+            assert.deepEqual(
+                drawn.suites,
+                round.suites.filter((s) => drawn.suites.includes(s)),
+                "suites come from the pool, in its order",
+            );
+        }
+    }
+    const runs = new Set(
+        Array.from({ length: 12 }, (_, n) =>
+            JSON.stringify(
+                drawRun(real, seededRandom(`run ${n}`)).rounds.map((r) =>
+                    r.mode === "vendors" ? r.cards.map((c) => c.vendor) : r.suites.map((s) => s.vendor),
+                ),
+            ),
+        ),
+    );
+    assert.ok(runs.size > 1, "different runs deal different cards");
+    assert.deepEqual(drawRun(real, seededRandom("same")), drawRun(real, seededRandom("same")), "the same random source deals the same run");
+    pass(`per_box from every pool and per_run suites, in pool order; ${runs.size} different deals in 12 runs`);
+}
+
+/* ── 4. The rules, on a drawn run with verify switched off ──────── */
+
+// The real list may be blocked by its verify flags, so the rules are pinned on one drawn run of it
+// with every flag switched off: twelve cards a vendor round, per_run suites. Where a rule needs a
+// card with (or without) an also, the copy sets it below.
+const fixture = drawRun(structuredClone(real), seededRandom("sort-model.check fixture"));
 for (const e of entriesOf(fixture)) delete e.verify;
 const random = seededRandom("sort-model.check");
 
@@ -389,7 +473,7 @@ section("Round 3: one suite, many jobs");
     );
 }
 
-/* ── 4. The gate ────────────────────────────────────────────────── */
+/* ── 5. The gate ────────────────────────────────────────────────── */
 
 const waiting = unverified(real);
 console.log(`\nEverything above: PASS`);

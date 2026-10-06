@@ -85,7 +85,7 @@ const initialsOf = (name: string) =>
         .join("");
 
 /** "3h ago" / "2d ago" — coarse on purpose; the exact time is in the /log feed. */
-const ago = (iso: string) => {
+export const ago = (iso: string) => {
     const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
     if (mins < 1) return "just now";
     if (mins < 60) return `${mins}m ago`;
@@ -119,7 +119,7 @@ const rise = (i: number) => ({
 });
 
 /** One cell of the joined stat strip. */
-const Stat = ({ label, value, note, dot, onClick }: { label: string; value: number; note: string; dot: string; onClick: () => void }) => (
+export const Stat = ({ label, value, note, dot, onClick }: { label: string; value: number; note: string; dot: string; onClick: () => void }) => (
     <button
         type="button"
         onClick={onClick}
@@ -137,7 +137,7 @@ const Stat = ({ label, value, note, dot, onClick }: { label: string; value: numb
 );
 
 /** Card shell shared by every block below the stat strip. */
-const Card = ({
+export const Card = ({
     title,
     icon,
     badge,
@@ -178,7 +178,7 @@ const CountPill = ({ n, tone = "gray" }: { n: number; tone?: "gray" | "brand" | 
 );
 
 /** A client's own logo (clients.logo_url, a compressed data URL), or its initials. */
-const ClientLogo = ({ name, src, size = "md" }: { name: string; src?: string | null; size?: "sm" | "md" }) => (
+export const ClientLogo = ({ name, src, size = "md" }: { name: string; src?: string | null; size?: "sm" | "md" }) => (
     <span
         className={cx(
             "flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary ring-1 ring-secondary",

@@ -41,6 +41,7 @@ import { EmailPreviewScreen } from "@/pages/team/email-preview-screen";
 import { HomeScreen } from "@/pages/team/home-screen";
 import { HomeTwoScreen } from "@/pages/team/home-two-screen";
 import { LogScreen } from "@/pages/team/log-screen";
+import { LandingPagesScreen } from "@/pages/team/landing-pages-screen";
 import { LogScriptScreen } from "@/pages/team/log-script-screen";
 import { ManualScreen } from "@/pages/team/manual-screen";
 import { MockupIgScreen } from "@/pages/team/mockup-ig/mockup-ig-screen";
@@ -90,6 +91,7 @@ const PAGES_WITHOUT_FLOATING_CHROME = [
     "/deployment",
     "/log-script",
     "/log",
+    "/landingpages",
     "/fix",
     "/manual",
     "/dictionary",
@@ -273,6 +275,8 @@ createRoot(document.getElementById("root")!).render(
                         {/* Who changed what on which client dashboard. Team-only by RLS; the
                             page gates on sign-in before it reads. */}
                         <Route path="/log" element={<LogScreen />} />
+                        {/* The Web Team's landing page pipeline: every client's page, its review state and open comments. Behind TeamGate. */}
+                        <Route path="/landingpages" element={<LandingPagesScreen />} />
                         <Route path="/chat-widget" element={<ChatWidgetScreen isTemplate />} />
                         <Route path="/chat-widget-overview" element={<ChatWidgetOverviewScreen />} />
                         <Route path="/client-dashboard-overview" element={<ClientDashboardOverviewScreen />} />

@@ -1,6 +1,6 @@
 {
- "version": "1.1",
- "made": "2026-10-05",
+ "version": "1.2",
+ "made": "2026-10-06",
  "tile": {
   "size_px": 512,
   "corner_radius_px": 87,
@@ -79,6 +79,10 @@
     40
    ],
    "categories": [
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
     "rate-shopping"
    ],
    "alt": "AirDNA logo",
@@ -99,6 +103,11 @@
     42
    ],
    "categories": [
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
     "guest-messaging"
    ],
    "alt": "Akia logo",
@@ -121,6 +130,13 @@
     40
    ],
    "categories": [
+    "channel-manager",
+    "booking-engine",
+    "rate-shopping",
+    "crm",
+    "upsell"
+   ],
+   "main": [
     "booking-engine",
     "rate-shopping"
    ],
@@ -144,6 +160,9 @@
    "categories": [
     "dynamic-pricing"
    ],
+   "main": [
+    "dynamic-pricing"
+   ],
    "alt": "Atomize logo",
    "confidence": "identified",
    "note": "Source banner had an \"A Mews company\" tagline; cropped to the ATOMIZE wordmark. Atomize is now sold as part of Mews; the deck card text may be stale [VERIFY]."
@@ -162,6 +181,11 @@
     39
    ],
    "categories": [
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
     "dynamic-pricing"
    ],
    "alt": "Beyond logo",
@@ -186,6 +210,9 @@
     "guest-messaging",
     "upsell"
    ],
+   "main": [
+    "guest-messaging"
+   ],
    "alt": "Canary Technologies logo",
    "confidence": "identified",
    "note": ""
@@ -204,6 +231,12 @@
     41
    ],
    "categories": [
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "crm"
+   ],
+   "main": [
     "crm"
    ],
    "alt": "Cendyn logo",
@@ -234,7 +267,12 @@
     "booking-engine",
     "dynamic-pricing",
     "rate-shopping",
-    "crm"
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
    ],
    "alt": "Cloudbeds logo",
    "confidence": "identified",
@@ -256,6 +294,9 @@
    "categories": [
     "channel-manager"
    ],
+   "main": [
+    "channel-manager"
+   ],
    "alt": "DerbySoft logo",
    "confidence": "identified",
    "note": ""
@@ -274,6 +315,9 @@
     39
    ],
    "categories": [
+    "dynamic-pricing"
+   ],
+   "main": [
     "dynamic-pricing"
    ],
    "alt": "Duetto logo",
@@ -298,6 +342,9 @@
     "guest-messaging",
     "upsell"
    ],
+   "main": [
+    "guest-messaging"
+   ],
    "alt": "Duve logo",
    "confidence": "identified",
    "note": ""
@@ -317,8 +364,12 @@
     43
    ],
    "categories": [
+    "crm",
     "guest-messaging",
     "upsell"
+   ],
+   "main": [
+    "guest-messaging"
    ],
    "alt": "Enso Connect logo",
    "confidence": "identified",
@@ -338,6 +389,10 @@
     41
    ],
    "categories": [
+    "crm",
+    "guest-messaging"
+   ],
+   "main": [
     "crm"
    ],
    "alt": "GoHighLevel logo",
@@ -362,7 +417,14 @@
    "categories": [
     "pms",
     "channel-manager",
-    "guest-messaging"
+    "booking-engine",
+    "dynamic-pricing",
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
    ],
    "alt": "Guesty logo",
    "confidence": "identified",
@@ -382,7 +444,15 @@
     37
    ],
    "categories": [
-    "channel-manager"
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
    ],
    "alt": "Hostaway logo",
    "confidence": "identified",
@@ -402,6 +472,10 @@
     41
    ],
    "categories": [
+    "crm",
+    "guest-messaging"
+   ],
+   "main": [
     "crm"
    ],
    "alt": "HubSpot logo",
@@ -424,6 +498,9 @@
    "categories": [
     "dynamic-pricing"
    ],
+   "main": [
+    "dynamic-pricing"
+   ],
    "alt": "IDeaS logo",
    "confidence": "identified",
    "note": "Source banner had an \"A SAS company\" tagline; cropped to the IDeAS wordmark."
@@ -442,6 +519,9 @@
     40
    ],
    "categories": [
+    "rate-shopping"
+   ],
+   "main": [
     "rate-shopping"
    ],
    "alt": "KeyData logo",
@@ -464,6 +544,9 @@
    "categories": [
     "guest-messaging"
    ],
+   "main": [
+    "guest-messaging"
+   ],
    "alt": "Kipsu logo",
    "confidence": "identified",
    "note": "Low-resolution source; check at full-screen."
@@ -484,6 +567,9 @@
    "categories": [
     "crm"
    ],
+   "main": [
+    "crm"
+   ],
    "alt": "Klaviyo logo",
    "confidence": "identified",
    "note": ""
@@ -502,6 +588,13 @@
     40
    ],
    "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
     "rate-shopping"
    ],
    "alt": "Lighthouse logo",
@@ -522,6 +615,15 @@
     36
    ],
    "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
     "pms"
    ],
    "alt": "Little Hotelier logo",
@@ -543,7 +645,14 @@
     38
    ],
    "categories": [
+    "pms",
     "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
     "booking-engine"
    ],
    "alt": "Lodgify logo",
@@ -564,6 +673,9 @@
     41
    ],
    "categories": [
+    "crm"
+   ],
+   "main": [
     "crm"
    ],
    "alt": "Mailchimp logo",
@@ -589,9 +701,14 @@
    ],
    "categories": [
     "pms",
+    "channel-manager",
     "booking-engine",
+    "dynamic-pricing",
     "guest-messaging",
     "upsell"
+   ],
+   "main": [
+    "pms"
    ],
    "alt": "Mews logo",
    "confidence": "identified",
@@ -611,6 +728,15 @@
     36
    ],
    "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
     "pms"
    ],
    "alt": "Newbook logo",
@@ -633,6 +759,9 @@
    "categories": [
     "upsell"
    ],
+   "main": [
+    "upsell"
+   ],
    "alt": "Nor1 logo",
    "confidence": "identified",
    "note": ""
@@ -653,6 +782,9 @@
    "categories": [
     "upsell"
    ],
+   "main": [
+    "upsell"
+   ],
    "alt": "Oaky logo",
    "confidence": "identified",
    "note": ""
@@ -671,6 +803,11 @@
     36
    ],
    "categories": [
+    "pms",
+    "channel-manager",
+    "upsell"
+   ],
+   "main": [
     "pms"
    ],
    "alt": "Oracle OPERA Cloud logo",
@@ -693,6 +830,9 @@
    "categories": [
     "upsell"
    ],
+   "main": [
+    "upsell"
+   ],
    "alt": "Plusgrade logo",
    "confidence": "identified",
    "note": "Low-resolution source; check at full-screen."
@@ -711,6 +851,10 @@
     39
    ],
    "categories": [
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
     "dynamic-pricing"
    ],
    "alt": "PriceLabs logo",
@@ -733,6 +877,10 @@
    ],
    "categories": [
     "channel-manager",
+    "booking-engine",
+    "rate-shopping"
+   ],
+   "main": [
     "rate-shopping"
    ],
    "alt": "RateGain logo",
@@ -753,6 +901,11 @@
     41
    ],
    "categories": [
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
     "crm"
    ],
    "alt": "Revinate logo",
@@ -773,6 +926,15 @@
     36
    ],
    "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
     "pms"
    ],
    "alt": "RMS Cloud logo",
@@ -795,6 +957,9 @@
    "categories": [
     "dynamic-pricing"
    ],
+   "main": [
+    "dynamic-pricing"
+   ],
    "alt": "RoomPriceGenie logo",
    "confidence": "identified",
    "note": ""
@@ -813,6 +978,10 @@
     38
    ],
    "categories": [
+    "channel-manager",
+    "booking-engine"
+   ],
+   "main": [
     "booking-engine"
    ],
    "alt": "Sabre logo",
@@ -835,7 +1004,14 @@
    ],
    "categories": [
     "channel-manager",
-    "booking-engine"
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "channel-manager"
    ],
    "alt": "SiteMinder logo",
    "confidence": "identified (supplied by Kyle)",
@@ -857,7 +1033,12 @@
    ],
    "categories": [
     "channel-manager",
-    "booking-engine"
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
+    "channel-manager"
    ],
    "alt": "STAAH logo",
    "confidence": "identified",
@@ -877,6 +1058,9 @@
     40
    ],
    "categories": [
+    "rate-shopping"
+   ],
+   "main": [
     "rate-shopping"
    ],
    "alt": "STR (CoStar) logo",
@@ -899,6 +1083,9 @@
    "categories": [
     "upsell"
    ],
+   "main": [
+    "upsell"
+   ],
    "alt": "UpsellGuru logo",
    "confidence": "identified",
    "note": "Low-resolution source; check at full-screen."
@@ -919,7 +1106,12 @@
    ],
    "categories": [
     "pms",
-    "booking-engine"
+    "booking-engine",
+    "dynamic-pricing",
+    "upsell"
+   ],
+   "main": [
+    "pms"
    ],
    "alt": "WebRezPro logo",
    "confidence": "identified",
@@ -939,6 +1131,10 @@
     39
    ],
    "categories": [
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
     "dynamic-pricing"
    ],
    "alt": "Wheelhouse logo",
@@ -959,6 +1155,10 @@
     42
    ],
    "categories": [
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
     "guest-messaging"
    ],
    "alt": "Whistle logo",

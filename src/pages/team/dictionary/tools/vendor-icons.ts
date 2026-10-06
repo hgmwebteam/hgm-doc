@@ -12,8 +12,10 @@ import { type SortBox, type SortData, isText } from "@/pages/team/dictionary/too
  * field.
  *
  * The tools training (/dictionary/tools/practice) is built from the manifest: one card per vendor,
- * with the boxes the session 2 tools slides put it under (`categories`) on the back, worded as the
- * card list's boxes. Nothing here names a vendor's boxes: correcting one is a data change.
+ * with what it's known for (`main`) and everything else it sells (the rest of `categories`) on the
+ * back, worded as the card list's boxes. Nothing here names a vendor's boxes: correcting one is a
+ * data change, made in the manifest and the card list together, because `boxClashes` holds the two
+ * to one answer per vendor.
  */
 
 /** The fields the portal reads. The rest of an entry (its file paths, tile colour) describes the Claude project's unpacked folder. */
@@ -21,8 +23,13 @@ export type IconVendor = {
     name: string;
     /** "Mews logo": for an icon shown without its name beside it. */
     alt: string;
-    /** The boxes the slides put it under, as the card list's box ids. */
+    /**
+     * Every box it sells, as the card list's box ids: a job counts when the vendor sells it under its own
+     * name, in a plan or as a paid add-on (never a partner's product or a sister brand's).
+     */
     categories: string[];
+    /** What it's known for: one of `categories` per product, so one box for every vendor but Amadeus (iHotelier and Demand360). */
+    main: string[];
     /** Its products as the slides name them: "Amadeus iHotelier", "Amadeus Demand360". */
     deck_card_names: string[];
     /** "identified", "identified (supplied by Kyle)" or "check by eye". */
@@ -60,8 +67,10 @@ export type TrainingCard = {
     name: string;
     /** The products the slides name for it, when there's more than one (Amadeus iHotelier and Amadeus Demand360). */
     products: string[];
-    /** What it falls under: the card list's boxes, in the slides' order. */
-    boxes: SortBox[];
+    /** What it's known for: the card list's boxes, in the slides' order. */
+    main: SortBox[];
+    /** Everything else it sells, in the slides' order. */
+    also: SortBox[];
 };
 
 /** Every vendor box in the card list, by id. */
@@ -94,6 +103,12 @@ export const trainingProblems = (icons: VendorIcons, data: SortData): string[] =
             else if (!isText(id) || !boxes.has(id)) say(`${slug}'s box "${String(id)}" isn't a box in the card list.`);
             else if (!slides.has(id)) say(`${slug}'s box "${id}" isn't on any slide in categories.`);
         });
+        const main: unknown[] = Array.isArray(v?.main) ? v.main : [];
+        if (!main.length) say(`${slug} has no main box.`);
+        main.forEach((id, i) => {
+            if (main.indexOf(id) < i) say(`${slug}'s main names "${String(id)}" twice.`);
+            else if (under.length && !under.includes(id)) say(`${slug}'s main box "${String(id)}" isn't one of its categories.`);
+        });
     }
     return problems;
 };
@@ -102,10 +117,63 @@ export const trainingProblems = (icons: VendorIcons, data: SortData): string[] =
 export const trainingCards = (icons: VendorIcons, data: SortData): TrainingCard[] => {
     const boxes = cardListBoxes(data);
     const slides = slideOf(icons);
+    const inSlideOrder = (ids: string[]) => [...ids].sort((a, b) => slides.get(a)! - slides.get(b)!).flatMap((id) => boxes.get(id) ?? []);
     return Object.entries(icons.vendors).map(([slug, v]) => ({
         slug,
         name: v.name,
         products: v.deck_card_names.length > 1 ? v.deck_card_names : [],
-        boxes: [...v.categories].sort((a, b) => slides.get(a)! - slides.get(b)!).flatMap((id) => boxes.get(id) ?? []),
+        main: inSlideOrder(v.main),
+        also: inSlideOrder(v.categories.filter((id) => !v.main.includes(id))),
     }));
+};
+
+/* ── One answer per vendor ──────────────────────────────────────── */
+
+/**
+ * Every place the game and the training would tell a player different things about a vendor, as
+ * plain sentences; empty when they agree. The training shows the manifest; the game marks by the
+ * card list. So, for every card and suite in the card list:
+ *
+ * - a card's box (where the round deals it) is what its vendor is known for (`main`), and the card
+ *   accepts exactly the vendor's boxes (its box and `also` together are `categories`);
+ * - a suite does exactly the vendor's boxes, and none of its distractors is one of them.
+ *
+ * A manifest entry covering several products (Amadeus: iHotelier and Demand360) answers for all of
+ * them, so a card for one product may accept fewer boxes than the entry, never more.
+ *
+ * Expects sortProblems and trainingProblems to have found nothing. The pages don't call it: a clash
+ * is a content question, caught by vendor-icons.check.ts before it ships.
+ */
+export const boxClashes = (icons: VendorIcons, data: SortData): string[] => {
+    const name = new Map(data.rounds.flatMap((r) => (r.mode === "vendors" ? r.boxes.map((b) => [b.id, b.name] as const) : [])));
+    const names = (ids: string[]) => ids.map((id) => name.get(id) ?? id).join(", ");
+    const problems: string[] = [];
+    const compare = (who: string, accepts: string[], vendorName: string) => {
+        const slug = iconSlug(icons, vendorName);
+        if (!slug) return;
+        const v = icons.vendors[slug];
+        const onlyGame = accepts.filter((id) => !v.categories.includes(id));
+        const onlyTraining = v.deck_card_names.length > 1 ? [] : v.categories.filter((id) => !accepts.includes(id));
+        if (onlyGame.length) problems.push(`${who}: the game accepts ${names(onlyGame)}, which the training doesn't list for ${v.name}.`);
+        if (onlyTraining.length) problems.push(`${who}: the training lists ${names(onlyTraining)} for ${v.name}, which the game doesn't accept.`);
+    };
+    data.rounds.forEach((r, i) => {
+        if (r.mode === "vendors")
+            for (const c of r.cards) {
+                compare(`${c.vendor}, round ${i + 1}`, [c.box, ...c.also], c.vendor);
+                const slug = iconSlug(icons, c.vendor);
+                if (slug && !icons.vendors[slug].main.includes(c.box))
+                    problems.push(
+                        `${c.vendor}, round ${i + 1}: the round deals it as ${names([c.box])}, but the training says it's known for ${names(icons.vendors[slug].main)}.`,
+                    );
+            }
+        else
+            for (const s of r.suites) {
+                compare(`${s.vendor}, round ${i + 1} suite`, s.does, s.vendor);
+                const slug = iconSlug(icons, s.vendor);
+                const sold = slug ? s.distractors.filter((id) => icons.vendors[slug].categories.includes(id)) : [];
+                if (sold.length) problems.push(`${s.vendor}, round ${i + 1} suite: ${names(sold)} is a distractor, but the training lists it.`);
+            }
+    });
+    return problems;
 };

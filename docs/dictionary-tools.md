@@ -108,36 +108,47 @@ sides), so it shows no "Show first" picker.
 - **Front**: the logo (the 512 px file, drawn at 112 px) and the vendor's name from the manifest.
   Where the slides name more than one product for a vendor (`deck_card_names`), those names are under
   it: today only Amadeus, "Amadeus iHotelier · Amadeus Demand360".
-- **Back**: what the session 2 tools slides put it under (the manifest's `categories`), in the slides'
-  order (slide 36, PMS, to slide 43, Upsell), each matched by id to the card list's box and shown with
-  its name and job line.
+- **Back**: what it's known for (the manifest's `main`), each matched by id to the card list's box and
+  shown with its name and job line, then **Also sells**: the rest of its `categories`, by name only.
+  Both in the slides' order (slide 36, PMS, to slide 43, Upsell). These are exactly the boxes the game
+  accepts for it (below).
 - **Not behind the verify gate.** It pauses only if the card list fails `sortProblems` (which pauses
   the game too) or the manifest fails `trainingProblems` (a vendor with no name, alt or box, or a box
   the card list doesn't have; the game still plays), with "The tools are being updated", a line saying
   which of the two is broken, and the problems.
-- **On a phone**, a vendor under five or six boxes (Mews, Cloudbeds) makes a card taller than the
+- **On a phone**, a vendor under many boxes (Cloudbeds sells all eight) can make a card taller than the
   screen, so after the turn the Got it / Not yet row pins itself to the bottom of the pane until the
   card's end scrolls into view (`flashcards.tsx`'s `pinActions`, which only this deck turns on; the
   terms deck keeps its row under the card). Both faces share one size, so a tall front still hints at
   a vendor under many boxes. While a card is up the next two cards' logos load; the first card's loads
   when Start is pressed.
-- **The slides' boxes were checked, and two were wrong.** Kyle asked for the slides' boxes, "but verify
-  please". On 5 and 6 Oct each of the 44 vendors was checked against its own site
-  (`reference/industry-acumen-sort/verification-2026-10-05.md`): 18 right, 24 right but they sell more
-  than the slides show, 2 wrong. So, on Kyle's say (6 Oct), **the portal's copy of the manifest (1.1)
-  leads the master (1.0)**: it leaves out Google (Google Hotels is metasearch; none of the eight boxes
-  fits) and Mews' CRM (Mews sends hotels to other companies' CRMs), Google's icons are gone from
-  `public/vendor-icons/`, and Mews' pink tile is marked identified (the check found it genuine and
-  Kyle confirmed it by eye). Upload this copy to the Claude project in place of its master before the
-  next copy comes in, or that copy will bring all three back. The 24 vendors' extra boxes were checked
-  once only and are in the report for later; the training doesn't show them. Nothing in the code
-  names a vendor's boxes.
-- **Where the slides and the game disagree.** The training shows the slides; the game marks by the
-  card list, which since 2.1 accepts every box a vendor sells (below). `vendor-icons.check.ts` prints
-  each difference as a note: 11 today, and in all of them the game accepts more than the training
-  teaches. The two boxes only the slides give (Mews' Guest messaging and Upsell, and Amadeus' Rate
-  shopping, which is Demand360) aren't boxes in round 1, so the game never marks wrong what the
-  training teaches. Adding the extra boxes to the training is the "for later" above.
+- **One answer per vendor (since 6 Oct 2026, manifest 1.2 and card list 2.2).** Kyle found the
+  training, the slides and the game disagreeing. On 6 Oct the game had taken the 5 Oct vendor check
+  (`reference/industry-acumen-sort/verification-2026-10-05.md`), while the training kept the slides'
+  boxes. Now both read one table under one rule: a box counts when the vendor sells that job under its
+  own name, in a plan or as a paid add-on. Partners' products and sister brands don't count. The rule,
+  where each box's line falls, the answer key and the slide changes still owed in the Claude project's
+  deck are in `reference/industry-acumen-sort/slide-corrections-2026-10-06.md`. The open points from the
+  5 Oct check were settled by a second look on 6 Oct.
+- **The portal's manifest (1.2) leads the master (1.0).** It leaves out Google (Google Hotels is
+  metasearch, which none of the eight boxes covers) and Mews' CRM (Mews sends hotels to other companies'
+  CRMs). Google's icons are gone from `public/vendor-icons/`. Mews' pink tile is marked identified. It
+  also adds `main` to every vendor and completes every vendor's `categories`. Upload this copy to the
+  Claude project in place of its master before the next copy comes in, or that copy will undo all of it.
+- **The game and the training can't disagree.** `boxClashes` (`vendor-icons.ts`) lists every card or
+  suite whose accepted boxes (box plus `also`, or `does`) aren't exactly its vendor's `categories`,
+  every card dealt into a box that isn't its vendor's `main`, and every distractor its vendor sells.
+  `vendor-icons.check.ts` fails on any of them, so a vendor is corrected in both files at once. The
+  Amadeus entry covers two products, so its iHotelier card may accept fewer boxes than the entry. The
+  pages don't run it: a clash is a content question, caught by the check before it ships.
+
+## The card list since 2.2
+
+2.2 (6 Oct 2026) gives every card in rounds 1 and 2 an `also` of everything its vendor sells, other
+rounds' boxes included. A box from another round can't fire in the game, but it keeps the card and the
+training on one list. Four answers that were marked wrong became right, and none went the other way:
+Oracle OPERA Cloud and Sabre SynXis in Channel manager, and Revinate and Whistle in Upsell. The notes of
+the cards whose boxes changed now say what else the vendor sells. Round 3 didn't change.
 
 ## The card list since 2.1
 
@@ -157,7 +168,9 @@ project's master needs it before its next copy comes in (`source_of_copy` says s
 - **Left as they were, on the researcher's advice**: Oracle OPERA Cloud (its channel manager is a
   separate product, OPERA Cloud Distribution), RateGain (its upsells are a feature of its booking
   engine) and Lighthouse (messaging and upsells through KITT, a side product). Sabre SynXis (channel
-  manager) and Whistle (upsell) wait with their renames.
+  manager) and Whistle (upsell) wait with their renames. 2.2 accepts Oracle's and SynXis' channel
+  managers and Whistle's upsells under the one rule above. RateGain and Lighthouse stay as they were:
+  their upsells happen only during booking.
 - **Round 3**: Cloudbeds does all eight jobs, with no distractors; SiteMinder does six (PMS and CRM are
   wrong); Mews does six (CRM is wrong). Mews' tray leaves out rate shopping, as the report advised:
   Mews RMS tracks competitors' rates, but it isn't taught as a rate shopper.
@@ -195,8 +208,9 @@ on white and in dark mode), made in the Claude project on 5 Oct 2026: the kit's 
 - **To update them**: unpack the Claude project's set with `claude/vendor_icons_unpack.py` (the
   handoff record says how), then replace `public/vendor-icons/512/` with its `logos/`,
   `public/vendor-icons/128/` with its `logos-128/` and `src/data/vendor-icons.json` with its
-  `logos.json`, each whole. Never edit the manifest here (1.1's changes, above, were Kyle's call), and
-  check a new copy still leaves out Google and Mews' CRM. Run both checks below.
+  `logos.json`, each whole. Never edit the manifest here (1.1's and 1.2's changes, above, were Kyle's
+  call), and check a new copy still leaves out Google and Mews' CRM and has every vendor's `main`. Run
+  both checks below.
 - **Mews' pink tile** is genuine: it's Mews' own site icon, though its header logo is a black wordmark.
   It was the last icon marked "check by eye", and is now identified.
 - **Trademarks**: these are the vendors' trademarks, used only to identify their products on internal
@@ -227,8 +241,9 @@ Everything is in `src/pages/team/dictionary/tools/` unless a path is given.
 ## Changing the card list
 
 1. Edit the master (see `source_of_copy`), then copy it over `src/data/industry-acumen-sort-cards.json`
-   whole. Don't hand-edit the copy. (2.1 is the one exception, made here at Kyle's request: until the
-   master has it, a new copy would undo it, so compare before replacing.)
+   whole. Don't hand-edit the copy. (2.1 and 2.2 are the exceptions, made here at Kyle's request: until the
+   master has them, a new copy would undo them, so compare before replacing.) A vendor's boxes live in
+   both files: change its card's `also` (or suite's `does`) and its manifest `categories` together.
 2. To clear a card for play: check its box and note against the vendor's own site, set `verify` to
    `false` (or remove it) and fill in `checked` (`YYYY-MM-DD`) and `sources`.
 3. Run both checks below. `sort-model.check.ts` must end in `sort-model: PASS`; a new vendor needs its
@@ -259,8 +274,8 @@ copies of the data, so correcting cards doesn't break them. `vendor-icons.check.
 manifest's eight boxes aren't exactly the card list's (in any order: the card list's order is the
 game's number keys, the slides' is the training's), a vendor has no name, alt or box, an icon's PNG
 is missing or the wrong size, a `card_name_to_slug` entry names no vendor, or a card or suite in the
-card list has no icon. It prints, without failing, any icon still to check by eye (none today) and
-where the slides and the game disagree.
+card list has no icon, a vendor has no main box, or the game and the training disagree about a vendor
+(`boxClashes`). It prints, without failing, any icon still to check by eye (none today).
 
 ## For the session
 
@@ -291,6 +306,7 @@ stack", "Try again", "Next", "Start over", "Show answers", "Round 1 / 2 / 3", th
   needs fixing"; "The cards couldn't load" (with the check's reload line and button); "Loading…".
 - The plain frame's logo, whose alt text is "HiddenGem Media".
 - The training: the title "Time to practise the tools."; the intro "43 cards: a tool's logo and name,
-  then what it falls under." (the count is the manifest's); the face labels "Vendor" and "Falls under";
+  then what it falls under and what else it sells." (the count is the manifest's); the face labels
+  "Vendor" and "Falls under"; "Also sells" over the rest of a vendor's boxes;
   " · " between a vendor's products; and, read to a screen reader only, ": " after each box name and
   ". " after each job line on the back, so the boxes don't run together.

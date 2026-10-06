@@ -44,6 +44,7 @@ import { LogScriptScreen } from "@/pages/team/log-script-screen";
 import { ManualScreen } from "@/pages/team/manual-screen";
 import { MockupIgScreen } from "@/pages/team/mockup-ig/mockup-ig-screen";
 import { MockupScreen } from "@/pages/team/mockup/mockup-screen";
+import { MockupsScreen } from "@/pages/team/mockups-screen";
 import { PromptLibraryScreen } from "@/pages/team/prompt-library-screen";
 import { QuestionsScreen } from "@/pages/team/questions-screen";
 import { ReadingYourClientsScreen } from "@/pages/team/reading-your-clients-screen";
@@ -65,6 +66,7 @@ import "@/styles/globals.css";
 // shown globally — it's a team-only settings shortcut that lives in the dashboard
 // rail, and it must never appear on client-facing pages (owner guides, popups, etc.).
 const PAGES_WITHOUT_FLOATING_CHROME = [
+    "/mockups",
     "/team/tickets",
     "/team/tickets/new",
     "/designsystem",
@@ -261,6 +263,8 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/animation" element={<AnimationScreen />} />
                         <Route path="/mockup-ig" element={<MockupIgScreen />} />
                         <Route path="/mockup" element={<MockupScreen />} />
+                        {/* The same three references, embedded live from hiddengem.media. */}
+                        <Route path="/mockups" element={<MockupsScreen />} />
                         <Route path="/background" element={<BackgroundScreen />} />
                         <Route path="/log-script" element={<LogScriptScreen />} />
                         {/* Who changed what on which client dashboard. Team-only by RLS; the

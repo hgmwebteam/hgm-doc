@@ -66,14 +66,14 @@ import { useTheme } from "@/providers/theme-provider";
 import { compressImageFile } from "@/utils/compress-image";
 import { cx } from "@/utils/cx";
 import { teamPhoto } from "@/utils/team-photos";
+// Only OWNER_EMAIL can UNLOCK edit mode (add/edit/delete cards & clients). Everyone
+// else can view. Requires a real Supabase session — the password bypass has no user.
+import { ACCOUNT_MANAGERS, MARKETING_ASSISTANTS, OWNER_EMAIL, WEB_TEAM } from "@/lib/team-roster";
 
 // Shared team passwords for the sign-in gate — any one of them unlocks viewing.
 // They carry no identity, so they never grant OWNER_EMAIL edit rights below.
 const PASSWORDS = ["ANHTUAN", "HGTEAM", "Zingdema07<3"];
 const ALLOWED_DOMAIN = "hiddengem.media";
-// Only this account can UNLOCK edit mode (add/edit/delete cards & clients). Everyone
-// else can view. Requires a real Supabase session — the password bypass has no user.
-const OWNER_EMAIL = "anhtuan@hiddengem.media";
 
 /* Google "G" mark (official multicolor). */
 export const GoogleIcon = ({ className }: { className?: string }) => (
@@ -270,14 +270,6 @@ export const ONBOARDING_PHASES = [
     { emoji: "🎨", label: "Funnel Setup" },
     { emoji: "🚀", label: "Marketing Launch" },
 ];
-
-/** The real HGM roster (hiddengem.media/team) — canonical names for the client
-    assignment dropdowns so per-person counts never fragment on typos. AMs pair
-    with a Marketing Assistant to handle each client. */
-// Gillian Conley is Operations Manager, not an AM — deliberately not listed.
-export const ACCOUNT_MANAGERS = ["Makenna Moran", "Alicia Morin", "Charlotte Pickering", "Ananya Arora", "Nicole Araya", "Chiara Henry", "Kristal Puguan"];
-export const MARKETING_ASSISTANTS = ["Vicky Si", "Lily Phanthavong", "Lucca Maggiolo"];
-export const WEB_TEAM = ["AnhTuan Bui", "Brandon Nguyen", "Leshan Patterson", "Kyle Zinger"];
 
 const DEPARTMENTS: Department[] = [
     {

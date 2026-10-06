@@ -1,6 +1,6 @@
 /**
  * Work email for each name on the Account Manager roster — `ACCOUNT_MANAGERS` in
- * src/pages/team/dashboard-screen.tsx, which is what `clients.am` stores (a name, never an
+ * src/lib/team-roster.ts, which is what `clients.am` stores (a name, never an
  * address). Keep the two lists in step: an AM missing here is simply not emailed, and the
  * function logs which name it could not resolve.
  *

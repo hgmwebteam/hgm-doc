@@ -10,21 +10,22 @@
  *     --log-level=warning && node /tmp/hgm-check/vendor-icons.cjs
  *
  * It fails loudly when the manifest's eight boxes aren't exactly the card list's, a vendor has no
- * name, alt or box, an icon's PNG is missing or the wrong size, a card_name_to_slug entry points at
- * no vendor, a card or suite in the card list has no icon, or the training would show a card wrong.
- * It never reads verify: the training isn't behind the game's gate, so this passes while
- * sort-model.check.ts still fails there.
+ * name, alt, box or main box, an icon's PNG is missing or the wrong size, a card_name_to_slug entry
+ * points at no vendor, a card or suite in the card list has no icon, the training would show a card
+ * wrong, or the game and the training would tell a player different things about a vendor
+ * (boxClashes). It never reads verify: the training isn't behind the game's gate, so this passes
+ * while sort-model.check.ts still fails there.
  *
- * Where the slides and the game put a vendor in different boxes it prints a note, not a failure:
- * which is right is Kyle's call (a check of every vendor against its own site is under way), and
- * the fix is a data change in the Claude project, never code.
+ * Until 6 Oct 2026 a disagreement between the two was only a note, and the training and the game
+ * drifted apart: the game took the 5 Oct vendor check, the training kept the slides' boxes. Now it
+ * fails, so correcting a vendor means correcting both files together.
  */
 import assert from "node:assert";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import cardsJson from "@/data/industry-acumen-sort-cards.json";
 import iconsJson from "@/data/vendor-icons.json";
 import { type JobsRound, type SortData, type VendorRound, sortProblems } from "@/pages/team/dictionary/tools/sort-model";
-import { type IconSize, type VendorIcons, iconSlug, iconUrl, trainingCards, trainingProblems } from "@/pages/team/dictionary/tools/vendor-icons";
+import { type IconSize, type VendorIcons, boxClashes, iconSlug, iconUrl, trainingCards, trainingProblems } from "@/pages/team/dictionary/tools/vendor-icons";
 
 const cards = cardsJson as unknown as SortData;
 const icons = iconsJson as unknown as VendorIcons;
@@ -53,7 +54,7 @@ section("The manifest (src/data/vendor-icons.json) and the card list");
     const problems = trainingProblems(icons, cards);
     for (const p of problems) console.log(`  ✗ ${p}`);
     assert.deepEqual(problems, [], "trainingProblems finds problems (listed above)");
-    pass(`every vendor (${slugs.length}) has a name, an alt and at least one box, and every box is the card list's`);
+    pass(`every vendor (${slugs.length}) has a name, an alt, at least one box and a main box among them, and every box is the card list's`);
 
     for (const [name, slug] of Object.entries(icons.card_name_to_slug))
         assert.ok(slugs.includes(slug), `card_name_to_slug: "${name}" is ${slug}, which isn't a vendor`);
@@ -99,7 +100,8 @@ section("What trainingProblems catches");
         return trainingProblems(copy, cards);
     };
     const [first] = slugs;
-    const box = icons.vendors[first].categories[0];
+    // Its main box, so the copies below that keep only `box` keep a main box among their categories.
+    const box = icons.vendors[first].main[0];
 
     assert.deepEqual(
         broken((m) => (m.vendors[first].name = "")),
@@ -125,7 +127,20 @@ section("What trainingProblems catches");
         broken((m) => (m.vendors = {})),
         ["Vendor icons: the manifest has no vendors."],
     );
-    pass("no name, no alt, no box, a box the card list doesn't have, a box twice, no vendors");
+    assert.deepEqual(
+        broken((m) => (m.vendors[first].main = [])),
+        [`Vendor icons: ${first} has no main box.`],
+    );
+    const elsewhere = [...boxes.keys()].find((id) => !icons.vendors[first].categories.includes(id))!;
+    assert.deepEqual(
+        broken((m) => (m.vendors[first].main = [elsewhere])),
+        [`Vendor icons: ${first}'s main box "${elsewhere}" isn't one of its categories.`],
+    );
+    assert.deepEqual(
+        broken((m) => (m.vendors[first].main = [box, box])),
+        [`Vendor icons: ${first}'s main names "${box}" twice.`],
+    );
+    pass("no name, no alt, no box, a box the card list doesn't have, a box twice, no vendors, no main box, a main box it isn't under, a main box twice");
 }
 
 /* ── 4. The training ────────────────────────────────────────────── */
@@ -141,26 +156,36 @@ section("The tools training (/dictionary/tools/practice)");
     pass(`${deck.length} cards, one per vendor, not only the game's`);
 
     const slideOf = new Map(Object.entries(icons.categories).map(([slide, id]) => [id, Number(slide)]));
+    const inSlideOrder = (ids: string[]) => [...ids].sort((a, b) => slideOf.get(a)! - slideOf.get(b)!);
     for (const c of deck) {
         const v = icons.vendors[c.slug];
         assert.equal(c.name, v.name, `${c.slug}: the front shows the manifest's name`);
         assert.deepEqual(
-            c.boxes.map((b) => b.id),
-            [...v.categories].sort((a, b) => slideOf.get(a)! - slideOf.get(b)!),
-            `${c.slug}: its boxes, in the slides' order`,
+            c.main.map((b) => b.id),
+            inSlideOrder(v.main),
+            `${c.slug}: what it's known for, in the slides' order`,
         );
-        for (const b of c.boxes) assert.equal(b, boxes.get(b.id), `${c.slug}: ${b.id} is the card list's box, name and job line`);
+        assert.deepEqual(
+            c.also.map((b) => b.id),
+            inSlideOrder(v.categories.filter((id) => !v.main.includes(id))),
+            `${c.slug}: everything else it sells, in the slides' order`,
+        );
+        for (const b of [...c.main, ...c.also]) assert.equal(b, boxes.get(b.id), `${c.slug}: ${b.id} is the card list's box, name and job line`);
         assert.deepEqual(c.products, v.deck_card_names.length > 1 ? v.deck_card_names : [], `${c.slug}: products only when the slides name more than one`);
     }
-    pass("the back: what the slides put it under, worded as the card list's boxes, in the slides' order");
+    pass("the back: what it's known for, then everything else it sells, worded as the card list's boxes, each in the slides' order");
     for (const c of deck.filter((x) => x.products.length)) console.log(`  ${c.name}: ${c.products.join(" · ")}`);
 
     // The slides' order, not the manifest's: a vendor's boxes listed backwards still come out in slide order.
-    const widest = deck.reduce((a, b) => (b.boxes.length > a.boxes.length ? b : a));
+    const widest = deck.reduce((a, b) => (b.also.length > a.also.length ? b : a));
     const reversed = structuredClone(icons);
     reversed.vendors[widest.slug].categories.reverse();
-    assert.deepEqual(trainingCards(reversed, cards).find((c) => c.slug === widest.slug)!.boxes, widest.boxes, `${widest.slug}'s boxes listed backwards`);
-    pass(`the order is the slides' (${widest.name}, with its ${widest.boxes.length} boxes listed backwards, comes out the same)`);
+    assert.deepEqual(trainingCards(reversed, cards).find((c) => c.slug === widest.slug)!.also, widest.also, `${widest.slug}'s boxes listed backwards`);
+    pass(`the order is the slides' (${widest.name}, with its ${widest.also.length + widest.main.length} boxes listed backwards, comes out the same)`);
+    const counts = deck.map((c) => c.main.length + c.also.length);
+    pass(
+        `boxes per vendor: ${Math.min(...counts)} to ${Math.max(...counts)}; ${deck.filter((c) => c.also.length).length} of ${deck.length} sell more than what they're known for`,
+    );
 
     // Not behind the game's gate: marking every card and suite verify changes nothing here.
     const allWaiting = structuredClone(cards);
@@ -170,28 +195,39 @@ section("The tools training (/dictionary/tools/practice)");
     pass("not behind the verify gate: with every card marked verify, the deck is the same");
 }
 
-/* ── 5. Where the slides and the game disagree ──────────────────── */
+/* ── 5. One answer per vendor ──────────────────────────────────── */
 
-section("Where the tools slides and the game disagree (notes for Kyle, not failures)");
+section("The game and the training agree on every vendor");
 {
-    const names = (ids: string[]) => ids.map((id) => boxes.get(id)?.name ?? id).join(", ");
-    let clashes = 0;
-    const compare = (who: string, game: string[], vendorName: string) => {
-        const slug = iconSlug(icons, vendorName)!;
-        const v = icons.vendors[slug];
-        const onlyGame = game.filter((id) => !v.categories.includes(id));
-        const onlySlides = v.categories.filter((id) => !game.includes(id));
-        if (!onlyGame.length && !onlySlides.length) return;
-        clashes++;
-        const parts = [onlyGame.length && `only the game says ${names(onlyGame)}`, onlySlides.length && `only the slides say ${names(onlySlides)}`];
-        const merged = v.deck_card_names.length > 1 ? ` (the slides' ${v.name} is ${v.deck_card_names.join(" and ")} together)` : "";
-        console.log(`  note ${who}: ${parts.filter(Boolean).join("; ")}${merged}`);
+    const clashes = boxClashes(icons, cards);
+    for (const c of clashes) console.log(`  ✗ ${c}`);
+    assert.deepEqual(clashes, [], "the game and the training disagree (listed above): correct the manifest and the card list together");
+    const named = cards.rounds.reduce((n, r) => n + (r.mode === "vendors" ? r.cards.length : r.suites.length), 0);
+    pass(`all ${named} cards and suites accept exactly the boxes the training lists, and each card is dealt into what its vendor is known for`);
+
+    // What boxClashes catches, on copies.
+    const r1 = cards.rounds.findIndex((r) => r.mode === "vendors");
+    const card = (cards.rounds[r1] as VendorRound).cards[0];
+    const v = icons.vendors[iconSlug(icons, card.vendor)!];
+    const spare = [...boxes.keys()].find((id) => !v.categories.includes(id))!;
+    const withAlso = (also: string[]) => {
+        const copy = structuredClone(cards);
+        (copy.rounds[r1] as VendorRound).cards[0].also = also;
+        return boxClashes(icons, copy);
     };
-    cards.rounds.forEach((r, i) => {
-        if (r.mode === "vendors") for (const c of r.cards) compare(`${c.vendor}, round ${i + 1}`, [c.box, ...c.also], c.vendor);
-        else for (const s of r.suites) compare(`${s.vendor}, round ${i + 1} suite`, s.does, s.vendor);
-    });
-    console.log(clashes ? `  ${clashes} in all. The training shows the slides; the game marks by the card list.` : "  none");
+    assert.equal(withAlso([...card.also, spare]).length, 1, "a box the game accepts and the training doesn't list");
+    if (card.also.length) assert.equal(withAlso(card.also.slice(1)).length, 1, "a box the training lists and the game doesn't accept");
+    const moved = structuredClone(icons);
+    moved.vendors[iconSlug(icons, card.vendor)!].main = [card.also[0] ?? spare];
+    if (card.also.length) assert.equal(boxClashes(moved, cards).length, 1, "a card dealt into a box its vendor isn't known for");
+    const suiteRound = cards.rounds.findIndex((r) => r.mode === "jobs");
+    if (suiteRound >= 0) {
+        const copy = structuredClone(cards);
+        const suite = (copy.rounds[suiteRound] as JobsRound).suites[0];
+        suite.distractors = [...suite.distractors, suite.does.pop()!];
+        assert.ok(boxClashes(icons, copy).length >= 1, "a suite whose distractor is a job the training lists");
+    }
+    pass("a box only one of them gives, a card dealt into the wrong main box, a distractor the vendor sells");
 }
 
 console.log("\nvendor-icons: PASS");

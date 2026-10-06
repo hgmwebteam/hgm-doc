@@ -217,6 +217,24 @@ or wrong per term only, never the typed answer, and each person sees only their 
 aid with no pass mark: don't add any cross-person view or roll-up without asking.** The check needs a
 Google session (the team password has none). See `docs/dictionary-check.md`.
 
+Beside it, the **tools** pages in `src/pages/team/dictionary/tools/`: **Sort the stack**
+(`/dictionary/tools/review`), a three-round drag-and-drop sort for the team training session, and the
+tools training (`/dictionary/tools/practice`), both behind `TeamGate`. `/acumen-sort` is the same game with no
+sign-in, as the session's backup: public, so its route stays above the client-slug catch-all and
+`acumen-sort` is in `RESERVED_SLUGS`. The game is built from `src/data/industry-acumen-sort-cards.json`,
+whose master is in the Claude project (replace it whole; never edit its wording here), and refuses
+to play while any card says `"verify": true`, as `sort-model.check.ts` does. The training doesn't wait on
+verify: it's one flashcard per vendor in the icon manifest `src/data/vendor-icons.json` (also a Claude
+project copy, replaced whole), with the boxes the session 2 slides give it on the back. The portal's copy
+leaves out Google and Mews' CRM, which the 5 Oct vendor check found wrong
+(`reference/industry-acumen-sort/verification-2026-10-05.md`): the master needs the same change first. Both draw the icons
+from `public/vendor-icons/{128,512}/`: the game finds a card's icon by vendor name through the manifest's
+`card_name_to_slug` (never a logo field in the card list), the training by the manifest's own slugs, as
+`vendor-icons.check.ts` checks. The game stores and sends nothing (the plain frame's theme button keeps
+the portal's usual `ui-theme`, as the floating toggle does).
+The check and the game share `dictionary/drag-board.tsx` (drag, tap-then-tap and keyboard placing),
+and the two decks share `dictionary/flashcards.tsx`. See `docs/dictionary-tools.md`.
+
 `reference/` at the repo root is team material (design mockups, SOP screenshots,
 design-tool exports) and is **not** read by the app; only `src/` is bundled and only
 `public/` is served. See [reference/README.md](reference/README.md).

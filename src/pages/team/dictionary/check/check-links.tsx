@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ClipboardCheck, RefreshCw01 } from "@untitledui/icons";
+import { ClipboardCheck, LayersThree01, RefreshCw01 } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { type CheckAttempt, listAttempts } from "@/lib/check-attempts";
@@ -14,6 +14,10 @@ import { TEAM_DOMAIN } from "@/pages/team/dictionary/check/use-check-session";
  * stays the first thing on it. The buttons show at once with first-visit wording and change
  * when the person's own history arrives; a password visitor (no session) keeps them as they
  * are, and the check asks them to sign in.
+ *
+ * On the right of the same row, the tools: "Review the tools" (Sort the stack) and "Practise
+ * the tools" (the tools training: every vendor in the icon manifest), from
+ * src/pages/team/dictionary/tools/. On a phone they wrap under the check's buttons.
  */
 
 type Summary = { open: boolean; latest: CheckAttempt | null };
@@ -45,18 +49,28 @@ export const CheckLinks = () => {
     const practiseSet = summary?.latest && toReview > 0 ? "missed" : "all";
 
     return (
-        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Button size="sm" color="secondary" iconLeading={ClipboardCheck} href="/dictionary/check">
-                {checkLabel}
-            </Button>
-            <Button size="sm" color="secondary" iconLeading={RefreshCw01} href={`/dictionary/practice?set=${practiseSet}`}>
-                Practise the terms
-            </Button>
-            {summary?.latest && toReview > 0 && (
-                <Button size="sm" color="link-color" href="/dictionary/check/results">
-                    {`${toReview} ${toReview === 1 ? "term" : "terms"} to review`}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <Button size="sm" color="secondary" iconLeading={ClipboardCheck} href="/dictionary/check">
+                    {checkLabel}
                 </Button>
-            )}
+                <Button size="sm" color="secondary" iconLeading={RefreshCw01} href={`/dictionary/practice?set=${practiseSet}`}>
+                    Practise the terms
+                </Button>
+                {summary?.latest && toReview > 0 && (
+                    <Button size="sm" color="link-color" href="/dictionary/check/results">
+                        {`${toReview} ${toReview === 1 ? "term" : "terms"} to review`}
+                    </Button>
+                )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <Button size="sm" color="secondary" iconLeading={LayersThree01} href="/dictionary/tools/review">
+                    Review the tools
+                </Button>
+                <Button size="sm" color="secondary" iconLeading={RefreshCw01} href="/dictionary/tools/practice">
+                    Practise the tools
+                </Button>
+            </div>
         </div>
     );
 };

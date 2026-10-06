@@ -20,7 +20,7 @@ export const slugify = (s: string) =>
 const RESERVED_SLUGS = new Set([
     "template-1", "template", "dashboard", "roadmap", "requests", "settings",
     "designsystem", "home2", "popup", "owner-guide", "chat-widget", "metapixel",
-    "log-script",
+    "log-script", "acumen-sort",
 ]);
 export const isReservedSlug = (slug: string) =>
     RESERVED_SLUGS.has(slug) || /-(leadcapture|chatwidget|dashboard)$/.test(slug);

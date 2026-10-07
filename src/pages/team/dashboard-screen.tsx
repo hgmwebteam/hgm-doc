@@ -40,6 +40,7 @@ import { HelpMenu } from "@/components/application/help-menu";
 import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, NavCollapseButton, useNavCollapsed } from "@/components/application/icon-rail";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
 import { Select } from "@/components/base/select/select";
+import { Avatar } from "@/components/base/avatar/avatar";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
 import {
@@ -3467,7 +3468,8 @@ const NavItem = ({
         )}
     >
         {photo ? (
-            <img src={photo} alt={label} className="size-5 shrink-0 rounded-full object-cover ring-1 ring-secondary" draggable={false} />
+            // Untitled UI's sidebar nav rows carry a 24px (xs) avatar.
+            <Avatar src={photo} alt={label} size="xs" className="shrink-0" />
         ) : (
             <Icon className="size-4 shrink-0" aria-hidden="true" />
         )}

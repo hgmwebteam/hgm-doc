@@ -16,6 +16,12 @@ const ACCOUNT_MANAGER_EMAILS: Record<string, string> = {
     "Kristal Puguan": "kristal@hiddengem.media",
 };
 
+/**
+ * Copied on every Onboarding Form and Account Access Form email, whoever the client's AM is —
+ * and still emailed when the AM can't be resolved. Anyone here who is also the AM gets one copy.
+ */
+export const FORM_SUBMISSION_CC: string[] = ["dustin@hiddengem.media", "gillian@hiddengem.media", "makenna@hiddengem.media", "alicia@hiddengem.media"];
+
 /** Case- and whitespace-insensitive, because `clients.am` also keeps legacy free-typed names. */
 export const accountManagerEmail = (name: string | null | undefined): string | null => {
     const key = (name ?? "").trim().replace(/\s+/g, " ").toLowerCase();

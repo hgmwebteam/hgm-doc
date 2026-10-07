@@ -124,9 +124,9 @@ export const JourneyProgress: FC<{
                                 key={phase.id}
                                 className="grid min-w-0 content-start gap-3 @3xl:gap-3.5"
                                 // A stage's width follows its step count, so the long Marketing
-                                // funnel gets room for its pills; floored at three so a two-step
+                                // funnel gets room for its pills; floored at four so a two-step
                                 // stage's name and count still fit inside its chevron.
-                                style={{ flex: `${Math.max(phase.pills.length, 3)} 1 0` } as CSSProperties}
+                                style={{ flex: `${Math.max(phase.pills.length, 4)} 1 0` } as CSSProperties}
                             >
                                 <div
                                     className={cx(

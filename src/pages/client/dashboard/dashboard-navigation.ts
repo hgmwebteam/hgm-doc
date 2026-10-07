@@ -9,9 +9,11 @@ import type { FC } from "react";
 import {
     Announcement02,
     BookOpen01,
+    Browser,
     Calendar,
     Camera01,
     ClipboardCheck,
+    Database01,
     FileCheck02,
     Folder,
     Globe01,
@@ -19,8 +21,10 @@ import {
     Image01,
     Image03,
     LayoutAlt01,
+    MagicWand01,
     Mail01,
     MessageChatCircle,
+    MessageSmileSquare,
     PlayCircle,
     Rocket02,
     Target04,
@@ -65,7 +69,22 @@ export type PhaseId = keyof typeof PHASES;
  * AM tick stored in content.journey_done — calls and reviews happen off-platform and
  * there is nothing to infer them from.
  */
-export type JourneyStepId = "chat" | "form" | "kickoff" | "call" | "vision" | "masterdoc" | "brandkit" | "funnel" | "resources" | "launch";
+export type JourneyStepId =
+    | "chat"
+    | "form"
+    | "kickoff"
+    | "call"
+    | "vision"
+    | "masterdoc"
+    | "brandkit"
+    | "crm"
+    | "adaccount"
+    | "manychat"
+    | "contentopt"
+    | "funnel"
+    | "webforms"
+    | "resources"
+    | "launch";
 
 /** Dustin's strategy-call booking page, linked from the Kick-off Call step. */
 export const KICKOFF_CALENDLY = "https://calendly.com/dustin-d-baker/strategy";
@@ -264,6 +283,22 @@ export const JOURNEY_STEPS: {
         eta: "Week 1",
     },
     { id: "brandkit", label: "Review the Brand Kit", detail: "Colours, fonts and logo.", icon: Image01, to: "brand", eta: "Week 1" },
+    // Tech setup — the team's own work, nothing for the client to do or open. An AM ticks
+    // each one; until then the meter shows them as coming up, or "we're on it" once marked.
+    { id: "crm", label: "HighLevel CRM", detail: "Setting up on GoHighLevel.", icon: Database01, eta: "Week 1" },
+    { id: "adaccount", label: "Ad account setup", detail: "Meta ad account and pixel tracking.", icon: Target04, eta: "Week 1" },
+    { id: "manychat", label: "ManyChat", detail: "Set up ManyChat automations.", icon: MessageSmileSquare, eta: "Week 1" },
+    {
+        // Team work too, but with a way in: the content folder is where the enhanced photos
+        // and video land, so the client can see them as they come.
+        id: "contentopt",
+        label: "Content optimization",
+        detail: "Enhancing your content.",
+        icon: MagicWand01,
+        hrefFrom: "folder",
+        hrefLabel: "Open your folder",
+        eta: "Week 1",
+    },
     {
         // No `detail` line: it listed the same five pieces the items below now name one
         // by one, so it only said everything twice.
@@ -290,6 +325,7 @@ export const JOURNEY_STEPS: {
             { id: "reels", label: "Example Reels", to: "reels", eta: "Week 2" },
         ],
     },
+    { id: "webforms", label: "Website forms", detail: "We build an inline form and pop-up form.", icon: Browser, eta: "Week 2" },
     {
         // Closes the journey on what the client actually signed up for, rather than on a
         // task of theirs. Nothing on the dashboard can observe a launch, so an AM ticks it.
@@ -342,7 +378,8 @@ export const SECTION_ETA: Partial<Record<SectionId, string>> = Object.fromEntrie
 export const JOURNEY_STAGES: { id: string; label: string; week: string; steps: JourneyStepId[] }[] = [
     { id: "start", label: "Get started", week: "Before Week 1", steps: ["chat", "form", "kickoff", "vision", "resources", "call"] },
     { id: "foundation", label: "Brand foundation", week: "Week 1", steps: ["masterdoc", "brandkit"] },
-    { id: "funnel", label: "Marketing funnel", week: "Week 2", steps: ["funnel"] },
+    { id: "tech", label: "Tech setup", week: "Week 1", steps: ["crm", "adaccount", "manychat"] },
+    { id: "funnel", label: "Marketing funnel", week: "Week 1–2", steps: ["contentopt", "funnel", "webforms"] },
     { id: "live", label: "Live", week: "Week 3", steps: ["launch"] },
 ];
 
@@ -378,10 +415,18 @@ export const JOURNEY_BAR: { id: string; label: string; stage: string; owner: Jou
     { id: "call", label: "Onboarding call", stage: "start", owner: "client", steps: ["call"] },
     { id: "masterdoc", label: "Master Brand", stage: "foundation", owner: "review", steps: ["masterdoc"] },
     { id: "brandkit", label: "Brand Kit", stage: "foundation", owner: "review", steps: ["brandkit"] },
+    { id: "crm", label: "CRM", stage: "tech", owner: "team", steps: ["crm"] },
+    { id: "adaccount", label: "Ad account setup", stage: "tech", owner: "team", steps: ["adaccount"] },
+    { id: "manychat", label: "ManyChat", stage: "tech", owner: "team", steps: ["manychat"] },
+    { id: "contentopt", label: "Content optimization", stage: "funnel", owner: "team", steps: ["contentopt"] },
     // Expands into its five reviews, each named by the item: Landing Page, Pinned Stories,
     // Welcome Flow, Pinned Posts, Example Reels.
     { id: "funnel", label: "Marketing funnel", stage: "funnel", owner: "review", steps: ["funnel"] },
+    { id: "webforms", label: "Website forms", stage: "funnel", owner: "team", steps: ["webforms"] },
 ];
+
+/** Steps only the team can finish — never the client's "next thing to do". */
+export const TEAM_JOURNEY_STEPS = new Set<JourneyStepId>(JOURNEY_BAR.filter((bar) => bar.owner === "team").flatMap((bar) => bar.steps));
 
 /**
  * ── Journey completion, as stored ──

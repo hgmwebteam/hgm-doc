@@ -150,6 +150,7 @@ import {
     SECTIONS,
     SECTION_ETA,
     type SearchHit,
+    TEAM_JOURNEY_STEPS,
     TEAM_ONLY_SECTIONS,
     isJourneyItemDone,
     journeyItemKey,
@@ -2530,7 +2531,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
 
     const journeyDoneCount = journeySteps.filter((s) => s.done).length;
     /** First unfinished step — highlighted so a client can see what's next at a glance. */
-    const journeyCurrentId = journeySteps.find((s) => !s.done)?.id ?? null;
+    // Skips the team's own steps (CRM, ManyChat…) while anything of the client's is still open:
+    // the beam and "needs your input" both say "this is yours to do next", which a step only
+    // the team can finish never is. Falls back to them once nothing else is left.
+    const journeyCurrentId = journeySteps.find((s) => !s.done && !TEAM_JOURNEY_STEPS.has(s.id))?.id ?? journeySteps.find((s) => !s.done)?.id ?? null;
 
     /**
      * The launch meter's stages and the pills under each.

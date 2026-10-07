@@ -32,13 +32,16 @@ export interface SopIndexEntry {
     updated: string;
     /** ISO date, or null until first approval. */
     next_review: string | null;
-    /** Path inside the private `sops` storage bucket. */
+    /** Path inside the `sops` storage bucket or the published /sops/ directory. */
     html: string;
     pdf: string;
     change_summary: string;
 }
 
 export const SOPS: SopIndexEntry[] = sopsIndex as SopIndexEntry[];
+
+/** Only these SOPs have been authorised for public access. */
+export const isPublicSop = (id: string) => ["HGM-SOP-WEB-003", "HGM-SOP-WEB-004", "HGM-SOP-WEB-005"].includes(id.toUpperCase());
 
 export const sopPath = (id: string) => `/sop/${id}`;
 
@@ -58,8 +61,12 @@ const STATUS_CLASS: Record<SopStatus, string> = {
 
 const formatDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("en-CA", { day: "numeric", month: "short", year: "numeric" });
 
-/** Opens the current version's PDF through a short-lived signed URL. Never a public link. */
+/** Public SOP PDFs are served by the site; private PDFs use short-lived signed URLs. */
 export const openSopPdf = async (entry: SopIndexEntry) => {
+    if (isPublicSop(entry.id)) {
+        window.open(`/sops/${entry.pdf}`, "_blank", "noopener");
+        return;
+    }
     const { data, error } = await supabase.storage.from("sops").createSignedUrl(entry.pdf, 120);
     if (error || !data?.signedUrl) {
         window.alert("The PDF could not be opened. Sign in with your Google account and try again.");

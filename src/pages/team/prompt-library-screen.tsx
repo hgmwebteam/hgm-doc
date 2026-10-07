@@ -5,6 +5,7 @@ import { AppShell, CollapsedTopBar, IconRail, NavCollapseButton, useNavCollapsed
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useTheme } from "@/providers/theme-provider";
 import { supabase, type PromptLibraryEntry } from "@/lib/supabase";
+import { OWNER_EMAIL } from "@/lib/team-roster";
 import { cx } from "@/utils/cx";
 
 /**
@@ -15,7 +16,6 @@ import { cx } from "@/utils/cx";
  * body, "when to use" note, tags, and {{placeholders}} highlighted for reuse.
  */
 
-const OWNER_EMAIL = "anhtuan@hiddengem.media";
 const uid = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "id" + Math.random().toString(36).slice(2));
 
 type TypeFilter = "all" | "prompt" | "pattern";

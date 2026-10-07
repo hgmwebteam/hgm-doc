@@ -6,6 +6,7 @@ import {
     canvaRedirectUri,
     dropConnection,
     exchangeCode,
+    legacyCanvaToken,
     pkceChallenge,
     randomToken,
     readConnection,
@@ -109,8 +110,8 @@ export default async (req: Request) => {
         return Response.json({
             configured: !!creds && !!redirectUri,
             redirectUri,
-            connected: !!row || !!process.env.CANVA_ACCESS_TOKEN,
-            connectedBy: row?.connected_by ?? (process.env.CANVA_ACCESS_TOKEN ? "environment variable" : ""),
+            connected: !!row || !!legacyCanvaToken(),
+            connectedBy: row?.connected_by ?? (legacyCanvaToken() ? "environment variable" : ""),
             connectedAt: row?.connected_at ?? null,
             expiresAt: row?.expires_at ?? null,
         });

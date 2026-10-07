@@ -16,6 +16,7 @@ import {
     type TrueFalseVariant,
     type WordProblemVariant,
     findVariant,
+    matchingCardName,
     matchingLine,
     seededRandom,
     shuffle,
@@ -316,25 +317,34 @@ const TrueFalse = ({ item, entry, response, onChange }: QuestionProps) => {
     );
 };
 
-/** The tray of cards still to place. Sticky at the bottom of the pane on a phone, so a card is always in reach while the slots scroll. */
+/**
+ * The tray of cards still to place. On a phone it's one row pinned to the bottom of the pane, so
+ * it never covers more than a strip of the screen: swipe it sideways to see every card (tray cards
+ * allow sideways panning), drag one up to place it. On a laptop the matching tray is a column
+ * beside the definitions, capped to the screen with its own scroll.
+ */
 const Tray = ({ board, title, empty, children, side = false }: { board: DragBoard; title: string; empty: boolean; children: ReactNode; side?: boolean }) => (
     <div
         {...board.dropProps(null)}
         onClick={board.backToTray}
         className={cx(
             "sticky bottom-0 z-10 -mx-1 rounded-xl bg-primary p-3 shadow-lg ring-1 ring-secondary",
-            side && "sm:top-4 sm:bottom-auto sm:mx-0 sm:shadow-xs",
-            targetClass({ carrying: !!board.picked, over: board.over === null }),
+            side && "sm:top-4 sm:bottom-auto sm:mx-0 sm:max-h-[calc(100dvh-12rem)] sm:overflow-y-auto sm:shadow-xs",
+            // Only a card carried from a slot can come back here, so only then is the tray a target.
+            targetClass({ carrying: board.carrying && board.carriedFrom !== null, over: board.over === null }),
         )}
     >
         <p className="text-sm font-semibold text-secondary">{title}</p>
         {empty ? (
             <p className="mt-2 text-sm text-tertiary">All placed. Move any card to change it.</p>
         ) : (
-            <ul className="mt-2 flex flex-wrap gap-2">{children}</ul>
+            <ul className="mt-2 flex gap-2 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:pb-1 sm:flex-wrap">{children}</ul>
         )}
     </div>
 );
+
+/** A card in the tray: it keeps its width in the phone's single row, and lets that row be swiped sideways. */
+const trayChipClass = (picked: boolean) => cx(chipClass({ picked }), "max-w-[80vw] shrink-0 max-sm:touch-pan-x");
 
 const Buckets = ({ item, entry, response, onChange, seed, scrollRef }: QuestionProps) => {
     const promptId = useId();
@@ -348,6 +358,9 @@ const Buckets = ({ item, entry, response, onChange, seed, scrollRef }: QuestionP
         chipLabel: label,
         scrollRef,
         onMove: (term, to) => {
+            // A move to where the card already is changes nothing, so nothing is saved: on a screen
+            // answered on another device, saving would turn its right answers wrong.
+            if ((placed[term] ?? null) === to) return { ok: true, message: to === null ? `${label(term)} is with the cards.` : `${label(term)} stays in ${to}.` };
             const next = { ...placed };
             if (to === null) delete next[term];
             else next[term] = to;
@@ -367,10 +380,7 @@ const Buckets = ({ item, entry, response, onChange, seed, scrollRef }: QuestionP
                         key={box}
                         {...board.dropProps(box)}
                         onClick={() => board.placeInto(box)}
-                        className={cx(
-                            "flex flex-col gap-3 rounded-xl bg-secondary p-3 ring-1 ring-secondary",
-                            targetClass({ carrying: !!board.picked, over: board.over === box }),
-                        )}
+                        className={cx("flex flex-col gap-3 rounded-xl bg-secondary p-3 ring-1 ring-secondary", targetClass({ carrying: board.carrying, over: board.over === box }))}
                     >
                         <button
                             type="button"
@@ -388,7 +398,11 @@ const Buckets = ({ item, entry, response, onChange, seed, scrollRef }: QuestionP
                                 .filter((c) => placed[c.term] === box)
                                 .map((c) => (
                                     <li key={c.term}>
-                                        <button {...board.chipProps(c.term, box)} className={chipClass({ picked: board.picked === c.term, fill: true })}>
+                                        <button
+                                            {...board.chipProps(c.term, box)}
+                                            aria-label={`${c.text}, in ${box}`}
+                                            className={chipClass({ picked: board.picked === c.term, fill: true })}
+                                        >
                                             {c.text}
                                         </button>
                                     </li>
@@ -400,7 +414,7 @@ const Buckets = ({ item, entry, response, onChange, seed, scrollRef }: QuestionP
             <Tray board={board} title="Cards" empty={!inTray.length}>
                 {inTray.map((c) => (
                     <li key={c.term}>
-                        <button {...board.chipProps(c.term, null)} className={chipClass({ picked: board.picked === c.term })}>
+                        <button {...board.chipProps(c.term, null)} className={trayChipClass(board.picked === c.term)}>
                             {c.text}
                         </button>
                     </li>
@@ -430,8 +444,14 @@ const Matching = ({ item, entry, response, onChange, seed, bySlug, scrollRef }: 
     );
     const words = useMemo(() => shuffle(terms, seededRandom(`${seed}:words`)), [terms, seed]);
     const chosen = response?.kind === "pairs" ? response.chosen : {};
-    const name = (slug: string) => bySlug.get(slug)?.term ?? slug;
+    const lineId = useId();
+    // The card's name, without a bracketed expansion that the lines blank (OTB, not "OTB (on the books)").
+    const name = (slug: string) => {
+        const e = bySlug.get(slug);
+        return e ? matchingCardName(e, maskExtra?.[slug] ?? []) : slug;
+    };
     const slotOf = (term: string) => Object.keys(chosen).find((line) => chosen[line] === term);
+    const slotNumber = (line: string) => lines.findIndex((l) => l.slug === line) + 1;
 
     const board = useDragBoard({
         targets: lines.map((l, i) => ({ id: l.slug, label: `slot ${i + 1}` })),
@@ -439,17 +459,23 @@ const Matching = ({ item, entry, response, onChange, seed, bySlug, scrollRef }: 
         chipLabel: name,
         scrollRef,
         onMove: (term, to) => {
+            const from = slotOf(term) ?? null;
+            // A move to where the card already is changes nothing, so nothing is saved (see Buckets).
+            if (from === to) return { ok: true, message: to === null ? `${name(term)} is with the terms.` : `${name(term)} stays in slot ${slotNumber(to)}.` };
             const next = { ...chosen };
-            const from = Object.keys(next).find((line) => next[line] === term);
             if (from) delete next[from];
+            // A card dropped on a filled slot swaps with it, or sends it back to the tray; say so.
+            let moved = "";
             if (to !== null) {
                 const occupant = next[to];
-                if (occupant && from) next[from] = occupant;
+                if (occupant) {
+                    if (from) next[from] = occupant;
+                    moved = from ? ` ${name(occupant)} moved to slot ${slotNumber(from)}.` : ` ${name(occupant)} is back with the terms.`;
+                }
                 next[to] = term;
             }
             onChange({ kind: "pairs", chosen: next });
-            const n = to === null ? 0 : lines.findIndex((l) => l.slug === to) + 1;
-            return { ok: true, message: to === null ? `${name(term)} is back with the terms.` : `${name(term)} is in slot ${n}.` };
+            return { ok: true, message: to === null ? `${name(term)} is back with the terms.` : `${name(term)} is in slot ${slotNumber(to)}.${moved}` };
         },
     });
     const inTray = words.filter((t) => !slotOf(t));
@@ -469,10 +495,7 @@ const Matching = ({ item, entry, response, onChange, seed, bySlug, scrollRef }: 
                                 key={l.slug}
                                 {...board.dropProps(l.slug)}
                                 onClick={() => board.placeInto(l.slug)}
-                                className={cx(
-                                    "flex flex-col gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary",
-                                    targetClass({ carrying: !!board.picked, over: board.over === l.slug }),
-                                )}
+                                className={cx("flex flex-col gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary", targetClass({ carrying: board.carrying, over: board.over === l.slug }))}
                             >
                                 <div className="flex items-center gap-2">
                                     <KeyBadge n={i + 1} />
@@ -481,6 +504,9 @@ const Matching = ({ item, entry, response, onChange, seed, bySlug, scrollRef }: 
                                         <button
                                             key={`card-${here}`}
                                             {...board.chipProps(here, l.slug)}
+                                            // Says where it is, and which line it's on, as the select it replaced did.
+                                            aria-label={`${name(here)}, in slot ${i + 1}`}
+                                            aria-describedby={`${lineId}-${i}`}
                                             className={chipClass({ picked: board.picked === here, fill: true })}
                                         >
                                             {name(here)}
@@ -494,13 +520,14 @@ const Matching = ({ item, entry, response, onChange, seed, bySlug, scrollRef }: 
                                                 board.placeInto(l.slug);
                                             }}
                                             aria-label={`Slot ${i + 1}, empty`}
+                                            aria-describedby={`${lineId}-${i}`}
                                             className="flex min-h-11 w-full items-center rounded-lg border-2 border-dashed border-primary px-3 text-sm text-quaternary outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
                                         >
                                             Empty
                                         </button>
                                     )}
                                 </div>
-                                <p className={cx("text-md text-pretty text-primary", v.match_on === "usage" && "italic")}>
+                                <p id={`${lineId}-${i}`} className={cx("text-md text-pretty text-primary", v.match_on === "usage" && "italic")}>
                                     {v.match_on === "usage" ? `“${l.text}”` : l.text}
                                 </p>
                             </li>
@@ -510,7 +537,7 @@ const Matching = ({ item, entry, response, onChange, seed, bySlug, scrollRef }: 
                 <Tray board={board} title="Terms" empty={!inTray.length} side>
                     {inTray.map((t) => (
                         <li key={t}>
-                            <button {...board.chipProps(t, null)} className={chipClass({ picked: board.picked === t })}>
+                            <button {...board.chipProps(t, null)} className={trayChipClass(board.picked === t)}>
                                 {name(t)}
                             </button>
                         </li>

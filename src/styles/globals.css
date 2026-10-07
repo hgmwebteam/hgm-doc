@@ -48,6 +48,14 @@ code {
     scroll-behavior: smooth;
 }
 
+/* With reduced motion asked for, scrolling (a focus move, an anchor jump) jumps instead of gliding. */
+@media (prefers-reduced-motion: reduce) {
+    html,
+    :where(*) {
+        scroll-behavior: auto;
+    }
+}
+
 html,
 body {
     margin: 0;

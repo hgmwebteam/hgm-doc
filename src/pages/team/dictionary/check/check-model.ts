@@ -180,6 +180,17 @@ export const bankProblems = (bank: CheckBank, bySlug: Map<string, DictionaryEntr
                 break;
             case "matching":
                 if (item.terms.length > 6 || item.terms.length < 4) say(`${item.id}: matches ${item.terms.length} terms; it needs 4 to 6.`);
+                // A blank that stands for another card's name points players at the wrong card (Flag's
+                // "to be flagged" beside a Flagged card, review 2 Oct 2026).
+                for (const slug of item.terms) {
+                    for (const word of item.mask_extra?.[slug] ?? []) {
+                        const clash = item.terms.find((other) => {
+                            const e = bySlug.get(other);
+                            return other !== slug && !!e && maskWords(e).some((w) => w.toLowerCase() === word.toLowerCase());
+                        });
+                        if (clash) say(`${item.id}: "${slug}"'s blanked word "${word}" is another card's name (${clash}).`);
+                    }
+                }
                 for (const v of item.variants) {
                     if (v.match_on !== "gloss" && v.match_on !== "usage") say(`${v.id}: match_on must be "gloss" or "usage".`);
                     for (const slug of item.terms) {
@@ -267,14 +278,28 @@ export const matchingLine = (entry: DictionaryEntry, matchOn: "gloss" | "usage",
     maskText((matchOn === "usage" ? entry.usage : entry.gloss) ?? "", maskWords(entry, maskExtra));
 
 /**
+ * The name on a matching card. Where the lines blank a term's bracketed expansion, the card
+ * leaves it off too: "OTB (on the books)" would otherwise print exactly the words its call line
+ * blanks ("What do you have ___ for the holidays"). Everywhere else the full term shows.
+ */
+export const matchingCardName = (entry: DictionaryEntry, maskExtra: string[] = []): string => {
+    const parts = bracketParts(entry.term).map((p) => p.toLowerCase());
+    const blanked = [...maskExtra, ...(entry.aliases ?? [])].map((w) => w.toLowerCase());
+    if (!parts.length || !parts.some((p) => blanked.includes(p))) return entry.term;
+    return entry.term.replace(/\s*\([^()]*\)\s*/g, " ").trim();
+};
+
+/**
  * Definition-first flashcards blank a little more than the bank's rule, because four
- * definitions gave their own answer away under it (found by the bank validator, 1 Oct 2026;
+ * definitions give their own answer away under it (found by the bank validator, 1 Oct 2026;
  * Kyle chose to fix it here): EBITDA's definition IS its bracketed expansion, so flashcards also
- * blank the bracket text. Flag's "flagged" and Keys' "keys … units" moved into the bank's
- * mask_extra on 2 Oct (they're matching terms, so bankMaskExtra brings them in). Genius is a
- * true/false term with no matching item to carry a mask_extra, so it stays here.
+ * blank the bracket text; and "flagged", "keys … units" and "Genius" sit in the definitions of
+ * Flag, Keys, rooms and units, and Booking.com Genius. All three are true/false terms, with no
+ * matching item to carry a mask_extra, so their extra words live here.
  */
 export const FLASHCARD_MASK_EXTRA: Record<string, string[]> = {
+    flag: ["flagged"],
+    "keys-rooms-and-units": ["keys", "rooms", "units"],
     "booking-com-genius": ["Genius"],
 };
 
@@ -339,6 +364,25 @@ export type PlanEntry = { item: string; variant: string; blank?: string; terms: 
 
 /** A person's latest answer to one term in a finished sitting: one row of check_term_status. */
 export type TermStatus = { term_slug: string; correct: boolean; item_id: string; variant_id: string; answered_at: string };
+
+/**
+ * A plan made from an older bank, cleaned for the current one: screens whose item or variant
+ * is gone are dropped, and each screen keeps only the terms its item still scores (a standalone
+ * blank only if that blank still exists). A term the plan named but no longer serves isn't
+ * marked at all, so applyResults keeps its earlier status instead of counting it wrong unseen.
+ * On a plan from the current bank this changes nothing.
+ */
+export const servablePlan = (plan: readonly PlanEntry[], bank: CheckBank): PlanEntry[] => {
+    const items = new Map(bank.items.map((i) => [i.id, i]));
+    return plan.flatMap((entry) => {
+        const item = items.get(entry.item);
+        if (!item || !findVariant(item, entry.variant)) return [];
+        if (entry.blank && !standaloneBlank(item, entry)) return [];
+        const scored = new Set(entry.blank ? [standaloneBlank(item, entry)!.blank.term] : itemTerms(item));
+        const terms = entry.terms.filter((t) => scored.has(t));
+        return terms.length ? [{ ...entry, terms }] : [];
+    });
+};
 
 /** The key a screen's answer is stored under while the sitting is open. */
 export const entryKey = (e: Pick<PlanEntry, "item" | "blank">) => (e.blank ? `${e.item}/${e.blank}` : e.item);

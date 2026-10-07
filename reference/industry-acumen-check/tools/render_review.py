@@ -8,9 +8,10 @@ b = json.load(open("../data/check-bank.json"))
 # The reverse questions' options are dictionary slugs. In the portal repo the dictionary sits three
 # levels up, so the review copy can print the definitions players actually see; elsewhere, slugs.
 try:
-    GLOSS = {e["slug"]: e["gloss"] for e in json.load(open("../../../src/data/ref_dictionary-v2-253.json"))}
+    ENTRY = {e["slug"]: e for e in json.load(open("../../../src/data/ref_dictionary-v2-253.json"))}
 except OSError:
-    GLOSS = {}
+    ENTRY = {}
+GLOSS = {k: e["gloss"] for k, e in ENTRY.items()}
 TYPE = {"wordproblem": "Word problem", "numeric": "Calculation (type the number)", "buckets": "Sort into boxes",
         "scenario": "Scenario", "mcq": "Multiple choice", "ordering": "Put in order", "matching": "Matching",
         "truefalse": "True or false"}
@@ -28,7 +29,13 @@ for it in b["items"]:
     out.append(f"## {n}. {TYPE[it['type']]} · `{it['id']}`")
     if it["type"] == "matching":
         theme = it["variants"][0]["prompt"].split(". ")[0]
-        out.append(f"{theme}. Terms: {', '.join(it['terms'])}. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.")
+        out.append(f"{theme}. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both (the page shows exactly which words).")
+        for t in it["terms"]:
+            e = ENTRY.get(t)
+            if e:
+                out.append(f"- **{e['term']}** — {e['gloss']} / *\"{e.get('usage') or ''}\"*")
+            else:
+                out.append(f"- `{t}`")
         out.append("")
         continue
     for v in it["variants"]:
@@ -72,10 +79,11 @@ out += ["## Flags before this replaces the fixture", "",
 "- **Effective OTB (item `effective-otb`).** Both versions mix non-refundable and refundable bookings, which is the dictionary's \"common confusion\" but harder than session 1's all-refundable example. [CONFIRM, Nicole and Kyle: keep it this hard.]",
 "- **Midweek (item `midweek-gap`).** It's a reference term, but \"midweek\" is out of session copy until the boundary with Dustin's training is agreed. The call lines for rate fence and date classes also say \"midweek\". [NEEDS INPUT, Dustin: the boundary; otherwise drop the item and the term's point.]",
 "- **Time-sensitive facts.** The Airbnb fee, Genius and Mr & Mrs Smith statements come from the dictionary's sources, checked 29 Sep 2026. Re-check them if the check runs past November.",
-"- **Who you're talking to.** Both versions lean on the dictionary entry whose scorecard detail is marked for Nicole to confirm. [CONFIRM, Nicole.]",
+"- **Who you're talking to.** Now a card in the matching item about who owns and runs a property; its definition's scorecard detail is still marked for Nicole to confirm. [CONFIRM, Nicole.]",
 "- **No property names.** Every scenario uses an unnamed lodge or resort, so there's nothing to check against client contacts.",
-"- **Reverse questions (new, 2 Oct).** Eight items now open with a term and four definitions: pace, denial, metasearch, incrementality, dynamic pricing, pre-arrival sequence, creative fatigue index, opportunity cost. The wrong options are neighbouring terms' definitions, picked to be close in topic and length. [CONFIRM, Nicole: the distractors and explanations.]",
-"- **Matching regrouped by theme (2 Oct).** Five items: a property's brand (flag moved here from true/false), rates, rooms and how they're sold, demand and the calendar, measuring marketing. Definitions that name their own term are now blanked too (keys, rooms and units; flag).",
+"- **Reverse questions (new, 2 Oct).** Eight items now open with a term and four definitions: pace, denial, metasearch, incrementality, dynamic pricing, rate shopping, pre-arrival sequence, opportunity cost. The wrong options are neighbouring terms' definitions, close in topic and length; where a scored term's definition would cue another question in the same sitting, the wrong option is an unscored tier C term instead. [CONFIRM, Nicole: the distractors and explanations.]",
+"- **Denial and regret (for the dictionary master).** Regret's definition ends \"usually on price or restriction\", while the denial entry treats demand blocked by a restriction as a denial. The Denial reverse question shows both definitions side by side, so settle the wording in the master.",
+"- **Matching regrouped by theme (2 Oct).** Five items: who owns and runs a property, rates and fees, rooms and how they're sold, demand and the calendar, measuring marketing. Flag stays a true/false item, and Keys, rooms and units has a new one: both read too close to a neighbour (or to themselves) in matching. Definitions are blanked like call lines.",
 "- **No \"illustrative\" line on questions (2 Oct).** The check's intro says it once.", ""]
 open("../spec/check-bank-review.md", "w").write("\n".join(out))
 print(n, "items rendered")

@@ -75,7 +75,9 @@ export const grade = (pct: number): string => GRADE_SCALE.find(([min]) => pct >=
 /** Encouragement for an R, never a verdict. */
 export const R_LINE = "These words take a few rounds. Practise the ones below and try again.";
 
-const terms = (n: number, word: "fewer" | "more") => `${n} ${word} ${n === 1 ? "term" : "terms"} to review`;
+/** What the second half of progressLine counts: "terms to review" for the check, "tools to refresh" for the tools check. */
+export type MissedNoun = { one: string; many: string; tail: string };
+const TERMS: MissedNoun = { one: "term", many: "terms", tail: "to review" };
 
 /**
  * The one quiet line comparing this sitting with the one before, e.g.
@@ -83,11 +85,16 @@ const terms = (n: number, word: "fewer" | "more") => `${n} ${word} ${n === 1 ? "
  * A lower score is stated plainly, never as a problem: the whole check moves around
  * from one round to the next.
  */
-export const progressLine = (previous: { score: number; missed: number } | null, now: { score: number; missed: number }): string | null => {
+export const progressLine = (
+    previous: { score: number; missed: number } | null,
+    now: { score: number; missed: number },
+    noun: MissedNoun = TERMS,
+): string | null => {
     if (!previous) return null;
     const d = now.score - previous.score;
     const m = now.missed - previous.missed;
+    const count = (n: number, word: "fewer" | "more") => `${n} ${word} ${n === 1 ? noun.one : noun.many} ${noun.tail}`;
     const score = d > 0 ? `Up ${d}% since last time` : d < 0 ? `Down ${-d}% since last time` : "The same score as last time";
-    const review = m < 0 ? terms(-m, "fewer") : m > 0 ? terms(m, "more") : null;
+    const review = m < 0 ? count(-m, "fewer") : m > 0 ? count(m, "more") : null;
     return review ? `${score} · ${review}` : score;
 };

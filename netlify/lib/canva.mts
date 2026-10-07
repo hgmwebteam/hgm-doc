@@ -20,7 +20,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *   CANVA_REDIRECT_URI — optional override; defaults to `${URL}/.netlify/functions/canva-auth`
  *     where URL is Netlify's own primary-site variable (https://hgmportal.com). Canva
  *     requires an exact match, so a preview host needs its own registered URI.
- *   CANVA_ACCESS_TOKEN — legacy stop-gap, used only when nothing is connected.
+ *   CANVA_ACCESS_TOKEN — legacy stop-gap, used only when nothing is connected AND no
+ *     integration (client id/secret) is set up; see legacyCanvaToken.
  */
 
 export const CANVA_API = "https://api.canva.com/rest/v1";
@@ -125,21 +126,11 @@ export const dropConnection = (admin: SupabaseClient) => admin.from("canva_conne
 export type CanvaTokenResult = { token: string } | { error: "not_connected" | "refresh_failed"; detail?: string };
 
 /**
- * A usable access token, refreshed and re-saved when it is near expiry.
- *
- * Falls back to the CANVA_ACCESS_TOKEN environment variable only when nothing has ever
- * been connected, so the old stop-gap still works during setup. A failed refresh (Canva
+ * Spend the stored refresh token now and save the new pair. A refresh Canva refuses (it
  * revoked the grant, the integration's secret changed) drops the row: the section then
- * shows "Connect Canva" again instead of failing every import with a stale token.
+ * shows "Connect Canva" again instead of failing every import with a dead token.
  */
-export async function getCanvaAccessToken(admin: SupabaseClient): Promise<CanvaTokenResult> {
-    const row = await readConnection(admin);
-    if (!row) {
-        const env = process.env.CANVA_ACCESS_TOKEN;
-        return env ? { token: env } : { error: "not_connected" };
-    }
-    if (new Date(row.expires_at).getTime() - Date.now() > REFRESH_MARGIN_MS) return { token: row.access_token };
-
+export async function refreshConnection(admin: SupabaseClient, row: CanvaConnectionRow): Promise<CanvaTokenResult> {
     const creds = canvaClientCreds();
     if (!creds) return { error: "refresh_failed", detail: "CANVA_CLIENT_ID / CANVA_CLIENT_SECRET are not set, so the expired token can't be refreshed." };
     const refreshed = await refreshTokens(creds, row.refresh_token);
@@ -149,4 +140,35 @@ export async function getCanvaAccessToken(admin: SupabaseClient): Promise<CanvaT
     }
     await saveConnection(admin, refreshed);
     return { token: refreshed.access_token };
+}
+
+/**
+ * The legacy CANVA_ACCESS_TOKEN stop-gap counts only while no Canva integration is set up.
+ * A pasted token dies within Canva's 4 hours, and while it was honoured alongside a real
+ * integration it made the portal report "connected" forever — so Connect Canva never
+ * showed and every import failed with "connect Canva again" and no way to do it.
+ */
+export const legacyCanvaToken = (): string | null => (canvaClientCreds() ? null : process.env.CANVA_ACCESS_TOKEN || null);
+
+/** A usable access token, refreshed and re-saved when it is near expiry. */
+export async function getCanvaAccessToken(admin: SupabaseClient): Promise<CanvaTokenResult> {
+    const row = await readConnection(admin);
+    if (!row) {
+        const env = legacyCanvaToken();
+        return env ? { token: env } : { error: "not_connected" };
+    }
+    if (new Date(row.expires_at).getTime() - Date.now() > REFRESH_MARGIN_MS) return { token: row.access_token };
+    return refreshConnection(admin, row);
+}
+
+/**
+ * Canva answered 401 to a token we believed was good (revoked early, or the clock row is
+ * stale): refresh once and hand back the new token, or null — in which case the row is
+ * gone and the caller should ask the AM to connect again.
+ */
+export async function recoverRejectedToken(admin: SupabaseClient): Promise<string | null> {
+    const row = await readConnection(admin);
+    if (!row) return null;
+    const result = await refreshConnection(admin, row);
+    return "token" in result ? result.token : null;
 }

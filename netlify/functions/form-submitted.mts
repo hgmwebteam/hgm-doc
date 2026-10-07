@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
-import { accountManagerEmail } from "../lib/team-emails.mts";
+import { FORM_SUBMISSION_CC, accountManagerEmail } from "../lib/team-emails.mts";
 
 /**
- * Emails a client's assigned Account Manager when they submit one of their two forms — two
+ * Emails a client's assigned Account Manager (cc FORM_SUBMISSION_CC) when they submit one of their two forms — two
  * separate triggers, one email each:
  *   - Onboarding Form      /{base}-onboarding
  *   - Account Access Form  /{base}-access
@@ -79,11 +79,12 @@ export default async (req: Request) => {
     // Links are stored as "/{base}-dashboard"; match the tail so a full URL typed into the field still counts.
     const { data: clientRows } = await db.from("clients").select("name, am, link").ilike("link", `%/${base}-dashboard`).limit(1);
     const client = clientRows?.[0];
-    const to = accountManagerEmail(client?.am);
-    if (!to) {
-        console.warn(`[form-submitted] ${slug}: no AM email (client row ${client ? "found" : "missing"}, am="${client?.am ?? ""}")`);
-        return Response.json({ ok: true, sent: false, reason: "no-am-email" });
-    }
+    const amEmail = accountManagerEmail(client?.am);
+    if (!amEmail) console.warn(`[form-submitted] ${slug}: no AM email (client row ${client ? "found" : "missing"}, am="${client?.am ?? ""}")`);
+    // The AM is the addressee; the fixed list is copied. With no AM, the list is addressed directly.
+    const cc = FORM_SUBMISSION_CC.filter((e) => e.toLowerCase() !== amEmail?.toLowerCase());
+    const to = amEmail ? [amEmail] : cc.splice(0);
+    if (!to.length) return Response.json({ ok: true, sent: false, reason: "no-am-email" });
 
     // Claim before sending: only the request that flips NULL → now() goes on to send.
     const claimedAt = new Date().toISOString();
@@ -100,7 +101,7 @@ export default async (req: Request) => {
     if (!claimed?.length) return Response.json({ ok: true, sent: false, reason: "already-sent" });
 
     const clientName = (client?.name || row.client_name || base).trim();
-    const firstName = (client?.am ?? "").trim().split(/\s+/)[0] || "there";
+    const firstName = (amEmail && (client?.am ?? "").trim().split(/\s+/)[0]) || "team";
     const formUrl = `${SITE}/${slug}`;
     const dashboardUrl = `${SITE}/${base}-dashboard`;
 
@@ -132,7 +133,7 @@ ${logins.length ? `<p>Logins:</p><ul>${logins.map((l) => `<li>${escapeHtml(l.lab
     const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from, to: [to], subject, text, html }),
+        body: JSON.stringify({ from, to, ...(cc.length ? { cc } : {}), subject, text, html }),
     });
     if (!res.ok) {
         console.error("[form-submitted] Resend failed", res.status, await res.text().catch(() => ""));

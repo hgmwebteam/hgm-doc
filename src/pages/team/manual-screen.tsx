@@ -433,7 +433,7 @@ const FUNCTIONS: { name: string; what: string }[] = [
     },
     {
         name: "form-submitted",
-        what: "Emails the client's Account Manager when they submit the Onboarding Form or the Account Access Form, one email per form, sent once. The AM comes from the Client List (clients.am) and their address from netlify/lib/team-emails.mts, so a new AM needs adding there. Sends through Resend from notifications@hgmportal.com; needs RESEND_API_KEY and RESEND_FROM in Netlify.",
+        what: "Emails the client's Account Manager, with Dustin, Jillian and Makenna copied (FORM_SUBMISSION_CC in netlify/lib/team-emails.mts), when they submit the Onboarding Form or the Account Access Form, one email per form, sent once. The AM comes from the Client List (clients.am) and their address from netlify/lib/team-emails.mts, so a new AM needs adding there. Sends through Resend from notifications@hgmportal.com; needs RESEND_API_KEY and RESEND_FROM in Netlify.",
     },
     {
         name: "canva-import",

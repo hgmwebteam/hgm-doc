@@ -243,7 +243,7 @@ persist on every keystroke, so only their **publish** is logged, not each save.
 
 **AM emails on form submit:** submitting the Onboarding Form (`/{base}-onboarding`) or the Account
 Access Form (`/{base}-access`) calls `netlify/functions/form-submitted.mts`, which sends the client's
-AM one email per form through Resend (`RESEND_API_KEY`, `RESEND_FROM`, set in the Netlify UI). The AM
+AM one email per form (cc `FORM_SUBMISSION_CC` — Dustin, Jillian, Makenna) through Resend (`RESEND_API_KEY`, `RESEND_FROM`, set in the Netlify UI). The AM
 is resolved as `clients.link` → `clients.am` (a name) → `netlify/lib/team-emails.mts`; keep that map
 in step with `ACCOUNT_MANAGERS`. Each form row sends once (`client_onboarding_pages.am_notified_at`),
 and the access email names which logins were shared, never their values.

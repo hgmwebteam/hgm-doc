@@ -140,6 +140,7 @@ import {
     JOURNEY_STAGES,
     JOURNEY_STEPS,
     type JourneyLink,
+    type JourneyMark,
     type JourneyStepId,
     KICKOFF_CALENDLY,
     LINK_ONLY_SECTIONS,
@@ -151,12 +152,14 @@ import {
     type SearchHit,
     TEAM_ONLY_SECTIONS,
     isJourneyItemDone,
+    journeyItemKey,
     phaseOfSection,
+    setJourneyMark,
     toggleJourneyItemDone,
     toggleJourneyStepDone,
 } from "@/pages/client/dashboard/dashboard-navigation";
 import { ExampleReelsSection } from "@/pages/client/dashboard/example-reels";
-import { JourneyProgress, type JourneyStatus } from "@/pages/client/dashboard/journey-progress";
+import { JourneyMarkPicker, JourneyProgress, type JourneyStatus } from "@/pages/client/dashboard/journey-progress";
 import {
     FOUNDATION_SECTIONS,
     LEGACY_FOUNDATION_FIELDS,
@@ -2433,6 +2436,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const toggleJourneyStep = (id: JourneyStepId) => setContent((c) => ({ ...c, journey_done: toggleJourneyStepDone(c.journey_done ?? [], id) }));
     const toggleJourneyItem = (stepId: JourneyStepId, itemId: string) =>
         setContent((c) => ({ ...c, journey_done: toggleJourneyItemDone(c.journey_done ?? [], stepId, itemId) }));
+    /** The AM's manual status marks (edit mode), keyed like journey_done. */
+    const journeyMarks = content.journey_status;
+    const setJourneyStatus = (key: string, mark: JourneyMark | null) =>
+        setContent((c) => ({ ...c, journey_status: setJourneyMark(c.journey_status, key, mark) }));
 
     /* The three per-client links the journey points at. Pulled out as primitives so the
        memo below depends on the URLs themselves, not on the whole content object — which
@@ -2537,6 +2544,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      *  - a client's own step is "needs your input" when it is the step they should be on, or
      *    one they have started (a part-answered form). The rest of theirs stay "coming up",
      *    so the yellow points at one place rather than lighting the whole first stage.
+     *  - an AM's mark from edit mode (journey_status) beats both rules below; only a done
+     *    tick beats the mark, so a finished step never shows a stale one.
      *  - a review is "needs your input" once its section is revealed to the client — that
      *    reveal is the team handing it over. Before then it is "we're on it" if its stage has
      *    been reached (every earlier stage done), else "coming up".
@@ -2551,8 +2560,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             const pills = JOURNEY_BAR.filter((bar) => bar.stage === stage.id).flatMap((bar) => {
                 const step = byId.get(bar.steps[0]);
                 if (!step) return [];
-                const status = (done: boolean, started: boolean, current: boolean, to?: SectionId): JourneyStatus => {
+                const status = (key: string, done: boolean, started: boolean, current: boolean, to?: SectionId): JourneyStatus => {
                     if (done) return "done";
+                    const mark = journeyMarks?.[key];
+                    if (mark) return mark;
                     if (bar.owner === "client") return current || started ? "waiting" : "todo";
                     if (bar.owner === "review" && to && revealedToClient(to)) return "waiting";
                     if (bar.owner === "team") return current ? "progress" : "todo";
@@ -2564,7 +2575,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                         id: `${step.id}:${item.id ?? item.label}`,
                         label: item.label,
                         name: `${step.label} — ${item.label}`,
-                        status: status(item.done, false, step.id === journeyCurrentId && i === nextUp, item.to),
+                        status: status(journeyItemKey(step.id, item.id ?? item.label), item.done, false, step.id === journeyCurrentId && i === nextUp, item.to),
                     }));
                 }
                 return [
@@ -2572,7 +2583,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                         id: bar.id,
                         label: bar.label,
                         name: step.label,
-                        status: status(step.done, !!step.progress && step.progress.value > 0, step.id === journeyCurrentId, step.to),
+                        status: status(step.id, step.done, !!step.progress && step.progress.value > 0, step.id === journeyCurrentId, step.to),
                     },
                 ];
             });
@@ -2581,7 +2592,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         });
         // revealedToClient reads clientVisible; it is a plain function, so that is the dependency.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [journeySteps, journeyCurrentId, clientVisible]);
+    }, [journeySteps, journeyCurrentId, clientVisible, journeyMarks]);
     const journeyLaunched = journeySteps[journeySteps.length - 1]?.done ?? false;
 
     /** Whatever now follows the Kick-off Call — named in the booking confirmation so that
@@ -3718,6 +3729,31 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                                                 {item.action ?? "Open"}
                                                                                                             </Button>
                                                                                                         )}
+                                                                                                        {step.itemsTickable &&
+                                                                                                            !isLocked &&
+                                                                                                            isTeam &&
+                                                                                                            !item.done && (
+                                                                                                                <JourneyMarkPicker
+                                                                                                                    name={item.label}
+                                                                                                                    value={
+                                                                                                                        journeyMarks?.[
+                                                                                                                            journeyItemKey(
+                                                                                                                                step.id,
+                                                                                                                                item.id ?? item.label,
+                                                                                                                            )
+                                                                                                                        ] ?? null
+                                                                                                                    }
+                                                                                                                    onChange={(mark) =>
+                                                                                                                        setJourneyStatus(
+                                                                                                                            journeyItemKey(
+                                                                                                                                step.id,
+                                                                                                                                item.id ?? item.label,
+                                                                                                                            ),
+                                                                                                                            mark,
+                                                                                                                        )
+                                                                                                                    }
+                                                                                                                />
+                                                                                                            )}
                                                                                                         {/* The AM's mark, edit mode only — the client
                                                                                                             reads the tick, they don't set it. */}
                                                                                                         {step.itemsTickable && !isLocked && isTeam && (
@@ -3851,6 +3887,20 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         : (step.pendingNote ?? "Your Account Manager will send you this link.")}
                                                                                 </span>
                                                                             )}
+                                                                            {/* The AM's status mark, for what the meter can't see on
+                                                                                its own. The launch is the rocket, not a pill, so it
+                                                                                gets none; a piece-by-piece step is marked per piece. */}
+                                                                            {!isLocked &&
+                                                                                isTeam &&
+                                                                                !step.done &&
+                                                                                !step.itemsTickable &&
+                                                                                step.id !== "launch" && (
+                                                                                    <JourneyMarkPicker
+                                                                                        name={step.label}
+                                                                                        value={journeyMarks?.[step.id] ?? null}
+                                                                                        onChange={(mark) => setJourneyStatus(step.id, mark)}
+                                                                                    />
+                                                                                )}
                                                                             {/* AM tick, edit mode only. Auto steps get no tick:
                                                                                 a manual override could contradict the answer
                                                                                 count printed directly above it. */}

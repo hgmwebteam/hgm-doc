@@ -23,6 +23,7 @@ import {
     isJourneyItemDone,
     journeyItemIds,
     journeyItemKey,
+    setJourneyMark,
     toggleJourneyItemDone,
     toggleJourneyStepDone,
 } from "./dashboard-navigation";
@@ -157,6 +158,17 @@ assert.deepEqual(twice, []);
     const onBar = new Set(JOURNEY_BAR.flatMap((cell) => cell.steps));
     const off = JOURNEY_STEPS.filter((step) => !onBar.has(step.id)).map((step) => step.id);
     assert.deepEqual(off, ["launch"], `the launch meter drops ${JSON.stringify(off)}; only the launch (the rocket) is meant to be off it`);
+}
+
+/* 16. An AM's status mark sets, replaces and clears one key without touching the others. */
+{
+    const a = setJourneyMark(undefined, "kickoff", "waiting");
+    assert.deepEqual(a, { kickoff: "waiting" });
+    const b = setJourneyMark(a, "funnel:landing", "progress");
+    assert.deepEqual(b, { kickoff: "waiting", "funnel:landing": "progress" });
+    assert.deepEqual(setJourneyMark(b, "kickoff", "progress"), { kickoff: "progress", "funnel:landing": "progress" });
+    assert.deepEqual(setJourneyMark(b, "kickoff", null), { "funnel:landing": "progress" });
+    assert.deepEqual(a, { kickoff: "waiting" }, "the input map must not be mutated");
 }
 
 console.log("dashboard-navigation.check: all assertions passed");

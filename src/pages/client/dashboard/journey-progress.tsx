@@ -1,6 +1,7 @@
 import type { CSSProperties, FC } from "react";
 import { Check, Rocket01 } from "@untitledui/icons";
 import { BadgeWithDot } from "@/components/base/badges/badges";
+import { ButtonGroup, ButtonGroupItem } from "@/components/base/button-group/button-group";
 import { cx } from "@/utils/cx";
 
 /**
@@ -196,3 +197,40 @@ export const JourneyProgress: FC<{
         </div>
     );
 };
+
+/**
+ * The AM's status picker for one unfinished step or piece, shown in edit mode only.
+ *
+ * "Auto" leaves the meter to work the status out from real state (the step the client is
+ * on, a revealed section, a started form). The other two pin it — for what the dashboard
+ * can't see: a review we're still building before it's revealed, or something we're
+ * waiting on the client for over chat. Done is not offered here: that stays the existing
+ * tick, so there is still one way to finish a step.
+ */
+export const JourneyMarkPicker: FC<{
+    /** What the step is called, for the group's accessible name. */
+    name: string;
+    value: "waiting" | "progress" | null;
+    onChange: (value: "waiting" | "progress" | null) => void;
+}> = ({ name, value, onChange }) => (
+    <ButtonGroup
+        size="sm"
+        aria-label={`Status of ${name}`}
+        disallowEmptySelection
+        selectedKeys={[value ?? "auto"]}
+        onSelectionChange={(keys) => {
+            const next = [...keys][0];
+            onChange(next === "waiting" || next === "progress" ? next : null);
+        }}
+    >
+        <ButtonGroupItem id="auto" iconLeading={value === null ? Check : undefined}>
+            Auto
+        </ButtonGroupItem>
+        <ButtonGroupItem id="waiting" iconLeading={value === "waiting" ? Check : undefined}>
+            Needs client input
+        </ButtonGroupItem>
+        <ButtonGroupItem id="progress" iconLeading={value === "progress" ? Check : undefined}>
+            In progress
+        </ButtonGroupItem>
+    </ButtonGroup>
+);

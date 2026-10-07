@@ -442,6 +442,22 @@ export const toggleJourneyItemDone = (done: readonly string[], stepId: JourneySt
     return done.includes(key) ? done.filter((x) => x !== key) : [...done, key];
 };
 
+/**
+ * An AM's manual status on an unfinished step or piece, set from edit mode. Keyed the same
+ * way as `journey_done` (step id, or `${stepId}:${itemId}`), so it survives a reorder too.
+ * `null` clears it back to automatic.
+ */
+export type JourneyMark = "waiting" | "progress";
+
+export const setJourneyMark = (
+    marks: Readonly<Record<string, JourneyMark>> | undefined,
+    key: string,
+    mark: JourneyMark | null,
+): Record<string, JourneyMark> => {
+    const rest = Object.fromEntries(Object.entries(marks ?? {}).filter(([k]) => k !== key));
+    return mark ? { ...rest, [key]: mark } : rest;
+};
+
 /** Sits above the funnel groups — not a funnel stage itself, just "home" (hero + the funnel explainer). */
 export const OVERVIEW_ITEM = { id: "overview" as const, label: "Overview", icon: LayoutAlt01 };
 

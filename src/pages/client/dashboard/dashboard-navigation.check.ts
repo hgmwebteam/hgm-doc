@@ -143,21 +143,20 @@ assert.deepEqual(twice, []);
     assert.equal(new Set(named).size, named.length, "a journey step is on the launch meter more than once");
 }
 
-/* 14. The bar's last cell is the one the rocket rides on, so it has to sit in the last
-       stage — otherwise the rocket lands mid-bar. Its step is the journey's last, so the
-       bar can never claim launch before the step list does. */
+/* 14. The last stage is Live and holds only the last step: it draws no chevron, only the
+       rocket, so anything else placed there would never be shown as a pill. */
 {
-    const last = JOURNEY_BAR[JOURNEY_BAR.length - 1];
-    assert.equal(last.stage, JOURNEY_STAGES[JOURNEY_STAGES.length - 1].id, "the bar's last cell must sit in the last stage");
-    assert.deepEqual(last.steps, [JOURNEY_STEPS[JOURNEY_STEPS.length - 1].id], "the bar's last cell must be the journey's last step");
+    const lastStage = JOURNEY_STAGES[JOURNEY_STAGES.length - 1];
+    assert.deepEqual(lastStage.steps, [JOURNEY_STEPS[JOURNEY_STEPS.length - 1].id], "the last stage must hold only the journey's last step");
+    assert.ok(!JOURNEY_BAR.some((cell) => cell.stage === lastStage.id), "no pill may sit in the last stage — it is the rocket");
 }
 
-/* 15. Steps the bar leaves out are a deliberate, short list — not an accident. Anything
-       else dropped from JOURNEY_BAR would silently stop counting towards launch. */
+/* 15. Every step but the last is on the meter as a pill. Anything else dropped from
+       JOURNEY_BAR would silently stop counting towards launch. */
 {
     const onBar = new Set(JOURNEY_BAR.flatMap((cell) => cell.steps));
     const off = JOURNEY_STEPS.filter((step) => !onBar.has(step.id)).map((step) => step.id);
-    assert.deepEqual(off, ["chat"], `the launch meter drops ${JSON.stringify(off)}; only joining the chat is meant to be off it`);
+    assert.deepEqual(off, ["launch"], `the launch meter drops ${JSON.stringify(off)}; only the launch (the rocket) is meant to be off it`);
 }
 
 console.log("dashboard-navigation.check: all assertions passed");

@@ -155,7 +155,7 @@ import {
     toggleJourneyStepDone,
 } from "@/pages/client/dashboard/dashboard-navigation";
 import { ExampleReelsSection } from "@/pages/client/dashboard/example-reels";
-import { JourneyProgress } from "@/pages/client/dashboard/journey-progress";
+import { JourneyProgress, type JourneyStatus } from "@/pages/client/dashboard/journey-progress";
 import {
     FOUNDATION_SECTIONS,
     LEGACY_FOUNDATION_FIELDS,
@@ -2523,83 +2523,64 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const journeyCurrentId = journeySteps.find((s) => !s.done)?.id ?? null;
 
     /**
-     * The launch meter's cells and the stages bracketing them.
+     * The launch meter's stages and the pills under each.
      *
-     * The bar is a summary, so its composition lives in JOURNEY_BAR rather than being read
-     * off the step list — see the note there for what it leaves out and why. Here we only
-     * resolve each declared cell against live step state.
+     * The meter's composition lives in JOURNEY_BAR rather than being read off the step
+     * list — see the note there. Here we only resolve each declared pill against live step
+     * state, and a step ticked piece by piece becomes a pill per piece.
      *
-     * One cell per thing a client can finish: a cell over a step ticked piece by piece
-     * becomes a cell per piece, which is what makes Marketing funnel the long stage and
-     * what lets a single review move the bar. Every cell is worth the same, so the bar's
-     * fill and the percentage above it are the same number.
+     * A pill's status is only ever read off something real:
+     *  - done: the step (or piece) is done.
+     *  - a client's own step is "needs your input" when it is the step they should be on, or
+     *    one they have started (a part-answered form). The rest of theirs stay "coming up",
+     *    so the yellow points at one place rather than lighting the whole first stage.
+     *  - a review is "needs your input" once its section is revealed to the client — that
+     *    reveal is the team handing it over. Before then it is "we're on it" if its stage has
+     *    been reached (every earlier stage done), else "coming up".
      *
-     * A cell fills fractionally wherever there is something real to count — a part-answered
-     * form, a funnel piece reviewed. A made-up fraction is never invented: a cell with
-     * nothing to count is 0 or 1.
+     * The last stage, Live, draws no chevron: it is the rocket, lit by the launch tick.
      */
-    const { journeyCells, journeyGroups } = useMemo(() => {
-        const fractionOf = (step: (typeof journeySteps)[number]) =>
-            step.done ? 1 : step.progress && step.progress.total > 0 ? step.progress.value / step.progress.total : 0;
-
+    const journeyPhases = useMemo(() => {
         const byId = new Map(journeySteps.map((step) => [step.id, step]));
-
-        const cellsFor = (bar: (typeof JOURNEY_BAR)[number], isLast: boolean) => {
-            const steps = bar.steps.map((id) => byId.get(id)).filter((step): step is (typeof journeySteps)[number] => !!step);
-            if (!steps.length) return [];
-
-            // A cell standing over one tickable step is really that step's pieces.
-            const [only] = steps;
-            if (steps.length === 1 && only.itemsTickable && only.items?.length) {
-                const nextUp = only.items.findIndex((item) => !item.done);
-                return only.items.map((item, i) => ({
-                    id: `${only.id}:${item.id ?? item.label}`,
-                    label: item.label,
-                    fraction: item.done ? 1 : 0,
-                    // The piece a client is on, not the whole step: the beam in the list
-                    // below marks the step, this marks the review inside it.
-                    current: only.id === journeyCurrentId && i === nextUp,
-                    rocket: false,
-                }));
-            }
-
-            return [
-                {
-                    id: bar.id,
-                    label: bar.label,
-                    // Merged cells (the two forms) average their steps, so finishing one of
-                    // two half-fills the cell instead of leaving it dark until both land.
-                    fraction: steps.reduce((sum, step) => sum + fractionOf(step), 0) / steps.length,
-                    current: steps.some((step) => step.id === journeyCurrentId),
-                    // The bar's last cell IS the destination, so it wears the rocket rather
-                    // than the bar growing an extra cell nobody can tick.
-                    rocket: isLast,
-                },
-            ];
-        };
-
-        const cells: ReturnType<typeof cellsFor> = [];
-        const counts = new Map<string, number>();
-        JOURNEY_BAR.forEach((bar, i) => {
-            const made = cellsFor(bar, i === JOURNEY_BAR.length - 1);
-            cells.push(...made);
-            counts.set(bar.stage, (counts.get(bar.stage) ?? 0) + made.length);
+        let reached = true;
+        return JOURNEY_STAGES.slice(0, -1).map((stage) => {
+            const stageReached = reached;
+            const pills = JOURNEY_BAR.filter((bar) => bar.stage === stage.id).flatMap((bar) => {
+                const step = byId.get(bar.steps[0]);
+                if (!step) return [];
+                const status = (done: boolean, started: boolean, current: boolean, to?: SectionId): JourneyStatus => {
+                    if (done) return "done";
+                    if (bar.owner === "client") return current || started ? "waiting" : "todo";
+                    if (bar.owner === "review" && to && revealedToClient(to)) return "waiting";
+                    if (bar.owner === "team") return current ? "progress" : "todo";
+                    return stageReached ? "progress" : "todo";
+                };
+                if (step.itemsTickable && step.items?.length) {
+                    const nextUp = step.items.findIndex((item) => !item.done);
+                    return step.items.map((item, i) => ({
+                        id: `${step.id}:${item.id ?? item.label}`,
+                        label: item.label,
+                        name: `${step.label} — ${item.label}`,
+                        status: status(item.done, false, step.id === journeyCurrentId && i === nextUp, item.to),
+                    }));
+                }
+                return [
+                    {
+                        id: bar.id,
+                        label: bar.label,
+                        name: step.label,
+                        status: status(step.done, !!step.progress && step.progress.value > 0, step.id === journeyCurrentId, step.to),
+                    },
+                ];
+            });
+            reached = stageReached && pills.every((pill) => pill.status === "done");
+            return { id: stage.id, label: stage.label, week: stage.week, pills };
         });
+        // revealedToClient reads clientVisible; it is a plain function, so that is the dependency.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [journeySteps, journeyCurrentId, clientVisible]);
+    const journeyLaunched = journeySteps[journeySteps.length - 1]?.done ?? false;
 
-        const groups = JOURNEY_STAGES.map((stage) => ({ id: stage.id, label: stage.label, cells: counts.get(stage.id) ?? 0 })).filter(
-            (group) => group.cells > 0,
-        );
-
-        return { journeyCells: cells, journeyGroups: groups };
-    }, [journeySteps, journeyCurrentId]);
-
-    /** "Up next", named down to the piece where a step has several. */
-    const journeyNextLabel = useMemo(() => {
-        const step = journeySteps.find((s) => s.id === journeyCurrentId);
-        if (!step) return null;
-        const piece = step.itemsTickable ? step.items?.find((item) => !item.done) : undefined;
-        return piece ? `${step.label} — ${piece.label}` : step.label;
-    }, [journeySteps, journeyCurrentId]);
     /** Whatever now follows the Kick-off Call — named in the booking confirmation so that
      *  copy can't go stale the next time the order is reshuffled. It has twice already. */
     const stepAfterKickoff = journeySteps[journeySteps.findIndex((s) => s.id === "kickoff") + 1] ?? null;
@@ -3570,11 +3551,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                         many, and the ring was the quieter of the two on the page a client
                                                         opens to find out how close they are to going live. */}
                                                     <JourneyProgress
-                                                        cells={journeyCells}
-                                                        groups={journeyGroups}
-                                                        stepsDone={journeyDoneCount}
-                                                        stepsTotal={journeySteps.length}
-                                                        nextLabel={journeyNextLabel}
+                                                        phases={journeyPhases}
+                                                        launched={journeyLaunched}
+                                                        launchWeek={JOURNEY_STAGES[JOURNEY_STAGES.length - 1].week}
                                                     />
 
                                                     <ol className="mt-6 grid list-none gap-0 p-0">

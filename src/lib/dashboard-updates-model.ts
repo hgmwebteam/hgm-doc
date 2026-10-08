@@ -47,6 +47,7 @@ const SECTION_MAP: { key: keyof DashboardContent; label: string; fields?: boolea
     { key: "chat_link", label: "Google Chat link", fields: false },
     { key: "onboarding_call_url", label: "Onboarding call link", fields: false },
     { key: "journey_done", label: "Client journey", fields: false },
+    { key: "journey_status", label: "Client journey", fields: false },
     { key: "client_visible", label: "Client visibility", fields: false },
     { key: "logo_url", label: "Logo", fields: false },
     { key: "sidebar_bg_url", label: "Side-menu background", fields: false },

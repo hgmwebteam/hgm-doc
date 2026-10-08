@@ -334,6 +334,11 @@ export interface DashboardContent {
      *  can't be derived live here — the two form steps read their real answer counts
      *  instead, so a tick can never disagree with what the dashboard shows. */
     journey_done?: string[];
+    /** An AM's mark on an unfinished journey step or piece, keyed like `journey_done`
+     *  (step id, or `${stepId}:${itemId}`): "waiting" = needs the client's input,
+     *  "progress" = we're working on it. Absent = the launch meter works it out. A tick in
+     *  journey_done always wins, so a finished step never shows a stale mark. */
+    journey_status?: Record<string, "waiting" | "progress">;
     /**
      * Emails allowed to open this client's dashboard, entered by the AM.
      *

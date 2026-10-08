@@ -224,7 +224,13 @@ export const blankIfPlaceholder = (v: unknown): string => {
 
 /* ── reading a website ───────────────────────────────────────────────────── */
 
-const UA = "Mozilla/5.0 (compatible; HiddenGemBrandKit/1.0; +https://hgmportal.com)";
+/* Deliberately bare. The self-identifying "(compatible; HiddenGemBrandKit/1.0; +https://…)"
+   string this used to be got a flat 403 from gooseberrylodges.com's security plugin, and so
+   — independently — did a full modern desktop-Chrome string (it's the default Puppeteer/
+   headless-Chrome UA, so a bot-management rule blocks it on sight). A bare "Mozilla/5.0"
+   isn't a signature anything bothers to blocklist, and it loaded the same site every time in
+   testing. It also can't go stale the way a hardcoded Chrome version number would. */
+const UA = "Mozilla/5.0";
 export const PAGE_CAP = 1_500_000; // bytes of HTML/CSS we will read
 /* One page read on its own gets a bigger allowance than a page read as part of a crawl. A
    Wix or Squarespace listing page ships its whole editor payload inline and routinely lands
@@ -574,9 +580,31 @@ export interface SiteRead {
  */
 export async function readWebsite(raw: string, maxPages = 4): Promise<SiteRead> {
     const site = await assertPublicUrl(raw);
-    const [home, fromSitemap] = await Promise.all([grab(site.href, PAGE_CAP), sitemapLinks(site)]);
-    if (!home) throw new Error(`Couldn't load ${site.hostname}. Is the address right, and the site public?`);
-    const html = asText(home.body);
+    const [homeResult, fromSitemap] = await Promise.all([grabResult(site.href, PAGE_CAP), sitemapLinks(site)]);
+
+    /* Same rescue as readPage, scoped to the homepage only: the model reads plain text either
+       way, so a reader-service read is just as usable here. Inner pages already degrade
+       gracefully (skipped on failure below) and each extra reader call spends more of the
+       ~10s budget, so they stay on the direct fetch. */
+    const viaReader = async (why: string): Promise<SiteRead> => {
+        const text = await readThroughReader(site, 9000);
+        if (text.length < 200) {
+            throw new Error(`${why} Reading it through a browser service didn't work either, so those sections need filling in by hand.`);
+        }
+        return { site: site.href, text: `--- ${site.href} (${readerTitle(text) || "home"}) ---\n${text}`, links: fromSitemap };
+    };
+
+    if (!homeResult.ok) {
+        if (homeResult.reason === "too-big") throw new Error(`${site.hostname} sent a page too large to read.`);
+        if (homeResult.reason === "refused") {
+            if (homeResult.status === 401 || homeResult.status === 403 || homeResult.status === 429 || homeResult.status === 503) {
+                return viaReader(`${site.hostname} refused an automated request (HTTP ${homeResult.status}).`);
+            }
+            throw new Error(`${site.hostname} answered HTTP ${homeResult.status}.`);
+        }
+        throw new Error(`Couldn't load ${site.hostname}. Is the address right, and the site public?`);
+    }
+    const html = asText(homeResult.body);
     // The sitemap is the complete page list and its path-derived names read better than
     // anchor text ("Standard King Room" vs "VIEW ROOM"). A site with no sitemap keeps the
     // nav-scrape behaviour.
@@ -584,13 +612,14 @@ export async function readWebsite(raw: string, maxPages = 4): Promise<SiteRead> 
     const homeText = stripHtml(html, 9000);
 
     /* A single-page app serves an empty shell and renders everything in the browser, so
-       there is nothing here to read — hgmportal.com itself returns 58 characters. Saying so
-       is the whole point: handing the model an empty page invites it to fill the property
-       sections from imagination, which is the one failure this document cannot absorb. */
+       there is nothing here to read — hgmportal.com itself returns 58 characters. A bot wall
+       answers 200 with a stub too (see readPage), so that gets named rather than lumped in
+       with "builds its pages in JavaScript". Either way, handing the model an empty page
+       invites it to fill the property sections from imagination, which is the one failure
+       this document cannot absorb — so both cases try the reader before giving up. */
     if (homeText.length < 400) {
-        throw new Error(
-            `${site.hostname} returned almost no readable text — it likely builds its pages in JavaScript. Those sections need filling in by hand.`,
-        );
+        if (BOT_WALL.test(html)) return viaReader(`${site.hostname} is behind bot protection that only a real browser can pass.`);
+        return viaReader(`${site.hostname} returned almost no readable text — it likely builds its pages in JavaScript.`);
     }
 
     // Rank here rather than trusting list order — the sitemap lists pages in its own order,

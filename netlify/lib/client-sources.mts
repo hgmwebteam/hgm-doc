@@ -602,7 +602,12 @@ export async function readWebsite(raw: string, maxPages = 4): Promise<SiteRead> 
        ~10s budget, so they stay on the direct fetch. */
     const viaReader = async (why: string): Promise<SiteRead> => {
         const text = await readThroughReader(site, 9000);
-        if (text.length < 200) {
+        // Same challenge-screen check as readPage's viaReader: the reader's own browser can
+        // be walled too, and that stub clears 200 characters on Jina's header lines alone.
+        if (BOT_WALL.test(text) || READER_WARNING.test(text)) {
+            throw new Error(`${why} The browser service was challenged too this time — try again in a minute, or fill those sections in by hand.`);
+        }
+        if (readerBody(text).length < 200) {
             throw new Error(`${why} Reading it through a browser service didn't work either, so those sections need filling in by hand.`);
         }
         return { site: site.href, text: `--- ${site.href} (${readerTitle(text) || "home"}) ---\n${text}`, links: fromSitemap };

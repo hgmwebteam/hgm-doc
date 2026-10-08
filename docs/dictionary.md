@@ -79,15 +79,20 @@ Two refinements stop nonsense matches:
   `adt` would match "Lead time" once the spaces are ignored.
 - Filler words (and, the, per…) are never typo targets.
 
-## Resources (PDF downloads)
+## Resources (PDF and slide downloads)
 
 The browse view (an empty search box) opens with **Resources**: the Acumen Dictionary PDF, the
-call sheet cheat sheet (the Tier A terms) and the client tech stack guide. To publish one, drop
-the PDF into `src/assets/dictionary-resources/` under its name in that folder's README, then
-commit. Its View and Download buttons switch on by themselves; until then they show disabled,
-under "Coming soon". **The PDFs are public**: anyone with a file's link can open it, signed in or
-not, and the repository is public on GitHub — so only documents that are fine to share outside HGM. Replacing a PDF is overwriting it under the same name. The list, its titles
-and the download file names are in `dictionary-resources.ts`.
+call sheet cheat sheet (the Tier A terms) and the client tech stack guide, then **Training
+session slides**: the decks from the two Industry Acumen sessions, each as a PDF (View, Download
+PDF) and a PowerPoint (Download PowerPoint, with the speaker notes). To publish one, drop the
+file into `src/assets/dictionary-resources/` under its name in that folder's README, then
+commit. Its buttons switch on by themselves; until then they show disabled, beside "Coming
+soon". **The files are public**: anyone with a file's link can open it, signed in or not, and
+the repository is public on GitHub — so only documents that are fine to share outside HGM. The
+decks' speaker notes go with them (Kyle agreed, 8 Oct 2026). Replacing a file is overwriting it
+under the same name. The decks are copies of the Google Slides masters: export the PDF and the
+.pptx together so they match, and never edit them here. The list, its titles and the download
+file names are in `dictionary-resources.ts`.
 
 ## Debugging a search
 

@@ -226,7 +226,8 @@ is a master maintained OUTSIDE this repo: replace it whole under the same name, 
 only through `loadDictionary()` (`dictionary-data.ts`) — the page and the header `SearchBar`'s terms share it,
 and a static import would put ~45 KB on every page. The page renders the dashboard's own Docs menu
 (`DocsSideMenu`, exported from `dashboard-screen.tsx`) in the dashboard's layout, so the menu doesn't move
-between Docs pages. Its Resources PDFs are dropped into `src/assets/dictionary-resources/`. See
+between Docs pages. Its Resources PDFs, and the two training sessions' slides as PDF + .pptx (copies of the
+Google Slides masters, speaker notes included), are dropped into `src/assets/dictionary-resources/`. See
 `docs/dictionary.md`.
 
 Under it, the **check** (`/dictionary/check`), its **results** (`/dictionary/check/results`) and

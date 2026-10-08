@@ -1,5 +1,5 @@
 import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ChevronDown, Download01, Eye, File06, SearchLg, XClose } from "@untitledui/icons";
+import { ChevronDown, Download01, Eye, File06, PresentationChart01, SearchLg, XClose } from "@untitledui/icons";
 import { useLocation } from "react-router";
 import { Button } from "@/components/base/buttons/button";
 import { TeamGate } from "@/pages/team/dashboard-screen";
@@ -8,7 +8,7 @@ import { type DictionaryData, loadDictionary } from "@/pages/team/dictionary/dic
 import { DictionaryEntryCard, entryElementId } from "@/pages/team/dictionary/dictionary-entry";
 import { DictionaryLayout } from "@/pages/team/dictionary/dictionary-layout";
 import { type DictionaryFilter, FILTERS, type Hit, compact, groupBySection, matchesFilter, search, suggest } from "@/pages/team/dictionary/dictionary-model";
-import { DICTIONARY_RESOURCES } from "@/pages/team/dictionary/dictionary-resources";
+import { DICTIONARY_RESOURCES, type DictionaryResource, type ResourceFile } from "@/pages/team/dictionary/dictionary-resources";
 import { cx } from "@/utils/cx";
 
 /**
@@ -102,11 +102,73 @@ const scrollWithin = (scroller: HTMLElement, el: HTMLElement, mode: "start" | "n
 
 /* ── Resources ──────────────────────────────────────────────────── */
 
+/** One file's button: View opens it in a new tab, the others download it. Disabled until the file is dropped in. */
+const ResourceButton = ({
+    file,
+    view,
+    label,
+    color,
+    noteId,
+}: {
+    file: ResourceFile;
+    view?: boolean;
+    label: string;
+    color: "primary" | "secondary";
+    noteId: string;
+}) =>
+    file.url ? (
+        view ? (
+            <Button size="sm" color={color} iconLeading={Eye} href={file.url} target="_blank" rel="noopener noreferrer">
+                {label}
+            </Button>
+        ) : (
+            <Button size="sm" color={color} iconLeading={Download01} href={file.url} download={file.downloadName}>
+                {label}
+            </Button>
+        )
+    ) : (
+        <Button size="sm" color={color} iconLeading={view ? Eye : Download01} isDisabled aria-describedby={noteId}>
+            {label}
+        </Button>
+    );
+
+const ResourceCard = ({ r, Heading }: { r: DictionaryResource; Heading: "h3" | "h4" }) => {
+    const noteId = `dict-res-${r.id}`;
+    const Icon = r.pptx ? PresentationChart01 : File06;
+    return (
+        <li className="flex flex-col rounded-xl bg-primary p-4 ring-1 ring-secondary">
+            <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-primary_alt text-fg-brand-secondary ring-1 ring-brand">
+                    <Icon className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                    <Heading className="text-sm font-semibold break-words text-primary">{r.title}</Heading>
+                    <p className="mt-0.5 text-sm text-tertiary">{r.description}</p>
+                </div>
+            </div>
+            <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+                <ResourceButton file={r.pdf} view label="View" color="secondary" noteId={noteId} />
+                <ResourceButton file={r.pdf} label={r.pptx ? "Download PDF" : "Download"} color="primary" noteId={noteId} />
+                {r.pptx && <ResourceButton file={r.pptx} label="Download PowerPoint" color="secondary" noteId={noteId} />}
+                {(!r.pdf.url || (r.pptx && !r.pptx.url)) && (
+                    <span id={noteId} className="text-xs font-medium text-quaternary">
+                        Coming soon
+                    </span>
+                )}
+            </div>
+        </li>
+    );
+};
+
+const RESOURCE_GRID = "mt-3 grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-3";
+
 /**
- * The PDFs that go with the dictionary, shown in the browse view (an empty search box):
- * one click from the Docs menu, and out of the way while searching on a call. A file
- * not dropped in yet keeps its buttons, disabled, under "Coming soon". The columns fit
- * the pane (auto-fit), not the window: beside the rail and menu the pane is narrow.
+ * The PDFs that go with the dictionary, then the slides from the two training sessions,
+ * shown in the browse view (an empty search box): one click from the Docs menu, and out
+ * of the way while searching on a call. Each deck is a PDF to read and a PowerPoint to
+ * present or edit, speaker notes included. A file not dropped in yet keeps its button,
+ * disabled, beside "Coming soon". The columns fit the pane (auto-fit), not the window:
+ * beside the rail and menu the pane is narrow.
  */
 const Resources = () => (
     <section aria-labelledby="dict-resources" className="mt-2">
@@ -114,45 +176,22 @@ const Resources = () => (
             <h2 id="dict-resources" className="text-md font-semibold text-primary">
                 Resources
             </h2>
-            <p className="text-sm text-tertiary">PDFs to view, download or print</p>
+            <p className="text-sm text-tertiary">PDFs and slides to view, download or print</p>
         </div>
-        <ul className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-3">
-            {DICTIONARY_RESOURCES.map((r) => (
-                <li key={r.id} className="flex flex-col rounded-xl bg-primary p-4 ring-1 ring-secondary">
-                    <div className="flex items-start gap-3">
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-primary_alt text-fg-brand-secondary ring-1 ring-brand">
-                            <File06 className="size-5" aria-hidden="true" />
-                        </span>
-                        <div className="min-w-0">
-                            <h3 className="text-sm font-semibold break-words text-primary">{r.title}</h3>
-                            <p className="mt-0.5 text-sm text-tertiary">{r.description}</p>
-                        </div>
-                    </div>
-                    <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
-                        {r.url ? (
-                            <>
-                                <Button size="sm" color="secondary" iconLeading={Eye} href={r.url} target="_blank" rel="noopener noreferrer">
-                                    View
-                                </Button>
-                                <Button size="sm" iconLeading={Download01} href={r.url} download={r.downloadName}>
-                                    Download
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <Button size="sm" color="secondary" iconLeading={Eye} isDisabled aria-describedby={`dict-res-${r.id}`}>
-                                    View
-                                </Button>
-                                <Button size="sm" iconLeading={Download01} isDisabled aria-describedby={`dict-res-${r.id}`}>
-                                    Download
-                                </Button>
-                                <span id={`dict-res-${r.id}`} className="text-xs font-medium text-quaternary">
-                                    Coming soon
-                                </span>
-                            </>
-                        )}
-                    </div>
-                </li>
+        <ul className={RESOURCE_GRID}>
+            {DICTIONARY_RESOURCES.filter((r) => r.group === "reference").map((r) => (
+                <ResourceCard key={r.id} r={r} Heading="h3" />
+            ))}
+        </ul>
+        <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
+            <h3 id="dict-resources-slides" className="text-sm font-semibold text-secondary">
+                Training session slides
+            </h3>
+            <p className="text-sm text-tertiary">The PowerPoint has the speaker notes</p>
+        </div>
+        <ul aria-labelledby="dict-resources-slides" className={RESOURCE_GRID}>
+            {DICTIONARY_RESOURCES.filter((r) => r.group === "slides").map((r) => (
+                <ResourceCard key={r.id} r={r} Heading="h4" />
             ))}
         </ul>
     </section>

@@ -5,17 +5,12 @@ import { useAuthUser } from "@/hooks/use-auth-user";
 import { supabase } from "@/lib/supabase";
 import { TeamGate } from "@/pages/team/dashboard-screen";
 import { findSopDepartment, sopDeptTabId } from "./sop-departments";
-import { SOPS, openSopPdf } from "./sops-content";
+import { SOPS, isPublicSop, openSopPdf } from "./sops-content";
 
 /**
- * `/sop/:id` — one SOP, read from the private `sops` storage bucket and shown in an
- * iframe. The file is the portal page `to_html.py` renders: self-contained (fonts and
- * figures inlined), with its own phase menu, task picker and follow-along ticks.
- *
- * Two gates, deliberately. TeamGate is the usual one. On top of it this page needs a
- * real Supabase session (Google), because the bucket policy is `authenticated` only:
- * SOPs describe the vault and the deploy path, and a shared password is not identity.
- * Someone who came through the password path sees a sign-in card, not the document.
+ * `/sop/:id` — public SOPs load from /sops/ without sign-in. The other SOPs
+ * still require TeamGate and a Google session to read the private storage bucket.
+ * Documents are self-contained, with their own phase menu and follow-along ticks.
  *
  * `#5.4` in the URL scrolls to task 5.4 once the page has loaded — the renderer gives
  * every task `id="task-5.4"`. Best effort: a hash that matches nothing is ignored.
@@ -50,6 +45,7 @@ const SopViewer = () => {
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuthUser();
     const entry = SOPS.find((s) => s.id.toLowerCase() === id.toLowerCase());
+    const isPublic = isPublicSop(id);
     const dept = entry ? findSopDepartment(entry.dept) : undefined;
 
     const [html, setHtml] = useState<string | null>(null);
@@ -74,27 +70,35 @@ const SopViewer = () => {
         }
     };
 
-    // Fetch the page once there is a session. Storage enforces the policy; this just reads.
+    // Public copies are deployed with the site; private documents stay in Storage.
     useEffect(() => {
-        if (!entry || !user) return;
+        if (!entry || (!isPublic && !user)) return;
         let cancelled = false;
         setError("");
         setHtml(null);
-        supabase.storage
-            .from("sops")
-            .download(entry.html)
-            .then(async ({ data, error: e }) => {
-                if (cancelled) return;
-                if (e || !data) {
-                    setError(`This SOP's page is not in the library yet (${entry.html}). Ask Kyle to publish it.`);
-                    return;
+        const load = async () => {
+            try {
+                let document: string;
+                if (isPublic) {
+                    const response = await fetch(`/sops/${entry.html}`);
+                    if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) throw new Error("Missing SOP");
+                    document = await response.text();
+                    if (!document.includes(entry.id)) throw new Error("Missing SOP");
+                } else {
+                    const { data, error } = await supabase.storage.from("sops").download(entry.html);
+                    if (error || !data) throw error ?? new Error("Missing SOP");
+                    document = await data.text();
                 }
-                setHtml(await data.text());
-            });
+                if (!cancelled) setHtml(document);
+            } catch {
+                if (!cancelled) setError(`This SOP's page could not be loaded (${entry.html}). Please try again.`);
+            }
+        };
+        void load();
         return () => {
             cancelled = true;
         };
-    }, [entry?.id, user?.email]);
+    }, [entry?.id, isPublic, user?.email]);
 
     // Deep link to a task: `/sop/HGM-SOP-WEB-002#5.4` → the renderer's `#task-5.4`.
     const scrollToHash = () => {
@@ -155,7 +159,7 @@ const SopViewer = () => {
                 <button
                     type="button"
                     onClick={() => void openSopPdf(entry)}
-                    disabled={!user}
+                    disabled={!isPublic && !user}
                     className="flex shrink-0 items-center gap-1.5 rounded-lg border border-secondary bg-primary px-3 py-1.5 text-sm font-semibold text-secondary transition duration-100 ease-linear hover:bg-secondary hover:text-primary disabled:opacity-50"
                 >
                     <Download01 className="size-4" aria-hidden="true" />
@@ -163,11 +167,11 @@ const SopViewer = () => {
                 </button>
             </header>
 
-            {authLoading ? (
+            {!isPublic && authLoading ? (
                 <div className="flex flex-1 items-center justify-center">
                     <div className="size-6 animate-spin rounded-full border-2 border-brand border-t-transparent opacity-60" />
                 </div>
-            ) : !user ? (
+            ) : !isPublic && !user ? (
                 <SignInCard onSignIn={() => void signIn()} busy={signInBusy} error={signInError} />
             ) : error ? (
                 <div className="flex flex-1 items-center justify-center p-6">
@@ -196,8 +200,12 @@ const SopViewer = () => {
     );
 };
 
-export const SopViewerScreen = () => (
-    <TeamGate>
-        <SopViewer />
-    </TeamGate>
-);
+export const SopViewerScreen = () => {
+    const { id = "" } = useParams();
+    if (isPublicSop(id)) return <SopViewer />;
+    return (
+        <TeamGate>
+            <SopViewer />
+        </TeamGate>
+    );
+};

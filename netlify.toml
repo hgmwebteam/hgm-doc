@@ -44,6 +44,19 @@
   status = 301
   force = true
 
+# The public SOPs (isPublicSop in src/pages/team/sops/sops-content.tsx) open for anyone with the
+# link, but stay out of search results: they name a client, its analytics IDs and the agency's
+# logins. /sop/* is the viewer route, /sops/* the HTML and PDF copies it loads.
+[[headers]]
+  for = "/sop/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/sops/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
 # SPA fallback: let React Router handle client-side routes
 [[redirects]]
   from = "/*"

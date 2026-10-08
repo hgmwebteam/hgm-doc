@@ -29,15 +29,24 @@ import { ComponentLibraryArchitectureScreen } from "@/pages/team/component-libra
 import { DashboardScreen } from "@/pages/team/dashboard-screen";
 import { DeploymentScreen } from "@/pages/team/deployment-screen";
 import { DesignSystemScreen } from "@/pages/team/design-system-screen";
+import { CheckResultsScreen } from "@/pages/team/dictionary/check/check-results-screen";
+import { CheckScreen } from "@/pages/team/dictionary/check/check-screen";
+import { PracticeScreen } from "@/pages/team/dictionary/check/practice-screen";
 import { DictionaryScreen } from "@/pages/team/dictionary/dictionary-screen";
+import { AcumenSortScreen } from "@/pages/team/dictionary/tools/acumen-sort-screen";
+import { ToolsPracticeScreen } from "@/pages/team/dictionary/tools/tools-practice-screen";
+import { ToolsResultsScreen } from "@/pages/team/dictionary/tools/tools-results-screen";
+import { ToolsReviewScreen } from "@/pages/team/dictionary/tools/tools-review-screen";
 import { EmailPreviewScreen } from "@/pages/team/email-preview-screen";
 import { HomeScreen } from "@/pages/team/home-screen";
 import { HomeTwoScreen } from "@/pages/team/home-two-screen";
 import { LogScreen } from "@/pages/team/log-screen";
+import { LandingPagesScreen } from "@/pages/team/landing-pages-screen";
 import { LogScriptScreen } from "@/pages/team/log-script-screen";
 import { ManualScreen } from "@/pages/team/manual-screen";
 import { MockupIgScreen } from "@/pages/team/mockup-ig/mockup-ig-screen";
 import { MockupScreen } from "@/pages/team/mockup/mockup-screen";
+import { MockupsScreen } from "@/pages/team/mockups-screen";
 import { PromptLibraryScreen } from "@/pages/team/prompt-library-screen";
 import { QuestionsScreen } from "@/pages/team/questions-screen";
 import { ReadingYourClientsScreen } from "@/pages/team/reading-your-clients-screen";
@@ -59,6 +68,7 @@ import "@/styles/globals.css";
 // shown globally — it's a team-only settings shortcut that lives in the dashboard
 // rail, and it must never appear on client-facing pages (owner guides, popups, etc.).
 const PAGES_WITHOUT_FLOATING_CHROME = [
+    "/mockups",
     "/team/tickets",
     "/team/tickets/new",
     "/designsystem",
@@ -81,9 +91,18 @@ const PAGES_WITHOUT_FLOATING_CHROME = [
     "/deployment",
     "/log-script",
     "/log",
+    "/landingpages",
     "/fix",
     "/manual",
     "/dictionary",
+    "/dictionary/check",
+    "/dictionary/check/results",
+    "/dictionary/practice",
+    "/dictionary/tools/review",
+    "/dictionary/tools/review/results",
+    "/dictionary/tools/practice",
+    // Public, but its plain frame (StandaloneFrame) has its own theme button.
+    "/acumen-sort",
     "/alicia-feedback",
 ];
 
@@ -230,6 +249,18 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/manual" element={<ManualScreen />} />
                         {/* The Industry Acumen Dictionary, behind TeamGate. Its data is src/data/ref_dictionary-v2-253.json. */}
                         <Route path="/dictionary" element={<DictionaryScreen />} />
+                        {/* The Industry Acumen check, its results and the flashcards (src/pages/team/dictionary/check/). */}
+                        <Route path="/dictionary/check" element={<CheckScreen />} />
+                        <Route path="/dictionary/check/results" element={<CheckResultsScreen />} />
+                        <Route path="/dictionary/practice" element={<PracticeScreen />} />
+                        {/* Sort the stack (the tools review game) and the tools training, behind TeamGate (src/pages/team/dictionary/tools/).
+                            The game is built from src/data/industry-acumen-sort-cards.json, the training from src/data/vendor-icons.json. */}
+                        <Route path="/dictionary/tools/review" element={<ToolsReviewScreen />} />
+                        <Route path="/dictionary/tools/review/results" element={<ToolsResultsScreen />} />
+                        <Route path="/dictionary/tools/practice" element={<ToolsPracticeScreen />} />
+                        {/* The same game with no sign-in: the live training session's backup. Public, so it must
+                            stay above the client-slug catch-all, and "acumen-sort" is in RESERVED_SLUGS. */}
+                        <Route path="/acumen-sort" element={<AcumenSortScreen />} />
                         {/* Team-only log of what Alicia asks for and what we did. */}
                         <Route path="/alicia-feedback" element={<AliciaFeedbackScreen />} />
                         <Route path="/test" element={<TestScreen />} />
@@ -237,11 +268,15 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/animation" element={<AnimationScreen />} />
                         <Route path="/mockup-ig" element={<MockupIgScreen />} />
                         <Route path="/mockup" element={<MockupScreen />} />
+                        {/* The same three references, embedded live from hiddengem.media. */}
+                        <Route path="/mockups" element={<MockupsScreen />} />
                         <Route path="/background" element={<BackgroundScreen />} />
                         <Route path="/log-script" element={<LogScriptScreen />} />
                         {/* Who changed what on which client dashboard. Team-only by RLS; the
                             page gates on sign-in before it reads. */}
                         <Route path="/log" element={<LogScreen />} />
+                        {/* The Web Team's landing page pipeline: every client's page, its review state and open comments. Behind TeamGate. */}
+                        <Route path="/landingpages" element={<LandingPagesScreen />} />
                         <Route path="/chat-widget" element={<ChatWidgetScreen isTemplate />} />
                         <Route path="/chat-widget-overview" element={<ChatWidgetOverviewScreen />} />
                         <Route path="/client-dashboard-overview" element={<ClientDashboardOverviewScreen />} />

@@ -6,6 +6,7 @@ import type { FC } from "react";
 import { supabase, type ClientPageData, type HostOnboardingPageData, type LeadCapturePageData, type OverviewCard } from "@/lib/supabase";
 import { type DictionaryData, entryPath, loadDictionary } from "@/pages/team/dictionary/dictionary-data";
 import { type DictionaryEntry, byTerm, search as searchTerms } from "@/pages/team/dictionary/dictionary-model";
+import { useTeamRole } from "@/hooks/use-team-role";
 import { cx } from "@/utils/cx";
 
 export interface SearchItem {
@@ -15,12 +16,14 @@ export interface SearchItem {
     path: string; // internal path or full URL
     kind: string;
     icon: FC<{ className?: string }>;
+    /** AnhTuan's own project pages (logs, questions, prompt vault) — hidden from everyone else. */
+    ownerOnly?: boolean;
 }
 
 /** Static, always-available destinations. */
 export const STATIC_ITEMS: SearchItem[] = [
     { id: "s-home", title: "Home", subtitle: "Mission Control — company at a glance", path: "/home", kind: "Page", icon: Home02 },
-    { id: "s-projectmgmt", title: "Project Management", subtitle: "Overview, to-dos, roadmap & timeline", path: "/roadmap", kind: "Page", icon: Flag05 },
+    { id: "s-projectmgmt", title: "Project Management", subtitle: "Overview, to-dos, roadmap & timeline", path: "/roadmap", kind: "Page", icon: Flag05, ownerOnly: true },
     { id: "s-dashboard", title: "Dashboard", subtitle: "Client Support overview", path: "/dashboard", kind: "Page", icon: LayoutAlt01 },
     { id: "s-setup", title: "AI Website Setup", subtitle: "Web Team workflow", path: "/webteam/ai-website-setup", kind: "Page", icon: Code02 },
     { id: "s-owner", title: "Owner Guide", subtitle: "Client owner guide", path: "/owner-guide", kind: "Page", icon: BookOpen01 },
@@ -30,13 +33,13 @@ export const STATIC_ITEMS: SearchItem[] = [
     { id: "s-chatwidget", title: "Chat Widget template", subtitle: "New client chat-widget page", path: "/chat-widget", kind: "Template", icon: MessageChatCircle },
     { id: "s-hostonboarding", title: "Brand Vision Form template", subtitle: "New brand vision form", path: "/brand-vision-form", kind: "Template", icon: Home02 },
     { id: "s-template1", title: "Template 1", subtitle: "Copyable document template", path: "/template-1", kind: "Page", icon: Code02 },
-    { id: "s-emailflow", title: "Welcome Email Flow — Overview", subtitle: "AM email-flow builder project reference", path: "/welcome-email-flow-overview", kind: "Page", icon: Mail01 },
-    { id: "s-chatoverview", title: "AI Chat Widget — Overview", subtitle: "Claude-powered chat project reference", path: "/chat-widget-overview", kind: "Page", icon: MessageChatCircle },
-    { id: "s-dashoverview", title: "Client Dashboard — Overview", subtitle: "Master Document project reference", path: "/client-dashboard-overview", kind: "Page", icon: LayoutAlt01 },
-    { id: "s-ownerguideoverview", title: "Owner Guide — Overview", subtitle: "Client onboarding guide project reference", path: "/owner-guide-overview", kind: "Page", icon: BookOpen01 },
-    { id: "s-homepageoverview", title: "Homepage — Overview", subtitle: "Company-wide home screen project reference", path: "/homepage-overview", kind: "Page", icon: Home02 },
-    { id: "s-questions", title: "Questions", subtitle: "Every log page's questions in one inbox", path: "/questions", kind: "Page", icon: ClipboardCheck },
-    { id: "s-promptlib", title: "Prompt & Pattern Library", subtitle: "Your private prompt/pattern vault", path: "/prompt-library", kind: "Page", icon: BookOpen01 },
+    { id: "s-emailflow", title: "Welcome Email Flow — Overview", subtitle: "AM email-flow builder project reference", path: "/welcome-email-flow-overview", kind: "Page", icon: Mail01, ownerOnly: true },
+    { id: "s-chatoverview", title: "AI Chat Widget — Overview", subtitle: "Claude-powered chat project reference", path: "/chat-widget-overview", kind: "Page", icon: MessageChatCircle, ownerOnly: true },
+    { id: "s-dashoverview", title: "Client Dashboard — Overview", subtitle: "Master Document project reference", path: "/client-dashboard-overview", kind: "Page", icon: LayoutAlt01, ownerOnly: true },
+    { id: "s-ownerguideoverview", title: "Owner Guide — Overview", subtitle: "Client onboarding guide project reference", path: "/owner-guide-overview", kind: "Page", icon: BookOpen01, ownerOnly: true },
+    { id: "s-homepageoverview", title: "Homepage — Overview", subtitle: "Company-wide home screen project reference", path: "/homepage-overview", kind: "Page", icon: Home02, ownerOnly: true },
+    { id: "s-questions", title: "Questions", subtitle: "Every log page's questions in one inbox", path: "/questions", kind: "Page", icon: ClipboardCheck, ownerOnly: true },
+    { id: "s-promptlib", title: "Prompt & Pattern Library", subtitle: "Your private prompt/pattern vault", path: "/prompt-library", kind: "Page", icon: BookOpen01, ownerOnly: true },
     { id: "s-dictionary", title: "Industry Acumen Dictionary", subtitle: "Hotel, resort and marketing terms, and the PDFs that go with them", path: "/dictionary", kind: "Page", icon: BookClosed },
 ];
 
@@ -136,7 +139,8 @@ export const SearchBar = () => {
     const [cat, setCat] = useState<CatId>("all");
     // The Industry Acumen Dictionary's terms. Its ~45 KB file loads the first time the
     // panel opens (shared with /dictionary, so it is fetched once), never with the page.
-    // A failed load is retried the next time the panel opens.
+    // If it fails, only a reload can fetch it again: the browser keeps a failed import()
+    // failed for the rest of the page, so the Terms tab offers one.
     const [dictionary, setDictionary] = useState<DictionaryData | null>(null);
     const [dictionaryFailed, setDictionaryFailed] = useState(false);
     const dictionaryLoading = useRef(false);
@@ -192,7 +196,12 @@ export const SearchBar = () => {
         if (!open) setCat("all");
     }, [open]);
 
-    const all = useMemo(() => [...STATIC_ITEMS, ...dynamic], [dynamic]);
+    const isOwner = useTeamRole().role.kind === "owner";
+    const all = useMemo(
+        () => [...STATIC_ITEMS, ...dynamic].filter((i) => isOwner || (!i.ownerOnly && categoryOf(i) !== "Log")),
+        [dynamic, isOwner],
+    );
+    const categories = isOwner ? CATEGORIES : CATEGORIES.filter((c) => c.id !== "Log");
 
     // Terms are ranked by the dictionary's own search (typos, acronyms, "Rev PAR" = "revpar"),
     // not the substring match below, and listed after everything else.
@@ -216,7 +225,11 @@ export const SearchBar = () => {
         return [...matches, ...termResults];
     }, [query, cat, all, termResults]);
 
-    useEffect(() => { setActiveIdx(0); }, [query, cat]);
+    useEffect(() => {
+        setActiveIdx(0);
+        // The highlight goes back to the first row, so the list goes back to the top with it.
+        listRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    }, [query, cat]);
 
     // Arrowing through a long list (the 253 terms) keeps the highlighted row in view. The
     // list itself is scrolled, never scrollIntoView, which would also scroll the page shell;
@@ -248,7 +261,7 @@ export const SearchBar = () => {
         const p = item.path;
         // A term while already on the Dictionary: replace, don't push. The page opens entries
         // without adding history, so a pushed entry here would make the next Back do nothing.
-        if (item.kind === "Term" && window.location.pathname === "/dictionary") {
+        if (item.kind === "Term" && /^\/dictionary\/?$/i.test(window.location.pathname)) {
             navigate(p, { replace: true });
             return;
         }
@@ -275,7 +288,7 @@ export const SearchBar = () => {
     const browsing = !query.trim() && cat === "all";
     // Quick access sticks to the static destinations — user-created doc pages
     // live under the Pages tab instead of crowding the tile row.
-    const pages = STATIC_ITEMS.filter((i) => i.kind === "Page");
+    const pages = STATIC_ITEMS.filter((i) => i.kind === "Page" && (isOwner || !i.ownerOnly));
     const templates = all.filter((i) => categoryOf(i) === "Template");
 
     const SectionLabel = ({ children }: { children: string }) => (
@@ -366,7 +379,7 @@ export const SearchBar = () => {
                         <div className="flex min-h-[400px] max-h-[min(560px,65vh)]">
                             {/* Category rail */}
                             <div className="hidden w-44 shrink-0 flex-col gap-0.5 border-r border-secondary p-2.5 sm:flex">
-                                {CATEGORIES.map((c) => {
+                                {categories.map((c) => {
                                     const active = cat === c.id;
                                     // Browse searches terms too, so its total counts them.
                                     const count = c.id === "all" ? all.length + counts.Term : counts[c.id];
@@ -435,8 +448,17 @@ export const SearchBar = () => {
                                                 {cat === "Term" && !dictionary && dictionaryFailed ? (
                                                     <>
                                                         <p className="text-sm font-medium text-secondary">The dictionary couldn’t load</p>
-                                                        <p className="mt-1 text-xs text-tertiary">Close and reopen search to try again, or reload the page.</p>
+                                                        <p className="mt-1 text-xs text-tertiary">The site may have been updated since this page opened.</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => window.location.reload()}
+                                                            className="mt-3 rounded-lg border border-secondary bg-primary px-3 py-1.5 text-xs font-semibold text-secondary outline-focus-ring transition duration-100 ease-linear hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2"
+                                                        >
+                                                            Reload
+                                                        </button>
                                                     </>
+                                                ) : cat === "Term" && !dictionary ? (
+                                                    <p className="text-sm font-medium text-secondary">Loading terms…</p>
                                                 ) : (
                                                     <>
                                                         <p className="text-sm font-medium text-secondary">No matches{query.trim() && <> for “{query}”</>}</p>

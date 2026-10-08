@@ -51,6 +51,7 @@ import { ImageLightbox } from "@/components/shared-assets/image-lightbox";
 import { Reveal } from "@/components/shared-assets/reveal";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
+import { syncCrmSheet } from "@/lib/crm-sheet";
 import { recordDashboardSave } from "@/lib/dashboard-updates";
 import { type DashboardContent, type HostOnboardingData, type OverviewDoc, supabase } from "@/lib/supabase";
 import {
@@ -181,7 +182,6 @@ import { stayPageLinks } from "@/pages/client/dashboard/stay-pages";
 import { SuggestionBox, SuggestionContext, fetchSuggestions, sendSuggestions, withdrawSuggestion } from "@/pages/client/dashboard/suggestions";
 import {
     LANDING_FEEDBACK_KEY,
-    REELS_FEEDBACK_KEY,
     STORIES_FEEDBACK_KEY,
     type Suggestion,
     type SuggestionItem,
@@ -189,7 +189,6 @@ import {
     flowFeedbackKey,
     isFlowFeedbackKey,
     isLandingFeedbackKey,
-    isReelsFeedbackKey,
     isSectionFeedbackKey,
     isStoriesFeedbackKey,
     labelForKey,
@@ -1041,10 +1040,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const flowRevealed = clientVisible.includes("flow");
     const pinnedRevealed = clientVisible.includes("pinnedposts");
     const landingRevealed = clientVisible.includes("landing");
-    const reelsRevealed = clientVisible.includes("reels");
     const storiesRevealed = clientVisible.includes("pinnedstories");
     /** Any of them is reason enough to load the table for a client. */
-    const anyFeedbackRevealed = foundationRevealed || flowRevealed || pinnedRevealed || landingRevealed || reelsRevealed || storiesRevealed;
+    const anyFeedbackRevealed = foundationRevealed || flowRevealed || pinnedRevealed || landingRevealed || storiesRevealed;
 
     const refreshSuggestions = useCallback(async () => {
         if (!slug || isTemplate) return;
@@ -1336,11 +1334,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const landingFeedback = suggestions.filter((s) => isLandingFeedbackKey(s.field_key));
     const canLandingFeedback = canSectionFeedback(landingRevealed);
     const sendLandingFeedback = sendSectionFeedback(LANDING_FEEDBACK_KEY, "Landing page · feedback");
-
-    /** The example reels — the section's only channel, so it is where every reel note lands. */
-    const reelsFeedback = suggestions.filter((s) => isReelsFeedbackKey(s.field_key));
-    const canReelsFeedback = canSectionFeedback(reelsRevealed);
-    const sendReelsFeedback = sendSectionFeedback(REELS_FEEDBACK_KEY, "Example reels · feedback");
 
     /** The pinned stories, beside their per-slide notes and Approve all (pinned_stories) —
      *  same relationship as the landing page's verdict above. */
@@ -1953,6 +1946,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             // write must not read to the AM as a save that failed. Writes nothing when the
             // diff is empty, so re-locking an untouched page leaves no trace.
             void recordDashboardSave({ slug, clientName: clientName.trim(), before, after: content });
+            // Same never-fatal rule: the CRM sheet's onboarding columns follow what this save changed.
+            void syncCrmSheet(slug, before, content);
             // Accepted suggestions become "accepted" in the DB only now, after the values
             // they carry are really saved. On error they simply stay pending — re-accepting
             // applies the same value again, so nothing is lost either way.
@@ -3955,19 +3950,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                 ? "Three reels made for your property, shown the way they play on a phone — one at a time. Use the arrows, or tap a phone at the side, to see the next."
                                                                 : "Upload up to three 9:16 reels. Use the arrows to move between slots. The title and line under the phone are what the client reads — and what stands in for the footage when motion is off."}
                                                         </p>
-                                                        <ExampleReelsSection
-                                                            reels={content.reels ?? []}
-                                                            isLocked={isLocked}
-                                                            onChange={updateReel}
-                                                            feedback={{
-                                                                mode: isTeam ? "review" : canReelsFeedback ? "client" : "off",
-                                                                items: reelsFeedback,
-                                                                author: suggestAuthor,
-                                                                send: sendReelsFeedback,
-                                                                withdraw: withdrawFeedback,
-                                                                resolve: resolveFeedback,
-                                                            }}
-                                                        />
+                                                        <ExampleReelsSection reels={content.reels ?? []} isLocked={isLocked} onChange={updateReel} />
                                                     </Reveal>
                                                 )}
 

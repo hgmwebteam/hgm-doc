@@ -2,7 +2,7 @@
  * Real team headshots. `public/hgm team/*` is the only copy — a second set used to
  * sit in the reference folder and drift from this one, so don't reintroduce it.
  * Keyed by the exact canonical names used in ACCOUNT_MANAGERS /
- * MARKETING_ASSISTANTS / WEB_TEAM (team/dashboard-screen.tsx) and the `clients`
+ * MARKETING_ASSISTANTS / WEB_TEAM (src/lib/team-roster.ts) and the `clients`
  * table's am / marketing_assistant / web_manager fields — legacy free-typed
  * names simply miss and fall back to initials.
  */

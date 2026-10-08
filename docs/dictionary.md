@@ -48,7 +48,9 @@ tier A entries. `origin` is not shown.
 | `src/pages/team/dictionary/dictionary-data.ts`        | `loadDictionary()`, the one way to load the file — shared by the page and the header's global search, so it is fetched once.                                                                     |
 | `src/pages/team/dictionary/dictionary-resources.ts`   | The Resources list (see below).                                                                                                                                                                  |
 | `src/components/application/search-modal.tsx`         | The header search on every team page; its Terms tab and term results use this dictionary's ranking.                                                                                              |
-| `src/pages/team/dictionary/dictionary-entry.tsx`      | One entry, as a compact card or in full.                                                                                                                                                         |
+| `src/pages/team/dictionary/dictionary-entry.tsx`      | One entry, as a compact card or in full. The check's results page reuses it, without the tier and with the question's explanation.                                                               |
+| `src/pages/team/dictionary/dictionary-layout.tsx`     | The Docs frame (rail, header row, Docs menu) shared with the check's pages.                                                                                                                      |
+| `src/pages/team/dictionary/check/`                    | The check, its results and the flashcards. See [dictionary-check.md](dictionary-check.md).                                                                                                       |
 | `src/main.tsx`                                        | The `/dictionary` route.                                                                                                                                                                         |
 | `src/pages/team/dashboard-screen.tsx`                 | The Docs menu (`DEPARTMENTS`, `docs`) and `DocsSideMenu`: the dashboard's own side menu, which `/dictionary` renders so the menu never moves between Docs pages.                                 |
 | `src/pages/team/manual-screen.tsx`                    | The manual's copy of the Docs menu (`DOCS_MENU`), which also lists Dictionary.                                                                                                                   |
@@ -77,15 +79,20 @@ Two refinements stop nonsense matches:
   `adt` would match "Lead time" once the spaces are ignored.
 - Filler words (and, the, per…) are never typo targets.
 
-## Resources (PDF downloads)
+## Resources (PDF and slide downloads)
 
 The browse view (an empty search box) opens with **Resources**: the Acumen Dictionary PDF, the
-call sheet cheat sheet (the Tier A terms) and the client tech stack guide. To publish one, drop
-the PDF into `src/assets/dictionary-resources/` under its name in that folder's README, then
-commit. Its View and Download buttons switch on by themselves; until then they show disabled,
-under "Coming soon". **The PDFs are public**: anyone with a file's link can open it, signed in or
-not, and the repository is public on GitHub — so only documents that are fine to share outside HGM. Replacing a PDF is overwriting it under the same name. The list, its titles
-and the download file names are in `dictionary-resources.ts`.
+call sheet cheat sheet (the Tier A terms) and the client tech stack guide, then **Training
+session slides**: the decks from the two Industry Acumen sessions, each as a PDF (View, Download
+PDF) and a PowerPoint (Download PowerPoint, with the speaker notes). To publish one, drop the
+file into `src/assets/dictionary-resources/` under its name in that folder's README, then
+commit. Its buttons switch on by themselves; until then they show disabled, beside "Coming
+soon". **The files are public**: anyone with a file's link can open it, signed in or not, and
+the repository is public on GitHub — so only documents that are fine to share outside HGM. The
+decks' speaker notes go with them (Kyle agreed, 8 Oct 2026). Replacing a file is overwriting it
+under the same name. The decks are copies of the Google Slides masters: export the PDF and the
+.pptx together so they match, and never edit them here. The list, its titles and the download
+file names are in `dictionary-resources.ts`.
 
 ## Debugging a search
 
@@ -117,4 +124,12 @@ The master may simply have renamed or removed a term.
   768 px the rail, header row and menu drop out so the search box comes first.
 - **Header search:** every team page's "Search pages, clients, cards, terms…" finds terms too, with
   the same ranking. Picking one opens it on `/dictionary`.
-- **Tracking:** none. Nothing records what people search.
+- **Tracking:** none. Nothing records what people search. The check under the dictionary does
+  save each person's own results (see [dictionary-check.md](dictionary-check.md)), visible only
+  to them in the portal.
+
+## The check and flashcards
+
+"Take the check" and "Practise the terms", under the heading, lead to `/dictionary/check`,
+its results page and `/dictionary/practice`. They have their own doc:
+[dictionary-check.md](dictionary-check.md).

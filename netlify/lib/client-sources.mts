@@ -525,7 +525,15 @@ export async function readPage(raw: string, cap = 12_000): Promise<{ url: string
        runs in, and a slow site is slow for the reader too. */
     const viaReader = async (why: string) => {
         const text = await readThroughReader(url, cap);
-        if (text.length >= 200) return { url: url.href, title: readerTitle(text), text };
+        /* The reader's browser can be walled too — it rotates IPs, so the same link comes
+           back as the listing one press and as SiteGround's "Robot Challenge Screen" the
+           next. That stub clears 200 characters on Jina's own header lines alone, and handed
+           to the model it reads as "not a property", so it is refused here and named as
+           what it is: a retry, not a wrong link. */
+        if (BOT_WALL.test(text) || READER_WARNING.test(text)) {
+            throw new Error(`${why} The browser service was challenged too this time — try again in a minute, or fill this one in by hand.`);
+        }
+        if (readerBody(text).length >= 200) return { url: url.href, title: readerTitle(text), text };
         throw new Error(`${why} Reading it through a browser service didn't work either, so this one needs filling in by hand.`);
     };
 
@@ -559,9 +567,15 @@ export async function readPage(raw: string, cap = 12_000): Promise<{ url: string
 /** Jina's reader opens with "Title: …"; pageTitle() reads <title> and has no markup here. */
 const readerTitle = (text: string): string => (text.match(/^Title:\s*(.+)$/m)?.[1] ?? "").trim();
 
+/** The reader's text without its own "Title: / URL Source: / Markdown Content:" header. */
+const readerBody = (text: string): string => text.split(/^Markdown Content:\s*$/m)[1]?.trim() ?? text;
+
+/** Jina's own flag that what it rendered was a challenge rather than the page. */
+const READER_WARNING = /^Warning:.*CAPTCHA/im;
+
 /** The challenge pages the common bot walls serve in place of the real one. */
 const BOT_WALL =
-    /sgcaptcha|\/\.well-known\/captcha|cf-browser-verification|cdn-cgi\/challenge|Just a moment\.\.\.|Attention Required!|Checking your browser|__cf_chl|px-captcha|incapsula|_Incapsula_Resource|DataDome/i;
+    /Robot Challenge Screen|Checking the site connection security|sgcaptcha|\/\.well-known\/captcha|cf-browser-verification|cdn-cgi\/challenge|Just a moment\.\.\.|Attention Required!|Checking your browser|__cf_chl|px-captcha|incapsula|_Incapsula_Resource|DataDome/i;
 
 export interface SiteRead {
     site: string;

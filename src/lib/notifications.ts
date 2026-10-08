@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { type TeamRole, clientForSlug, isAmClient } from "@/lib/team-roster";
 import {
     isFlowFeedbackKey,
     isLandingFeedbackKey,
@@ -15,6 +16,11 @@ import {
  *   3. the Client List roster gap (clients filed vs. the 47-client Homepage roster)
  * Lives in lib (not the questions page) so icon-rail can import it without a
  * circular page → shell → page import.
+ *
+ * Scoped by who is asking: questions, the roster gap and the request queue are the
+ * owner's work, so only the owner sees them; an AM sees client comments on their own
+ * clients' dashboards only; the Operations Manager and the rest of the team see every
+ * client's comments.
  */
 
 export interface AttentionItem {
@@ -42,16 +48,21 @@ type QA = { answer?: string; resolved?: boolean; priority?: string };
 
 const isOpen = (q: QA) => !(q.resolved ?? !!(q.answer || "").trim());
 
-export async function fetchAttentionItems(): Promise<AttentionItem[]> {
-    const [pagesRes, requestsRes, clientsRes, suggestionsRes] = await Promise.all([
-        supabase.from("sop_pages").select("slug, data").in("slug", QUESTION_SLUGS),
-        supabase.from("docs_requests").select("id, title, priority, requester").eq("status", "open").order("created_at", { ascending: false }),
+const SKIP = Promise.resolve({ data: null, error: "skipped", count: null } as const);
+
+export async function fetchAttentionItems(role: TeamRole): Promise<AttentionItem[]> {
+    const owner = role.kind === "owner";
+    const [pagesRes, requestsRes, clientsRes, suggestionsRes, amClientsRes] = await Promise.all([
+        owner ? supabase.from("sop_pages").select("slug, data").in("slug", QUESTION_SLUGS) : SKIP,
+        owner ? supabase.from("docs_requests").select("id, title, priority, requester").eq("status", "open").order("created_at", { ascending: false }) : SKIP,
         // Private/test clients don't count toward the team-wide roster size.
-        supabase.from("clients").select("id", { count: "exact", head: true }).is("private_to", null),
+        owner ? supabase.from("clients").select("id", { count: "exact", head: true }).is("private_to", null) : SKIP,
         // Client edit suggestions awaiting AM review. Non-team sessions get a
         // permission-denied error (anon has no grant at all), which the error
         // check below turns into a silent no-op.
         supabase.from("dashboard_suggestions").select("slug, field_key").eq("status", "pending"),
+        // An AM's own clients, to keep only the comments on their dashboards.
+        role.kind === "am" ? supabase.from("clients").select("am, link") : SKIP,
     ]);
 
     const items: AttentionItem[] = [];
@@ -101,7 +112,11 @@ export async function fetchAttentionItems(): Promise<AttentionItem[]> {
     //    section, so they get separate lines. `isSectionFeedbackKey` keeps the edit count
     //    honest as families are added: a new one is excluded from it by definition.
     if (!suggestionsRes.error && suggestionsRes.data && suggestionsRes.data.length > 0) {
-        const rows = suggestionsRes.data as { slug: string; field_key: string }[];
+        let rows = suggestionsRes.data as { slug: string; field_key: string }[];
+        if (role.kind === "am") {
+            const mine = (amClientsRes.data ?? []) as { am: string | null; link: string | null }[];
+            rows = rows.filter((r) => isAmClient(clientForSlug(mine, r.slug)?.am, role.amName));
+        }
         const edits = rows.filter((r) => !isSectionFeedbackKey(r.field_key));
         const notes = rows.filter((r) => isFlowFeedbackKey(r.field_key));
         const landingNotes = rows.filter((r) => isLandingFeedbackKey(r.field_key));

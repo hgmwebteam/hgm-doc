@@ -156,7 +156,8 @@ and the page's one `igProfileInputs`), so the two phones always show one account
 Both follow the same access model: team writes go straight to Supabase under a
 team-only policy; the client's review goes through a Netlify function that checks their
 email against the dashboard's `allowed_emails` (`landing-page-review.mts`,
-`pinned-stories-review.mts`). `canva-import.mts` pulls a Canva design's pages into the
+`pinned-stories-review.mts`), and a change request or a slide note there alerts the team
+through `netlify/lib/client-note-alert.mts` (see Persistence). `canva-import.mts` pulls a Canva design's pages into the
 `stories` bucket using the token pair `canva-auth.mts` stores in `canva_connection` (a
 service-role-only table, like `ghl_integrations`) when a team member presses Connect
 Canva; `netlify/lib/canva.mts` refreshes it before its 4-hour expiry. Netlify needs
@@ -309,6 +310,22 @@ AM one email per form (cc `FORM_SUBMISSION_CC` — Dustin, Gillian, Makenna, Ali
 is resolved as `clients.link` → `clients.am` (a name) → `netlify/lib/team-emails.mts`; keep that map
 in step with `ACCOUNT_MANAGERS`. Each form row sends once (`client_onboarding_pages.am_notified_at`),
 and the access email names which logins were shared, never their values.
+
+**Team alerts on client notes:** every note a client leaves on their dashboard goes through one of
+`dashboard-suggestions.mts` (`create`: brand-doc edits and the section comment boxes),
+`landing-page-review.mts` (`request_changes`) or `pinned-stories-review.mts` (`comment`), and each
+tells the team once per call through `netlify/lib/client-note-alert.mts`, after the row is saved: one
+email to the client's AM (resolved as above; `FORM_SUBMISSION_CC` addressed directly when none) through
+Resend, and one message to the team's Google Chat space (`TEAM_CHAT_WEBHOOK_URL`, an incoming webhook
+on the space, set in the Netlify UI). Each channel is optional and both unset is a logged no-op. It is
+best-effort and bounded (4 s per channel, in parallel): the note is already saved, so a failed alert
+never fails the client's send. The alert carries a clipped preview of the note and a link to its
+section, and nothing from `dashboard_pages.data`. A staff address never alerts, and a team member
+previewing as the client inserts rows directly, so test rows never alert either. Which section a key
+belongs to is `sectionForKey` in `suggestions-model.ts`, shared with Home's "Needs attention" card
+(so that file must stay importable from a function: relative value imports only, no `@/`, no
+`import.meta.env`). Self-check: `netlify/lib/client-note-alert.check.mts`, which also proves that import
+still loads.
 
 > Firebase Firestore was a dual-write fallback here until 2026-08-06. It was removed because Firestore's rules denied the anon client both reads and writes — every fallback read failed and every backup write was silently swallowed, so it could not have survived an outage. Don't reintroduce a second database without rules that actually permit the client.
 

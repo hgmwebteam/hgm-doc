@@ -19,6 +19,9 @@ const ACCOUNT_MANAGER_EMAILS: Record<string, string> = {
 /**
  * Copied on every Onboarding Form and Account Access Form email, whoever the client's AM is —
  * and still emailed when the AM can't be resolved. Anyone here who is also the AM gets one copy.
+ *
+ * Also where a client's dashboard note goes when no AM resolves (client-note-alert.mts) —
+ * addressed directly then, never copied: notes arrive far more often than forms.
  */
 export const FORM_SUBMISSION_CC: string[] = ["dustin@hiddengem.media", "gillian@hiddengem.media", "makenna@hiddengem.media", "alicia@hiddengem.media"];
 

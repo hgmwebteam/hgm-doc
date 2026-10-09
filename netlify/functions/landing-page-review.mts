@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { alertClientNote } from "../lib/client-note-alert.mts";
 
 /**
  * Client review actions on the Marketing → Landing page section (Approve / Request
@@ -64,7 +65,7 @@ export default async (req: Request) => {
 
     // Identity: the email must be on THIS dashboard's allowlist, read fresh from the row —
     // never from anything the browser sends. An empty allowlist authenticates nobody.
-    const { data: dashboardRow, error: dashboardErr } = await supabaseAdmin.from("dashboard_pages").select("data").eq("slug", slug).single();
+    const { data: dashboardRow, error: dashboardErr } = await supabaseAdmin.from("dashboard_pages").select("data, client_name").eq("slug", slug).single();
     if (dashboardErr || !dashboardRow) return Response.json({ error: "Not found." }, { status: 404 });
     const dashboardData = (dashboardRow.data ?? {}) as Record<string, unknown>;
     const allowed = Array.isArray(dashboardData.allowed_emails) ? (dashboardData.allowed_emails as unknown[]).map(norm) : [];
@@ -97,6 +98,17 @@ export default async (req: Request) => {
     const nextData = { versions, review };
     const { error: writeErr } = await supabaseAdmin.from("landing_pages").update({ data: nextData, updated_at: respondedAt }).eq("slug", slug);
     if (writeErr) return Response.json({ error: "Could not save your response." }, { status: 500 });
+
+    // A change request is a note for the team; an approval is not. Best-effort and bounded —
+    // the review is saved, so a failed alert never fails the client's response.
+    if (action === "request_changes") {
+        await alertClientNote(supabaseAdmin, {
+            slug,
+            by: email,
+            dashboardClientName: String(dashboardRow.client_name ?? ""),
+            items: [{ key: "landingPage.review", label: "Landing page · requested changes", text: String(review.note ?? "") }],
+        });
+    }
 
     return Response.json({ ok: true, review });
 };

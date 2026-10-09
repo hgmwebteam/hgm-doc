@@ -275,9 +275,6 @@ type HistoryItem = {
     /** The name line: who wrote it, or what the verdict was. */
     heading: string;
     text?: string;
-    /** Who closed it and when, after the outcome word: "by Ananya, Oct 6". For a verdict,
-     *  who gave it: "From bsmith@…". */
-    outcome: string;
     /** When it was written. */
     writtenAt?: string;
     /** When it was closed, for the order: newest first. */
@@ -286,12 +283,6 @@ type HistoryItem = {
 
 /** How many closed items show before "Show all". */
 const HISTORY_STEP = 5;
-
-/** "ananya@hiddengem.media" → "Ananya": the team member who closed a note, by first name. */
-const firstNameOf = (email?: string | null) => {
-    const local = (email ?? "").split("@")[0] ?? "";
-    return local ? local.charAt(0).toUpperCase() + local.slice(1) : "";
-};
 
 /** "just now", "12m ago", "3h ago", "2d ago", then the date. The exact time is the tooltip. */
 const ago = (iso: string) => {
@@ -310,15 +301,12 @@ export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor
     const notes: HistoryItem[] = items
         .filter((s) => s.status !== "pending")
         .map((s) => {
-            const who = firstNameOf(s.resolved_by);
-            const when = s.resolved_at ? shortDate(s.resolved_at) : "";
             const label = labelFor?.(s) ?? null;
             return {
                 id: s.id,
                 kind: s.status === "accepted" ? "done" : "dismissed",
                 heading: label ? `${s.suggested_by}, ${label}` : s.suggested_by,
                 text: s.suggested_value,
-                outcome: [who && `by ${who}`, when].filter(Boolean).join(", "),
                 writtenAt: s.created_at,
                 sortAt: s.resolved_at ?? s.created_at,
             };
@@ -328,7 +316,6 @@ export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor
         kind: v.kind,
         heading: v.title,
         text: v.text,
-        outcome: v.by ? `From ${v.by}` : "",
         writtenAt: v.at,
         sortAt: v.at ?? "",
     }));
@@ -438,16 +425,16 @@ const ClosedNote = ({ item }: { item: HistoryItem }) => {
                     {expanded ? "Show less" : "Show more"}
                 </button>
             )}
-            <div className="mt-1.5 @md/comments:hidden">
+            <div className="mt-1.5 empty:hidden @md/comments:hidden">
                 <Outcome item={item} />
             </div>
         </div>
     );
 };
 
-/** How a closed item ended. The marker and the word carry the colour (green check for done
- *  or approved, grey X for dismissed); who and when stay grey. A verdict that asked for
- *  changes has no marker, since its heading already says so. */
+/** How a closed item ended, and nothing else: a green check and "Done" (or "Approved"), or a
+ *  grey X and "Dismissed". Who closed it is deliberately not shown (Brandon, 2026-10-09). A
+ *  verdict that asked for changes has no marker, since its heading already says so. */
 const Outcome = ({ item }: { item: HistoryItem }) => {
     const mark =
         item.kind === "done"
@@ -457,16 +444,11 @@ const Outcome = ({ item }: { item: HistoryItem }) => {
               : item.kind === "dismissed"
                 ? { Icon: XCircle, word: "Dismissed", cls: "text-tertiary", icon: "text-fg-quaternary" }
                 : null;
-    if (!mark && !item.outcome) return null;
+    if (!mark) return null;
     return (
-        <p className="flex flex-wrap items-center gap-x-1 text-xs whitespace-nowrap text-quaternary">
-            {mark && (
-                <span className={cx("inline-flex items-center gap-1 font-semibold", mark.cls)}>
-                    <mark.Icon className={cx("size-3.5 shrink-0", mark.icon)} aria-hidden="true" />
-                    {mark.word}
-                </span>
-            )}
-            {item.outcome && <span>{item.outcome}</span>}
+        <p className={cx("inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap", mark.cls)}>
+            <mark.Icon className={cx("size-3.5 shrink-0", mark.icon)} aria-hidden="true" />
+            {mark.word}
         </p>
     );
 };

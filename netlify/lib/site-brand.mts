@@ -721,6 +721,8 @@ export function logoCandidates(html: string, base: URL): { src: string; name: st
     const add = (u: string | undefined | null, name?: string) => {
         if (!u) return;
         try {
+            // `data:;` (an empty favicon, which bot-check pages carry) isn't an image.
+            if (u.startsWith("data:") && !/^data:image\/[^,]+,./i.test(u)) return;
             const src = u.startsWith("data:") ? u : new URL(u.replace(/&amp;/g, "&"), base).href;
             if (!out.some((o) => o.src === src)) out.push({ src, name: name ?? decodeURIComponent(src.split("/").pop() ?? "logo").replace(/[?#].*$/, "") });
         } catch {

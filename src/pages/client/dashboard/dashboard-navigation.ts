@@ -9,9 +9,11 @@ import type { FC } from "react";
 import {
     Announcement02,
     BookOpen01,
+    Browser,
     Calendar,
     Camera01,
     ClipboardCheck,
+    Database01,
     FileCheck02,
     Folder,
     Globe01,
@@ -19,8 +21,10 @@ import {
     Image01,
     Image03,
     LayoutAlt01,
+    MagicWand01,
     Mail01,
     MessageChatCircle,
+    MessageSmileSquare,
     PlayCircle,
     Rocket02,
     Target04,
@@ -65,7 +69,22 @@ export type PhaseId = keyof typeof PHASES;
  * AM tick stored in content.journey_done — calls and reviews happen off-platform and
  * there is nothing to infer them from.
  */
-export type JourneyStepId = "chat" | "form" | "kickoff" | "call" | "vision" | "masterdoc" | "brandkit" | "funnel" | "resources" | "launch";
+export type JourneyStepId =
+    | "chat"
+    | "form"
+    | "kickoff"
+    | "call"
+    | "vision"
+    | "masterdoc"
+    | "brandkit"
+    | "crm"
+    | "adaccount"
+    | "manychat"
+    | "contentopt"
+    | "funnel"
+    | "webforms"
+    | "resources"
+    | "launch";
 
 /** Dustin's strategy-call booking page, linked from the Kick-off Call step. */
 export const KICKOFF_CALENDLY = "https://calendly.com/dustin-d-baker/strategy";
@@ -264,6 +283,22 @@ export const JOURNEY_STEPS: {
         eta: "Week 1",
     },
     { id: "brandkit", label: "Review the Brand Kit", detail: "Colours, fonts and logo.", icon: Image01, to: "brand", eta: "Week 1" },
+    // Tech setup — the team's own work, nothing for the client to do or open. An AM ticks
+    // each one; until then the meter shows them as coming up, or "we're on it" once marked.
+    { id: "crm", label: "HighLevel CRM", detail: "Setting up on GoHighLevel.", icon: Database01, eta: "Week 1" },
+    { id: "adaccount", label: "Ad account setup", detail: "Meta ad account and pixel tracking.", icon: Target04, eta: "Week 1" },
+    { id: "manychat", label: "ManyChat", detail: "Set up ManyChat automations.", icon: MessageSmileSquare, eta: "Week 1" },
+    {
+        // Team work too, but with a way in: the content folder is where the enhanced photos
+        // and video land, so the client can see them as they come.
+        id: "contentopt",
+        label: "Content optimization",
+        detail: "Enhancing your content.",
+        icon: MagicWand01,
+        hrefFrom: "folder",
+        hrefLabel: "Open your folder",
+        eta: "Week 1",
+    },
     {
         // No `detail` line: it listed the same five pieces the items below now name one
         // by one, so it only said everything twice.
@@ -290,6 +325,7 @@ export const JOURNEY_STEPS: {
             { id: "reels", label: "Example Reels", to: "reels", eta: "Week 2" },
         ],
     },
+    { id: "webforms", label: "Website forms", detail: "We build an inline form and pop-up form.", icon: Browser, eta: "Week 2" },
     {
         // Closes the journey on what the client actually signed up for, rather than on a
         // task of theirs. Nothing on the dashboard can observe a launch, so an AM ticks it.
@@ -323,7 +359,7 @@ export const SECTION_ETA: Partial<Record<SectionId, string>> = Object.fromEntrie
 );
 
 /**
- * The four stages the launch meter groups the journey under, and the steps in each.
+ * The stages the launch meter groups the journey under, and the steps in each.
  *
  * Not the same taxonomy as NAV_GROUPS: the menu is organised by where a thing LIVES on the
  * dashboard, this is organised by what a client is doing at the time. "Get started" is
@@ -331,52 +367,66 @@ export const SECTION_ETA: Partial<Record<SectionId, string>> = Object.fromEntrie
  * the two forms, because those all happen in the same opening stretch and a client who has
  * booked their kick-off should not be looking at a stage still called "forms".
  *
+ * `week` is the chevron's subtitle, counted from the Kick-off Call like every other
+ * estimate on the journey. The last stage is Live: it draws no chevron, only the rocket at
+ * the end of the meter.
+ *
  * Stage membership is by step id, so a reorder inside a stage costs nothing. Every journey
  * step must appear in exactly one stage — dashboard-navigation.check.ts enforces that,
  * since a step missing from here would quietly stop counting towards launch.
  */
-export const JOURNEY_STAGES: { id: string; label: string; steps: JourneyStepId[] }[] = [
-    { id: "start", label: "Get started", steps: ["chat", "form", "kickoff", "vision", "resources", "call"] },
-    { id: "foundation", label: "Brand foundation", steps: ["masterdoc", "brandkit"] },
-    { id: "funnel", label: "Marketing funnel", steps: ["funnel"] },
-    { id: "live", label: "Live", steps: ["launch"] },
+export const JOURNEY_STAGES: { id: string; label: string; week: string; steps: JourneyStepId[] }[] = [
+    { id: "start", label: "Get started", week: "Before Week 1", steps: ["chat", "form", "kickoff", "vision", "resources", "call"] },
+    { id: "foundation", label: "Brand foundation", week: "Week 1", steps: ["masterdoc", "brandkit"] },
+    { id: "tech", label: "Tech setup", week: "Week 1", steps: ["crm", "adaccount", "manychat"] },
+    { id: "funnel", label: "Marketing funnel", week: "Week 1–2", steps: ["contentopt", "funnel", "webforms"] },
+    { id: "live", label: "Live", week: "Week 3", steps: ["launch"] },
 ];
 
+/** Who a step waits on while it is unfinished — decides "Needs your input" vs "We're on it". */
+export type JourneyOwner = "client" | "review" | "team";
+
 /**
- * ── The launch meter's own cells ──
+ * ── The launch meter's pills ──
  *
- * The bar is a summary of the journey, not a mirror of it. The step list below it is the
- * client's checklist and carries everything; the bar carries only what a client would call
- * a milestone, because fourteen cells across one bar left every name abbreviated to the
- * point of being a guess ("VISION", "POSTS", "MASTER").
+ * One pill per step under its stage's chevron, with a short name — the step list below
+ * carries the full wording. A step ticked piece by piece expands into one pill per piece,
+ * named by the piece, which is what makes Marketing funnel the long stage.
  *
- * So two things differ from JOURNEY_STEPS on purpose:
+ * The last step, Marketing Launch, is not a pill: it is the rocket the meter ends on, lit
+ * only once an AM ticks it.
  *
- *  - Joining the Google Chat group is not on the bar. It is a two-minute setup task, not
- *    a milestone, and it was taking a fourteenth of the run to launch.
- *  - The two intake forms share one cell. A client thinks of them as "the forms"; the cell
- *    fills through both, so answering half of either still moves the bar.
+ * `owner` drives the pill's colour while it is unfinished:
+ *  - `client` — theirs to do (a form, a booking): yellow "Needs your input" when it is the
+ *    step they should be on, or one they have started.
+ *  - `review` — we build it, they review it: yellow once its section is revealed to them,
+ *    light navy "We're on it" while we are still building it.
+ *  - `team` — ours alone.
  *
- * Names are written out in full — no abbreviations. A cell over a single tickable step
- * expands instead into one cell per piece, named by the piece, which is what makes
- * Marketing funnel the long stage.
- *
- * `stage` is a JOURNEY_STAGES id; dashboard-navigation.check.ts holds every cell to a real
- * stage and every step named here to a real step, so a rename cannot quietly empty the bar.
+ * `stage` is a JOURNEY_STAGES id; dashboard-navigation.check.ts holds every pill to a real
+ * stage and every step named here to a real step, so a rename cannot quietly empty the meter.
  */
-export const JOURNEY_BAR: { id: string; label: string; stage: string; steps: JourneyStepId[] }[] = [
-    { id: "forms", label: "Forms", stage: "start", steps: ["form", "vision"] },
-    { id: "kickoff", label: "Kickoff Call", stage: "start", steps: ["kickoff"] },
-    { id: "resources", label: "Assets", stage: "start", steps: ["resources"] },
-    { id: "call", label: "Onboarding Call", stage: "start", steps: ["call"] },
-    { id: "masterdoc", label: "Master Brand", stage: "foundation", steps: ["masterdoc"] },
-    { id: "brandkit", label: "Brand Kit", stage: "foundation", steps: ["brandkit"] },
+export const JOURNEY_BAR: { id: string; label: string; stage: string; owner: JourneyOwner; steps: JourneyStepId[] }[] = [
+    { id: "chat", label: "Google Chat", stage: "start", owner: "client", steps: ["chat"] },
+    { id: "form", label: "Onboarding form", stage: "start", owner: "client", steps: ["form"] },
+    { id: "kickoff", label: "Kick-off call", stage: "start", owner: "client", steps: ["kickoff"] },
+    { id: "vision", label: "Access form", stage: "start", owner: "client", steps: ["vision"] },
+    { id: "resources", label: "Upload resources", stage: "start", owner: "client", steps: ["resources"] },
+    { id: "call", label: "Onboarding call", stage: "start", owner: "client", steps: ["call"] },
+    { id: "masterdoc", label: "Master Brand", stage: "foundation", owner: "review", steps: ["masterdoc"] },
+    { id: "brandkit", label: "Brand Kit", stage: "foundation", owner: "review", steps: ["brandkit"] },
+    { id: "crm", label: "CRM", stage: "tech", owner: "team", steps: ["crm"] },
+    { id: "adaccount", label: "Ad account setup", stage: "tech", owner: "team", steps: ["adaccount"] },
+    { id: "manychat", label: "ManyChat", stage: "tech", owner: "team", steps: ["manychat"] },
+    { id: "contentopt", label: "Content optimization", stage: "funnel", owner: "team", steps: ["contentopt"] },
     // Expands into its five reviews, each named by the item: Landing Page, Pinned Stories,
     // Welcome Flow, Pinned Posts, Example Reels.
-    { id: "funnel", label: "Marketing Funnel", stage: "funnel", steps: ["funnel"] },
-    // Last, so it wears the rocket and draws no name.
-    { id: "launch", label: "Launch", stage: "live", steps: ["launch"] },
+    { id: "funnel", label: "Marketing funnel", stage: "funnel", owner: "review", steps: ["funnel"] },
+    { id: "webforms", label: "Website forms", stage: "funnel", owner: "team", steps: ["webforms"] },
 ];
+
+/** Steps only the team can finish — never the client's "next thing to do". */
+export const TEAM_JOURNEY_STEPS = new Set<JourneyStepId>(JOURNEY_BAR.filter((bar) => bar.owner === "team").flatMap((bar) => bar.steps));
 
 /**
  * ── Journey completion, as stored ──
@@ -435,6 +485,22 @@ export const toggleJourneyItemDone = (done: readonly string[], stepId: JourneySt
         return [...done.filter((x) => x !== stepId), ...others];
     }
     return done.includes(key) ? done.filter((x) => x !== key) : [...done, key];
+};
+
+/**
+ * An AM's manual status on an unfinished step or piece, set from edit mode. Keyed the same
+ * way as `journey_done` (step id, or `${stepId}:${itemId}`), so it survives a reorder too.
+ * `null` clears it back to automatic.
+ */
+export type JourneyMark = "waiting" | "progress";
+
+export const setJourneyMark = (
+    marks: Readonly<Record<string, JourneyMark>> | undefined,
+    key: string,
+    mark: JourneyMark | null,
+): Record<string, JourneyMark> => {
+    const rest = Object.fromEntries(Object.entries(marks ?? {}).filter(([k]) => k !== key));
+    return mark ? { ...rest, [key]: mark } : rest;
 };
 
 /** Sits above the funnel groups — not a funnel stage itself, just "home" (hero + the funnel explainer). */

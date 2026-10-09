@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
-import { PAGE_CAP, asText, assertPublicUrl, grab } from "./client-sources.mts";
+import { PAGE_CAP, asText, assertPublicUrl, behindBotWall, grabResult } from "./client-sources.mts";
 import { PDF_CAP, type PdfCode, readBrandPdf } from "./pdf-brand.mts";
 import { GENERIC_FONT, type Logo, type Swatch, readSiteBrand } from "./site-brand.mts";
 
@@ -320,12 +320,42 @@ export async function buildKit(input: KitInput, env: { supabaseUrl: string; anon
         }
     }
     if (site) {
-        const page = await grab(site.href, PAGE_CAP, 12_000);
-        if (!page) {
-            if (!pdfKit) throw new KitError(`Couldn't load ${site.hostname}. Is the address right, and the site public?`);
-            notes.push(`Couldn't load ${site.hostname}, so logos weren't pulled.`);
+        const page = await grabResult(site.href, PAGE_CAP, 12_000);
+        if (!page.ok) {
+            /* Distinguished rather than one generic message: "is the address right" is actively
+               wrong advice when the real problem is the site's own bot protection. There's no
+               rescue to try here the way readWebsite has one — this needs the page's actual
+               HTML and CSS to find colours and logos in, and a reader service only ever hands
+               back cleaned-up text, which would read as an empty kit rather than an honest
+               failure. */
+            const why =
+                page.reason === "too-big"
+                    ? `${site.hostname} sent a page too large to read.`
+                    : page.reason === "refused" && [401, 403, 429, 503].includes(page.status)
+                      ? `${site.hostname} refused an automated request (HTTP ${page.status}) — its security settings are blocking this read.`
+                      : page.reason === "refused"
+                        ? `${site.hostname} answered HTTP ${page.status}.`
+                        : `Couldn't load ${site.hostname}. Is the address right, and the site public?`;
+            if (!pdfKit) throw new KitError(why);
+            notes.push(`${why} Logos weren't pulled.`);
         } else {
-            siteRead = await readSiteBrand(site, asText(page.body), { sheetMs: 10_000 });
+            const html = asText(page.body);
+            /* SiteGround (gooseberrylodges.com) serves every cloud IP a captcha stub, whatever
+               the user agent, while the site opens fine in a browser. Read as a page, the stub
+               had no CSS, and its `data:;` favicon passed as a logo, so the AM got an empty
+               "draft" instead of being told the site refused us. Its stylesheets are behind the
+               same wall, so there is nothing to retry here: a real browser is the way past. */
+            if (behindBotWall(html)) {
+                const why = `${site.hostname} is behind bot protection that showed our reader a challenge instead of the site, so nothing could be read from it`;
+                if (!pdfKit) {
+                    throw new KitError(
+                        `${why}. The site opens fine in a browser — ask the web team to measure it with /brand-kit, upload the brand guidelines PDF, or add the colours by hand.`,
+                    );
+                }
+                notes.push(`${why}, so logos weren't pulled.`);
+            } else {
+                siteRead = await readSiteBrand(site, html, { sheetMs: 10_000 });
+            }
         }
     }
 

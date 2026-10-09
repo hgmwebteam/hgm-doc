@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, CheckCircle, Edit03, XClose } from "@untitledui/icons";
+import { Check, CheckCircle, Edit03, XCircle, XClose } from "@untitledui/icons";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type Key as AriaKey, Tab as AriaTab, TabList as AriaTabList, TabPanel as AriaTabPanel, Tabs as AriaTabs } from "react-aria-components";
 import { Button } from "@/components/base/buttons/button";
@@ -281,19 +281,20 @@ export const ClientFeedbackReview = ({ feedback, labelFor }: { feedback: Omit<Cl
     );
 };
 
-/* ── Open, Done and Dismissed ───────────────────────────────────────────────
+/* ── Open and Feedback history ──────────────────────────────────────────────
    ClientFeedbackReview above shows open notes only, so a note marked done vanished: the
    row was kept in dashboard_suggestions (status, resolved_by, resolved_at) but nothing on
-   the page could show it again. This panel keeps every note, sorted into three tabs: Open
-   to act on, Done, and Dismissed. The tab says what happened, so a row needs no badge or
-   avatar: who and when on one line, the words, and who closed it.
+   the page could show it again. This panel keeps every note in two tabs: Open, to act on,
+   and Feedback history, everything already closed. A row is who and when on one line, the
+   words, and how it ended; that last line leads with a green check for done or a grey X
+   for dismissed, so the two separate at a glance inside one list. (Three tabs, Open / Done
+   / Dismissed, were tried on 2026-10-09 and dropped as one tab too many.)
 
    Used by the Landing Page's Client review card (2026-10-09); the other sections still use
    ClientFeedbackReview and can move over by swapping the component. */
 
 /** A closed item from outside dashboard_suggestions that belongs in the same history, such
- *  as the client's verdict on an older landing-page version. Filed under Done: a newer
- *  version answered it. */
+ *  as the client's verdict on an older landing-page version: a newer version answered it. */
 export interface PastVerdict {
     id: string;
     /** "Changes requested on v1", "Approved v2". */
@@ -311,7 +312,8 @@ type HistoryItem = {
     /** The name line: who wrote it, or what the verdict was. */
     heading: string;
     text?: string;
-    /** How it ended, who closed it and when: "Done by Ananya, Oct 6". */
+    /** Who closed it and when, after the outcome word: "by Ananya, Oct 6". For a verdict,
+     *  who gave it: "From bsmith@…". */
     outcome: string;
     /** When it was written. */
     writtenAt?: string;
@@ -353,7 +355,7 @@ export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor
                 kind: s.status === "accepted" ? "done" : "dismissed",
                 heading: label ? `${s.suggested_by}, ${label}` : s.suggested_by,
                 text: s.suggested_value,
-                outcome: [[s.status === "accepted" ? "Done" : "Dismissed", who && `by ${who}`].filter(Boolean).join(" "), when].filter(Boolean).join(", "),
+                outcome: [who && `by ${who}`, when].filter(Boolean).join(", "),
                 writtenAt: s.created_at,
                 sortAt: s.resolved_at ?? s.created_at,
             };
@@ -466,12 +468,38 @@ const ClosedNote = ({ item }: { item: HistoryItem }) => {
                     {expanded ? "Show less" : "Show more"}
                 </button>
             )}
-            {item.outcome && <p className="mt-1.5 text-xs text-quaternary">{item.outcome}</p>}
+            <Outcome item={item} />
         </div>
     );
 };
 
-/** A closed list with its own "Show all", so opening one tab's history leaves the other's as it was. */
+/** How a closed item ended. The marker and the word carry the colour (green check for done
+ *  or approved, grey X for dismissed); who and when stay grey. A verdict that asked for
+ *  changes has no marker, since its heading already says so. */
+const Outcome = ({ item }: { item: HistoryItem }) => {
+    const mark =
+        item.kind === "done"
+            ? { Icon: CheckCircle, word: "Done", cls: "text-success-primary", icon: "text-fg-success-secondary" }
+            : item.kind === "approved"
+              ? { Icon: CheckCircle, word: "Approved", cls: "text-success-primary", icon: "text-fg-success-secondary" }
+              : item.kind === "dismissed"
+                ? { Icon: XCircle, word: "Dismissed", cls: "text-tertiary", icon: "text-fg-quaternary" }
+                : null;
+    if (!mark && !item.outcome) return null;
+    return (
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-1 text-xs text-quaternary">
+            {mark && (
+                <span className={cx("inline-flex items-center gap-1 font-semibold", mark.cls)}>
+                    <mark.Icon className={cx("size-3.5 shrink-0", mark.icon)} aria-hidden="true" />
+                    {mark.word}
+                </span>
+            )}
+            {item.outcome && <span>{item.outcome}</span>}
+        </p>
+    );
+};
+
+/** The history list, five at a time until "Show all". */
 const ClosedList = ({ items, empty }: { items: HistoryItem[]; empty: { title: string; body: string } }) => {
     const [shown, setShown] = useState(HISTORY_STEP);
     if (items.length === 0) return <EmptyNote {...empty} />;
@@ -504,7 +532,7 @@ const EmptyNote = ({ title, body }: { title: string; body: string }) => (
 );
 
 /** A count that gives a small pulse when it goes up, so a note marked done or dismissed
- *  visibly lands in its tab. Feedback, not decoration: it fires only on an increase. */
+ *  visibly lands in Feedback history. Feedback, not decoration: it fires only on an increase. */
 const Count = ({ n, waiting = false }: { n: number; waiting?: boolean }) => {
     const reduceMotion = useReducedMotion();
     const prev = useRef(n);
@@ -564,9 +592,9 @@ const Segment = ({ id, groupId, label, count, waiting }: { id: string; groupId: 
 };
 
 /**
- * The team's comments on one section, in three tabs: Open (to act on), Done (handled, plus
- * past verdicts from outside the table) and Dismissed. Renders nothing unless `mode` is
- * "review". It renders the body only: the caller puts it inside its own card.
+ * The team's comments on one section, in two tabs: Open (to act on) and Feedback history
+ * (everything closed, plus past verdicts from outside the table). Renders nothing unless
+ * `mode` is "review". It renders the body only: the caller puts it inside its own card.
  */
 export const ClientFeedbackTabs = ({
     feedback,
@@ -586,10 +614,8 @@ export const ClientFeedbackTabs = ({
 
     const open = feedback.items.filter((s) => s.status === "pending");
     const history = historyOf(feedback.items, pastVerdicts, labelFor);
-    const done = history.filter((h) => h.kind !== "dismissed");
-    const dismissed = history.filter((h) => h.kind === "dismissed");
-    // Open first while anything is waiting; otherwise the first tab with something in it.
-    const selected = picked ?? (open.length > 0 ? "open" : done.length > 0 ? "done" : dismissed.length > 0 ? "dismissed" : "open");
+    // Open first while anything is waiting; otherwise the history, if there is one.
+    const selected = picked ?? (open.length > 0 || history.length === 0 ? "open" : "history");
 
     return (
         <AriaTabs selectedKey={selected} onSelectionChange={setPicked} keyboardActivation="manual" className="@container/comments">
@@ -597,8 +623,7 @@ export const ClientFeedbackTabs = ({
                 <p className="text-sm font-semibold text-primary">Comments</p>
                 <AriaTabList aria-label="Client comments" className="flex gap-0.5 rounded-lg bg-secondary p-0.5 ring-1 ring-secondary ring-inset">
                     <Segment id="open" groupId={groupId} label="Open" count={open.length} waiting />
-                    <Segment id="done" groupId={groupId} label="Done" count={done.length} />
-                    <Segment id="dismissed" groupId={groupId} label="Dismissed" count={dismissed.length} />
+                    <Segment id="history" groupId={groupId} label="Feedback history" count={history.length} />
                 </AriaTabList>
             </div>
 
@@ -625,17 +650,10 @@ export const ClientFeedbackTabs = ({
                 )}
             </AriaTabPanel>
 
-            <AriaTabPanel id="done" className="mt-4 outline-none">
+            <AriaTabPanel id="history" className="mt-4 outline-none">
                 <ClosedList
-                    items={done}
-                    empty={{ title: "Nothing marked done yet", body: "Comments you mark as done stay here, so you can look back at them." }}
-                />
-            </AriaTabPanel>
-
-            <AriaTabPanel id="dismissed" className="mt-4 outline-none">
-                <ClosedList
-                    items={dismissed}
-                    empty={{ title: "Nothing dismissed", body: "Comments you dismiss land here, so nothing a client wrote is lost." }}
+                    items={history}
+                    empty={{ title: "No feedback history yet", body: "Comments you mark as done or dismiss stay here, so you can look back at them." }}
                 />
             </AriaTabPanel>
         </AriaTabs>

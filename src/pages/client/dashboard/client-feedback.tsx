@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
-import { Check, CheckCircle, Edit03 } from "@untitledui/icons";
+import { type FC, useEffect, useState } from "react";
+import { Check, CheckCircle, Edit03, MessageChatCircle, XCircle } from "@untitledui/icons";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import type { Key as AriaKey } from "react-aria-components";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
+import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import type { Suggestion } from "@/pages/client/dashboard/suggestions-model";
 import { cx } from "@/utils/cx";
@@ -275,5 +279,267 @@ export const ClientFeedbackReview = ({ feedback, labelFor }: { feedback: Omit<Cl
                 );
             })}
         </div>
+    );
+};
+
+/* ── Open and Done, in one place ─────────────────────────────────────────────
+   ClientFeedbackReview above shows open notes only, so a note marked done vanished: the
+   row was kept in dashboard_suggestions (status, resolved_by, resolved_at) but nothing on
+   the page could show it again. This panel keeps both halves in one card behind two tabs,
+   each with its count, so the open ones stay first and what was already handled is one
+   click away. Used by the Landing Page's Client review card (2026-10-09); the other
+   sections still use ClientFeedbackReview and can move over by swapping the component. */
+
+/** A closed item from outside dashboard_suggestions that belongs in the same history, such
+ *  as the client's verdict on an older landing-page version. */
+export interface PastVerdict {
+    id: string;
+    /** "Changes requested on v1", "Approved v2". */
+    title: string;
+    /** What the client wrote, when there was anything. */
+    text?: string;
+    by?: string;
+    at?: string;
+    kind: "changes" | "approved";
+}
+
+type HistoryItem = {
+    id: string;
+    icon: FC<{ className?: string }>;
+    iconClass: string;
+    heading: string;
+    text?: string;
+    footer: string;
+    /** When it was written, shown on the right. */
+    shownAt?: string;
+    /** When it was closed, for the order: newest first. */
+    sortAt: string;
+};
+
+/** How many closed items show before "Show all". */
+const HISTORY_STEP = 5;
+
+/** "ananya@hiddengem.media" → "Ananya": the team member who closed a note, by first name. */
+const firstNameOf = (email?: string | null) => {
+    const local = (email ?? "").split("@")[0] ?? "";
+    return local ? local.charAt(0).toUpperCase() + local.slice(1) : "";
+};
+
+/** Every closed note and past verdict, newest first, in one shape. Pure. */
+export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor?: (s: Suggestion) => string | null): HistoryItem[] => {
+    const notes: HistoryItem[] = items
+        .filter((s) => s.status !== "pending")
+        .map((s) => {
+            const done = s.status === "accepted";
+            const who = firstNameOf(s.resolved_by);
+            const when = s.resolved_at ? shortDate(s.resolved_at) : "";
+            const label = labelFor?.(s) ?? null;
+            return {
+                id: s.id,
+                icon: done ? CheckCircle : XCircle,
+                iconClass: done ? "text-fg-success-secondary" : "text-fg-quaternary",
+                heading: label ? `${s.suggested_by}, ${label}` : s.suggested_by,
+                text: s.suggested_value,
+                footer: [done ? "Marked done" : "Dismissed", who && `by ${who}`, when && `on ${when}`].filter(Boolean).join(" "),
+                shownAt: s.created_at,
+                sortAt: s.resolved_at ?? s.created_at,
+            };
+        });
+    const past: HistoryItem[] = verdicts.map((v) => ({
+        id: v.id,
+        icon: v.kind === "approved" ? CheckCircle : MessageChatCircle,
+        iconClass: v.kind === "approved" ? "text-fg-success-secondary" : "text-fg-quaternary",
+        heading: v.title,
+        text: v.text,
+        footer: v.by ? `From ${v.by}` : "",
+        shownAt: v.at,
+        sortAt: v.at ?? "",
+    }));
+    return [...notes, ...past].sort((a, b) => b.sortAt.localeCompare(a.sortAt));
+};
+
+/** One open note: what the client wrote, and the two ways to close it. */
+const OpenNote = ({
+    s,
+    label,
+    resolve,
+}: {
+    s: Suggestion;
+    label: string | null;
+    resolve: (s: Suggestion, status: "accepted" | "declined") => Promise<void>;
+}) => {
+    const [busy, setBusy] = useState<"accepted" | "declined" | null>(null);
+    const act = async (status: "accepted" | "declined") => {
+        setBusy(status);
+        try {
+            await resolve(s, status);
+        } finally {
+            setBusy(null);
+        }
+    };
+    return (
+        <div className="rounded-xl bg-secondary p-3.5">
+            <div className="flex items-baseline justify-between gap-3">
+                <p className="min-w-0 truncate text-sm font-medium text-secondary">
+                    {s.suggested_by}
+                    {label && <span className="font-normal text-tertiary">, {label}</span>}
+                </p>
+                <p className="shrink-0 text-xs text-quaternary">{sentStamp(s.created_at)}</p>
+            </div>
+            <p className="mt-1.5 text-sm whitespace-pre-wrap text-primary">{s.suggested_value}</p>
+            <div className="mt-3 flex items-center gap-2">
+                {/* Secondary, not primary: with several notes open, a solid button on each
+                    out-shouts the notes themselves. The words lead; the action sits under them. */}
+                <Button
+                    size="sm"
+                    color="secondary"
+                    iconLeading={Check}
+                    isLoading={busy === "accepted"}
+                    showTextWhileLoading
+                    isDisabled={busy !== null}
+                    onClick={() => void act("accepted")}
+                >
+                    Mark as done
+                </Button>
+                <Button
+                    size="sm"
+                    color="tertiary"
+                    isLoading={busy === "declined"}
+                    showTextWhileLoading
+                    isDisabled={busy !== null}
+                    onClick={() => void act("declined")}
+                >
+                    Dismiss
+                </Button>
+            </div>
+        </div>
+    );
+};
+
+/** One closed item: quieter than an open note, its outcome on the last line. */
+const DoneNote = ({ item }: { item: HistoryItem }) => {
+    const [expanded, setExpanded] = useState(false);
+    const text = item.text?.trim() ?? "";
+    const long = text.length > 220 || text.split("\n").length > 3;
+    const Icon = item.icon;
+    return (
+        <div className="flex gap-3 py-3.5 first:pt-1 last:pb-1">
+            <Icon className={cx("mt-0.5 size-4 shrink-0", item.iconClass)} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-3">
+                    <p className="min-w-0 truncate text-sm font-medium text-secondary">{item.heading}</p>
+                    {item.shownAt && <p className="shrink-0 text-xs text-quaternary">{shortDate(item.shownAt)}</p>}
+                </div>
+                {text && <p className={cx("mt-1 text-sm whitespace-pre-wrap text-tertiary", !expanded && long && "line-clamp-3")}>{text}</p>}
+                {long && (
+                    <button
+                        type="button"
+                        onClick={() => setExpanded((v) => !v)}
+                        className="mt-1 text-xs font-semibold text-tertiary transition duration-100 ease-linear hover:text-primary"
+                    >
+                        {expanded ? "Show less" : "Show more"}
+                    </button>
+                )}
+                {item.footer && <p className="mt-1.5 text-xs text-quaternary">{item.footer}</p>}
+            </div>
+        </div>
+    );
+};
+
+const EmptyNote = ({ title, body }: { title: string; body: string }) => (
+    <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-secondary px-4 py-7 text-center">
+        <p className="text-sm font-medium text-secondary">{title}</p>
+        <p className="max-w-xs text-sm text-pretty text-tertiary">{body}</p>
+    </div>
+);
+
+/** The open count turns brand while anything waits, so the tab that needs action reads first. */
+const TabCount = ({ n, waiting = false }: { n: number; waiting?: boolean }) => (
+    <Badge size="sm" type="pill-color" color={waiting && n > 0 ? "brand" : "gray"} className="-my-px tabular-nums">
+        {String(n)}
+    </Badge>
+);
+
+/**
+ * The team's comment panel: Open (to act on) and Done (what was already handled), with
+ * past verdicts from outside the table folded into Done. Renders nothing unless `mode` is
+ * "review". It renders the body only: the caller puts it inside its own card.
+ */
+export const ClientFeedbackTabs = ({
+    feedback,
+    pastVerdicts = [],
+    labelFor,
+}: {
+    feedback: Omit<ClientFeedbackProps, "send">;
+    pastVerdicts?: PastVerdict[];
+    labelFor?: (s: Suggestion) => string | null;
+}) => {
+    const reduceMotion = useReducedMotion();
+    /** Null until the viewer picks a tab, so the default can follow the data as it loads. */
+    const [picked, setPicked] = useState<AriaKey | null>(null);
+    const [shown, setShown] = useState(HISTORY_STEP);
+
+    if (feedback.mode !== "review") return null;
+
+    const open = feedback.items.filter((s) => s.status === "pending");
+    const history = historyOf(feedback.items, pastVerdicts, labelFor);
+    // Open first while anything is waiting; otherwise the history, if there is one.
+    const selected = picked ?? (open.length > 0 || history.length === 0 ? "open" : "done");
+
+    return (
+        <Tabs selectedKey={selected} onSelectionChange={setPicked}>
+            <TabList type="button-minimal" size="sm" fullWidth aria-label="Client comments">
+                <Tab id="open">
+                    Open <TabCount n={open.length} waiting />
+                </Tab>
+                <Tab id="done">
+                    Done <TabCount n={history.length} />
+                </Tab>
+            </TabList>
+
+            <TabPanel id="open" className="mt-4">
+                {open.length === 0 ? (
+                    <EmptyNote title="No open comments" body="New comments from the client show up here." />
+                ) : (
+                    <ul className="flex flex-col gap-2">
+                        {/* A note leaving for Done fades out where it is, then the rest close
+                            the gap, so the list never jumps. Opacity only under reduced motion. */}
+                        <AnimatePresence initial={false} mode="popLayout">
+                            {open.map((s) => (
+                                <motion.li
+                                    key={s.id}
+                                    layout={!reduceMotion}
+                                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+                                    transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                                >
+                                    <OpenNote s={s} label={labelFor?.(s) ?? null} resolve={feedback.resolve} />
+                                </motion.li>
+                            ))}
+                        </AnimatePresence>
+                    </ul>
+                )}
+            </TabPanel>
+
+            <TabPanel id="done" className="mt-4">
+                {history.length === 0 ? (
+                    <EmptyNote title="Nothing here yet" body="Comments you mark as done or dismiss stay here, so you can look back at them." />
+                ) : (
+                    <>
+                        <ul className="flex flex-col divide-y divide-secondary">
+                            {history.slice(0, shown).map((item) => (
+                                <li key={item.id}>
+                                    <DoneNote item={item} />
+                                </li>
+                            ))}
+                        </ul>
+                        {history.length > shown && (
+                            <Button color="link-gray" size="sm" className="mt-3" onClick={() => setShown(history.length)}>
+                                {`Show all ${history.length}`}
+                            </Button>
+                        )}
+                    </>
+                )}
+            </TabPanel>
+        </Tabs>
     );
 };

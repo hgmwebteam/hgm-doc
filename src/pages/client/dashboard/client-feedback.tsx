@@ -16,10 +16,10 @@ import { cx } from "@/utils/cx";
  * loop as a Master Document edit, which is why nothing here talks to Supabase itself. The
  * section owns every read and write; this only renders and calls back.
  *
- * Shared by the Welcome Email Flow (in a sticky rail beside the previews) and the Landing
- * Page (a card under the preview, which is one full-width frame with no room beside it).
- * The box renders the card only — its caller positions it, so a new section can drop it
- * anywhere without inheriting either of those layouts.
+ * The client's box is shared by every section a client can comment on (Welcome Email Flow,
+ * Landing Page, Example Reels, Pinned Stories, Pinned Posts); so is the team's side,
+ * ClientFeedbackTabs below. Each renders its body only — the caller positions it, so a
+ * section can drop it anywhere without inheriting another's layout.
  */
 
 /** What a section hands the box so a client can comment and the team can close it. */
@@ -242,56 +242,19 @@ export const ClientFeedbackBox = ({
     );
 };
 
-/**
- * The team's side: every open note on this section, read and closed here. Renders nothing
- * unless `mode` is "review" or there is nothing open, so it can sit unconditionally in a
- * section body.
- *
- * `labelFor` adds a per-note suffix where a section has one worth showing (the Welcome Flow
- * names the email a legacy per-email note was written about). Return null for no suffix.
- */
-export const ClientFeedbackReview = ({ feedback, labelFor }: { feedback: Omit<ClientFeedbackProps, "send">; labelFor?: (s: Suggestion) => string | null }) => {
-    if (feedback.mode !== "review") return null;
-    const pending = feedback.items.filter((s) => s.status === "pending");
-    if (pending.length === 0) return null;
-
-    return (
-        <div className="flex flex-col gap-2">
-            {pending.map((s) => {
-                const label = labelFor?.(s) ?? null;
-                return (
-                    <div key={s.id} className="rounded-xl bg-brand-primary p-3.5 ring-1 ring-secondary">
-                        <p className="text-xs font-medium text-secondary">
-                            Client feedback · {s.suggested_by} · {shortDate(s.created_at)}
-                            {label && <span> · {label}</span>}
-                        </p>
-                        <p className="mt-1 text-sm whitespace-pre-wrap text-primary">{s.suggested_value}</p>
-                        <div className="mt-2.5 flex items-center gap-2">
-                            <Button size="sm" color="primary" onClick={() => void feedback.resolve(s, "accepted")}>
-                                Mark as done
-                            </Button>
-                            <Button size="sm" color="secondary" onClick={() => void feedback.resolve(s, "declined")}>
-                                Dismiss
-                            </Button>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
-
 /* ── Open and Feedback history ──────────────────────────────────────────────
-   ClientFeedbackReview above shows open notes only, so a note marked done vanished: the
-   row was kept in dashboard_suggestions (status, resolved_by, resolved_at) but nothing on
-   the page could show it again. This panel keeps every note in two tabs: Open, to act on,
+   The team's side of every section's comments. Until 2026-10-09 it listed open notes only
+   (ClientFeedbackReview), so a note marked done vanished: the row was kept in
+   dashboard_suggestions (status, resolved_by, resolved_at) but nothing could show it again. This panel keeps every note in two tabs: Open, to act on,
    and Feedback history, everything already closed. A row is who and when on one line, the
    words, and how it ended; that last line leads with a green check for done or a grey X
    for dismissed, so the two separate at a glance inside one list. (Three tabs, Open / Done
    / Dismissed, were tried on 2026-10-09 and dropped as one tab too many.)
 
-   Used by the Landing Page's Client review card (2026-10-09); the other sections still use
-   ClientFeedbackReview and can move over by swapping the component. */
+   Used by every section a client comments on: inside the Landing Page's Client review card,
+   inside each Pinned Post, and as its own card (`framed`) on Welcome Emails, Example Reels
+   and Pinned Stories, where `hideWhenEmpty` keeps a section with no comments free of an
+   empty box. */
 
 /** A closed item from outside dashboard_suggestions that belongs in the same history, such
  *  as the client's verdict on an older landing-page version: a newer version answered it. */
@@ -603,16 +566,23 @@ const Segment = ({ id, groupId, label, count, waiting }: { id: string; groupId: 
 /**
  * The team's comments on one section, in two tabs: Open (to act on) and Feedback history
  * (everything closed, plus past verdicts from outside the table). Renders nothing unless
- * `mode` is "review". It renders the body only: the caller puts it inside its own card.
+ * `mode` is "review". By default it renders the body only, for a caller that already has a
+ * card; `framed` gives it a card of its own.
  */
 export const ClientFeedbackTabs = ({
     feedback,
     pastVerdicts = [],
     labelFor,
+    framed = false,
+    hideWhenEmpty = false,
 }: {
-    feedback: Omit<ClientFeedbackProps, "send">;
+    feedback: Pick<ClientFeedbackProps, "mode" | "items" | "resolve">;
     pastVerdicts?: PastVerdict[];
     labelFor?: (s: Suggestion) => string | null;
+    /** Wrap in its own card, for a section with no card to put it in. */
+    framed?: boolean;
+    /** Render nothing at all while there is nothing open and no history. */
+    hideWhenEmpty?: boolean;
 }) => {
     const reduceMotion = useReducedMotion();
     const groupId = useId();
@@ -623,11 +593,17 @@ export const ClientFeedbackTabs = ({
 
     const open = feedback.items.filter((s) => s.status === "pending");
     const history = historyOf(feedback.items, pastVerdicts, labelFor);
+    if (hideWhenEmpty && open.length === 0 && history.length === 0) return null;
     // Open first while anything is waiting; otherwise the history, if there is one.
     const selected = picked ?? (open.length > 0 || history.length === 0 ? "open" : "history");
 
     return (
-        <AriaTabs selectedKey={selected} onSelectionChange={setPicked} keyboardActivation="manual" className="@container/comments">
+        <AriaTabs
+            selectedKey={selected}
+            onSelectionChange={setPicked}
+            keyboardActivation="manual"
+            className={cx("@container/comments", framed && "rounded-2xl bg-primary px-5 py-4 ring-1 ring-secondary")}
+        >
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <p className="text-sm font-semibold text-primary">Comments</p>
                 <AriaTabList aria-label="Client comments" className="flex gap-0.5 rounded-lg bg-secondary p-0.5 ring-1 ring-secondary ring-inset">

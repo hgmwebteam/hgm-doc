@@ -3,7 +3,7 @@ import { Image01, Mail01, Monitor01, Phone01, RefreshCw01, SearchSm, Settings01,
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/base/buttons/button";
 import { supabase } from "@/lib/supabase";
-import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackTabs } from "@/pages/client/dashboard/client-feedback";
 import { flowFeedbackSlot } from "@/pages/client/dashboard/suggestions-model";
 import { cx } from "@/utils/cx";
 
@@ -1094,13 +1094,15 @@ export const WelcomeFlowSection = ({
             </div>
             <p className="mt-2 text-xs text-quaternary">{tab === 0 ? "Sent when the lead signs up" : `Sent in week ${tab + 1}`}</p>
 
-            {/* Team review — every open client note on the flow, read and closed here, each
-                naming the email it is about. All nine at once on purpose: the AM works the
-                list, and switching tabs to find the next note would hide half of it. */}
+            {/* Team review — every client note on the flow, open and closed, each naming the
+                email it is about. All nine emails at once on purpose: the AM works the list, and
+                switching email tabs to find the next note would hide half of it. */}
             {fb?.mode === "review" && (
-                <div className="mt-4">
-                    <ClientFeedbackReview
+                <div className="mt-4 empty:hidden">
+                    <ClientFeedbackTabs
                         feedback={fb}
+                        framed
+                        hideWhenEmpty
                         labelFor={(s) => (Number.isInteger(flowFeedbackSlot(s.field_key)) ? `on ${stepLabel(flowFeedbackSlot(s.field_key))}` : null)}
                     />
                 </div>

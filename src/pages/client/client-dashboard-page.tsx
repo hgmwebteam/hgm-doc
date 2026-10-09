@@ -1240,15 +1240,6 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     };
     /** The team marks a change request addressed. Nothing to apply to the row — the fix is
      *  the re-uploaded slides — so the status flips straight in the table. */
-    const resolvePinnedFeedback = (s: Suggestion) => {
-        void supabase
-            .from("dashboard_suggestions")
-            .update({ status: "accepted", resolved_by: user?.email ?? "", resolved_at: new Date().toISOString() })
-            .eq("id", s.id)
-            .eq("status", "pending")
-            .then(() => void refreshSuggestions());
-    };
-
     /* ── Pinned Posts ── */
     const pinnedPosts: PinnedPosts = content.pinned_posts ?? EMPTY_PINNED_POSTS;
     const patchPinned = (patch: Partial<PinnedPosts>) =>
@@ -4131,7 +4122,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                         reviewerEmail={suggestAuthor}
                                                         onSendFeedback={sendPinnedFeedback}
                                                         onWithdrawFeedback={withdrawOwnSuggestion}
-                                                        onResolveFeedback={resolvePinnedFeedback}
+                                                        onResolveFeedback={resolveFeedback}
                                                     />
                                                 )}
 

@@ -11,6 +11,11 @@
  *
  * No JSX and no React, so suggestions.check.ts can compile and run it standalone.
  * The context, <SuggestionBox> and fetch wrappers live in suggestions.tsx.
+ *
+ * Also imported by a Netlify function as `../../src/pages/client/dashboard/suggestions-model.ts`
+ * (netlify/lib/client-note-alert.mts, for sectionForKey), the way request-rules.ts is. The
+ * functions bundler has no `@/` alias and no `import.meta.env`, so value imports here must
+ * stay relative and environment-free; type-only imports are erased and are fine.
  */
 import type { Foundation } from "./dashboard-model";
 
@@ -98,6 +103,42 @@ export const STORIES_FEEDBACK_PREFIX = "pinnedStories.";
 /** The one key a Pinned Stories note is stored under. */
 export const STORIES_FEEDBACK_KEY = `${STORIES_FEEDBACK_PREFIX}all`;
 export const isStoriesFeedbackKey = (key: string) => key.startsWith(STORIES_FEEDBACK_PREFIX);
+
+/* ── Pinned Posts feedback ──
+   Per-post keys, "pinnedposts.{postId}.feedback" — pinned-posts.tsx owns feedbackKey and
+   isPinnedKey. Named here so the one section table below knows them; isSectionFeedbackKey
+   still leaves them out on purpose, because they are per post, not per section. */
+
+export const PINNED_POSTS_FEEDBACK_PREFIX = "pinnedposts.";
+
+/* ── Which section a key belongs to ──
+   One table for everything that reads dashboard_suggestions and has to say where a row
+   belongs: Home's "Needs attention" card and the email / Google Chat alert the Netlify
+   functions send (client-note-alert.mts). The anchor is the section's id on /{slug} — the
+   same ids dashboard-suggestions.mts gates visibility on — and the label is what the team
+   reads. Anything unprefixed is a Master Brand Document edit.
+
+   Home carried this table itself until 2026-10-09 and had no pinned-posts branch, so a
+   pinned-post note read as a brand-doc edit and linked to #foundation. */
+
+export type NoteAnchor = "foundation" | "flow" | "landing" | "pinnedstories" | "pinnedposts" | "reels";
+export interface NoteSection {
+    anchor: NoteAnchor;
+    label: string;
+}
+
+export const sectionForKey = (key: string): NoteSection =>
+    isFlowFeedbackKey(key)
+        ? { anchor: "flow", label: "Welcome email comment" }
+        : isLandingFeedbackKey(key)
+          ? { anchor: "landing", label: "Landing page comment" }
+          : isReelsFeedbackKey(key)
+            ? { anchor: "reels", label: "Example reels comment" }
+            : isStoriesFeedbackKey(key)
+              ? { anchor: "pinnedstories", label: "Pinned stories comment" }
+              : key.startsWith(PINNED_POSTS_FEEDBACK_PREFIX)
+                ? { anchor: "pinnedposts", label: "Pinned post note" }
+                : { anchor: "foundation", label: "Brand doc edit" };
 
 /**
  * True for every "a client wrote us a note about this section" key — the four families

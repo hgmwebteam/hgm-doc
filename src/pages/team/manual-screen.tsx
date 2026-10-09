@@ -397,7 +397,7 @@ const EMAIL_SETUP: { name: string; what: string }[] = [
     },
     {
         name: "Netlify env vars",
-        what: "RESEND_API_KEY (secret) and RESEND_FROM = HGM Portal <notifications@hgmportal.com>. A change applies to the next deploy, not the running one.",
+        what: "RESEND_API_KEY (secret) and RESEND_FROM = HGM Portal <notifications@hgmportal.com>. TEAM_CHAT_WEBHOOK_URL (secret) is the Google Chat space's incoming webhook for client-note alerts; leave it unset and those alerts go by email only. A change applies to the next deploy, not the running one.",
     },
     {
         name: "Supabase",
@@ -424,12 +424,15 @@ const FUNCTIONS: { name: string; what: string }[] = [
     { name: "mark-booked", what: "Lets a client's browser tick exactly one journey step (kick-off call booked) — deliberately can't write anything else." },
     {
         name: "dashboard-suggestions",
-        what: "Client suggestion traffic: list / send / withdraw. Validates the client's email against that dashboard's allowlist on every call.",
+        what: "Client suggestion traffic: list / send / withdraw. Validates the client's email against that dashboard's allowlist on every call. A send also emails the client's AM and posts to the team's Google Chat (netlify/lib/client-note-alert.mts), best-effort, after the rows are saved.",
     },
-    { name: "landing-page-review", what: "The client's Approve / Request changes on the Landing Page — only ever writes the review state, never a version." },
+    {
+        name: "landing-page-review",
+        what: "The client's Approve / Request changes on the Landing Page — only ever writes the review state, never a version. A change request also alerts the AM by email and the team on Google Chat (client-note-alert.mts).",
+    },
     {
         name: "pinned-stories-review",
-        what: "The client's per-slide notes and approval on Pinned Stories — only ever writes the live version's review, never the highlights.",
+        what: "The client's per-slide notes and approval on Pinned Stories — only ever writes the live version's review, never the highlights. A note also alerts the AM by email and the team on Google Chat (client-note-alert.mts).",
     },
     {
         name: "form-submitted",
@@ -815,7 +818,10 @@ const ManualTopics = ({ activeId, onJump }: { activeId: string; onJump: (id: str
                                         <li key={sec.id} className="relative">
                                             {/* The hairline's segment beside the section being read. */}
                                             <span
-                                                className={cx("absolute top-1 bottom-1 -left-[1.5px] w-0.5 rounded-full", active ? "bg-brand-solid" : "bg-transparent")}
+                                                className={cx(
+                                                    "absolute top-1 bottom-1 -left-[1.5px] w-0.5 rounded-full",
+                                                    active ? "bg-brand-solid" : "bg-transparent",
+                                                )}
                                                 aria-hidden="true"
                                             />
                                             <a

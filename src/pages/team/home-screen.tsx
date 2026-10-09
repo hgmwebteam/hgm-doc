@@ -2,8 +2,8 @@ import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, CheckCircle, HelpCircle, Home02, MessageChatSquare, Plus, Rocket02, Users01 } from "@untitledui/icons";
 import { animate, motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, RailBottom, useNavCollapsed } from "@/components/application/icon-rail";
 import { FeedItem } from "@/components/application/activity-feed/activity-feed";
+import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, RailBottom, useNavCollapsed } from "@/components/application/icon-rail";
 import { Avatar } from "@/components/base/avatar/avatar";
 import type { BadgeColors } from "@/components/base/badges/badge-types";
 import { Badge } from "@/components/base/badges/badges";
@@ -14,9 +14,9 @@ import { setViewAs, useTeamRole } from "@/hooks/use-team-role";
 import type { DashboardUpdate } from "@/lib/dashboard-updates";
 import { type ClientRecord, supabase } from "@/lib/supabase";
 import { ACCOUNT_MANAGERS, clientForSlug, isAmClient, teamRoleOf } from "@/lib/team-roster";
+import { sectionForKey } from "@/pages/client/dashboard/suggestions-model";
 import { fetchAllTickets } from "@/pages/client/help/help-api";
 import { STATUS_META, type Ticket, isOpen } from "@/pages/client/help/help-model";
-import { isFlowFeedbackKey, isLandingFeedbackKey, isReelsFeedbackKey, isStoriesFeedbackKey } from "@/pages/client/dashboard/suggestions-model";
 import { ONBOARDING_PHASES, TeamGate } from "@/pages/team/dashboard-screen";
 import { cx } from "@/utils/cx";
 import { teamPhoto } from "@/utils/team-photos";
@@ -60,18 +60,6 @@ const DAY = 864e5;
 
 type PendingRow = { id: string; slug: string; field_key: string; field_label: string; suggested_value: string; suggested_by: string; created_at: string };
 
-/** Which part of the client dashboard a suggestion belongs to, and its anchor there (same anchors as lib/notifications.ts). */
-const sectionOf = (key: string): { label: string; anchor: string } =>
-    isFlowFeedbackKey(key)
-        ? { label: "Welcome email comment", anchor: "flow" }
-        : isLandingFeedbackKey(key)
-          ? { label: "Landing page comment", anchor: "landing" }
-          : isReelsFeedbackKey(key)
-            ? { label: "Example reels comment", anchor: "reels" }
-            : isStoriesFeedbackKey(key)
-              ? { label: "Pinned stories comment", anchor: "pinnedstories" }
-              : { label: "Brand doc edit", anchor: "foundation" };
-
 type FeedRow = Pick<
     DashboardUpdate,
     "id" | "slug" | "client_name" | "author_email" | "author_name" | "author_avatar" | "kind" | "sections" | "summary" | "created_at"
@@ -93,8 +81,8 @@ export const ago = (iso: string) => {
     return `${Math.round(mins / 1440)}d ago`;
 };
 
-/** Badge colour per kind of item: edits brand, comments purple, Help Centre requests warning. */
-const kindColor = (kind: string): BadgeColors => (kind.startsWith("Request") ? "warning" : kind.includes("comment") ? "purple" : "brand");
+/** Badge colour per kind of item: Help Centre requests warning, document edits brand, every comment or note purple. */
+const kindColor = (kind: string): BadgeColors => (kind.startsWith("Request") ? "warning" : kind.startsWith("Brand doc edit") ? "brand" : "purple");
 
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
@@ -222,7 +210,9 @@ const HomeContent = () => {
         // Everything but cover_url: Home never shows covers, and each is a ~100KB data URL.
         supabase
             .from("clients")
-            .select("id, name, tier, am, location, logo_url, handle, link, starred, created_at, status, onboarding_phase, web_project, web_manager, marketing_assistant, private_to")
+            .select(
+                "id, name, tier, am, location, logo_url, handle, link, starred, created_at, status, onboarding_phase, web_project, web_manager, marketing_assistant, private_to",
+            )
             .then(({ data, error }) => setClients(!error && data ? (data as ClientRecord[]) : []));
 
         // Client edits and comments awaiting the team — the "updates from clients".
@@ -299,12 +289,7 @@ const HomeContent = () => {
     const requests =
         tickets === null || tickets === "error"
             ? tickets
-            : tickets.filter(
-                  (t) =>
-                      !amName ||
-                      isAmClient(t.account_manager_name, amName) ||
-                      isAmClient(clientForSlug(list, t.client_slug ?? "")?.am, amName),
-              );
+            : tickets.filter((t) => !amName || isAmClient(t.account_manager_name, amName) || isAmClient(clientForSlug(list, t.client_slug ?? "")?.am, amName));
 
     const onboardingClients = phases.flatMap((p) => p.clients.map((c) => ({ c, p })));
 
@@ -317,17 +302,33 @@ const HomeContent = () => {
         const groupFor = (slug: string, fallbackName: string, to: string): Group | null => {
             const client = clientForSlug(list, slug);
             if (amName && !client) return null;
-            const g = groups.get(slug) ?? { key: slug, client: client?.name ?? fallbackName, logo: client?.logo_url, am: client?.am, to, latest: "", items: [] };
+            const g = groups.get(slug) ?? {
+                key: slug,
+                client: client?.name ?? fallbackName,
+                logo: client?.logo_url,
+                am: client?.am,
+                to,
+                latest: "",
+                items: [],
+            };
             groups.set(slug, g);
             return g;
         };
         for (const p of pending) {
             const g = groupFor(p.slug, p.slug.replace(/-dashboard$/, ""), `/${p.slug}`);
             if (!g) continue;
-            const where = sectionOf(p.field_key);
+            // The section table is shared with the alert email (suggestions-model.ts). A document
+            // edit names its field; a pinned-post note is filed as "Pinned post 3 · {title}", which
+            // already says which post, so it stands on its own.
+            const where = sectionForKey(p.field_key);
             g.items.push({
                 key: p.id,
-                kind: where.anchor === "foundation" && p.field_label ? `${where.label} · ${p.field_label}` : where.label,
+                kind:
+                    where.anchor === "foundation" && p.field_label
+                        ? `${where.label} · ${p.field_label}`
+                        : where.anchor === "pinnedposts" && p.field_label
+                          ? p.field_label
+                          : where.label,
                 text: p.suggested_value,
                 who: (p.suggested_by ?? "").split("@")[0],
                 at: p.created_at,
@@ -510,7 +511,9 @@ const HomeContent = () => {
                                                     <li key={c.id}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => (c.link?.trim() ? navigate(new URL(c.link, window.location.origin).pathname) : goClients())}
+                                                            onClick={() =>
+                                                                c.link?.trim() ? navigate(new URL(c.link, window.location.origin).pathname) : goClients()
+                                                            }
                                                             className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition duration-100 ease-linear hover:bg-primary_hover"
                                                         >
                                                             <ClientLogo name={c.name} src={c.logo_url} />
@@ -525,7 +528,9 @@ const HomeContent = () => {
                                                             <span className="hidden w-28 shrink-0 sm:block" aria-label={`Phase ${p.n} of 5`} role="img">
                                                                 <ProgressBarBase value={p.n + 1} max={6} />
                                                             </span>
-                                                            <span className="w-14 shrink-0 text-right text-xs font-medium text-quaternary tabular-nums">Phase {p.n}</span>
+                                                            <span className="w-14 shrink-0 text-right text-xs font-medium text-quaternary tabular-nums">
+                                                                Phase {p.n}
+                                                            </span>
                                                         </button>
                                                     </li>
                                                 ))}
@@ -557,11 +562,18 @@ const HomeContent = () => {
                                                         user={{ name: it.client, avatarUrl: it.logo ?? "", href: it.to }}
                                                         date={ago(it.at)}
                                                         action={{
-                                                            content: [it.who && `from ${it.who}`, it.due && `needed by ${shortDate(it.due)}`, !amName && it.am && `AM ${it.am.split(" ")[0]}`]
+                                                            content: [
+                                                                it.who && `from ${it.who}`,
+                                                                it.due && `needed by ${shortDate(it.due)}`,
+                                                                !amName && it.am && `AM ${it.am.split(" ")[0]}`,
+                                                            ]
                                                                 .filter(Boolean)
                                                                 .join(" · "),
                                                         }}
-                                                        labels={[{ name: it.kind, color: it.color }, ...(it.tag ? [{ name: it.tag, color: "gray" as const }] : [])]}
+                                                        labels={[
+                                                            { name: it.kind, color: it.color },
+                                                            ...(it.tag ? [{ name: it.tag, color: "gray" as const }] : []),
+                                                        ]}
                                                         message={it.text || undefined}
                                                     />
                                                 ))}

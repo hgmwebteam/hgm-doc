@@ -48,6 +48,14 @@ code {
     scroll-behavior: smooth;
 }
 
+/* With reduced motion asked for, scrolling (a focus move, an anchor jump) jumps instead of gliding. */
+@media (prefers-reduced-motion: reduce) {
+    html,
+    :where(*) {
+        scroll-behavior: auto;
+    }
+}
+
 html,
 body {
     margin: 0;
@@ -206,92 +214,153 @@ input[type="search"]::-webkit-search-cancel-button {
 /* Skeleton shimmer (/animation section 15)                                    */
 /* -------------------------------------------------------------------------- */
 /*
- * The launch meter under "Your journey" (JourneyProgress).
+ * The launch meter under "Your journey" (JourneyProgress): a chevron per stage, a pill per
+ * step, ending in a rocket.
  *
- * One ramp, reused twice — the bar's fill and the percentage figure above it — so the two
- * read as one object rather than two coloured things that happen to sit together.
+ * Four states, four colours, and each means one thing:
+ *  - navy        done
+ *  - light navy  "We're on it" — the stage we're in, a piece we're building
+ *  - yellow      "Needs your input" — reserved for the CLIENT's steps, so a glance says
+ *                whether the next move is theirs or ours. It is the logo's gem, which is
+ *                also why the rocket turns it once they're live.
+ *  - grey        coming up
  *
- * It starts on the brand blue and walks to pink, which is the point: a flat brand bar is
- * honest but says nothing about getting closer, while the ramp means a client who is 80%
- * of the way is looking at a visibly different, warmer bar than the one they started with.
- * Every stop is a theme variable, so it re-resolves in dark mode instead of staying a
- * light-mode ramp on a dark panel.
+ * Defined here rather than as utilities because the yellow has no theme token and the
+ * navies flip differently from the bg-brand-* tokens in dark mode (those go solid brand,
+ * which made every empty state read as done).
  */
 :root {
-    /* The bar's own surfaces. NOT the bg-brand-* tokens: those flip to solid brand in dark
-       mode (bg-brand-secondary is brand-100 light, brand-600 dark), which made every empty
-       cell look filled on a dark dashboard. Mixed against the panel instead, so "empty"
-       stays quiet and the ramp is the only real colour on the bar. */
-    --journey-meter-track: var(--color-brand-50);
-    --journey-meter-current: var(--color-brand-100);
-    /* Brand blue the whole way, handing over to the logo's gold for the last cell.
-       Those are HiddenGem's two colours: #0066DE is the site's interactive blue, #FFCC00
-       the gem in the logo — so the bar runs in the brand and ends on the mark.
-
-       The handover is a hard stop, not a blend. Blue and gold sit opposite each other, so
-       any gradient between them passes through grey-green and the middle of the bar goes
-       muddy; landing the change on a cell divider instead reads as deliberate. The stop
-       comes from --journey-meter-gold-from, which the component measures off the real cell
-       count. */
-    --journey-meter-ramp: linear-gradient(
-        90deg,
-        var(--color-brand-800) 0%,
-        var(--color-brand-700) 26%,
-        var(--color-brand-600) 58%,
-        var(--color-brand-500) var(--journey-meter-gold-from, 92%),
-        rgb(255 204 0) var(--journey-meter-gold-from, 92%),
-        rgb(255 204 0) 100%
-    );
-    /* The rocket sits on that gold, where white would all but vanish. */
-    --journey-meter-rocket-ink: var(--color-brand-900);
+    --journey-track: var(--color-bg-quaternary);
+    --journey-figure: var(--color-brand-600);
+    --journey-done: var(--color-brand-800);
+    --journey-on-done: var(--color-white);
+    --journey-active: var(--color-brand-200);
+    --journey-on-active: var(--color-brand-950);
+    --journey-wait: rgb(255 219 79);
+    --journey-on-wait: rgb(20 23 31);
+    --journey-wait-tint: rgb(255 246 214);
 }
 
-/* Taken straight off the brand ramp rather than mixed into the panel: the dark panel is a
-   warm near-black, and a little blue stirred into it came out muddy purple. */
 .dark-mode {
-    --journey-meter-track: var(--color-brand-950);
-    --journey-meter-current: var(--color-brand-900);
+    --journey-figure: var(--color-brand-400);
+    --journey-done: var(--color-brand-400);
+    --journey-on-done: var(--color-brand-950);
+    --journey-active: var(--color-brand-800);
+    --journey-on-active: var(--color-white);
+    --journey-wait-tint: rgb(58 49 16);
 }
 
-.journey-meter-track {
-    background-color: var(--journey-meter-track);
+/* Stacked, rounded blocks while the meter is narrow; chevrons once the container is wide
+   enough (48rem, Tailwind's @3xl) for four of them side by side. The point is 18px deep and
+   the next chevron's notch matches it, so the gap between them reads as one arrow. */
+.journey-figure {
+    color: var(--journey-figure);
 }
 
-/* The step a client should be on. A tint rather than a ramp slice: the ramp means done,
-   and colouring an unfinished cell with it would claim work that hasn't happened. */
-.journey-meter-current {
-    background-color: var(--journey-meter-current);
+.journey-chevron {
+    border-radius: 12px;
+    background-color: var(--journey-track);
+    color: var(--color-text-primary);
+}
+.journey-chevron-done {
+    background-color: var(--journey-done);
+    color: var(--journey-on-done);
+}
+.journey-chevron-now {
+    background-color: var(--journey-active);
+    color: var(--journey-on-active);
+}
+@container (min-width: 48rem) {
+    .journey-chevron {
+        border-radius: 0;
+        padding-left: 30px;
+        padding-right: 26px;
+        clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%, 18px 50%);
+    }
+    .journey-chevron-first {
+        border-radius: 28px 0 0 28px;
+        padding-left: 20px;
+        clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+    }
 }
 
-/* The element spans the whole bar and is clipped down to the filled part, so a stage keeps
-   its colour as the bar grows: at 40% the client sees the first 40% of the ramp, not a
-   whole ramp squeezed into 40% of the width.
-
-   No `position` here on purpose: this file is unlayered, so it would beat the element's own
-   `absolute` utility and drop the fill out of the track. The utility supplies it. */
-/* No sheen on this any more. It was one animating layer when the meter was a single thin
-   bar; the stage tracker draws one of these PER FILLED CELL, so a finished journey left
-   fourteen gradient layers animating forever on a page a client keeps open — a real cost
-   for pure decoration. The step card below already has the travelling beam, and two things
-   moving on one screen compete anyway. */
-.journey-meter-fill {
-    overflow: hidden;
-    background-image: var(--journey-meter-ramp);
-    background-repeat: no-repeat;
+.journey-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px 3px 4px;
+    border-radius: 9999px;
+    border: 1px solid var(--color-border-secondary);
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-tertiary);
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+}
+.journey-pill-mark {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background-color: var(--journey-track);
+    font-size: 9px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.journey-pill-done,
+.journey-pill-progress {
+    color: var(--color-text-primary);
+}
+.journey-pill-done .journey-pill-mark {
+    background-color: var(--journey-done);
+    color: var(--journey-on-done);
+}
+.journey-pill-progress .journey-pill-mark {
+    background-color: var(--journey-active);
+    color: var(--journey-on-active);
+}
+.journey-pill-waiting {
+    border-color: var(--journey-wait);
+    background-color: var(--journey-wait);
+    color: var(--journey-on-wait);
+    font-weight: 600;
+}
+.journey-pill-waiting .journey-pill-mark {
+    background-color: var(--journey-on-wait);
+    color: var(--journey-wait);
 }
 
-/* The percentage, painted with the same ramp. `text-fill-color` needs the -webkit- prefix
-   to work anywhere; the standard property is still not implemented outside it. */
-.journey-meter-rocket-ink {
-    color: var(--journey-meter-rocket-ink, var(--color-white));
+.journey-key-done {
+    background-color: var(--journey-done);
+}
+.journey-key-progress {
+    background-color: var(--journey-active);
+}
+.journey-key-waiting {
+    background-color: var(--journey-wait);
+}
+.journey-key-todo {
+    background-color: var(--journey-track);
 }
 
-.journey-meter-figure {
-    background-image: var(--journey-meter-ramp);
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
+/* Plain until launch; the logo's yellow with a black rocket and a soft halo once live.
+   "Ready" is every pill done with the launch itself still to come — ours to do. */
+.journey-rocket {
+    border: 1.5px solid var(--color-border-secondary);
+    background-color: var(--color-bg-primary);
+    color: var(--color-fg-quaternary);
+}
+.journey-rocket-ready {
+    border-color: var(--journey-active);
+    background-color: var(--journey-active);
+    color: var(--journey-on-active);
+}
+.journey-rocket-on {
+    border-color: var(--journey-wait);
+    background-color: var(--journey-wait);
+    color: rgb(12 12 13);
+    box-shadow: 0 0 0 6px var(--journey-wait-tint);
 }
 
 /*

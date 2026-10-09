@@ -1,22 +1,43 @@
-import { useEffect, useMemo, useState, type FC } from "react";
-import { useNavigate } from "react-router";
+import { type FC, type ReactNode, useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, CheckCircle, HelpCircle, Home02, MessageChatSquare, Plus, Rocket02, Users01 } from "@untitledui/icons";
 import { animate, motion } from "motion/react";
-import { ArrowUpRight, Award01, Globe01, HelpCircle, Home02, Plus, Rocket02, Star01, Trophy01, UserCheck01, UserMinus01, Users01 } from "@untitledui/icons";
-import { Avatar } from "@/components/base/avatar/avatar";
+import { useNavigate } from "react-router";
 import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, RailBottom, useNavCollapsed } from "@/components/application/icon-rail";
+import { FeedItem } from "@/components/application/activity-feed/activity-feed";
+import { Avatar } from "@/components/base/avatar/avatar";
+import type { BadgeColors } from "@/components/base/badges/badge-types";
+import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { ProgressBarBase } from "@/components/base/progress-indicators/progress-indicators";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
+import { setViewAs, useTeamRole } from "@/hooks/use-team-role";
+import type { DashboardUpdate } from "@/lib/dashboard-updates";
+import { type ClientRecord, supabase } from "@/lib/supabase";
+import { ACCOUNT_MANAGERS, clientForSlug, isAmClient, teamRoleOf } from "@/lib/team-roster";
+import { fetchAllTickets } from "@/pages/client/help/help-api";
+import { STATUS_META, type Ticket, isOpen } from "@/pages/client/help/help-model";
+import { isFlowFeedbackKey, isLandingFeedbackKey, isReelsFeedbackKey, isStoriesFeedbackKey } from "@/pages/client/dashboard/suggestions-model";
 import { ONBOARDING_PHASES, TeamGate } from "@/pages/team/dashboard-screen";
-import { useAuthUser } from "@/hooks/use-auth-user";
-import { supabase, type ClientRecord } from "@/lib/supabase";
-import { teamPhoto } from "@/utils/team-photos";
 import { cx } from "@/utils/cx";
+import { teamPhoto } from "@/utils/team-photos";
 
 /**
- * /home — "Mission Control": the team's landing view. The whole company at a
- * glance, computed live from the Client List table (`clients`) so it can never
- * drift from the dashboard: KPI counts by status, the onboarding pipeline
- * across Phases 0–5, clients by tier, load per Account Manager, and which
- * website projects the Web Team has in flight. Team-gated (same gate + unlock
- * flag as /dashboard). Opened from the HOME icon at the top of the icon rail.
+ * /home — "Mission Control": the team's landing view, computed live from the Client
+ * List table (`clients`) so it can never drift from the dashboard. Team-gated (same
+ * gate + unlock flag as /dashboard). Opened from the HOME icon at the top of the rail.
+ *
+ * Kept deliberately short — four blocks, nothing an AM has to decode:
+ *   1. greeting, then one joined stat strip
+ *   2. onboarding clients (logo, phase) beside "Needs attention": client edits on
+ *      dashboards and open Help Centre requests (ticket-list-all) in one list
+ *   3. the last five team saves from `dashboard_updates` (the full feed is /log)
+ *   4. for the Operations Manager and the owner: one card per Account Manager
+ * Tiers and Web Team projects live on the Client List and the Website dept, not here.
+ *
+ * Personal per signed-in teammate (lib/team-roster.ts teamRoleOf; the owner can preview
+ * anyone through hooks/use-team-role.ts):
+ *  - an Account Manager sees only their own clients, updates and activity
+ *  - the open-questions and roster chips are the owner's project work, so only the owner
  */
 
 /* ── Data helpers ────────────────────────────────────────────────── */
@@ -24,13 +45,6 @@ import { cx } from "@/utils/cx";
 /** Lifecycle bucket — anything unset/unknown counts as an existing client. */
 const statusOf = (c: ClientRecord): "existing" | "onboarding" | "offboarding" =>
     c.status === "onboarding" || c.status === "offboarding" ? c.status : "existing";
-
-/** Tier rows — ids/labels/icons match the Client List sidebar (dashboard-screen.tsx TIERS). */
-const TIER_META: { id: string; label: string; icon: FC<{ className?: string }> }[] = [
-    { id: "tier-0", label: "Tier 0", icon: Trophy01 },
-    { id: "tier-1", label: "Tier 1", icon: Award01 },
-    { id: "tier-2", label: "Tier 2", icon: Star01 },
-];
 
 /** Log pages whose open questions feed the header chip (same set as /questions). */
 const QUESTION_SLUGS = [
@@ -42,12 +56,49 @@ const QUESTION_SLUGS = [
     "homepage-overview",
 ];
 
+const DAY = 864e5;
+
+type PendingRow = { id: string; slug: string; field_key: string; field_label: string; suggested_value: string; suggested_by: string; created_at: string };
+
+/** Which part of the client dashboard a suggestion belongs to, and its anchor there (same anchors as lib/notifications.ts). */
+const sectionOf = (key: string): { label: string; anchor: string } =>
+    isFlowFeedbackKey(key)
+        ? { label: "Welcome email comment", anchor: "flow" }
+        : isLandingFeedbackKey(key)
+          ? { label: "Landing page comment", anchor: "landing" }
+          : isReelsFeedbackKey(key)
+            ? { label: "Example reels comment", anchor: "reels" }
+            : isStoriesFeedbackKey(key)
+              ? { label: "Pinned stories comment", anchor: "pinnedstories" }
+              : { label: "Brand doc edit", anchor: "foundation" };
+
+type FeedRow = Pick<
+    DashboardUpdate,
+    "id" | "slug" | "client_name" | "author_email" | "author_name" | "author_avatar" | "kind" | "sections" | "summary" | "created_at"
+>;
+
 const initialsOf = (name: string) =>
     name
         .split(" ")
         .map((w) => w[0]?.toUpperCase() ?? "")
         .slice(0, 2)
         .join("");
+
+/** "3h ago" / "2d ago" — coarse on purpose; the exact time is in the /log feed. */
+export const ago = (iso: string) => {
+    const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
+    return `${Math.round(mins / 1440)}d ago`;
+};
+
+/** Badge colour per kind of item: edits brand, comments purple, Help Centre requests warning. */
+const kindColor = (kind: string): BadgeColors => (kind.startsWith("Request") ? "warning" : kind.includes("comment") ? "purple" : "brand");
+
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /* ── Small pieces ────────────────────────────────────────────────── */
 
@@ -61,124 +112,138 @@ const CountUp = ({ value }: { value: number }) => {
     return <>{display}</>;
 };
 
-const KPI_TINTS = {
-    brand: "bg-brand-secondary text-fg-brand-primary",
-    success: "bg-success-secondary text-fg-success-primary",
-    warning: "bg-warning-secondary text-fg-warning-primary",
-    error: "bg-error-secondary text-fg-error-secondary",
-};
+const rise = (i: number) => ({
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    transition: { delay: 0.05 * i, duration: 0.3, ease: "easeOut" as const },
+});
 
-const StatTile = ({
-    label,
-    value,
-    icon: Icon,
-    tint,
-    index,
-    onClick,
-}: {
-    label: string;
-    value: number;
-    icon: FC<{ className?: string }>;
-    tint: keyof typeof KPI_TINTS;
-    index: number;
-    onClick: () => void;
-}) => (
-    <motion.button
+/** One cell of the joined stat strip. */
+export const Stat = ({ label, value, note, dot, onClick }: { label: string; value: number; note: string; dot: string; onClick: () => void }) => (
+    <button
         type="button"
         onClick={onClick}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.05 }}
-        whileHover={{ y: -3 }}
-        className="flex flex-col gap-3 rounded-2xl bg-primary p-5 text-left ring-1 ring-secondary transition duration-100 ease-linear hover:shadow-md"
+        className="group flex flex-col gap-1 px-5 py-4 text-left transition duration-100 ease-linear hover:!bg-primary_hover sm:px-6 sm:py-5"
     >
-        <span className="flex items-center gap-2.5">
-            <span className={cx("flex size-8 items-center justify-center rounded-lg", KPI_TINTS[tint])}>
-                <Icon className="size-4" aria-hidden="true" />
-            </span>
-            <span className="text-sm font-medium text-tertiary">{label}</span>
+        <span className="flex items-center gap-2 text-sm font-medium text-tertiary">
+            <span className={cx("size-2 rounded-full", dot)} aria-hidden="true" />
+            {label}
         </span>
-        <span className="text-display-sm font-semibold text-primary tabular-nums">
+        <span className="text-display-sm font-semibold tracking-tight text-primary tabular-nums">
             <CountUp value={value} />
         </span>
-    </motion.button>
+        <span className="text-xs text-quaternary">{note}</span>
+    </button>
 );
 
-/** Shared panel shell for the bottom trio. */
-const Panel = ({
+/** Card shell shared by every block below the stat strip. */
+export const Card = ({
     title,
-    icon: Icon,
-    actionLabel,
-    onAction,
+    icon,
+    badge,
+    action,
     index,
+    className,
     children,
 }: {
     title: string;
     icon: FC<{ className?: string }>;
-    actionLabel?: string;
-    onAction?: () => void;
+    badge?: ReactNode;
+    action?: { label: string; onClick: () => void };
     index: number;
-    children: React.ReactNode;
+    className?: string;
+    children: ReactNode;
 }) => (
-    <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 + index * 0.05 }}
-        className="flex min-h-[220px] flex-col rounded-2xl bg-primary p-5 ring-1 ring-secondary"
-    >
+    <motion.section {...rise(index)} className={cx("flex flex-col rounded-2xl bg-primary p-5 shadow-xs ring-1 ring-secondary", className)}>
         <div className="flex items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-primary">
-                <Icon className="size-4 text-fg-quaternary" aria-hidden="true" />
+            <h2 className="flex items-center gap-3 text-md font-semibold text-primary">
+                <FeaturedIcon icon={icon} size="sm" color="gray" theme="modern" />
                 {title}
+                {badge}
             </h2>
-            {actionLabel && onAction && (
-                <button
-                    type="button"
-                    onClick={onAction}
-                    className="flex items-center gap-1 text-xs font-semibold text-brand-secondary transition duration-100 ease-linear hover:underline"
-                >
-                    {actionLabel}
-                    <ArrowUpRight className="size-3.5" aria-hidden="true" />
-                </button>
+            {action && (
+                <Button color="link-color" size="sm" iconTrailing={ArrowUpRight} onClick={action.onClick}>
+                    {action.label}
+                </Button>
             )}
         </div>
-        <div className="mt-4 flex flex-1 flex-col">{children}</div>
+        <div className="mt-5 flex flex-1 flex-col">{children}</div>
     </motion.section>
 );
 
-/** Thin proportion bar used in the Tier / AM panels. */
-const MiniBar = ({ pct }: { pct: number }) => (
-    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-quaternary">
-        <motion.div
-            className="h-full rounded-full bg-brand-solid"
-            initial={{ width: 0 }}
-            animate={{ width: `${Math.max(pct, 0)}%` }}
-            transition={{ duration: 0.7, ease: "easeOut", delay: 0.3 }}
-        />
-    </div>
+const CountPill = ({ n, tone = "gray" }: { n: number; tone?: "gray" | "brand" | "warning" }) => (
+    <Badge type="pill-color" size="sm" color={tone}>
+        {n}
+    </Badge>
+);
+
+/** A client's own logo (clients.logo_url, a compressed data URL), or its initials. */
+export const ClientLogo = ({ name, src, size = "md" }: { name: string; src?: string | null; size?: "sm" | "md" }) => (
+    <span
+        className={cx(
+            "flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary ring-1 ring-secondary",
+            size === "md" ? "size-10" : "size-8",
+        )}
+    >
+        {src ? (
+            <img src={src} alt="" className="size-full object-contain p-1" />
+        ) : (
+            <span className="text-xs font-semibold text-tertiary">{initialsOf(name)}</span>
+        )}
+    </span>
 );
 
 /* ── Page ────────────────────────────────────────────────────────── */
 
 const HomeContent = () => {
     const navigate = useNavigate();
-    const { user } = useAuthUser();
+    const { role, viewAs, displayName } = useTeamRole();
     const { collapsed: navCollapsed, toggle: toggleNav } = useNavCollapsed();
+    const amName = role.kind === "am" ? role.amName : null;
+    const isOwner = role.kind === "owner";
+    const seesTeam = role.kind === "ops" || isOwner;
     const [allClients, setClients] = useState<ClientRecord[] | null>(null);
     // Mission Control is business reporting — private/template clients (private_to
     // set, e.g. HGM TEST) never appear here or count here, not even for their owner.
-    const clients = useMemo(() => (allClients === null ? null : allClients.filter((c) => !c.private_to)), [allClients]);
+    const companyClients = useMemo(() => (allClients === null ? null : allClients.filter((c) => !c.private_to)), [allClients]);
+    // An AM's home is their own book of clients.
+    const clients = useMemo(
+        () => (companyClients === null || !amName ? companyClients : companyClients.filter((c) => isAmClient(c.am, amName))),
+        [companyClients, amName],
+    );
     const [openQuestions, setOpenQuestions] = useState<number | null>(null);
     const [rosterCount, setRosterCount] = useState<number | null>(null);
+    const [pending, setPending] = useState<PendingRow[]>([]);
+    const [feed, setFeed] = useState<FeedRow[]>([]);
+    // Open Help Centre requests; null while loading, "error" when the function is unreachable.
+    const [tickets, setTickets] = useState<Ticket[] | null | "error">(null);
 
     useEffect(() => {
+        // Everything but cover_url: Home never shows covers, and each is a ~100KB data URL.
         supabase
             .from("clients")
-            .select("*")
-            .then(({ data, error }) => {
-                if (!error && data) setClients(data as ClientRecord[]);
-                else setClients([]);
-            });
+            .select("id, name, tier, am, location, logo_url, handle, link, starred, created_at, status, onboarding_phase, web_project, web_manager, marketing_assistant, private_to")
+            .then(({ data, error }) => setClients(!error && data ? (data as ClientRecord[]) : []));
+
+        // Client edits and comments awaiting the team — the "updates from clients".
+        supabase
+            .from("dashboard_suggestions")
+            .select("id, slug, field_key, field_label, suggested_value, suggested_by, created_at")
+            .eq("status", "pending")
+            .then(({ data, error }) => !error && data && setPending(data as PendingRow[]));
+
+        // The team's dashboard saves over the last week: the activity feed and the AM cards.
+        supabase
+            .from("dashboard_updates")
+            .select("id, slug, client_name, author_email, author_name, author_avatar, kind, sections, summary, created_at")
+            .gte("created_at", new Date(Date.now() - 7 * DAY).toISOString())
+            .order("created_at", { ascending: false })
+            .then(({ data, error }) => !error && data && setFeed(data as FeedRow[]));
+
+        // Newest 200 requests across every client (staff-only function); open ones are kept below.
+        fetchAllTickets()
+            .then((res) => setTickets(res.tickets.filter(isOpen)))
+            .catch(() => setTickets("error"));
 
         // One query feeds both the open-questions chip and the roster size
         // (the 47-client list recorded on /homepage-overview).
@@ -193,43 +258,151 @@ const HomeContent = () => {
                 for (const row of data) {
                     const qs = (row.data?.questions ?? []) as QA[];
                     open += qs.filter((q) => !(q.resolved ?? !!(q.answer || "").trim())).length;
-                    if (row.slug === "homepage-overview" && Array.isArray(row.data?.clients)) {
-                        setRosterCount(row.data.clients.length);
-                    }
+                    if (row.slug === "homepage-overview" && Array.isArray(row.data?.clients)) setRosterCount(row.data.clients.length);
                 }
                 setOpenQuestions(open);
             });
     }, []);
 
-    /* Derived stats — everything computes from the Client List rows. */
+    /* Derived — everything computes from the Client List rows. */
     const list = clients ?? [];
     const total = list.length;
     const existing = list.filter((c) => statusOf(c) === "existing").length;
     const onboarding = list.filter((c) => statusOf(c) === "onboarding").length;
     const offboarding = list.filter((c) => statusOf(c) === "offboarding").length;
+    const pct = (n: number) => (total ? `${Math.round((n / total) * 100)}% of ${amName ? "your book" : "clients"}` : "—");
 
     // Onboarding clients with no phase filed land in Phase 0 (Signing On).
-    const phaseClients = (n: number) => list.filter((c) => statusOf(c) === "onboarding" && (c.onboarding_phase ?? 0) === n);
+    const phases = ONBOARDING_PHASES.map((p, i) => ({
+        ...p,
+        n: i,
+        clients: list.filter((c) => statusOf(c) === "onboarding" && (c.onboarding_phase ?? 0) === i),
+    }));
 
-    const tierCounts = TIER_META.map((t) => ({ ...t, count: list.filter((c) => c.tier === t.id).length }));
-    const maxTier = Math.max(1, ...tierCounts.map((t) => t.count));
+    // Pending client updates, per client on this home (an AM's own; everyone else's all).
+    // A dashboard with no Client List row can't be placed, so it only counts for non-AMs.
+    const updateRows = (() => {
+        const bySlug = new Map<string, { slug: string; name: string; count: number; latest: string; am?: string }>();
+        for (const p of pending) {
+            const client = clientForSlug(list, p.slug);
+            if (amName && !client) continue;
+            const row = bySlug.get(p.slug) ?? { slug: p.slug, name: client?.name ?? p.slug.replace(/-dashboard$/, ""), count: 0, latest: "", am: client?.am };
+            row.count++;
+            if (p.created_at > row.latest) row.latest = p.created_at;
+            bySlug.set(p.slug, row);
+        }
+        return [...bySlug.values()].sort((a, b) => b.latest.localeCompare(a.latest));
+    })();
+    const updateTotal = updateRows.reduce((n, r) => n + r.count, 0);
 
-    const amMap = new Map<string, number>();
-    for (const c of list) {
-        const am = (c.am ?? "").trim() || "Unassigned";
-        amMap.set(am, (amMap.get(am) ?? 0) + 1);
-    }
-    const amRows = [...amMap.entries()]
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => (a.name === "Unassigned" ? 1 : b.name === "Unassigned" ? -1 : b.count - a.count));
-    const maxAm = Math.max(1, ...amRows.map((r) => r.count));
+    // Open requests on this home's clients: the ticket names its AM; fall back to the client row.
+    const requests =
+        tickets === null || tickets === "error"
+            ? tickets
+            : tickets.filter(
+                  (t) =>
+                      !amName ||
+                      isAmClient(t.account_manager_name, amName) ||
+                      isAmClient(clientForSlug(list, t.client_slug ?? "")?.am, amName),
+              );
 
-    const webRows = list.filter((c) => (c.web_project ?? "").trim());
+    const onboardingClients = phases.flatMap((p) => p.clients.map((c) => ({ c, p })));
+
+    // "Needs attention", grouped by client: each client edit or comment on their dashboard
+    // (what was asked, by whom, linked to its section), then each open Help Centre request.
+    const attention = (() => {
+        type Item = { key: string; kind: string; text: string; who: string; at: string; to: string; tag?: string; due?: string | null };
+        type Group = { key: string; client: string; logo?: string | null; am?: string; to: string; latest: string; items: Item[] };
+        const groups = new Map<string, Group>();
+        const groupFor = (slug: string, fallbackName: string, to: string): Group | null => {
+            const client = clientForSlug(list, slug);
+            if (amName && !client) return null;
+            const g = groups.get(slug) ?? { key: slug, client: client?.name ?? fallbackName, logo: client?.logo_url, am: client?.am, to, latest: "", items: [] };
+            groups.set(slug, g);
+            return g;
+        };
+        for (const p of pending) {
+            const g = groupFor(p.slug, p.slug.replace(/-dashboard$/, ""), `/${p.slug}`);
+            if (!g) continue;
+            const where = sectionOf(p.field_key);
+            g.items.push({
+                key: p.id,
+                kind: where.anchor === "foundation" && p.field_label ? `${where.label} · ${p.field_label}` : where.label,
+                text: p.suggested_value,
+                who: (p.suggested_by ?? "").split("@")[0],
+                at: p.created_at,
+                to: `/${p.slug}#${where.anchor}`,
+            });
+        }
+        for (const t of Array.isArray(requests) ? requests : []) {
+            const slug = t.client_slug ?? "";
+            const g = groupFor(slug, t.client_name || slug.replace(/-dashboard$/, ""), "/team/tickets");
+            if (!g) continue;
+            g.items.push({
+                key: t.id,
+                kind: `Request${t.topic ? ` · ${t.topic}` : ""}`,
+                text: t.title,
+                who: t.submitted_by_name || (t.submitted_by ?? "").split("@")[0],
+                at: t.created_at,
+                to: "/team/tickets",
+                tag: STATUS_META[t.status].label,
+                due: t.needed_by,
+            });
+        }
+        for (const g of groups.values()) {
+            g.items.sort((a, b) => b.at.localeCompare(a.at));
+            g.latest = g.items[0]?.at ?? "";
+        }
+        return [...groups.values()].sort((a, b) => b.latest.localeCompare(a.latest));
+    })();
+    const attentionTotal = attention.reduce((n, g) => n + g.items.length, 0);
+    // Flattened newest-first for the feed; each entry carries its client so it reads on its own.
+    const attentionItems = attention
+        .flatMap((g) => g.items.map((it) => ({ ...it, client: g.client, logo: g.logo, am: g.am, color: kindColor(it.kind) })))
+        .sort((a, b) => b.at.localeCompare(a.at));
+
+    // Activity: an AM sees saves on their own clients (by anyone) and their own saves.
+    const amOf = (r: { author_email: string; author_name: string }) => {
+        const role = teamRoleOf({ email: r.author_email, name: r.author_name });
+        return role.kind === "am" ? role.amName : null;
+    };
+    const myFeed = amName ? feed.filter((r) => amOf(r) === amName || !!clientForSlug(list, r.slug)) : feed;
+    // One card per Account Manager: their book, what's waiting on them, and their week.
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
+    const team = seesTeam
+        ? ACCOUNT_MANAGERS.map((am) => {
+              const mine = list.filter((c) => isAmClient(c.am, am));
+              const theirSaves = feed.filter((r) => amOf(r) === am);
+              // Saves per day, oldest → today, for the 7-bar sparkline.
+              const days = Array.from({ length: 7 }, (_, i) => {
+                  const from = startOfToday - (6 - i) * DAY;
+                  return theirSaves.filter((r) => {
+                      const t = new Date(r.created_at).getTime();
+                      return t >= from && t < from + DAY;
+                  }).length;
+              });
+              return {
+                  am,
+                  clients: mine.length,
+                  onboarding: mine.filter((c) => statusOf(c) === "onboarding").length,
+                  waiting: pending.filter((p) => isAmClient(clientForSlug(mine, p.slug)?.am, am)).length,
+                  saves: theirSaves.length,
+                  days,
+                  last: theirSaves[0]?.created_at ?? "",
+              };
+          })
+        : [];
+    const maxDay = Math.max(1, ...team.flatMap((t) => t.days));
 
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-    const firstName = user?.name?.split(" ")[0];
+    const firstName = displayName.split(" ")[0];
     const dateStr = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(new Date());
+    const subline = amName
+        ? updateTotal > 0
+            ? `${plural(updateTotal, "client update")} waiting on you.`
+            : "Your clients are all caught up."
+        : "Here's Hidden Gem Media at a glance.";
 
     const goClients = () => navigate("/dashboard?dept=clients");
 
@@ -242,30 +415,41 @@ const HomeContent = () => {
         >
             {navCollapsed && <CollapsedTopBar title="Home" onExpand={toggleNav} />}
             <div className="flex min-h-0 flex-1 bg-secondary p-2">
-                <main className="flex-1 overflow-y-auto rounded-lg bg-primary shadow-sm">
-                    <div className="mx-auto flex max-w-[1400px] flex-col gap-8 px-6 py-8 md:px-10">
+                <main className="bg-secondary_subtle flex-1 overflow-y-auto rounded-lg shadow-sm">
+                    <div className="mx-auto flex max-w-[1400px] flex-col gap-6 px-4 py-6 md:px-10 md:py-8">
+                        {viewAs && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warning-primary px-4 py-2.5 text-sm text-warning-primary ring-1 ring-secondary">
+                                <span>
+                                    Previewing as <span className="font-semibold">{viewAs}</span> — this is what they see.
+                                </span>
+                                <button type="button" onClick={() => setViewAs(null)} className="font-semibold underline-offset-2 hover:underline">
+                                    Back to my view
+                                </button>
+                            </div>
+                        )}
+
                         {/* Greeting + quick actions */}
                         <div className="flex flex-wrap items-end justify-between gap-4">
                             <div>
                                 <p className="text-sm font-medium text-tertiary">{dateStr}</p>
-                                <h1 className="mt-1 text-display-xs font-semibold text-primary md:text-display-sm">
+                                <h1 className="mt-1 text-display-xs font-semibold tracking-tight text-primary md:text-display-sm">
                                     {greeting}
-                                    {firstName ? `, ${firstName}` : ""} 👋
+                                    {firstName ? `, ${firstName}` : ""}
                                 </h1>
-                                <p className="mt-1.5 text-md text-tertiary">Here's Hidden Gem Media at a glance.</p>
+                                <p className="mt-1.5 text-md text-tertiary">{subline}</p>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
-                                {openQuestions != null && openQuestions > 0 && (
+                                {isOwner && openQuestions != null && openQuestions > 0 && (
                                     <button
                                         type="button"
                                         onClick={() => navigate("/questions")}
-                                        className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-2 text-xs font-semibold text-secondary ring-1 ring-secondary transition duration-100 ease-linear hover:bg-secondary_hover"
+                                        className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-secondary ring-1 ring-secondary transition duration-100 ease-linear hover:bg-primary_hover"
                                     >
                                         <HelpCircle className="size-3.5 text-fg-quaternary" aria-hidden="true" />
-                                        {openQuestions} open question{openQuestions === 1 ? "" : "s"}
+                                        {plural(openQuestions, "open question")}
                                     </button>
                                 )}
-                                {rosterCount != null && clients != null && total < rosterCount && (
+                                {isOwner && rosterCount != null && clients != null && total < rosterCount && (
                                     <button
                                         type="button"
                                         onClick={goClients}
@@ -276,177 +460,213 @@ const HomeContent = () => {
                                         <ArrowUpRight className="size-3.5" aria-hidden="true" />
                                     </button>
                                 )}
-                                <button
-                                    type="button"
-                                    onClick={goClients}
-                                    className="flex items-center gap-1.5 rounded-lg bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white shadow-xs transition duration-100 ease-linear hover:bg-brand-solid_hover"
-                                >
-                                    <Plus className="size-4" aria-hidden="true" />
+                                <Button size="md" iconLeading={Plus} onClick={goClients}>
                                     New Client
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
                         {clients == null ? (
-                            /* Loading skeleton */
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                {[0, 1, 2, 3].map((i) => (
-                                    <div key={i} className="h-28 animate-pulse rounded-2xl bg-secondary" />
-                                ))}
+                            <div className="flex flex-col gap-4">
+                                <div className="h-28 animate-pulse rounded-2xl bg-primary ring-1 ring-secondary" />
+                                <div className="grid gap-4 lg:grid-cols-3">
+                                    <div className="h-72 animate-pulse rounded-2xl bg-primary ring-1 ring-secondary lg:col-span-2" />
+                                    <div className="h-72 animate-pulse rounded-2xl bg-primary ring-1 ring-secondary" />
+                                </div>
                             </div>
                         ) : (
                             <>
-                                {/* KPI tiles */}
-                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                    <StatTile label="Total clients" value={total} icon={Users01} tint="brand" index={0} onClick={goClients} />
-                                    <StatTile label="Existing" value={existing} icon={UserCheck01} tint="success" index={1} onClick={goClients} />
-                                    <StatTile label="Onboarding" value={onboarding} icon={Rocket02} tint="warning" index={2} onClick={goClients} />
-                                    <StatTile label="Offboarding" value={offboarding} icon={UserMinus01} tint="error" index={3} onClick={goClients} />
+                                {/* Stat strip — one surface, four cells */}
+                                <motion.div
+                                    {...rise(0)}
+                                    className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-border-secondary ring-1 ring-secondary lg:grid-cols-4 [&>*]:bg-primary"
+                                >
+                                    <Stat
+                                        label={amName ? "Your clients" : "Total clients"}
+                                        value={total}
+                                        note={amName ? "Assigned to you" : "On the Client List"}
+                                        dot="bg-brand-solid"
+                                        onClick={goClients}
+                                    />
+                                    <Stat label="Existing" value={existing} note={pct(existing)} dot="bg-success-solid" onClick={goClients} />
+                                    <Stat label="Onboarding" value={onboarding} note={pct(onboarding)} dot="bg-warning-solid" onClick={goClients} />
+                                    <Stat label="Offboarding" value={offboarding} note={pct(offboarding)} dot="bg-error-solid" onClick={goClients} />
+                                </motion.div>
+
+                                <div className="grid items-start gap-4 lg:grid-cols-5">
+                                    <Card
+                                        title={amName ? "Your onboarding clients" : "Onboarding clients"}
+                                        icon={Rocket02}
+                                        badge={<CountPill n={onboarding} />}
+                                        action={{ label: "Client List", onClick: goClients }}
+                                        index={1}
+                                        className="lg:col-span-3"
+                                    >
+                                        {onboardingClients.length === 0 ? (
+                                            <p className="text-sm text-tertiary">No clients onboarding right now.</p>
+                                        ) : (
+                                            <ul className="-mx-2 flex flex-col">
+                                                {onboardingClients.map(({ c, p }) => (
+                                                    <li key={c.id}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => (c.link?.trim() ? navigate(new URL(c.link, window.location.origin).pathname) : goClients())}
+                                                            className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition duration-100 ease-linear hover:bg-primary_hover"
+                                                        >
+                                                            <ClientLogo name={c.name} src={c.logo_url} />
+                                                            <span className="min-w-0 flex-1">
+                                                                <span className="block truncate text-sm font-semibold text-primary">{c.name}</span>
+                                                                <span className="block truncate text-xs text-tertiary">
+                                                                    {p.label}
+                                                                    {!amName && c.am ? ` · ${c.am.split(" ")[0]}` : ""}
+                                                                </span>
+                                                            </span>
+                                                            {/* Untitled UI progress bar: phases 0–5, so Phase 0 already shows a sixth */}
+                                                            <span className="hidden w-28 shrink-0 sm:block" aria-label={`Phase ${p.n} of 5`} role="img">
+                                                                <ProgressBarBase value={p.n + 1} max={6} />
+                                                            </span>
+                                                            <span className="w-14 shrink-0 text-right text-xs font-medium text-quaternary tabular-nums">Phase {p.n}</span>
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </Card>
+
+                                    <Card
+                                        title="Needs attention"
+                                        icon={MessageChatSquare}
+                                        badge={<CountPill n={attentionTotal} tone={attentionTotal ? "brand" : "gray"} />}
+                                        index={2}
+                                        className="lg:col-span-2"
+                                    >
+                                        {attentionItems.length === 0 ? (
+                                            <p className="flex items-center gap-2 text-sm text-tertiary">
+                                                <CheckCircle className="size-4 shrink-0 text-fg-success-primary" aria-hidden="true" />
+                                                {requests === "error" ? "No client edits waiting. Requests couldn't load." : "All caught up."}
+                                            </p>
+                                        ) : (
+                                            <div className="flex flex-col">
+                                                {/* Untitled UI PRO activity feed: one entry per thing a client asked for */}
+                                                {attentionItems.slice(0, 6).map((it, i, shown) => (
+                                                    <FeedItem
+                                                        key={it.key}
+                                                        id={it.key}
+                                                        size="sm"
+                                                        connector={i < shown.length - 1}
+                                                        user={{ name: it.client, avatarUrl: it.logo ?? "", href: it.to }}
+                                                        date={ago(it.at)}
+                                                        action={{
+                                                            content: [it.who && `from ${it.who}`, it.due && `needed by ${shortDate(it.due)}`, !amName && it.am && `AM ${it.am.split(" ")[0]}`]
+                                                                .filter(Boolean)
+                                                                .join(" · "),
+                                                        }}
+                                                        labels={[{ name: it.kind, color: it.color }, ...(it.tag ? [{ name: it.tag, color: "gray" as const }] : [])]}
+                                                        message={it.text || undefined}
+                                                    />
+                                                ))}
+                                                {attentionItems.length > 6 && (
+                                                    <Button color="link-color" size="sm" onClick={goClients} className="mt-1 self-start">
+                                                        {`+${attentionItems.length - 6} more`}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </Card>
                                 </div>
 
-                                {/* Onboarding pipeline */}
-                                <section>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div>
-                                            <h2 className="text-lg font-semibold text-primary">Onboarding pipeline</h2>
-                                            <p className="text-sm text-tertiary">Where every onboarding client sits, Phase 0 → 5.</p>
+                                <Card title="Recent activity" icon={Users01} action={{ label: "Full log", onClick: () => navigate("/log") }} index={3}>
+                                    {myFeed.length === 0 ? (
+                                        <p className="text-sm text-tertiary">No dashboard saves this week.</p>
+                                    ) : (
+                                        <div className="flex flex-col">
+                                            {myFeed.slice(0, 5).map((r, i, shown) => (
+                                                <FeedItem
+                                                    key={r.id}
+                                                    id={r.id}
+                                                    size="sm"
+                                                    connector={i < shown.length - 1}
+                                                    user={{
+                                                        name: r.author_name || r.author_email,
+                                                        avatarUrl: r.author_avatar || teamPhoto(r.author_name) || "",
+                                                        href: `/${r.slug}`,
+                                                    }}
+                                                    date={ago(r.created_at)}
+                                                    action={{
+                                                        content: `${r.kind === "publish" ? "published" : "updated"} ${r.summary || r.sections.slice(0, 2).join(", ") || "the dashboard"} on`,
+                                                        target: r.client_name || r.slug,
+                                                        href: `/${r.slug}`,
+                                                    }}
+                                                />
+                                            ))}
                                         </div>
-                                        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-tertiary tabular-nums ring-1 ring-secondary">
-                                            {onboarding} onboarding
-                                        </span>
-                                    </div>
-                                    <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-                                        {ONBOARDING_PHASES.map((p, i) => {
-                                            const inPhase = phaseClients(i);
-                                            return (
-                                                <motion.div
-                                                    key={i}
-                                                    initial={{ opacity: 0, y: 8 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ delay: 0.1 + i * 0.05 }}
-                                                    className={cx(
-                                                        "flex min-h-[150px] flex-col rounded-2xl p-4 ring-1 ring-secondary",
-                                                        inPhase.length > 0 ? "bg-primary" : "bg-secondary",
-                                                    )}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-lg leading-none">{p.emoji}</span>
-                                                        <span
-                                                            className={cx(
-                                                                "rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
-                                                                inPhase.length > 0
-                                                                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300"
-                                                                    : "bg-primary text-quaternary ring-1 ring-secondary",
-                                                            )}
-                                                        >
-                                                            {inPhase.length}
-                                                        </span>
-                                                    </div>
-                                                    <p className="mt-2.5 text-xs font-semibold uppercase tracking-wide text-quaternary">Phase {i}</p>
-                                                    <p className="mt-0.5 text-sm font-semibold text-primary">{p.label}</p>
-                                                    <div className="mt-3 flex flex-col gap-1.5">
-                                                        {inPhase.length === 0 ? (
-                                                            <span className="text-sm text-quaternary">—</span>
-                                                        ) : (
-                                                            inPhase.map((c) => (
-                                                                <button
-                                                                    key={c.id}
-                                                                    type="button"
-                                                                    onClick={goClients}
-                                                                    title={c.name}
-                                                                    className="truncate rounded-lg bg-secondary px-2 py-1 text-left text-xs font-medium text-secondary transition duration-100 ease-linear hover:bg-secondary_hover hover:text-primary"
-                                                                >
-                                                                    {c.name}
-                                                                </button>
-                                                            ))
+                                    )}
+                                </Card>
+
+                                {/* Team — the Operations Manager's view: one card per Account Manager */}
+                                {seesTeam && (
+                                    <motion.section {...rise(4)}>
+                                        <div className="flex items-end justify-between gap-2">
+                                            <div>
+                                                <h2 className="text-lg font-semibold text-primary">Account Managers</h2>
+                                                <p className="text-sm text-tertiary">
+                                                    Each AM's book, what's waiting on them, and their dashboard saves this week.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                            {team.map((t) => (
+                                                <div key={t.am} className="flex flex-col gap-4 rounded-2xl bg-primary p-4 ring-1 ring-secondary">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar size="md" src={teamPhoto(t.am)} initials={initialsOf(t.am)} alt={t.am} />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="truncate text-sm font-semibold text-primary">{t.am}</p>
+                                                            <p className="text-xs text-tertiary">{t.last ? `Active ${ago(t.last)}` : "No saves this week"}</p>
+                                                        </div>
+                                                        {t.waiting > 0 && (
+                                                            <span
+                                                                title={`${plural(t.waiting, "client update")} waiting`}
+                                                                className="rounded-full bg-warning-secondary px-2 py-0.5 text-xs font-semibold text-warning-primary tabular-nums"
+                                                            >
+                                                                {t.waiting} waiting
+                                                            </span>
                                                         )}
                                                     </div>
-                                                </motion.div>
-                                            );
-                                        })}
-                                    </div>
-                                </section>
-
-                                {/* Tier / AM / Web Team trio */}
-                                <div className="grid gap-3 lg:grid-cols-3">
-                                    <Panel title="Clients by Tier" icon={Trophy01} actionLabel="Client List" onAction={goClients} index={0}>
-                                        <div className="flex flex-1 flex-col justify-center gap-4">
-                                            {tierCounts.map((t) => (
-                                                <div key={t.id} className="flex items-center gap-3">
-                                                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-secondary text-fg-quaternary ring-1 ring-secondary">
-                                                        <t.icon className="size-4" aria-hidden="true" />
-                                                    </span>
-                                                    <span className="w-24 shrink-0 text-sm font-medium text-secondary">{t.label}</span>
-                                                    <MiniBar pct={(t.count / maxTier) * 100} />
-                                                    <span className="w-6 shrink-0 text-right text-sm font-semibold text-primary tabular-nums">{t.count}</span>
+                                                    <div className="flex items-end justify-between gap-3">
+                                                        <dl className="flex gap-5">
+                                                            <div>
+                                                                <dt className="text-xs text-tertiary">Clients</dt>
+                                                                <dd className="text-lg font-semibold text-primary tabular-nums">{t.clients}</dd>
+                                                            </div>
+                                                            <div>
+                                                                <dt className="text-xs text-tertiary">Onboarding</dt>
+                                                                <dd className="text-lg font-semibold text-primary tabular-nums">{t.onboarding}</dd>
+                                                            </div>
+                                                            <div>
+                                                                <dt className="text-xs text-tertiary">Saves</dt>
+                                                                <dd className="text-lg font-semibold text-primary tabular-nums">{t.saves}</dd>
+                                                            </div>
+                                                        </dl>
+                                                        {/* Saves per day, last 7 days */}
+                                                        <div
+                                                            className="flex h-8 items-end gap-0.5"
+                                                            aria-label={`${plural(t.saves, "save")} in the last 7 days`}
+                                                            role="img"
+                                                        >
+                                                            {t.days.map((d, i) => (
+                                                                <span
+                                                                    key={i}
+                                                                    className={cx("w-1.5 rounded-sm", d > 0 ? "bg-brand-solid" : "bg-quaternary")}
+                                                                    style={{ height: `${d > 0 ? 25 + (d / maxDay) * 75 : 12}%` }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
-                                    </Panel>
-
-                                    <Panel title="Clients per Account Manager" icon={Users01} actionLabel="By Account Manager" onAction={goClients} index={1}>
-                                        {amRows.length === 0 ? (
-                                            <p className="m-auto text-sm italic text-quaternary">No clients filed yet.</p>
-                                        ) : (
-                                            <div className="flex flex-col gap-3 overflow-y-auto">
-                                                {amRows.map((r) => (
-                                                    <div key={r.name} className="flex items-center gap-3">
-                                                        <Avatar size="xs" src={teamPhoto(r.name)} initials={r.name === "Unassigned" ? "–" : initialsOf(r.name)} alt={r.name} />
-                                                        <span
-                                                            className={cx(
-                                                                "w-28 shrink-0 truncate text-sm font-medium",
-                                                                r.name === "Unassigned" ? "italic text-quaternary" : "text-secondary",
-                                                            )}
-                                                            title={r.name}
-                                                        >
-                                                            {r.name}
-                                                        </span>
-                                                        <MiniBar pct={(r.count / maxAm) * 100} />
-                                                        <span className="w-6 shrink-0 text-right text-sm font-semibold text-primary tabular-nums">{r.count}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </Panel>
-
-                                    <Panel
-                                        title="Web Team projects"
-                                        icon={Globe01}
-                                        actionLabel="Website dept"
-                                        onAction={() => navigate("/dashboard?dept=website")}
-                                        index={2}
-                                    >
-                                        {webRows.length === 0 ? (
-                                            <p className="m-auto px-4 text-center text-sm italic text-quaternary">
-                                                No website projects filed yet — set "Web project" on a client (Edit Client) and it shows up here.
-                                            </p>
-                                        ) : (
-                                            <div className="flex flex-col gap-1.5 overflow-y-auto">
-                                                {webRows.map((c) => (
-                                                    <button
-                                                        key={c.id}
-                                                        type="button"
-                                                        onClick={() => navigate("/dashboard?dept=website")}
-                                                        className="flex items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left transition duration-100 ease-linear hover:bg-secondary"
-                                                    >
-                                                        <span className="min-w-0">
-                                                            <span className="block truncate text-sm font-medium text-primary">{c.web_project}</span>
-                                                            <span className="block truncate text-xs text-tertiary">{c.name}</span>
-                                                        </span>
-                                                        {(c.web_manager ?? "").trim() ? (
-                                                            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary py-0.5 pl-0.5 pr-2 ring-1 ring-secondary">
-                                                                <Avatar size="xs" src={teamPhoto(c.web_manager)} initials={initialsOf(c.web_manager!)} alt={c.web_manager} />
-                                                                <span className="text-xs font-medium text-secondary">{c.web_manager}</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className="shrink-0 text-xs italic text-quaternary">unassigned</span>
-                                                        )}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </Panel>
-                                </div>
+                                    </motion.section>
+                                )}
 
                                 <p className="pb-2 text-center text-xs text-quaternary">
                                     Live from the Client List — file or edit clients there and these numbers follow.

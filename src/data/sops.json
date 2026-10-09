@@ -40,5 +40,33 @@
         "html": "html/HGM-SOP-WEB-003.html",
         "pdf": "pdf/HGM-SOP-WEB-003_v0_1.pdf",
         "change_summary": "Working draft for Brandon. Not yet interviewed or approved."
+    },
+    {
+        "id": "HGM-SOP-WEB-004",
+        "dept": "WEB",
+        "title": "Rebuild a live client site as a Next.js and Supabase site",
+        "version": "0.5",
+        "status": "draft",
+        "owner_role": "Web & Content Specialist",
+        "owner": "Kyle Zinger",
+        "updated": "2026-10-06",
+        "next_review": null,
+        "html": "html/HGM-SOP-WEB-004.html",
+        "pdf": "pdf/HGM-SOP-WEB-004_v0_5.pdf",
+        "change_summary": "Twelve image placeholders added at the tasks that still need a capture, ahead of the portal upload."
+    },
+    {
+        "id": "HGM-SOP-WEB-005",
+        "dept": "WEB",
+        "title": "Pre-launch readiness and go-live",
+        "version": "0.2",
+        "status": "draft",
+        "owner_role": "Web & Content Specialist",
+        "owner": "Kyle Zinger",
+        "updated": "2026-10-06",
+        "next_review": null,
+        "html": "html/HGM-SOP-WEB-005.html",
+        "pdf": "pdf/HGM-SOP-WEB-005_v0_2.pdf",
+        "change_summary": "Nineteen image placeholders added, weighted to the keys and cutover phases, ahead of the portal upload."
     }
 ]

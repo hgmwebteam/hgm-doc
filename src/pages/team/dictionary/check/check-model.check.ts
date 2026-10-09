@@ -30,11 +30,13 @@ import {
     markEntry,
     maskText,
     maskWords,
+    matchingCardName,
     matchingLine,
     nextVariant,
     parseNumber,
     rowsToSave,
     seededRandom,
+    servablePlan,
     shuffledSteps,
     standaloneBlank,
     standalonePrompt,
@@ -149,13 +151,39 @@ assert.equal(maskText("A pirate's rate", ["rate"]), `A pirate's ${MASK}`, "only 
 assert.ok(maskWords(e("otb-on-the-books")).includes("OTB"), "the term without its brackets");
 assert.ok(maskWords(e("resort-fee-amenity-fee")).includes("amenity fee"), "each half of a / term");
 
-// Matching masks version 1's definitions too (2 Oct): "owners say keys, the doctrine says units" answered itself.
+// Matching masks version 1's definitions too (2 Oct), with the review's extra words: "class" gave
+// Date classes away and "emails" gave Email open rate away.
 assert.equal(
-    matchingLine(e("keys-rooms-and-units"), "gloss", bankMaskExtra(bank, "keys-rooms-and-units")),
-    `The three words for the same inventory; owners say ${MASK}, the doctrine says ${MASK}.`,
+    matchingLine(e("date-classes"), "gloss", bankMaskExtra(bank, "date-classes")),
+    `Peak, shoulder and low, weekend and midweek — every pacing conversation happens per ${MASK}, not per month.`,
 );
-assert.ok(!/flagged/i.test(matchingLine(e("flag"), "gloss", bankMaskExtra(bank, "flag"))), "flag's definition no longer names flagged");
+assert.ok(!/email/i.test(matchingLine(e("email-open-rate"), "gloss", bankMaskExtra(bank, "email-open-rate"))), "Email open rate's definition no longer names email");
 assert.ok(matchingLine(e("pixel"), "usage").includes(MASK), "call lines are still blanked");
+assert.ok(
+    matchingLine(e("who-you-are-talking-to"), "usage", bankMaskExtra(bank, "who-you-are-talking-to")).includes(`know ${MASK} —`),
+    "who we're talking to is blanked in its call line",
+);
+// Flag and Keys left matching (review, 2 Oct): each is a true/false item now, and the flashcards still blank them.
+for (const slug of ["flag", "keys-rooms-and-units"])
+    assert.ok(
+        bank.items.some((i) => i.type === "truefalse" && i.term === slug),
+        `${slug} is a true/false item`,
+    );
+assert.ok(!/flagged/i.test(maskText(e("flag").gloss, flashcardMaskWords(e("flag"), bank))), "the Flag flashcard still blanks flagged");
+assert.ok(!/\bkeys\b|\bunits\b/i.test(maskText(e("keys-rooms-and-units").gloss, flashcardMaskWords(e("keys-rooms-and-units"), bank))), "the Keys flashcard still blanks keys and units");
+
+// A card leaves off a bracketed expansion that its lines blank: "OTB", not "OTB (on the books)".
+assert.equal(matchingCardName(e("otb-on-the-books"), bankMaskExtra(bank, "otb-on-the-books")), "OTB");
+assert.equal(matchingCardName(e("crs-central-reservation-system"), bankMaskExtra(bank, "crs-central-reservation-system")), "CRS (central reservation system)");
+assert.equal(matchingCardName(e("boutique")), "Boutique");
+
+// A blanked word that is another card's name in the same tray is refused (the Flag beside Flagged problem).
+{
+    const b = clone();
+    const brand = b.items.find((i) => i.id === "match-brand") as { mask_extra?: Record<string, string[]> };
+    brand.mask_extra = { ...(brand.mask_extra ?? {}), boutique: ["flagged"] };
+    assert.ok(has(bankProblems(b, bySlug), `"boutique"'s blanked word "flagged" is another card's name (flagged)`), "a blank naming another card is refused");
+}
 for (const it of bank.items) {
     if (it.type !== "matching") continue;
     assert.ok(it.terms.length >= 4 && it.terms.length <= 6, `${it.id} matches 4 to 6 terms`);
@@ -312,6 +340,34 @@ assert.ok(isAnswered(item("ebitda"), whole("ebitda"), { kind: "bool", value: fal
     const steps = (item("profit-ladder").variants[0] as { steps: string[] }).steps;
     assert.ok(ok(markEntry(item("profit-ladder"), whole("profit-ladder"), { kind: "order", steps })));
     assert.ok(!ok(markEntry(item("profit-ladder"), whole("profit-ladder"), { kind: "order", steps: [steps[1], steps[0], ...steps.slice(2)] })));
+}
+
+/* ── A sitting started on an older bank ─────────────────────────── */
+
+{
+    // Screens from a plan made before a bank change: a removed item or variant goes, and a kept
+    // screen scores only the terms its item still scores. Unserved terms then keep their status.
+    const stale: PlanEntry[] = [
+        { item: "match-property", variant: "match-property-v1", terms: ["boutique", "flagged", "franchise", "keys-rooms-and-units", "room-type", "crs-central-reservation-system"] },
+        { item: "match-brand", variant: "match-brand-v1", terms: ["boutique", "flagged", "flag", "franchise"] },
+        { item: "creative-fatigue", variant: "creative-fatigue-d1", terms: ["creative-fatigue-index"] },
+        { item: "pace", variant: "pace-v1", terms: ["pace"] },
+        { item: "wp-month", variant: "wp-month-v2", blank: "gone", terms: ["occupancy"] },
+    ];
+    const kept = servablePlan(stale, bank);
+    assert.deepEqual(
+        kept.map((p) => [p.item, p.terms]),
+        [
+            ["match-brand", ["boutique", "flagged", "franchise"]],
+            ["pace", ["pace"]],
+        ],
+        "only what the bank still scores the same way survives",
+    );
+    const { results } = finishSitting(kept, new Map());
+    assert.ok(!results.has("flag") && !results.has("keys-rooms-and-units") && !results.has("creative-fatigue-index"), "terms no longer served aren't marked wrong");
+    // On a plan from the current bank it changes nothing.
+    const fresh = buildPlan(bank, "full", new Map(), seededRandom("fresh"));
+    assert.deepEqual(servablePlan(fresh, bank), fresh);
 }
 
 /* ── Saving as you go ───────────────────────────────────────────── */

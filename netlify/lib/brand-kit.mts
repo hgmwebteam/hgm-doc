@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
-import { PAGE_CAP, asText, assertPublicUrl, grab } from "./client-sources.mts";
+import { PAGE_CAP, asText, assertPublicUrl, grabResult } from "./client-sources.mts";
 import { PDF_CAP, type PdfCode, readBrandPdf } from "./pdf-brand.mts";
 import { GENERIC_FONT, type Logo, type Swatch, botWall, readSiteBrand } from "./site-brand.mts";
 
@@ -320,10 +320,24 @@ export async function buildKit(input: KitInput, env: { supabaseUrl: string; anon
         }
     }
     if (site) {
-        const page = await grab(site.href, PAGE_CAP, 12_000);
-        if (!page) {
-            if (!pdfKit) throw new KitError(`Couldn't load ${site.hostname}. Is the address right, and the site public?`);
-            notes.push(`Couldn't load ${site.hostname}, so logos weren't pulled.`);
+        const page = await grabResult(site.href, PAGE_CAP, 12_000);
+        if (!page.ok) {
+            /* Distinguished rather than one generic message: "is the address right" is actively
+               wrong advice when the real problem is the site's own bot protection. There's no
+               rescue to try here the way readWebsite has one — this needs the page's actual
+               HTML and CSS to find colours and logos in, and a reader service only ever hands
+               back cleaned-up text, which would read as an empty kit rather than an honest
+               failure. */
+            const why =
+                page.reason === "too-big"
+                    ? `${site.hostname} sent a page too large to read.`
+                    : page.reason === "refused" && [401, 403, 429, 503].includes(page.status)
+                      ? `${site.hostname} refused an automated request (HTTP ${page.status}) — its security settings are blocking this read.`
+                      : page.reason === "refused"
+                        ? `${site.hostname} answered HTTP ${page.status}.`
+                        : `Couldn't load ${site.hostname}. Is the address right, and the site public?`;
+            if (!pdfKit) throw new KitError(why);
+            notes.push(`${why} Logos weren't pulled.`);
         } else {
             const html = asText(page.body);
             const wall = botWall(html);

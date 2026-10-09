@@ -245,8 +245,8 @@ mcq("metasearch", "metasearch",
     ("Trivago sent a resort 40 clicks last month, but every booking happened on Booking.com or the resort's own site. What is Trivago here?",
      ["Metasearch", "An OTA", "A CRS", "A booking engine"], "Metasearch",
      "Metasearch sites compare and pass the guest on; OTAs take the booking."),
-    define=(['otas-and-niche-marketplaces', 'rate-parity', 'channel-mix'],
-            "Metasearch compares rates and passes the guest on to a booking channel; it doesn't take the booking itself. The OTAs and marketplaces take the booking, and rate parity is a contract term."))
+    define=(['ota-online-travel-agency', 'rate-parity', 'channel-mix'],
+            "Metasearch compares rates and passes the guest on to a booking channel; it doesn't take the booking itself. An OTA takes the booking for a cut, channel mix is the split of bookings by channel, and rate parity is a contract term."))
 
 mcq("booking-curve", "booking-curve",
     ("An owner says: \"Wedding weekends fill from January, but our summer leisure guests mostly book in the last six weeks.\" What are you comparing when you look at those two shapes?",
@@ -315,8 +315,8 @@ mcq("incrementality", "incrementality",
     ("Meta says the ads drove 30 bookings. The owner asks: \"Would those people have booked anyway?\" What is the owner's question about?",
      ["Incrementality", "ROAS", "Click vs view-through", "CPM"], "Incrementality",
      "Attribution says which ad a booking followed; incrementality says whether the ad caused it."),
-    define=(['cannibalization', 'attribution-window', 'click-vs-view-through'],
-            "Incrementality asks whether the ads caused the booking at all. Cannibalization is what it catches: bookings you'd have had anyway. The attribution window and click vs view-through only decide which bookings an ad gets credit for."))
+    define=(['cannibalization', 'meta-attributed-bookings', 'billboard-effect'],
+            "Incrementality asks whether the ads caused the booking at all. Cannibalization is what it catches: bookings you'd have had anyway. Meta-attributed bookings are only tied to the ads, and the billboard effect is a contested claim about OTA listings."))
 
 mcq("utm", "utm",
     ("Every link in a resort's October newsletter ends with ?utm_source=newsletter&utm_campaign=fall-escape. What are those tags called?",
@@ -443,8 +443,8 @@ add(id="profit-ladder", type="ordering", term="the-profit-ladder", variants=[
 ])
 
 # ================================================================ REFERENCE — matching (definitions pulled by slug)
-MASK_EXTRA = {"overbooking": ["overbook"], "keys-rooms-and-units": ["keys", "rooms", "units"], "date-classes": ["date class"],
-              "otb-on-the-books": ["on the books", "OTB"], "flag": ["flagged"]}
+MASK_EXTRA = {"overbooking": ["overbook"], "date-classes": ["date class", "class"], "otb-on-the-books": ["on the books", "OTB"],
+              "email-open-rate": ["email"], "who-you-are-talking-to": ["who we're talking to"]}
 # Each item's terms share one theme (Kyle, 2 Oct 2026), named in the prompt so the player knows the
 # terms are neighbours: telling close neighbours apart is the point.
 def match(id, terms, theme):
@@ -452,9 +452,9 @@ def match(id, terms, theme):
         {"id": f"{id}-v1", "prompt": f"These are all about {theme}. Match each term to its definition.", "match_on": "gloss"},
         {"id": f"{id}-v2", "prompt": f"These are all about {theme}. Match each term to the line you'd say on a call. The term is blanked in each line.", "match_on": "usage"},
     ])
-match("match-brand", ["boutique", "flagged", "flag", "franchise"], "a property's brand")
-match("match-rates", ["rack-rate", "rate-plan", "rate-fence", "package-rate", "resort-fee-amenity-fee"], "rates and what goes into them")
-match("match-inventory", ["keys-rooms-and-units", "room-type", "overbooking", "crs-central-reservation-system"], "rooms and how they're sold")
+match("match-brand", ["boutique", "flagged", "franchise", "who-you-are-talking-to"], "who owns and runs a property")
+match("match-rates", ["rack-rate", "rate-plan", "rate-fence", "resort-fee-amenity-fee"], "rates and fees")
+match("match-inventory", ["room-type", "overbooking", "crs-central-reservation-system", "package-rate"], "rooms and how they're sold")
 match("match-demand", ["changeover-day", "date-classes", "feeder-market", "shoulder-season", "slow-season", "otb-on-the-books"], "demand and the calendar")
 match("match-marketing", ["impressions", "reach", "pixel", "deliverability", "email-open-rate", "attribution-window"], "measuring marketing")
 
@@ -472,6 +472,12 @@ tf("genius", "booking-com-genius",
 tf("airbnb-fee", "airbnb-host-only-vs-split-fee",
    "Under Airbnb's host-only fee, the whole service fee is charged to the host instead of being split with the guest.", True, "The split fee shares it; the host-only (single) fee puts all of it on the host.",
    "Airbnb is moving all hosts onto the split fee.", False, "It's the other way: Airbnb is moving all hosts to the single, host-only fee.")
+tf("flag", "flag",
+   "A property that operates under a chain's brand carries a flag.", True, "The flag is the chain brand; to be flagged is to carry one.",
+   "Carrying a flag means a property is independent.", False, "A flag is a chain brand, the opposite of independent.")
+tf("keys", "keys-rooms-and-units",
+   "Keys, rooms and units are three words for the same inventory.", True, "Owners say keys, the doctrine says units; they count the same rooms.",
+   "A resort's cabins and suites don't count as keys.", False, "Cabins and suites all count. Keys is the owner's word for every unit there is to sell.")
 tf("review-score", "review-score",
    "A property's review score affects where it ranks on OTAs.", True, "Review scores feed ranking and rate power on every OTA.",
    "Review scores matter on Google and Tripadvisor but have no effect on OTA ranking.", False, "They feed OTA ranking too.")
@@ -493,15 +499,17 @@ mcq("dynamic-pricing", "dynamic-pricing",
     ("Wheelhouse raised a cabin's Saturday rate by $40 overnight because the weekend was filling fast. What kind of tool is Wheelhouse?",
      ["Dynamic pricing", "CRM", "Rate shopping", "Channel manager"], "Dynamic pricing",
      "Wheelhouse moves rates with demand. It doesn't create demand; it prices what's already there."),
-    define=(['rate-shopping', 'comp-set', 'revenue-management-the-function'],
-            'Dynamic pricing moves rates automatically with demand. Rate shopping watches what the comp set charges, and revenue management is the job that may use both.'))
+    define=(['rate-shopping', 'last-minute-rate', 'yield-calendar'],
+            'Dynamic pricing moves rates automatically with demand. Rate shopping watches what the comp set charges, a last-minute rate is one discount close to arrival, and the yield calendar shows how each date is selling.'))
 mcq("rate-shopping", "rate-shopping",
     ("An owner says: \"Every Monday I check what the three resorts down the road are charging for the next month.\" What is she doing?",
      ["Rate shopping", "Building a comp set", "Dynamic pricing", "Reading pace"], "Rate shopping",
      "Watching what the comp set charges is rate shopping. The comp set is the group she watches."),
     ("A GM pays for a tool that emails him competitors' nightly rates every morning. What activity is it doing for him?",
      ["Rate shopping", "Pickup reporting", "Dynamic pricing", "Metasearch"], "Rate shopping",
-     "It automates rate shopping. Useful context, as long as it isn't the only thing setting the price."))
+     "It automates rate shopping. Useful context, as long as it isn't the only thing setting the price."),
+    define=(['mpi-market-penetration-index', 'channel-conflict', 'compression'],
+            "Rate shopping is watching what the comp set charges, usually through a tool. The market penetration index compares your occupancy with the set's, compression is a market-wide demand spike, and channel conflict is two channels undercutting each other."))
 mcq("soft-dates", "soft-dates",
     ("The first two weeks of November are pacing 15 percentage points behind last year. Going on the pacing alone, what are those dates?",
      ["Soft dates", "Shoulder season", "Orphan nights", "Denials"], "Soft dates",
@@ -530,14 +538,6 @@ mcq("search-discovery", "search-vs-discovery-demand",
     ("Which kind of demand is HGM mainly built to create?",
      ["Discovery — making people want a stay before they search", "Search — competing on price for people already looking", "Group — contracted blocks", "Metasearch — rate comparison"],
      "Discovery — making people want a stay before they search", "Discovery demand is HGM's reason for existing."))
-mcq("who-talking", "who-you-are-talking-to",
-    ("The founder who built a lodge and the general manager she hired are both on your call. Why does it matter which of them asks about results?",
-     ["They answer for different numbers, so the same update lands differently", "Only the founder can sign off on ad spend", "The GM always prefers OTA bookings", "It doesn't; they want the same report"],
-     "They answer for different numbers, so the same update lands differently",
-     "Owner, GM, revenue manager and asset manager: four seats, four scorecards."),
-    ("Before a call you check whether you'll be speaking with the owner, the GM, the revenue manager or an asset manager. Which dictionary term is this habit?",
-     ["Who you are talking to", "Comp set", "Revenue management (the function)", "Feeder market"], "Who you are talking to",
-     "Each seat answers for different numbers, so you shape the update to the person."))
 mcq("pre-arrival", "pre-arrival-sequence",
     ("Two days before check-in, guests get an email with directions, the dinner menu and an offer to book a spa treatment. What is that email part of?",
      ["The pre-arrival sequence", "Retargeting", "Guest lifetime value", "Review score"], "The pre-arrival sequence",
@@ -545,17 +545,15 @@ mcq("pre-arrival", "pre-arrival-sequence",
     ("When is usually the best moment to offer a booked guest a dinner reservation?",
      ["In the pre-arrival sequence, while they're looking forward to the trip", "At checkout", "In the post-stay review request", "Before they've booked"],
      "In the pre-arrival sequence, while they're looking forward to the trip", "Guests are most excited, and most open to extras, before they arrive."),
-    define=(['upsell-tools', 'guest-lifetime-value', 'repeat-rate'],
-            'The pre-arrival sequence is the window before the stay where upsells and setting expectations work. Upsell tools are what sell the extras; repeat rate and lifetime value are about guests coming back.'))
+    define=(['post-stay-sequence', 'guest-journey-stages', 'add-on-enhancement'],
+            'The pre-arrival sequence is the window before the stay where upsells and setting expectations work. The post-stay sequence comes after checkout, the guest journey is the whole dream-to-share frame, and an add-on is the extra itself.'))
 mcq("creative-fatigue", "creative-fatigue-index",
     ("The same video has run for ten weeks. Frequency is up from 1.8 to 4.2, CTR has halved and CPM is flat. What is most likely telling you to refresh it?",
      ["The creative fatigue index", "Incrementality", "Deliverability", "The attribution window"], "The creative fatigue index",
      "Rising frequency with falling engagement is fatigue: people have seen the ad too often."),
     ("Bookings from an ad slipped. Searches for the area are steady and the audience hasn't changed, but people have now seen the ad six times each. What's the likely cause?",
      ["Creative fatigue", "Soft dates", "Regret", "Cannibalization"], "Creative fatigue",
-     "Results slipping because people have seen the same ad too often, not because demand has gone."),
-    define=(['frequency', 'hook-rate', 'reach'],
-            'The creative fatigue index is the composite that says a creative is worn out. Frequency feeds into it, the hook rate measures the first three seconds, and reach counts distinct people.'))
+     "Results slipping because people have seen the same ad too often, not because demand has gone."))
 mcq("retarget-prospect", "retargeting-vs-prospecting",
     ("Campaign A shows ads to people who visited the booking page in the last 30 days. Campaign B finds people who've never heard of the lodge. What are A and B?",
      ["A is retargeting; B is prospecting", "A is prospecting; B is retargeting", "A is search; B is discovery", "A is transient; B is group"],
@@ -570,8 +568,8 @@ mcq("opportunity-cost", "opportunity-cost",
     ("You hold your best cabin for a possible wedding party and turn away three couples while you wait. In relation to the hold, what is the revenue those couples would have brought?",
      ["The opportunity cost", "Pickup", "ROAS", "Regret"], "The opportunity cost",
      "Holding the cabin had a price: the bookings you turned away."),
-    define=(['cannibalization', 'soft-dates', 'effective-commission-ec'],
-            "Opportunity cost is the value of the option you gave up by choosing another. Cannibalization is taking bookings you'd have had anyway, and soft dates are nights pacing behind."))
+    define=(['cannibalization', 'budget-vs-forecast', 'distribution-cost'],
+            "Opportunity cost is the value of the best option you gave up by choosing another. Cannibalization is taking bookings you'd have had anyway; a budget, a forecast and distribution cost are about planned and paid money, not what you gave up."))
 
 # ================================================================ VALIDATE
 def units(it):
@@ -605,16 +603,16 @@ for it in items:
             assert v["answer"] in v["options"], v["id"]
             assert len(set(v["options"])) == len(v["options"]) == 4, v["id"]
             if v.get("format") == "define":
-                # Options are slugs; the page shows each one's dictionary definition.
-                assert v["answer"] == it["term"], v["id"]
-                assert all(o in TIER for o in v["options"]), (v["id"], [o for o in v["options"] if o not in TIER])
+                # Options are slugs; the page shows each one's dictionary definition. Wrong options may be
+                # any dictionary slug, tier C included; the portal's bankProblems checks they exist.
+                assert v["answer"] == it["term"] and v["answer"] in TIER, v["id"]
     if it["type"] == "matching":
         assert 4 <= len(it["terms"]) <= 6, it["id"]
 missing = set(TIER) - set(seen)
 assert not missing, missing
 
 bank = {"masking_rule": "On matching, in both the definitions (v1) and the call lines (v2), blank out, case-insensitive and with an optional plural s: the term, the term without any bracketed expansion, each part of a term split on ' / ', its aliases, and the item's mask_extra words for that slug.",
-        "version": "1.1.0-draft", "status": "draft — for Nicole and Kyle's read before it replaces the fixture",
+        "version": "1.2.0-draft", "status": "draft — for Nicole and Kyle's read before it replaces the fixture",
         "weights": {"A": 2, "B": 1}, "illustrative_note": "Every figure in the check is illustrative.",
         "items": items}
 json.dump(bank, open("../data/check-bank.json", "w"), indent=1, ensure_ascii=False)

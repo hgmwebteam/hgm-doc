@@ -1,6 +1,6 @@
 {
  "masking_rule": "On matching, in both the definitions (v1) and the call lines (v2), blank out, case-insensitive and with an optional plural s: the term, the term without any bracketed expansion, each part of a term split on ' / ', its aliases, and the item's mask_extra words for that slug.",
- "version": "1.1.0-draft",
+ "version": "1.2.0-draft",
  "status": "draft — for Nicole and Kyle's read before it replaces the fixture",
  "weights": {
   "A": 2,
@@ -993,12 +993,12 @@
      "prompt": "What does this term mean?",
      "options": [
       "metasearch",
-      "otas-and-niche-marketplaces",
+      "ota-online-travel-agency",
       "rate-parity",
       "channel-mix"
      ],
      "answer": "metasearch",
-     "explanation": "Metasearch compares rates and passes the guest on to a booking channel; it doesn't take the booking itself. The OTAs and marketplaces take the booking, and rate parity is a contract term."
+     "explanation": "Metasearch compares rates and passes the guest on to a booking channel; it doesn't take the booking itself. An OTA takes the booking for a cut, channel mix is the split of bookings by channel, and rate parity is a contract term."
     },
     {
      "id": "metasearch-v1",
@@ -1268,11 +1268,11 @@
      "options": [
       "incrementality",
       "cannibalization",
-      "attribution-window",
-      "click-vs-view-through"
+      "meta-attributed-bookings",
+      "billboard-effect"
      ],
      "answer": "incrementality",
-     "explanation": "Incrementality asks whether the ads caused the booking at all. Cannibalization is what it catches: bookings you'd have had anyway. The attribution window and click vs view-through only decide which bookings an ad gets credit for."
+     "explanation": "Incrementality asks whether the ads caused the booking at all. Cannibalization is what it catches: bookings you'd have had anyway. Meta-attributed bookings are only tied to the ads, and the billboard effect is a contested claim about OTA listings."
     },
     {
      "id": "incrementality-v1",
@@ -1770,23 +1770,23 @@
    "terms": [
     "boutique",
     "flagged",
-    "flag",
-    "franchise"
+    "franchise",
+    "who-you-are-talking-to"
    ],
    "mask_extra": {
-    "flag": [
-     "flagged"
+    "who-you-are-talking-to": [
+     "who we're talking to"
     ]
    },
    "variants": [
     {
      "id": "match-brand-v1",
-     "prompt": "These are all about a property's brand. Match each term to its definition.",
+     "prompt": "These are all about who owns and runs a property. Match each term to its definition.",
      "match_on": "gloss"
     },
     {
      "id": "match-brand-v2",
-     "prompt": "These are all about a property's brand. Match each term to the line you'd say on a call. The term is blanked in each line.",
+     "prompt": "These are all about who owns and runs a property. Match each term to the line you'd say on a call. The term is blanked in each line.",
      "match_on": "usage"
     }
    ]
@@ -1798,19 +1798,18 @@
     "rack-rate",
     "rate-plan",
     "rate-fence",
-    "package-rate",
     "resort-fee-amenity-fee"
    ],
    "mask_extra": {},
    "variants": [
     {
      "id": "match-rates-v1",
-     "prompt": "These are all about rates and what goes into them. Match each term to its definition.",
+     "prompt": "These are all about rates and fees. Match each term to its definition.",
      "match_on": "gloss"
     },
     {
      "id": "match-rates-v2",
-     "prompt": "These are all about rates and what goes into them. Match each term to the line you'd say on a call. The term is blanked in each line.",
+     "prompt": "These are all about rates and fees. Match each term to the line you'd say on a call. The term is blanked in each line.",
      "match_on": "usage"
     }
    ]
@@ -1819,17 +1818,12 @@
    "id": "match-inventory",
    "type": "matching",
    "terms": [
-    "keys-rooms-and-units",
     "room-type",
     "overbooking",
-    "crs-central-reservation-system"
+    "crs-central-reservation-system",
+    "package-rate"
    ],
    "mask_extra": {
-    "keys-rooms-and-units": [
-     "keys",
-     "rooms",
-     "units"
-    ],
     "overbooking": [
      "overbook"
     ]
@@ -1860,7 +1854,8 @@
    ],
    "mask_extra": {
     "date-classes": [
-     "date class"
+     "date class",
+     "class"
     ],
     "otb-on-the-books": [
      "on the books",
@@ -1891,7 +1886,11 @@
     "email-open-rate",
     "attribution-window"
    ],
-   "mask_extra": {},
+   "mask_extra": {
+    "email-open-rate": [
+     "email"
+    ]
+   },
    "variants": [
     {
      "id": "match-marketing-v1",
@@ -1959,6 +1958,44 @@
      "statement": "Airbnb is moving all hosts onto the split fee.",
      "answer": false,
      "explanation": "It's the other way: Airbnb is moving all hosts to the single, host-only fee."
+    }
+   ]
+  },
+  {
+   "id": "flag",
+   "type": "truefalse",
+   "term": "flag",
+   "variants": [
+    {
+     "id": "flag-v1",
+     "statement": "A property that operates under a chain's brand carries a flag.",
+     "answer": true,
+     "explanation": "The flag is the chain brand; to be flagged is to carry one."
+    },
+    {
+     "id": "flag-v2",
+     "statement": "Carrying a flag means a property is independent.",
+     "answer": false,
+     "explanation": "A flag is a chain brand, the opposite of independent."
+    }
+   ]
+  },
+  {
+   "id": "keys",
+   "type": "truefalse",
+   "term": "keys-rooms-and-units",
+   "variants": [
+    {
+     "id": "keys-v1",
+     "statement": "Keys, rooms and units are three words for the same inventory.",
+     "answer": true,
+     "explanation": "Owners say keys, the doctrine says units; they count the same rooms."
+    },
+    {
+     "id": "keys-v2",
+     "statement": "A resort's cabins and suites don't count as keys.",
+     "answer": false,
+     "explanation": "Cabins and suites all count. Keys is the owner's word for every unit there is to sell."
     }
    ]
   },
@@ -2050,11 +2087,11 @@
      "options": [
       "dynamic-pricing",
       "rate-shopping",
-      "comp-set",
-      "revenue-management-the-function"
+      "last-minute-rate",
+      "yield-calendar"
      ],
      "answer": "dynamic-pricing",
-     "explanation": "Dynamic pricing moves rates automatically with demand. Rate shopping watches what the comp set charges, and revenue management is the job that may use both."
+     "explanation": "Dynamic pricing moves rates automatically with demand. Rate shopping watches what the comp set charges, a last-minute rate is one discount close to arrival, and the yield calendar shows how each date is selling."
     },
     {
      "id": "dynamic-pricing-v1",
@@ -2087,6 +2124,19 @@
    "type": "scenario",
    "term": "rate-shopping",
    "variants": [
+    {
+     "id": "rate-shopping-d1",
+     "format": "define",
+     "prompt": "What does this term mean?",
+     "options": [
+      "rate-shopping",
+      "mpi-market-penetration-index",
+      "channel-conflict",
+      "compression"
+     ],
+     "answer": "rate-shopping",
+     "explanation": "Rate shopping is watching what the comp set charges, usually through a tool. The market penetration index compares your occupancy with the set's, compression is a market-wide demand spike, and channel conflict is two channels undercutting each other."
+    },
     {
      "id": "rate-shopping-v1",
      "prompt": "An owner says: \"Every Monday I check what the three resorts down the road are charging for the next month.\" What is she doing?",
@@ -2238,37 +2288,6 @@
    ]
   },
   {
-   "id": "who-talking",
-   "type": "scenario",
-   "term": "who-you-are-talking-to",
-   "variants": [
-    {
-     "id": "who-talking-v1",
-     "prompt": "The founder who built a lodge and the general manager she hired are both on your call. Why does it matter which of them asks about results?",
-     "options": [
-      "They answer for different numbers, so the same update lands differently",
-      "Only the founder can sign off on ad spend",
-      "The GM always prefers OTA bookings",
-      "It doesn't; they want the same report"
-     ],
-     "answer": "They answer for different numbers, so the same update lands differently",
-     "explanation": "Owner, GM, revenue manager and asset manager: four seats, four scorecards."
-    },
-    {
-     "id": "who-talking-v2",
-     "prompt": "Before a call you check whether you'll be speaking with the owner, the GM, the revenue manager or an asset manager. Which dictionary term is this habit?",
-     "options": [
-      "Who you are talking to",
-      "Comp set",
-      "Revenue management (the function)",
-      "Feeder market"
-     ],
-     "answer": "Who you are talking to",
-     "explanation": "Each seat answers for different numbers, so you shape the update to the person."
-    }
-   ]
-  },
-  {
    "id": "pre-arrival",
    "type": "scenario",
    "term": "pre-arrival-sequence",
@@ -2279,12 +2298,12 @@
      "prompt": "What does this term mean?",
      "options": [
       "pre-arrival-sequence",
-      "upsell-tools",
-      "guest-lifetime-value",
-      "repeat-rate"
+      "post-stay-sequence",
+      "guest-journey-stages",
+      "add-on-enhancement"
      ],
      "answer": "pre-arrival-sequence",
-     "explanation": "The pre-arrival sequence is the window before the stay where upsells and setting expectations work. Upsell tools are what sell the extras; repeat rate and lifetime value are about guests coming back."
+     "explanation": "The pre-arrival sequence is the window before the stay where upsells and setting expectations work. The post-stay sequence comes after checkout, the guest journey is the whole dream-to-share frame, and an add-on is the extra itself."
     },
     {
      "id": "pre-arrival-v1",
@@ -2317,19 +2336,6 @@
    "type": "scenario",
    "term": "creative-fatigue-index",
    "variants": [
-    {
-     "id": "creative-fatigue-d1",
-     "format": "define",
-     "prompt": "What does this term mean?",
-     "options": [
-      "creative-fatigue-index",
-      "frequency",
-      "hook-rate",
-      "reach"
-     ],
-     "answer": "creative-fatigue-index",
-     "explanation": "The creative fatigue index is the composite that says a creative is worn out. Frequency feeds into it, the hook rate measures the first three seconds, and reach counts distinct people."
-    },
     {
      "id": "creative-fatigue-v1",
      "prompt": "The same video has run for ten weeks. Frequency is up from 1.8 to 4.2, CTR has halved and CPM is flat. What is most likely telling you to refresh it?",
@@ -2399,11 +2405,11 @@
      "options": [
       "opportunity-cost",
       "cannibalization",
-      "soft-dates",
-      "effective-commission-ec"
+      "budget-vs-forecast",
+      "distribution-cost"
      ],
      "answer": "opportunity-cost",
-     "explanation": "Opportunity cost is the value of the option you gave up by choosing another. Cannibalization is taking bookings you'd have had anyway, and soft dates are nights pacing behind."
+     "explanation": "Opportunity cost is the value of the best option you gave up by choosing another. Cannibalization is taking bookings you'd have had anyway; a budget, a forecast and distribution cost are about planned and paid money, not what you gave up."
     },
     {
      "id": "opportunity-cost-v1",

@@ -1,0 +1,1165 @@
+{
+ "version": "1.3",
+ "made": "2026-10-06",
+ "tile": {
+  "size_px": 512,
+  "corner_radius_px": 87,
+  "corner_radius_pct": 17,
+  "format": "PNG, RGBA, transparent corners",
+  "rule": "Every icon is a 512 px rounded square. The mark is re-centred and scaled so it sits in the same safe area on every tile (symbols about 58% of the tile on colour, 68% on white; round marks about 72% on colour, 80% on white; wordmarks 74% wide at most). Brand-colour tile where the supplied icon had one, white tile with a hairline border where the mark sat on white."
+ },
+ "categories": {
+  "36": "pms",
+  "37": "channel-manager",
+  "38": "booking-engine",
+  "39": "dynamic-pricing",
+  "40": "rate-shopping",
+  "41": "crm",
+  "42": "guest-messaging",
+  "43": "upsell"
+ },
+ "card_name_to_slug": {
+  "Mews": "mews",
+  "Oracle OPERA Cloud": "oracle",
+  "Cloudbeds": "cloudbeds",
+  "Newbook": "newbook",
+  "WebRezPro": "webrezpro",
+  "RMS Cloud": "rmscloud",
+  "Little Hotelier": "littlehotelier",
+  "Guesty": "guesty",
+  "SiteMinder": "siteminder",
+  "STAAH": "staah",
+  "DerbySoft": "derbysoft",
+  "RateGain": "rategain",
+  "Hostaway": "hostaway",
+  "Lodgify": "lodgify",
+  "Sabre SynXis": "sabre",
+  "Amadeus iHotelier": "amadeus",
+  "PriceLabs": "pricelabs",
+  "Wheelhouse": "wheelhouse",
+  "Beyond": "beyond",
+  "IDeaS": "ideas",
+  "Duetto": "duetto",
+  "Atomize": "atomize",
+  "RoomPriceGenie": "roompricegenie",
+  "Lighthouse": "lighthouse",
+  "STR, part of CoStar": "str",
+  "KeyData": "keydata",
+  "AirDNA": "airdna",
+  "Amadeus Demand360": "amadeus",
+  "Revinate": "revinate",
+  "Cendyn": "cendyn",
+  "GoHighLevel": "gohighlevel",
+  "HubSpot": "hubspot",
+  "Mailchimp": "mailchimp",
+  "Klaviyo": "klaviyo",
+  "Duve": "duve",
+  "Canary Technologies": "canary",
+  "Whistle": "whistle",
+  "Akia": "akia",
+  "Enso Connect": "enso",
+  "Kipsu": "kipsu",
+  "Oaky": "oaky",
+  "Nor1": "nor1",
+  "Plusgrade": "plusgrade",
+  "UpsellGuru": "upsellguru"
+ },
+ "vendors": {
+  "airdna": {
+   "name": "AirDNA",
+   "file": "logos/airdna.png",
+   "file_128": "logos-128/airdna.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#4754B0",
+   "deck_card_names": [
+    "AirDNA"
+   ],
+   "deck_slides": [
+    40
+   ],
+   "categories": [
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
+    "rate-shopping"
+   ],
+   "alt": "AirDNA logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "akia": {
+   "name": "Akia",
+   "file": "logos/akia.png",
+   "file_128": "logos-128/akia.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#4AB7C9",
+   "deck_card_names": [
+    "Akia"
+   ],
+   "deck_slides": [
+    42
+   ],
+   "categories": [
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "guest-messaging"
+   ],
+   "alt": "Akia logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "amadeus": {
+   "name": "Amadeus",
+   "file": "logos/amadeus.png",
+   "file_128": "logos-128/amadeus.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#030933",
+   "deck_card_names": [
+    "Amadeus iHotelier",
+    "Amadeus Demand360"
+   ],
+   "deck_slides": [
+    38,
+    40
+   ],
+   "categories": [
+    "channel-manager",
+    "booking-engine",
+    "rate-shopping",
+    "crm",
+    "upsell"
+   ],
+   "main": [
+    "booking-engine",
+    "rate-shopping"
+   ],
+   "alt": "Amadeus logo",
+   "confidence": "identified",
+   "note": "Used for both Amadeus iHotelier and Amadeus Demand360. A second source image (the same wordmark) was supplied and not needed."
+  },
+  "atomize": {
+   "name": "Atomize",
+   "file": "logos/atomize.png",
+   "file_128": "logos-128/atomize.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#0B1A32",
+   "deck_card_names": [
+    "Atomize"
+   ],
+   "deck_slides": [
+    39
+   ],
+   "categories": [
+    "dynamic-pricing"
+   ],
+   "main": [
+    "dynamic-pricing"
+   ],
+   "alt": "Atomize logo",
+   "confidence": "identified",
+   "note": "Source banner had an \"A Mews company\" tagline; cropped to the ATOMIZE wordmark. Atomize is now sold as part of Mews; the deck card text may be stale [VERIFY]."
+  },
+  "beyond": {
+   "name": "Beyond",
+   "file": "logos/beyond.png",
+   "file_128": "logos-128/beyond.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "Beyond"
+   ],
+   "deck_slides": [
+    39
+   ],
+   "categories": [
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
+    "dynamic-pricing"
+   ],
+   "alt": "Beyond logo",
+   "confidence": "identified (supplied by Kyle)",
+   "note": "Corrected 5 Oct 2026 from the icon Kyle supplied."
+  },
+  "canary": {
+   "name": "Canary Technologies",
+   "file": "logos/canary.png",
+   "file_128": "logos-128/canary.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "Canary Technologies"
+   ],
+   "deck_slides": [
+    42,
+    43
+   ],
+   "categories": [
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "guest-messaging"
+   ],
+   "alt": "Canary Technologies logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "cendyn": {
+   "name": "Cendyn",
+   "file": "logos/cendyn.png",
+   "file_128": "logos-128/cendyn.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "Cendyn"
+   ],
+   "deck_slides": [
+    41
+   ],
+   "categories": [
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "crm"
+   ],
+   "main": [
+    "crm"
+   ],
+   "alt": "Cendyn logo",
+   "confidence": "identified (supplied by Kyle)",
+   "note": "Corrected 5 Oct 2026 from the icon Kyle supplied."
+  },
+  "cloudbeds": {
+   "name": "Cloudbeds",
+   "file": "logos/cloudbeds.png",
+   "file_128": "logos-128/cloudbeds.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#FCF78A",
+   "deck_card_names": [
+    "Cloudbeds"
+   ],
+   "deck_slides": [
+    36,
+    37,
+    38,
+    39,
+    40,
+    41
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping",
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "Cloudbeds logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "derbysoft": {
+   "name": "DerbySoft",
+   "file": "logos/derbysoft.png",
+   "file_128": "logos-128/derbysoft.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#6EDCE0",
+   "deck_card_names": [
+    "DerbySoft"
+   ],
+   "deck_slides": [
+    37
+   ],
+   "categories": [
+    "channel-manager"
+   ],
+   "main": [
+    "channel-manager"
+   ],
+   "alt": "DerbySoft logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "duetto": {
+   "name": "Duetto",
+   "file": "logos/duetto.png",
+   "file_128": "logos-128/duetto.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#D0FC65",
+   "deck_card_names": [
+    "Duetto"
+   ],
+   "deck_slides": [
+    39
+   ],
+   "categories": [
+    "dynamic-pricing"
+   ],
+   "main": [
+    "dynamic-pricing"
+   ],
+   "alt": "Duetto logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "duve": {
+   "name": "Duve",
+   "file": "logos/duve.png",
+   "file_128": "logos-128/duve.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#1B1E5A",
+   "deck_card_names": [
+    "Duve"
+   ],
+   "deck_slides": [
+    42,
+    43
+   ],
+   "categories": [
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "guest-messaging"
+   ],
+   "alt": "Duve logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "enso": {
+   "name": "Enso Connect",
+   "file": "logos/enso.png",
+   "file_128": "logos-128/enso.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#2C5688",
+   "deck_card_names": [
+    "Enso Connect"
+   ],
+   "deck_slides": [
+    42,
+    43
+   ],
+   "categories": [
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "guest-messaging"
+   ],
+   "alt": "Enso Connect logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "gohighlevel": {
+   "name": "GoHighLevel",
+   "file": "logos/gohighlevel.png",
+   "file_128": "logos-128/gohighlevel.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#11213B",
+   "deck_card_names": [
+    "GoHighLevel"
+   ],
+   "deck_slides": [
+    41
+   ],
+   "categories": [
+    "crm",
+    "guest-messaging"
+   ],
+   "main": [
+    "crm"
+   ],
+   "alt": "GoHighLevel logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "guesty": {
+   "name": "Guesty",
+   "file": "logos/guesty.png",
+   "file_128": "logos-128/guesty.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#3872A8",
+   "deck_card_names": [
+    "Guesty"
+   ],
+   "deck_slides": [
+    36,
+    37,
+    42
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "Guesty logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "hostaway": {
+   "name": "Hostaway",
+   "file": "logos/hostaway.png",
+   "file_128": "logos-128/hostaway.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#E76E29",
+   "deck_card_names": [
+    "Hostaway"
+   ],
+   "deck_slides": [
+    37
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "Hostaway logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "hubspot": {
+   "name": "HubSpot",
+   "file": "logos/hubspot.png",
+   "file_128": "logos-128/hubspot.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "HubSpot"
+   ],
+   "deck_slides": [
+    41
+   ],
+   "categories": [
+    "crm"
+   ],
+   "main": [
+    "crm"
+   ],
+   "alt": "HubSpot logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "ideas": {
+   "name": "IDeaS",
+   "file": "logos/ideas.png",
+   "file_128": "logos-128/ideas.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#4487C9",
+   "deck_card_names": [
+    "IDeaS"
+   ],
+   "deck_slides": [
+    39
+   ],
+   "categories": [
+    "dynamic-pricing"
+   ],
+   "main": [
+    "dynamic-pricing"
+   ],
+   "alt": "IDeaS logo",
+   "confidence": "identified",
+   "note": "Source banner had an \"A SAS company\" tagline; cropped to the IDeAS wordmark."
+  },
+  "keydata": {
+   "name": "KeyData",
+   "file": "logos/keydata.png",
+   "file_128": "logos-128/keydata.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "KeyData"
+   ],
+   "deck_slides": [
+    40
+   ],
+   "categories": [
+    "rate-shopping"
+   ],
+   "main": [
+    "rate-shopping"
+   ],
+   "alt": "KeyData logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "kipsu": {
+   "name": "Kipsu",
+   "file": "logos/kipsu.png",
+   "file_128": "logos-128/kipsu.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "Kipsu"
+   ],
+   "deck_slides": [
+    42
+   ],
+   "categories": [
+    "guest-messaging"
+   ],
+   "main": [
+    "guest-messaging"
+   ],
+   "alt": "Kipsu logo",
+   "confidence": "identified",
+   "note": "Low-resolution source; check at full-screen."
+  },
+  "klaviyo": {
+   "name": "Klaviyo",
+   "file": "logos/klaviyo.png",
+   "file_128": "logos-128/klaviyo.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#DB6D57",
+   "deck_card_names": [
+    "Klaviyo"
+   ],
+   "deck_slides": [
+    41
+   ],
+   "categories": [
+    "crm"
+   ],
+   "main": [
+    "crm"
+   ],
+   "alt": "Klaviyo logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "lighthouse": {
+   "name": "Lighthouse",
+   "file": "logos/lighthouse.png",
+   "file_128": "logos-128/lighthouse.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#EEA154",
+   "deck_card_names": [
+    "Lighthouse"
+   ],
+   "deck_slides": [
+    40
+   ],
+   "categories": [
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
+    "rate-shopping"
+   ],
+   "alt": "Lighthouse logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "littlehotelier": {
+   "name": "Little Hotelier",
+   "file": "logos/littlehotelier.png",
+   "file_128": "logos-128/littlehotelier.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "Little Hotelier"
+   ],
+   "deck_slides": [
+    36
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "Little Hotelier logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "lodgify": {
+   "name": "Lodgify",
+   "file": "logos/lodgify.png",
+   "file_128": "logos-128/lodgify.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#FCF675",
+   "deck_card_names": [
+    "Lodgify"
+   ],
+   "deck_slides": [
+    37,
+    38
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "guest-messaging"
+   ],
+   "main": [
+    "booking-engine"
+   ],
+   "alt": "Lodgify logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "mailchimp": {
+   "name": "Mailchimp",
+   "file": "logos/mailchimp.png",
+   "file_128": "logos-128/mailchimp.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#F8E04D",
+   "deck_card_names": [
+    "Mailchimp"
+   ],
+   "deck_slides": [
+    41
+   ],
+   "categories": [
+    "crm"
+   ],
+   "main": [
+    "crm"
+   ],
+   "alt": "Mailchimp logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "mews": {
+   "name": "Mews",
+   "file": "logos/mews.png",
+   "file_128": "logos-128/mews.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#ED8CD6",
+   "deck_card_names": [
+    "Mews"
+   ],
+   "deck_slides": [
+    36,
+    38,
+    41,
+    42,
+    43
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "Mews logo",
+   "confidence": "identified",
+   "note": "Pink tile with a three-ellipse mark: Mews' own site icon and share image (the header logo is a black MEWS wordmark). Checked 5 Oct 2026; Kyle confirmed it by eye on 6 Oct."
+  },
+  "newbook": {
+   "name": "Newbook",
+   "file": "logos/newbook.png",
+   "file_128": "logos-128/newbook.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#1D1E4A",
+   "deck_card_names": [
+    "Newbook"
+   ],
+   "deck_slides": [
+    36
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "Newbook logo",
+   "confidence": "identified",
+   "note": "Supplied icon is the Storable hexagon mark (Newbook is a Storable company)."
+  },
+  "nor1": {
+   "name": "Nor1",
+   "file": "logos/nor1.png",
+   "file_128": "logos-128/nor1.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "Nor1"
+   ],
+   "deck_slides": [
+    43
+   ],
+   "categories": [
+    "upsell"
+   ],
+   "main": [
+    "upsell"
+   ],
+   "alt": "Nor1 logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "oaky": {
+   "name": "Oaky",
+   "file": "logos/oaky.png",
+   "file_128": "logos-128/oaky.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#DE7235",
+   "deck_card_names": [
+    "Oaky"
+   ],
+   "deck_slides": [
+    43
+   ],
+   "categories": [
+    "upsell"
+   ],
+   "main": [
+    "upsell"
+   ],
+   "alt": "Oaky logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "oracle": {
+   "name": "Oracle OPERA Cloud",
+   "file": "logos/oracle.png",
+   "file_128": "logos-128/oracle.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#336A78",
+   "deck_card_names": [
+    "Oracle OPERA Cloud"
+   ],
+   "deck_slides": [
+    36
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "Oracle OPERA Cloud logo",
+   "confidence": "identified (supplied by Kyle)",
+   "note": "Corrected 5 Oct 2026 from the icon Kyle supplied."
+  },
+  "plusgrade": {
+   "name": "Plusgrade",
+   "file": "logos/plusgrade.png",
+   "file_128": "logos-128/plusgrade.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "Plusgrade"
+   ],
+   "deck_slides": [
+    43
+   ],
+   "categories": [
+    "upsell"
+   ],
+   "main": [
+    "upsell"
+   ],
+   "alt": "Plusgrade logo",
+   "confidence": "identified",
+   "note": "Low-resolution source; check at full-screen."
+  },
+  "pricelabs": {
+   "name": "PriceLabs",
+   "file": "logos/pricelabs.png",
+   "file_128": "logos-128/pricelabs.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "PriceLabs"
+   ],
+   "deck_slides": [
+    39
+   ],
+   "categories": [
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
+    "dynamic-pricing"
+   ],
+   "alt": "PriceLabs logo",
+   "confidence": "identified (supplied by Kyle)",
+   "note": "Corrected 5 Oct 2026 from the icon Kyle supplied."
+  },
+  "rategain": {
+   "name": "RateGain",
+   "file": "logos/rategain.png",
+   "file_128": "logos-128/rategain.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#822BF6",
+   "deck_card_names": [
+    "RateGain"
+   ],
+   "deck_slides": [
+    37,
+    40
+   ],
+   "categories": [
+    "channel-manager",
+    "booking-engine",
+    "rate-shopping"
+   ],
+   "main": [
+    "rate-shopping"
+   ],
+   "alt": "RateGain logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "revinate": {
+   "name": "Revinate",
+   "file": "logos/revinate.png",
+   "file_128": "logos-128/revinate.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#4763D4",
+   "deck_card_names": [
+    "Revinate"
+   ],
+   "deck_slides": [
+    41
+   ],
+   "categories": [
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "crm"
+   ],
+   "alt": "Revinate logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "rmscloud": {
+   "name": "RMS Cloud",
+   "file": "logos/rmscloud.png",
+   "file_128": "logos-128/rmscloud.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "RMS Cloud"
+   ],
+   "deck_slides": [
+    36
+   ],
+   "categories": [
+    "pms",
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "crm",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "RMS Cloud logo",
+   "confidence": "identified (supplied by Kyle)",
+   "note": "Corrected 5 Oct 2026 from the icon Kyle supplied."
+  },
+  "roompricegenie": {
+   "name": "RoomPriceGenie",
+   "file": "logos/roompricegenie.png",
+   "file_128": "logos-128/roompricegenie.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "RoomPriceGenie"
+   ],
+   "deck_slides": [
+    39
+   ],
+   "categories": [
+    "dynamic-pricing"
+   ],
+   "main": [
+    "dynamic-pricing"
+   ],
+   "alt": "RoomPriceGenie logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "sabre": {
+   "name": "Sabre",
+   "file": "logos/sabre.png",
+   "file_128": "logos-128/sabre.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#CE301A",
+   "deck_card_names": [
+    "Sabre SynXis"
+   ],
+   "deck_slides": [
+    38
+   ],
+   "categories": [
+    "channel-manager",
+    "booking-engine"
+   ],
+   "main": [
+    "booking-engine"
+   ],
+   "alt": "Sabre logo",
+   "confidence": "identified",
+   "note": "Used for the \"Sabre SynXis\" card."
+  },
+  "siteminder": {
+   "name": "SiteMinder",
+   "file": "logos/siteminder.png",
+   "file_128": "logos-128/siteminder.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "SiteMinder"
+   ],
+   "deck_slides": [
+    37,
+    38
+   ],
+   "categories": [
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping",
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "channel-manager"
+   ],
+   "alt": "SiteMinder logo",
+   "confidence": "identified (supplied by Kyle)",
+   "note": "Corrected 5 Oct 2026 from the icon Kyle supplied."
+  },
+  "staah": {
+   "name": "STAAH",
+   "file": "logos/staah.png",
+   "file_128": "logos-128/staah.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "STAAH"
+   ],
+   "deck_slides": [
+    37,
+    38
+   ],
+   "categories": [
+    "channel-manager",
+    "booking-engine",
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
+    "channel-manager"
+   ],
+   "alt": "STAAH logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "str": {
+   "name": "STR (CoStar)",
+   "file": "logos/str.png",
+   "file_128": "logos-128/str.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "STR, part of CoStar"
+   ],
+   "deck_slides": [
+    40
+   ],
+   "categories": [
+    "rate-shopping"
+   ],
+   "main": [
+    "rate-shopping"
+   ],
+   "alt": "STR (CoStar) logo",
+   "confidence": "identified",
+   "note": "The supplied icon is CoStar's pentagon mark, used for the \"STR, part of CoStar\" card."
+  },
+  "upsellguru": {
+   "name": "UpsellGuru",
+   "file": "logos/upsellguru.png",
+   "file_128": "logos-128/upsellguru.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "UpsellGuru"
+   ],
+   "deck_slides": [
+    43
+   ],
+   "categories": [
+    "upsell"
+   ],
+   "main": [
+    "upsell"
+   ],
+   "alt": "UpsellGuru logo",
+   "confidence": "identified",
+   "note": "Low-resolution source; check at full-screen."
+  },
+  "webrezpro": {
+   "name": "WebRezPro",
+   "file": "logos/webrezpro.png",
+   "file_128": "logos-128/webrezpro.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "WebRezPro"
+   ],
+   "deck_slides": [
+    36,
+    38
+   ],
+   "categories": [
+    "pms",
+    "booking-engine",
+    "upsell"
+   ],
+   "main": [
+    "pms"
+   ],
+   "alt": "WebRezPro logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "wheelhouse": {
+   "name": "Wheelhouse",
+   "file": "logos/wheelhouse.png",
+   "file_128": "logos-128/wheelhouse.png",
+   "size_px": 512,
+   "tile_type": "white tile with hairline border",
+   "background": "#FFFFFF",
+   "deck_card_names": [
+    "Wheelhouse"
+   ],
+   "deck_slides": [
+    39
+   ],
+   "categories": [
+    "dynamic-pricing",
+    "rate-shopping"
+   ],
+   "main": [
+    "dynamic-pricing"
+   ],
+   "alt": "Wheelhouse logo",
+   "confidence": "identified",
+   "note": ""
+  },
+  "whistle": {
+   "name": "Whistle",
+   "file": "logos/whistle.png",
+   "file_128": "logos-128/whistle.png",
+   "size_px": 512,
+   "tile_type": "brand-colour tile",
+   "background": "#233554",
+   "deck_card_names": [
+    "Whistle"
+   ],
+   "deck_slides": [
+    42
+   ],
+   "categories": [
+    "guest-messaging",
+    "upsell"
+   ],
+   "main": [
+    "guest-messaging"
+   ],
+   "alt": "Whistle logo",
+   "confidence": "identified",
+   "note": ""
+  }
+ }
+}

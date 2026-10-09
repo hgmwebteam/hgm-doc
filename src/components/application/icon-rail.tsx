@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertCircle, Bell01, BookOpen01, CheckCircle, ChevronLeft, ChevronRight, ClipboardCheck, Code02, Edit05, HelpCircle, Home02, LayoutLeft, Lock01, LockUnlocked01, Moon01, Sun, Users01 } from "@untitledui/icons";
+import { AlertCircle, Bell01, BookOpen01, CheckCircle, ChevronLeft, ChevronRight, ClipboardCheck, Code02, Edit05, HelpCircle, Home02, LayoutLeft, Lock01, LockUnlocked01, Moon01, Settings01, Sun, Users01 } from "@untitledui/icons";
 import { Avatar } from "@/components/base/avatar/avatar";
-import { useAuthUser } from "@/hooks/use-auth-user";
 import { fetchAttentionItems, type AttentionItem } from "@/lib/notifications";
+import { VIEW_AS_OPTIONS, setViewAs, useTeamRole } from "@/hooks/use-team-role";
 import { teamPhoto } from "@/utils/team-photos";
 import { SettingsDialog } from "@/pages/team/settings-screen";
 import { useTheme } from "@/providers/theme-provider";
@@ -13,37 +13,122 @@ import { SearchBar } from "@/components/application/search-modal";
 import { PageBreadcrumb, type BreadcrumbItem } from "@/components/application/page-breadcrumb";
 import { cx } from "@/utils/cx";
 
+const ROLE_LABELS = { owner: "Owner", ops: "Operations Manager", am: "Account Manager", team: "Team" } as const;
+
 /**
- * Account avatar — opens the settings popup. Lives in the search-bar row
- * (top-right), not the icon rail, so it renders on any page that passes
- * `headerRight` to <AppShell>. Returns null while signed out.
+ * Account avatar — opens a small menu for whoever is signed in: who they are and
+ * which view they get (owner / ops / AM), a light/dark switch, and Settings. Lives
+ * in the search-bar row (top-right), not the icon rail, so it renders on any page
+ * that passes `headerRight` to <AppShell>. Returns null while signed out.
  */
 export const HeaderAvatar = () => {
-    const { user } = useAuthUser();
+    const { user, role, realRole, viewAs } = useTeamRole();
+    const { theme, setTheme } = useTheme();
+    const [open, setOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Close on outside click or Escape (same pattern as the bell).
+    useEffect(() => {
+        if (!open) return;
+        const onDown = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+        };
+        const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+        document.addEventListener("mousedown", onDown);
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("mousedown", onDown);
+            document.removeEventListener("keydown", onKey);
+        };
+    }, [open]);
+
     if (!user) return null;
 
+    const isDark =
+        theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     const initials = (user.name ?? "")
         .split(" ")
         .map((part) => part[0])
         .slice(0, 2)
         .join("")
         .toUpperCase();
+    // Prefer the Google account photo, then the HGM team headshot, then initials.
+    const photo = user.avatarUrl ?? teamPhoto(role.kind === "am" ? role.amName : user.name);
+    const itemClass =
+        "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-secondary transition duration-100 ease-linear hover:bg-secondary hover:text-primary";
 
     return (
-        <>
+        <div ref={containerRef} className="relative">
             <button
                 type="button"
-                onClick={() => setSettingsOpen(true)}
-                title="Settings"
-                aria-label="Open settings"
+                onClick={() => setOpen((v) => !v)}
+                title={user.name}
+                aria-label="Open account menu"
+                aria-expanded={open}
                 className="rounded-full outline-focus-ring transition duration-100 ease-linear hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2"
             >
-                {/* Prefer the Google account photo, then the HGM team headshot, then initials. */}
-                <Avatar size="md" src={user.avatarUrl ?? teamPhoto(user.name)} alt={user.name} initials={initials} />
+                <Avatar size="md" src={photo} alt={user.name} initials={initials} />
             </button>
+
+            <AnimatePresence>
+                {open && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                        transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                        className="absolute right-0 top-12 z-50 w-72 overflow-hidden rounded-2xl bg-primary shadow-xl ring-1 ring-secondary"
+                    >
+                        <div className="flex items-center gap-3 border-b border-secondary px-4 py-3.5">
+                            <Avatar size="md" src={photo} alt={user.name} initials={initials} />
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-primary">{user.name}</p>
+                                <p className="truncate text-xs text-tertiary">{user.email}</p>
+                                <span className="mt-1 inline-flex rounded-full bg-brand-secondary px-2 py-0.5 text-[11px] font-semibold text-fg-brand-primary">
+                                    {viewAs ? `Viewing as ${viewAs}` : ROLE_LABELS[role.kind]}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="p-1.5">
+                            <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")} className={itemClass}>
+                                {isDark ? <Sun className="size-4 text-fg-quaternary" aria-hidden="true" /> : <Moon01 className="size-4 text-fg-quaternary" aria-hidden="true" />}
+                                {isDark ? "Light mode" : "Dark mode"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOpen(false);
+                                    setSettingsOpen(true);
+                                }}
+                                className={itemClass}
+                            >
+                                <Settings01 className="size-4 text-fg-quaternary" aria-hidden="true" />
+                                Profile &amp; settings
+                            </button>
+                        </div>
+                        {/* Owner-only: preview the portal as the Operations Manager or any AM. */}
+                        {realRole.kind === "owner" && (
+                            <div className="max-h-64 overflow-y-auto border-t border-secondary p-1.5">
+                                <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-quaternary">View as</p>
+                                {[null, ...VIEW_AS_OPTIONS].map((name) => (
+                                    <button
+                                        key={name ?? "me"}
+                                        type="button"
+                                        onClick={() => setViewAs(name)}
+                                        className={cx(itemClass, (viewAs ?? null) === name && "bg-active text-primary")}
+                                    >
+                                        <Avatar size="xs" src={name ? teamPhoto(name) : (user.avatarUrl ?? teamPhoto(user.name))} alt={name ?? user.name} />
+                                        {name ?? "Me (owner)"}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
             <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-        </>
+        </div>
     );
 };
 
@@ -51,26 +136,26 @@ export const HeaderAvatar = () => {
  * Notification bell — sits in the top bar just left of the account avatar.
  * Shows everything that needs the team's attention: open Questions across the
  * project-log pages (HIGH count called out), open docs requests / bug reports,
- * and the Client List roster gap. Team-only (signed-in @hiddengem.media).
+ * and the Client List roster gap. Team-only (signed-in @hiddengem.media), and
+ * scoped by role — see fetchAttentionItems.
  */
 const BELL_KIND_ICONS = { questions: HelpCircle, request: AlertCircle, roster: Users01, suggestions: Edit05 };
 
 export const HeaderBell = () => {
-    const { user } = useAuthUser();
+    const { user, role } = useTeamRole();
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState<AttentionItem[] | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isTeam = !!user?.email && user.email.toLowerCase().endsWith("@hiddengem.media");
+    const roleKey = role.kind === "am" ? `am:${role.amName}` : role.kind;
 
     // Load on mount and refresh whenever the panel opens, so the badge is
     // roughly live without polling.
     useEffect(() => {
-        if (isTeam) fetchAttentionItems().then(setItems);
-    }, [isTeam]);
-    useEffect(() => {
-        if (open) fetchAttentionItems().then(setItems);
-    }, [open]);
+        if (isTeam) fetchAttentionItems(role).then(setItems);
+        // roleKey stands in for `role`, which is a fresh object every render.
+    }, [isTeam, roleKey, open]);
 
     // Close on outside click (same pattern as HelpMenu).
     useEffect(() => {

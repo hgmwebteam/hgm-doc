@@ -1,6 +1,6 @@
 /**
  * Work email for each name on the Account Manager roster — `ACCOUNT_MANAGERS` in
- * src/pages/team/dashboard-screen.tsx, which is what `clients.am` stores (a name, never an
+ * src/lib/team-roster.ts, which is what `clients.am` stores (a name, never an
  * address). Keep the two lists in step: an AM missing here is simply not emailed, and the
  * function logs which name it could not resolve.
  *
@@ -15,6 +15,12 @@ const ACCOUNT_MANAGER_EMAILS: Record<string, string> = {
     "Chiara Henry": "chiara@hiddengem.media",
     "Kristal Puguan": "kristal@hiddengem.media",
 };
+
+/**
+ * Copied on every Onboarding Form and Account Access Form email, whoever the client's AM is —
+ * and still emailed when the AM can't be resolved. Anyone here who is also the AM gets one copy.
+ */
+export const FORM_SUBMISSION_CC: string[] = ["dustin@hiddengem.media", "gillian@hiddengem.media", "makenna@hiddengem.media", "alicia@hiddengem.media"];
 
 /** Case- and whitespace-insensitive, because `clients.am` also keeps legacy free-typed names. */
 export const accountManagerEmail = (name: string | null | undefined): string | null => {

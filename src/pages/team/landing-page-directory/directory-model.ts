@@ -90,7 +90,7 @@ export const DESIGNS: { id: string; label: string; full: string }[] = [
 ];
 
 /** The account managers, by first name — how the directory has always stored them. Mirrors the
- *  first names of ACCOUNT_MANAGERS in dashboard-screen; anyone already assigned to a client is
+ *  first names of ACCOUNT_MANAGERS in lib/team-roster; anyone already assigned to a client is
  *  offered as well, so a name missing here still shows up. */
 export const TEAM = ["Charlotte", "Makenna", "Alicia", "Nicole", "Ananya", "Chiara", "Kristal"];
 

@@ -1,0 +1,1708 @@
+{
+ "meta": {
+  "eyebrow": "Field-test draft · standard operating procedure · WEB",
+  "title": "Pre-launch readiness and go-live",
+  "lead": "How a finished site on its <code>netlify.app</code> address becomes the client's live site on their own domain — audited, keyed, paid-path-tested, signed off and cut over. If you remember one thing: <strong class=\"hl\">nothing is verified until you have seen it on the live domain</strong>, and nothing that touches money is done outside Claude Fable against a test key.",
+  "sop_id": "HGM-SOP-WEB-005",
+  "version": "0.2",
+  "status": "draft",
+  "owner": "Web & Content Specialist (Kyle Zinger)",
+  "approved_by": "Operations Manager (Gillian) — pending",
+  "effective_date": "2026-09-29",
+  "next_review": "2027-03-29",
+  "frequency": "Once per site, before go-live",
+  "duration": "Unconfirmed — record it on the first run",
+  "schema_version": 2,
+  "dept": "WEB",
+  "number": 5,
+  "slug": "pre-launch-readiness-and-go-live",
+  "source": {
+   "kind": "manual",
+   "note": "Notebook 'Launch Process' pages (2026-09-22) and the WEB-005 kickoff prompt. Interview answers outstanding at v0.1."
+  },
+  "tasks": [
+   {
+    "badge": "Phase 1",
+    "label": "Confirm the build is ready to be checked",
+    "hint": "Tasks 1.1–1.4 · start of pre-launch, once",
+    "proc": "1"
+   },
+   {
+    "badge": "Phase 2",
+    "label": "SEO and GEO",
+    "hint": "Tasks 2.1–2.5 · before any audit reads the pages",
+    "proc": "2"
+   },
+   {
+    "badge": "Phase 3",
+    "label": "Accessibility to WCAG 2.2 AA",
+    "hint": "Tasks 3.1–3.4 · after SEO, before performance",
+    "proc": "3"
+   },
+   {
+    "badge": "Phase 4",
+    "label": "Performance and responsive checks",
+    "hint": "Tasks 4.1–4.4 · Lighthouse loop, then BrowserStack",
+    "proc": "4"
+   },
+   {
+    "badge": "Phase 5",
+    "label": "Legal and policy pages",
+    "hint": "Tasks 5.1–5.4 · needs wording from the client",
+    "proc": "5"
+   },
+   {
+    "badge": "Phase 6",
+    "label": "Collect and install the live keys",
+    "hint": "Tasks 6.1–6.10 · the list from WEB-004 task 8.4",
+    "proc": "6"
+   },
+   {
+    "badge": "Phase 7",
+    "label": "The money path, in Claude Fable",
+    "hint": "Tasks 7.1–7.5 · test keys only, never a real charge",
+    "proc": "7"
+   },
+   {
+    "badge": "Phase 8",
+    "label": "Test booking and the full flow",
+    "hint": "Tasks 8.1–8.6 · one real booking, cancelled after",
+    "proc": "8"
+   },
+   {
+    "badge": "Phase 9",
+    "label": "Client sign-off",
+    "hint": "Tasks 9.1–9.3 · written approval before DNS moves",
+    "proc": "9"
+   },
+   {
+    "badge": "Phase 10",
+    "label": "DNS cutover",
+    "hint": "Tasks 10.1–10.11 · the point of no return",
+    "proc": "10"
+   },
+   {
+    "badge": "Phase 11",
+    "label": "Confirm live and hand to WEB-003",
+    "hint": "Tasks 11.1–11.4 · everything again, on the real domain",
+    "proc": "11"
+   }
+  ]
+ },
+ "blocks": [
+  {
+   "type": "section",
+   "num": "01",
+   "label": "Purpose and scope"
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "t": "Purpose",
+     "d": "Takes a site that WEB-004 left complete on its <code>*.netlify.app</code> address and makes it ready to be a business: search and answer-engine ready, accessible to WCAG 2.2 AA, fast on every page, correct at every screen size, legally complete, wired to the client's live payment, email, booking and CRM accounts, proven with a test booking, approved by the client, and moved onto the client's real domain without taking their email down."
+    },
+    {
+     "t": "In scope",
+     "d": "SEO and GEO. Accessibility to WCAG 2.2 AA. The Lighthouse loop. BrowserStack responsive checks. Legal and policy pages. The HGM and Meta client pixels. Collecting and installing the live keys — Stripe, Resend, the booking platform, GoHighLevel. The money path. A test booking and the booking-flow walk. The Resend check. Client sign-off. The DNS cutover. Confirming the site is live."
+    },
+    {
+     "t": "Out of scope",
+     "d": "Everything WEB-004 covers — the build, the Resources folder, the forms, matching the original. Google Analytics 4, Search Console and Hotjar, which are WEB-003 and start the day the site is live."
+    }
+   ]
+  },
+  {
+   "type": "para",
+   "text": "This SOP starts at WEB-004 task 8.4: the pull request is merged, the team has reviewed the site in the client websites space, and the Asana task lists the keys still missing. It ends where WEB-003 phase 1 begins: the site answers on the client's domain and the repository can be proven to be the live site."
+  },
+  {
+   "type": "panel",
+   "kind": "warning",
+   "t": "This is a field-test draft",
+   "text": "Version 0.1 was built before the interview answers, the WCAG audit prompt and the promo-code campaign links document arrived. Every gap is marked <strong class=\"hl\">[NEEDS INPUT]</strong> in place. Run the first launch against it, write down what actually happened at each flag, and hand the answers back — v0.2 clears them. Do not treat a flagged task as an instruction."
+  },
+  {
+   "type": "rules",
+   "k": "Always true",
+   "t": "Six standing rules",
+   "d": "These hold on every launch. Everything else in this document is procedure; these are not negotiable.",
+   "items": [
+    {
+     "t": "Money work happens in Claude Fable, against test keys, never a real charge",
+     "d": "Anything that touches prices, coupons, the payment intent, checkout, webhooks or an API key is done in Claude Fable with Stripe in test mode. A live secret key never sits in <code>.env.local</code> on your machine and never appears in a prompt."
+    },
+    {
+     "t": "The client's email must survive the cutover",
+     "d": "Before any DNS record changes, every existing MX, SPF, DKIM and DMARC record is written down; after the change a test message is sent to the client's own address and seen to arrive. A launch that breaks the client's inbox is a failed launch."
+    },
+    {
+     "t": "Nothing is verified until it has been seen on the live domain",
+     "d": "A check passed on <code>netlify.app</code>, on a deploy preview or on <code>localhost</code> is a check that has to be repeated on <code>https://&lt;client-domain&gt;</code> after cutover. Phase 11 exists for this."
+    },
+    {
+     "t": "Every audit prompt's output is checked, not trusted",
+     "d": "Claude reports \"all pages 100/100\" or \"the site is AA\"; you open the page and look. Each audit phase pairs the prompt with a by-hand check, and the by-hand check is the one that counts."
+    },
+    {
+     "t": "Never invent a value",
+     "d": "A key, a Location ID, a pixel ID, a domain record — it comes from the client's record in hgmportal.com, from 1Password, or from the client through their account manager. If it is not there, it is a named gap on the Asana task, never something typed in from another client."
+    },
+    {
+     "t": "The client approves before DNS moves",
+     "d": "Written sign-off is recorded on the Asana task before phase 10 begins. No sign-off, no cutover, whatever the deadline says."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "02",
+   "label": "Roles and responsibilities"
+  },
+  {
+   "type": "table",
+   "headers": [
+    "Role",
+    "Responsibility"
+   ],
+   "rows": [
+    [
+     "Web team member running pre-launch",
+     "Performs tasks 1.1 to 11.4. Anyone on the web team can run this SOP. The cutover phase is run with a second person watching the first time."
+    ],
+    [
+     "Web & Content Specialist (Kyle Zinger)",
+     "Owns this SOP and keeps it current. First point of contact when the procedure and reality disagree."
+    ],
+    [
+     "Template owner (Leshan Patterson)",
+     "Owns the two template repositories, the webhook endpoints they expose and the environment variable names. Escalation when the template's money path or key handling is wrong."
+    ],
+    [
+     "Account manager for the client",
+     "Requests from the client everything the client has to supply — Stripe access, policy wording, DNS access or a DNS change, the sign-off — and carries the cutover window back."
+    ],
+    [
+     "Client",
+     "Owns the domain, Stripe, Netlify, Supabase and the booking platform account. Supplies keys and wording, approves the site, agrees the cutover moment."
+    ],
+    [
+     "Operations Manager (Gillian)",
+     "Approves this SOP. <strong class=\"hl\">[NEEDS INPUT: Q27 — whether Gillian also signs off each launch, or only the client]</strong>"
+    ],
+    [
+     "Client websites space, Google Chat",
+     "Where the site is posted for team review before client sign-off, and where a cutover is announced as it happens."
+    ]
+   ]
+  },
+  {
+   "type": "section",
+   "num": "03",
+   "label": "Prerequisites"
+  },
+  {
+   "type": "numcards",
+   "columns": 2,
+   "items": [
+    {
+     "t": "The merged WEB-004 build",
+     "d": "On <code>main</code>, deployed to its <code>netlify.app</code> address, with the Asana task in the pre-launch stage and its comment listing the keys still missing."
+    },
+    {
+     "t": "A login for hgmportal.com",
+     "d": "The client record holds the property management system and the keys HGM already has. <strong class=\"hl\">[NEEDS INPUT: Q1 — whether the registrar and DNS host are recorded there]</strong>"
+    },
+    {
+     "t": "1Password, with the client's vault",
+     "d": "The site's <code>.env.local</code> entry and the client's logins. See HGM-SOP-WEB-001."
+    },
+    {
+     "t": "VS Code with Claude Code signed in",
+     "d": "Claude Fable selected for phases 7 and 8. <strong class=\"hl\">[NEEDS INPUT: how Claude Fable is selected in Claude Code at HGM — the model picker in the prompt box, or a setting]</strong>"
+    },
+    {
+     "t": "The client's Netlify team",
+     "d": "With the HGM web team account as a Developer (WEB-004 task 2.1)."
+    },
+    {
+     "t": "The client's Stripe account in test mode",
+     "d": "Or sandbox details, supplied by the client together with a 100% coupon (task 6.2)."
+    },
+    {
+     "t": "The client's GoHighLevel sub-account",
+     "d": "The same one the forms were built in (WEB-004 task 7.4)."
+    },
+    {
+     "t": "A BrowserStack login",
+     "d": "<strong class=\"hl\">[NEEDS INPUT: Q22 — whether HGM has an account, and whether Claude reaches it through an MCP or you check by hand]</strong>"
+    },
+    {
+     "t": "Terminal tools and a phone",
+     "d": "<code>git</code>, <code>dig</code>, <code>curl</code>, <code>npx</code>, a browser with developer tools, and a real phone for task 4.4."
+    },
+    {
+     "t": "The Paradise Pointe site as the reference",
+     "d": "For SEO wording and the legal pages. <strong class=\"hl\">[NEEDS INPUT: Q23 — the Paradise Pointe URL, and what \"the master doc\" is and where it lives]</strong>"
+    }
+   ]
+  },
+  {
+   "type": "sub",
+   "text": "Where are you working?"
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "icon": "vscode",
+     "t": "VS Code",
+     "d": "Every audit prompt, every fix, every commit. Claude Code runs here, and Claude Fable for phases 7 and 8."
+    },
+    {
+     "icon": "terminal",
+     "t": "Terminal",
+     "d": "The <code>dig</code> and <code>curl</code> checks in phases 10 and 11. Everything here also works from the VS Code terminal."
+    },
+    {
+     "icon": "desktop",
+     "t": "Claude Desktop app",
+     "d": "Prompts only. Everything that is a key, a record or a dashboard — Stripe, Resend, GoHighLevel, Netlify, the DNS host — is point and click in a browser."
+    }
+   ]
+  },
+  {
+   "type": "panel",
+   "kind": "success",
+   "t": "Pick one route per task",
+   "text": "Wherever a task can be done more than one way you will see a point-and-click box, a terminal box or a Claude prompt box. They do the same thing. Only routes that exist are offered; a task with one box has one route."
+  },
+  {
+   "type": "section",
+   "num": "04",
+   "label": "Definitions"
+  },
+  {
+   "type": "cards",
+   "cols": 2,
+   "items": [
+    {
+     "t": "GEO (generative engine optimisation)",
+     "d": "Making a site legible to AI answer engines the way SEO makes it legible to Google: structured data that says what each page is, and an <code>llms.txt</code> file at the site root describing the site in plain text."
+    },
+    {
+     "t": "Schema (structured data)",
+     "d": "JSON-LD blocks in a page's HTML describing the page's entity — a vacation rental, an organisation, an FAQ — in a vocabulary search and answer engines read. Checked with Google's Rich Results Test."
+    },
+    {
+     "t": "WCAG 2.2 AA",
+     "d": "The Web Content Accessibility Guidelines at level AA, the standard phase 3 audits to: keyboard operability, text alternatives on images, colour contrast, visible focus, and the rest. <strong class=\"hl\">[NEEDS INPUT: WCAG audit prompt — the criteria list it enumerates]</strong>"
+    },
+    {
+     "t": "Lighthouse",
+     "d": "Google's page audit tool, scoring Performance, Accessibility, Best Practices and SEO out of 100. The loop in phase 4 runs it until every page scores 100 in every category."
+    },
+    {
+     "t": "Test mode (Stripe)",
+     "d": "Stripe's sandbox. Test keys begin <code>pk_test_</code> and <code>sk_test_</code>; live keys begin <code>pk_live_</code> and <code>sk_live_</code>. A charge made with a test key is not real. Every money task in this SOP happens in test mode."
+    },
+    {
+     "t": "Webhook",
+     "d": "A URL on the site that Stripe or the booking platform calls when something happens — a payment succeeds, a reservation is created. It is registered on their side with the site's address, and it has to be re-registered when that address changes at cutover."
+    },
+    {
+     "t": "Pixel and CAPI",
+     "d": "The Meta pixel is browser-side tracking; the Conversions API (CAPI) reports the same events server-side. The CAPI token is one HGM value shared across clients. <strong class=\"hl\">[NEEDS INPUT: Q19 — whether the pixel ID is per client or shared, and what the \"HGM pixel\" is]</strong>"
+    },
+    {
+     "t": "Registrar and DNS host",
+     "d": "The registrar is where the domain is owned and renewed; the DNS host is where its records are served. Often the same company, often not — Ridge &amp; Falls was registered at Squarespace Domains with DNS at Cloudflare."
+    },
+    {
+     "t": "A, ALIAS, CNAME, MX, TXT",
+     "d": "The record types a cutover touches. A and ALIAS point the bare domain at a server; CNAME points <code>www</code> at another name; MX routes email; TXT carries SPF, DKIM and DMARC, which are what stop the client's mail being marked as spam."
+    },
+    {
+     "t": "TTL",
+     "d": "How long a DNS record is cached, in seconds. Lowering it before a cutover is what makes the change take effect quickly, and it has to be lowered before the old TTL has expired to make any difference."
+    },
+    {
+     "t": "Cutover",
+     "d": "The moment the domain's records stop pointing at the old site and start pointing at Netlify. The point of no return in this SOP; section 08 is its gate."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "05",
+   "label": "Procedure"
+  },
+  {
+   "type": "sub",
+   "id": "1",
+   "text": "Phase 1 &mdash; Confirm the build is ready to be checked",
+   "d": "Prove you are starting from the merged build, on a machine whose environment is filled, on a branch you can throw away."
+  },
+  {
+   "type": "step",
+   "n": "1.1",
+   "id": "WEB-005.1.1",
+   "t": "Read the handoff on the Asana task",
+   "d": "Open the Asana task and read the comment WEB-004 task 8.4 left: the <code>netlify.app</code> address, the list of keys still missing with a name against each, and the <code>TOKENS.md</code> total.",
+   "expect": "You know which keys phase 6 has to collect before you open a single dashboard.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "1.2",
+   "id": "WEB-005.1.2",
+   "t": "Pull main and confirm the deployed site is main",
+   "d": "Fetch, fast-forward, then compare the commit Netlify has deployed with <code>origin/main</code>.",
+   "expect": "<code>git status -sb</code> shows <code>main...origin/main</code> with no <code>[behind N]</code>, and the deployed commit equals <code>origin/main</code>.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "git fetch origin && git status -sb\ngit pull --ff-only\ngit rev-parse origin/main    # compare with the commit shown on the Netlify deploy"
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Fetch origin and tell me how far behind main is. If a fast-forward is possible, pull. Then ask the Netlify connector for get-deploy-for-site on this site and tell me whether commit_ref equals origin/main. Make no changes.",
+     "note": "paste into Claude Code"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "1.3",
+   "id": "WEB-005.1.3",
+   "t": "Check .env.local is filled, by length",
+   "d": "Print each key with the length of its value, never the value. If keys are blank, restore the file from the client's 1Password entry (HGM-SOP-WEB-001) and restart the dev server.",
+   "expect": "Every key WEB-004 filled shows a non-zero length, and the blank ones are exactly the list from task 1.1.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "awk -F= '/^[A-Za-z_][A-Za-z0-9_]*=/ { print $1, length($2) }' .env.local",
+     "note": "lengths only"
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Check .env.local: list every key with the LENGTH of its value. Never print a value. Tell me which keys are blank.",
+     "note": "paste into Claude Code"
+    },
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "Never print or paste a value",
+     "text": "Lengths, not contents. A value pasted into a chat, an Asana comment or a screenshot is a key that has to be rotated."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "1.4",
+   "id": "WEB-005.1.4",
+   "t": "Make the pre-launch branch and open the cost row",
+   "d": "Create a branch named <code>pre-launch</code> off <code>main</code> following HGM-SOP-WEB-002, and add today's row to <code>TOKENS.md</code> (WEB-004 task 3.4).",
+   "expect": "Every audit fix in phases 2 to 5 lands on <code>pre-launch</code> and reaches production through one pull request in task 8.6.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "git checkout -b pre-launch"
+    }
+   ]
+  },
+  {
+   "type": "sub",
+   "id": "2",
+   "text": "Phase 2 &mdash; SEO and GEO",
+   "d": "Give every page its titles, descriptions and social shares, then make the site legible to answer engines. The reference for voice and tone is the finished Paradise Pointe site."
+  },
+  {
+   "type": "step",
+   "n": "2.1",
+   "id": "WEB-005.2.1",
+   "t": "Set meta titles, descriptions and social shares for every page",
+   "d": "In Claude Code, run the prompt below with the Paradise Pointe URL and the master doc attached. <strong class=\"hl\">[NEEDS INPUT: Q23 — the Paradise Pointe URL and the master doc's name and location]</strong>",
+   "expect": "A list of every page with its title, description and share image. Compare the list against the sitemap; no page may be missing.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Set the meta title, meta description and social share (Open Graph and Twitter card) for every page on this site. Use <Paradise Pointe URL> as the reference for a site that is already done, and read <master doc> to understand the voice and tone to write in. List every page and the values you set.",
+     "note": "fill in the two angle-bracket values"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "2.2",
+   "id": "WEB-005.2.2",
+   "t": "Check the tags on three pages yourself",
+   "d": "Open the home page, the listings page and one property page on the deploy preview. View source and find <code>&lt;title&gt;</code>, <code>&lt;meta name=\"description\"</code>, <code>og:title</code>, <code>og:description</code> and <code>og:image</code> on each.",
+   "expect": "Every tag is present and the share image URL loads. A title that reads as a template placeholder is a fail.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "text": "Browser: View Page Source (Cmd + Option + U in Chrome) → Cmd + F \"og:image\".",
+     "note": "then repeat for description"
+    },
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -s https://<deploy-preview>/ | grep -o '<meta property=\"og:[a-z:]*\" content=\"[^\"]*\"'",
+     "note": "replace <deploy-preview>"
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; One page's rendered <code>&lt;head&gt;</code> showing the title, description and social tags."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "2.3",
+   "id": "WEB-005.2.3",
+   "t": "Run the GEO audit — schema and llms.txt",
+   "d": "In Claude Code, run the prompt below.",
+   "expect": "JSON-LD on every page type, one builder function per entity (WEB-003 task 7.2 explains why), and <code>llms.txt</code> at the site root.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Do a full GEO audit of this site. Optimise the site for generative engines: add schema where it is missing so that each page's entity is described, update existing schema so LLMs know what each page is about, and create an llms.txt file at the site root describing the site, its pages and its properties. Fill schema only from data the site actually has; leave out anything you would have to invent. List every change.",
+     "note": "paste into Claude Code"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "2.4",
+   "id": "WEB-005.2.4",
+   "t": "Check the schema and read llms.txt",
+   "d": "Run Google's Rich Results Test on the listings page first, then one property page. Open <code>https://&lt;deploy-preview&gt;/llms.txt</code> and read it.",
+   "expect": "Zero critical issues on both pages, and <code>llms.txt</code> describes this client and no other.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Test the list page, not just the detail page",
+     "text": "On Ridge &amp; Falls the listings page emitted a thin copy of each property with the same <code>@id</code> as the full node on the property page, and the test scored every cabin \"2 critical\". The list page is where it shows."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "2.5",
+   "id": "WEB-005.2.5",
+   "t": "Commit and push",
+   "d": "Commit the SEO and GEO changes on <code>pre-launch</code> and push. Netlify rebuilds the deploy preview.",
+   "expect": "The preview carries the new tags and task 2.2's checks pass against it.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "git add -A && git commit -m \"feat: SEO meta, schema and llms.txt\" && git push -u origin pre-launch"
+    }
+   ]
+  },
+  {
+   "type": "sub",
+   "id": "3",
+   "text": "Phase 3 &mdash; Accessibility to WCAG 2.2 AA",
+   "d": "Run the audit prompt, answer its questions, then check the site by hand against the criteria."
+  },
+  {
+   "type": "step",
+   "n": "3.1",
+   "id": "WEB-005.3.1",
+   "t": "Run the accessibility audit prompt",
+   "d": "In Claude Code, paste the prompt exactly as written.",
+   "expect": "A list of issues found and fixed, and a list of questions.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Do a quick accessibility check as in an audit on the website and correct all the accessibility issues. Ask questions if you are unsure. Ensure the website is keyboard navigable, AA rated where possible, add alt tags to all images and anything else that needs to be done to enhance accessibility.",
+     "note": "paste into Claude Code, verbatim"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "3.2",
+   "id": "WEB-005.3.2",
+   "t": "Answer every question before letting it continue",
+   "d": "The prompt says \"ask questions if you are unsure\" — read them. A typical one is what a decorative image's alt text should be, or whether a client colour that fails contrast may be changed.",
+   "expect": "No question is left unanswered, and no brand colour has been changed without the client's say.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "Keep the client's swatches even when contrast fails",
+     "text": "Do not let the audit silently change a brand colour. Document the contrast ratio at the declaration and tell the account manager the passing alternative, so the client decides. WEB-003 section 06 records the same rule."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "3.3",
+   "id": "WEB-005.3.3",
+   "t": "Check keyboard navigation and alt text yourself",
+   "d": "On the deploy preview, put the mouse down. Tab from the top of the home page through the search widget, into the listings, onto a property page and into the booking form. Then confirm no image on the listings page lacks an <code>alt</code> attribute.",
+   "expect": "You can reach and operate every control with the keyboard, focus is visible at every step, and the grep prints nothing.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -s https://<deploy-preview>/listings | grep -o '<img[^>]*>' | grep -v 'alt='",
+     "note": "prints images with no alt"
+    },
+    {
+     "type": "code",
+     "kind": "click",
+     "label": "Point & click",
+     "text": "Browser: click in the address bar, then press Tab repeatedly.\nWatch for the focus ring on every link, button and field.\nPress Enter on the search button; keep tabbing into the results."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The site with a keyboard focus ring visible on a button, proving the indicator is not clipped. Ring the focus ring."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "3.4",
+   "id": "WEB-005.3.4",
+   "t": "Check the remaining WCAG 2.2 AA criteria",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: WCAG audit prompt — the criteria list, the check for each, and the pass condition. This task becomes a table once the audit prompt is supplied.]</strong>",
+   "expect": "Every criterion in the table passes or has a named exception on the Asana task.",
+   "body": []
+  },
+  {
+   "type": "sub",
+   "id": "4",
+   "text": "Phase 4 &mdash; Performance and responsive checks",
+   "d": "Two loops, each followed by a look."
+  },
+  {
+   "type": "step",
+   "n": "4.1",
+   "id": "WEB-005.4.1",
+   "t": "Run the Lighthouse loop",
+   "d": "In Claude Code, run the prompt below. <strong class=\"hl\">[NEEDS INPUT: Q20 and Q21 — whether the loop runs against localhost, the deploy preview or production; Lighthouse via the CLI, DevTools or a Netlify plugin; whether 100/100 means all four categories; and the accepted floor if the loop cannot get there]</strong>",
+   "expect": "A per-page table of the four scores, all 100.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Next create a loop that checks Lighthouse and continues to loop until everything and every page is 100/100.",
+     "note": "paste into Claude Code, verbatim"
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "A loop is blunt here too",
+     "text": "WEB-004 warns that a matching loop stops improving while still spending tokens. A Lighthouse loop is safer because the score is a hard number, but if it has run for <strong class=\"hl\">[NEEDS INPUT: Q21 — a time or pass limit]</strong> without reaching 100, stop it and fix the remaining items by name."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; A Lighthouse run on the home page showing the four scores at the end of the loop. Ring the Performance score."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "4.2",
+   "id": "WEB-005.4.2",
+   "t": "Run Lighthouse yourself on three pages",
+   "d": "In Chrome, open DevTools, choose the Lighthouse panel, and run the home page, the listings page and one property page — mobile and desktop.",
+   "expect": "The scores you see match the table Claude reported. If they do not, the loop measured a different build — see section 07.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Screenshot 4.2 to capture",
+     "text": "A Lighthouse run showing the four 100s. Crop to the four score circles and the page URL; ring the Performance score."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "4.3",
+   "id": "WEB-005.4.3",
+   "t": "Run the responsive check on BrowserStack",
+   "d": "In Claude Code, run the prompt below. <strong class=\"hl\">[NEEDS INPUT: Q22 — how Claude reaches BrowserStack (an MCP, or you drive it), and the device list HGM tests against]</strong>",
+   "expect": "A report per breakpoint and device, with any layout fault fixed.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Check mobile responsiveness on BrowserStack, all breakpoints on the website and all device sizes should be perfect.",
+     "note": "paste into Claude Code, verbatim"
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The BrowserStack device grid part-way through a responsive pass."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "4.4",
+   "id": "WEB-005.4.4",
+   "t": "Look at it on a real phone",
+   "d": "Open the deploy preview on your own phone. Walk home, listings, property, the booking form. Open the mobile menu and the pop-up.",
+   "expect": "Nothing overflows, nothing is cut off, the sticky search widget behaves, and the pop-up fits the screen. BrowserStack emulates; a phone is the truth.",
+   "body": []
+  },
+  {
+   "type": "sub",
+   "id": "5",
+   "text": "Phase 5 &mdash; Legal and policy pages",
+   "d": "The cancellation policy has to read the same everywhere; the privacy policy and terms of use have to exist and be reachable."
+  },
+  {
+   "type": "step",
+   "n": "5.1",
+   "id": "WEB-005.5.1",
+   "t": "Collect the wording",
+   "d": "Get from the account manager: the cancellation policy, the privacy policy, and the terms of use PDF. <strong class=\"hl\">[NEEDS INPUT: Q23 and Q24 — who supplies each: the client, or HGM's template wording modelled on Paradise Pointe; and whose PDF the terms of use is]</strong>",
+   "expect": "Three pieces of text, or a named owner and date on the Asana task for each one missing.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "5.2",
+   "id": "WEB-005.5.2",
+   "t": "Build the pages to match Paradise Pointe",
+   "d": "Attach the wording and the PDF and run the prompt below.",
+   "expect": "Both pages are reachable from the footer on every page, and the PDF opens.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Add a privacy policy page and a terms of use page, matching the layout and placement of the same pages on <Paradise Pointe URL>. Use the attached wording verbatim. The terms of use are the attached PDF — link to it rather than retyping it. Add both to the footer.",
+     "note": "fill in the Paradise Pointe URL"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "5.3",
+   "id": "WEB-005.5.3",
+   "t": "Make the cancellation policy identical everywhere",
+   "d": "The policy appears on the property page, on the checkout and confirmation pages and in the confirmation email. Ask for one source of truth and a check.",
+   "expect": "One definition. A grep for a distinctive phrase from the policy finds it in that one file only.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "The cancellation policy must be identical on the property page, the checkout and confirmation pages, and in every email the site sends. Move it to one constant and render it from there everywhere. Then list every place it appears.",
+     "note": "paste into Claude Code"
+    },
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "grep -rl \"<a distinctive phrase from the policy>\" app lib components",
+     "note": "expect one file"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "5.4",
+   "id": "WEB-005.5.4",
+   "t": "Privacy pop-up",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q24 — whether the template ships a privacy or cookie pop-up and whether it is required; the notebook line is struck through]</strong>",
+   "expect": "The decision is recorded on the Asana task, and the pop-up is either present on every page or deliberately absent.",
+   "body": []
+  },
+  {
+   "type": "sub",
+   "id": "6",
+   "text": "Phase 6 &mdash; Collect and install the live keys",
+   "d": "Work through the missing-keys list from task 1.1. Every value goes into <code>.env.local</code>, then onto Netlify by hand, then back to 1Password."
+  },
+  {
+   "type": "step",
+   "n": "6.1",
+   "id": "WEB-005.6.1",
+   "t": "Open the list and ENV.template side by side",
+   "d": "Match each missing key to its variable name. <strong class=\"hl\">[NEEDS INPUT: Q18 — the variable names from ENV.template for Stripe, Resend, Meta, GHL and the booking platform, names only. Nothing below names a variable until this is supplied.]</strong>",
+   "expect": "Every missing key has a variable name and a source.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "6.2",
+   "id": "WEB-005.6.2",
+   "t": "Get Stripe test access and the 100% coupon from the client",
+   "d": "Through the account manager, ask the client for either the test publishable key and test secret key from their Stripe account, or sandbox details, plus a 100% coupon for the test booking. <strong class=\"hl\">[NEEDS INPUT: Q11 — whether Stripe is the client's own account, whether HGM ever holds a live secret key, and who swaps test for live]</strong> <strong class=\"hl\">[NEEDS INPUT: Q12 — whether the 100% coupon is created in Stripe or in the site's own coupon store]</strong>",
+   "expect": "Two keys beginning <code>pk_test_</code> and <code>sk_test_</code>, and a coupon code, in the client's 1Password vault.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "message",
+     "label": "Message for the account manager to forward",
+     "text": "For <client>'s launch we need Stripe test access so we can prove the payment path without charging anyone: the test publishable key and test secret key from their Stripe dashboard (test mode), or sandbox login details, plus a 100% coupon code we can use for one test booking. Please send them through 1Password, not email."
+    },
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "Test keys only, on this SOP",
+     "text": "A key beginning <code>sk_live_</code> does not go into <code>.env.local</code> on anyone's machine. If the client sends live keys, put them in 1Password and stop; the live swap happens in task 11.3."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Screenshot 6.2 to capture",
+     "text": "Stripe in test mode, the API keys page. Crop to the two key rows with the values hidden; ring the test-mode toggle."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; Stripe's test-mode API keys screen, both values redacted before you send it. Ring the test-mode toggle."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "6.3",
+   "id": "WEB-005.6.3",
+   "t": "Get the Resend API key",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q13 — whether Resend is the client's account or HGM's, where the key is created, and what the notebook's \"Netlify → user → settings → OAuth → new access token\" line was for. That path is Netlify's personal access token screen, not Resend.]</strong>",
+   "expect": "A Resend API key in 1Password, and the sending domain it is tied to written on the Asana task.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The Resend API keys screen, value redacted."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "6.4",
+   "id": "WEB-005.6.4",
+   "t": "Get the Meta values",
+   "d": "The CAPI access token is one HGM value shared across all clients; take it from <strong class=\"hl\">[NEEDS INPUT: Q19 — where it is held]</strong>. The pixel ID is <strong class=\"hl\">[NEEDS INPUT: Q19 — per client from the client's Meta Business account, or shared]</strong>.",
+   "expect": "Both values are in <code>.env.local</code> under the names from task 6.1.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "6.5",
+   "id": "WEB-005.6.5",
+   "t": "Get the GoHighLevel Location ID and private integration token",
+   "d": "In the client's GoHighLevel sub-account, open the business profile and copy the Location ID. Then create a new private integration, select all scopes, and copy its token. <strong class=\"hl\">[NEEDS INPUT: Q16 — whether \"select all\" means literally every scope, and the exact menu labels in HGM's white-labelled GoHighLevel]</strong>",
+   "expect": "The Location ID matches the one on the client's record in hgmportal.com (WEB-004 task 7.4), and the token is in 1Password.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Screenshot 6.5 to capture",
+     "text": "The GoHighLevel private integration screen after creation. Crop to the scope list and the token row with the token hidden; ring the create button."
+    },
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "Check which sub-account you are in",
+     "text": "A token from the wrong sub-account sends this client's bookings into another client's CRM, and nothing errors. Confirm the Location ID before you create anything."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The GoHighLevel private integration screen after creation, with the scope list showing. Ring the scope list."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "6.6",
+   "id": "WEB-005.6.6",
+   "t": "Get the booking platform's booking engine URL",
+   "d": "For Guesty: open Marketing + Sales, then Distribution, then Guesty Booking Engine, and copy the booking engine API (BEAPI) URL. <strong class=\"hl\">[NEEDS INPUT: Q17 — which variable the BEAPI URL fills, and the Hostaway equivalent or a statement that Hostaway is out of scope for now]</strong>",
+   "expect": "The URL is in <code>.env.local</code>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "AwayFrames is on Hostaway",
+     "text": "The first run of this SOP is a Hostaway site. Record what the Hostaway equivalent of this task actually is, so v0.2 can carry both platforms."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The booking platform's distribution screen where the booking engine URL is shown. Ring the URL field."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "6.7",
+   "id": "WEB-005.6.7",
+   "t": "Add the values to .env.local, then to Netlify by hand",
+   "d": "One at a time, in the Netlify project's environment variables, exactly as WEB-004 task 4.6 does it. Never bulk-import the file.",
+   "expect": "Every variable from task 6.1 exists on Netlify with a non-empty value.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "Add them by hand, one at a time",
+     "text": "Bulk-importing <code>.env.local</code> uploads everything in the file, including anything personal to your machine, and arms every scheduled function the template ships."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; Netlify <strong>Environment variables</strong> with the full list for this site, values redacted."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "6.8",
+   "id": "WEB-005.6.8",
+   "t": "Register the webhooks and confirm the keys, in Claude Fable",
+   "d": "Switch to Claude Fable and run the keys-and-webhooks prompt. <strong class=\"hl\">[NEEDS INPUT: Q14 — what the \"Supabase access token\" is: a personal access token for the management API, or the service_role key WEB-004 already collected]</strong> <strong class=\"hl\">[NEEDS INPUT: Q15 — the webhook endpoint paths the template exposes for Stripe and for the booking platform, where the Stripe webhook signing secret is set, and whether webhooks are registered against netlify.app now and re-registered on the live domain in task 10.5]</strong>",
+   "expect": "Stripe's test-mode webhook list shows the site's endpoint; the booking platform shows its webhook; a report names each key as working.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt — Fable",
+     "text": "The Stripe publishable and secret test keys have been added. Register the webhooks for both the booking platform and Stripe. The Supabase access token has been added. The Resend API key has been added. Confirm the checkout page is functional, the webhooks are correctly set up, and the Resend, Meta and GHL keys are working. Add everything to the project on Netlify.",
+     "note": "paste into Claude Code with Fable selected"
+    },
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "\"Working\" means a request went through",
+     "text": "Claude can only confirm a key by making a call with it. Read what it did: a Resend key is confirmed by a sent test email you can see in Resend's log, a GHL key by a contact appearing in the sub-account, a Meta key by a test event. If it says \"the key looks valid\" without a call, it did not check."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Screenshot 6.8 to capture",
+     "text": "The Stripe webhook endpoint dialog in test mode. Crop to the endpoint URL and the events list; ring the add-endpoint button."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The Stripe webhook endpoint dialog with the event list selected. Ring the <strong>Add endpoint</strong> control."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "6.9",
+   "id": "WEB-005.6.9",
+   "t": "Add the HGM and Meta client pixels to the site",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q19 — what the HGM pixel is, and whether the template's env-gated Meta pixel block (WEB-003 task 3.1) covers both, so that this is a variable rather than code]</strong>",
+   "expect": "The pixel script is in the live HTML of the deploy preview's home page, with the client's ID.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -s https://<deploy-preview>/ | grep -o \"fbq('init', '[0-9]*')\"",
+     "note": "prints the pixel ID the page carries"
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; Meta Events Manager showing test traffic arriving from the site. Ring the live event row."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "6.10",
+   "id": "WEB-005.6.10",
+   "t": "Write everything back to 1Password and update the Asana list",
+   "d": "Save the current <code>.env.local</code> into the client's vault per HGM-SOP-WEB-001, and edit the Asana comment so the missing-keys list is empty or names who still owes what.",
+   "expect": "Nothing is missing that phase 7 needs.",
+   "body": []
+  },
+  {
+   "type": "sub",
+   "id": "7",
+   "text": "Phase 7 &mdash; The money path, in Claude Fable",
+   "d": "Everything here is in Claude Fable, in Stripe test mode. A mistake here charges a real guest the wrong amount once the site is live, so this phase is never merged with another and never rushed."
+  },
+  {
+   "type": "step",
+   "n": "7.1",
+   "id": "WEB-005.7.1",
+   "t": "Confirm you are in Claude Fable and in test mode",
+   "d": "Check the model shown in Claude Code is Claude Fable, and check that every Stripe value in <code>.env.local</code> begins with a test prefix.",
+   "expect": "The model is Fable and every Stripe value starts <code>pk_test_</code> or <code>sk_test_</code>. A live prefix stops this phase.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "awk -F= '/STRIPE/ { print $1, substr($2,1,8) }' .env.local",
+     "note": "prints the first eight characters only"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "7.2",
+   "id": "WEB-005.7.2",
+   "t": "Walk the checkout page and the payment intent",
+   "d": "Ask Fable to trace the money path end to end and report, without changing anything.",
+   "expect": "A list you can follow in the code. The amount sent to Stripe is the amount shown to the guest, in the currency the client charges in.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt — Fable",
+     "text": "Trace the money path from the property page to a confirmed booking: where the price is calculated, where deposits or fees are added, where the coupon is applied, where the Stripe payment intent is created and with what amount and currency, and what the webhook does on payment success. Report it as a numbered list with the file and function for each step. Make no changes.",
+     "note": "paste into Claude Code with Fable selected"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "7.3",
+   "id": "WEB-005.7.3",
+   "t": "Set up the coupon",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: promo-code campaign links document — how the 100% coupon and any campaign coupons are created, where they live, and how they are applied]</strong>",
+   "expect": "The 100% coupon applies at checkout and the total reads zero.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "7.4",
+   "id": "WEB-005.7.4",
+   "t": "Build the campaign links",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: promo-code campaign links document — the link format, which pages accept a code from the URL, and how a code is validated]</strong>",
+   "expect": "A campaign link opens the site with its code applied, and an invalid code is refused with a message.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "7.5",
+   "id": "WEB-005.7.5",
+   "t": "Prove it in Stripe test mode",
+   "d": "Make a test payment with a Stripe test card, then open Stripe in test mode and find the payment and the webhook delivery.",
+   "expect": "The payment appears with the right amount, and the webhook endpoint from task 6.8 shows a delivered event for it. A payment with no webhook delivery means the booking was paid for and never recorded.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "Never a real charge",
+     "text": "If at any point a live key, a real card or a live-mode dashboard is in front of you, stop and go back to task 7.1."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; Stripe test mode showing a succeeded payment intent for the test booking, with the discounted total. Ring the amount."
+    }
+   ]
+  },
+  {
+   "type": "sub",
+   "id": "8",
+   "text": "Phase 8 &mdash; Test booking and the full flow",
+   "d": "One booking, as a guest would make it, from the search widget to the confirmation email — then cleaned up."
+  },
+  {
+   "type": "step",
+   "n": "8.1",
+   "id": "WEB-005.8.1",
+   "t": "Walk the booking flow as a guest, with dates and data",
+   "d": "Start at the home page search widget. Choose a location, dates and guests; open the listings; open a property; start the booking. At every step confirm the dates, guest count and price carry through unchanged.",
+   "expect": "What you chose on the home page is what the checkout shows.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "8.2",
+   "id": "WEB-005.8.2",
+   "t": "Make the test booking",
+   "d": "Complete the booking on the deploy preview using the 100% coupon from task 6.2. <strong class=\"hl\">[NEEDS INPUT: Q25 — or a Stripe test card; a real property and real dates, or a designated test property]</strong>",
+   "expect": "The confirmation page, with the booking reference.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "8.3",
+   "id": "WEB-005.8.3",
+   "t": "Check the confirmation email in Resend",
+   "d": "Open Resend and find the confirmation email in its log. Open the message and read it: the cancellation policy from task 5.3, the dates, the property, the amount.",
+   "expect": "The email was delivered, not just sent, and its content matches the confirmation page. Resend shows an error here if anything in the sending path is wrong.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Screenshot 8.3 to capture",
+     "text": "The Resend email log with the confirmation delivered. Crop to the row; ring the delivered status."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The Resend log showing the confirmation email delivered, recipient redacted. Ring the delivered status."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "8.4",
+   "id": "WEB-005.8.4",
+   "t": "Check the reservation reached the booking platform, then cancel it",
+   "d": "Open the client's Guesty or Hostaway account and find the reservation. Cancel it. <strong class=\"hl\">[NEEDS INPUT: Q25 — whether the test booking creates a real reservation and who cancels it]</strong>",
+   "expect": "The reservation existed, and the dates are free again.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "8.5",
+   "id": "WEB-005.8.5",
+   "t": "Check the downstream systems",
+   "d": "Confirm the guest appeared as a contact in the client's GoHighLevel sub-account, and that the Meta event fired. <strong class=\"hl\">[NEEDS INPUT: how HGM checks a Meta test event — Events Manager test events, or not checked at this stage]</strong>",
+   "expect": "One new contact, one purchase event.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "8.6",
+   "id": "WEB-005.8.6",
+   "t": "Do the manual check, then merge",
+   "d": "Open every page in the sitemap, one after another, on desktop, and look at each one. Then open a pull request from <code>pre-launch</code> to <code>main</code> per HGM-SOP-WEB-002, merge it, and confirm the <code>netlify.app</code> production build succeeds.",
+   "expect": "The production site on <code>netlify.app</code> carries every change from phases 2 to 7. This is what the client sees in phase 9.",
+   "body": []
+  },
+  {
+   "type": "sub",
+   "id": "9",
+   "text": "Phase 9 &mdash; Client sign-off",
+   "d": "Written approval, on the record, before DNS moves."
+  },
+  {
+   "type": "step",
+   "n": "9.1",
+   "id": "WEB-005.9.1",
+   "t": "Send the site to the client through the account manager",
+   "d": "Post the <code>netlify.app</code> address and the message below for the account manager to forward. <strong class=\"hl\">[NEEDS INPUT: Q27 — the channel: email via the account manager, or another]</strong>",
+   "expect": "The client has the link and knows what \"approved\" triggers.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "message",
+     "label": "Message for the account manager to forward",
+     "text": "<client>'s new site is ready for your review: <netlify.app URL>. It has been through search, accessibility, performance, device and payment checks, and a test booking has been made and cancelled. Please look at every page, on your phone as well as your computer, and reply with anything you want changed. Once you reply \"approved\", we will schedule the switch to <client-domain>."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "9.2",
+   "id": "WEB-005.9.2",
+   "t": "Work through the client's comments",
+   "d": "Each change goes through the WEB-002 branch-and-preview path. Re-run the check from the phase it touches — a wording change re-runs task 2.2; a layout change re-runs task 4.4; anything near checkout re-runs phase 7.",
+   "expect": "No comment is open.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "9.3",
+   "id": "WEB-005.9.3",
+   "t": "Record the approval and agree the cutover moment",
+   "d": "Paste the client's written approval into the Asana task. Agree with the account manager the day and time of the cutover, and who on the client side will be reachable during it. <strong class=\"hl\">[NEEDS INPUT: Q7 — who decides the moment and what window HGM offers]</strong>",
+   "expect": "The Asana task carries the approval, the cutover time and the client contact for the day. Without all three, phase 10 does not start.",
+   "body": []
+  },
+  {
+   "type": "sub",
+   "id": "10",
+   "text": "Phase 10 &mdash; DNS cutover",
+   "d": "The point of no return. Do it with the section 08 checklist open, with a second person watching the first time, and with the client's email records written down before anything changes."
+  },
+  {
+   "type": "step",
+   "n": "10.1",
+   "id": "WEB-005.10.1",
+   "t": "Find where the domain lives",
+   "d": "Open the client's record in hgmportal.com and read the registrar and the DNS host. If it is not recorded, look the nameservers up. <strong class=\"hl\">[NEEDS INPUT: Q1 and Q2 — whether the registrar and DNS host are on the portal record, and whether Cloudflare is common]</strong>",
+   "expect": "You know the registrar, the DNS host, and whether the domain carries email.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "dig +short NS <client-domain>\ndig +short A <client-domain>\ndig +short MX <client-domain>",
+     "note": "replace <client-domain>"
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Run dig for NS, A, MX and TXT on <client-domain>. Tell me who hosts the DNS, where the site currently points, and whether the domain carries email. Make no changes.",
+     "note": "paste into Claude Code"
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The registrar or Cloudflare account page showing which nameservers the domain is using. Ring the nameserver list."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "10.2",
+   "id": "WEB-005.10.2",
+   "t": "Write down every existing record",
+   "d": "In the DNS host's record editor, export or screenshot every record — A, AAAA, CNAME, MX, TXT, SRV — and save the capture to the client's 1Password vault with today's date.",
+   "expect": "A complete record of the domain as it was, so the rollback in task 10.11 and the email check in task 10.10 have something to compare against.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Screenshot 10.2 to capture",
+     "text": "The DNS host's record editor showing the full record list before any change. Crop to the table; ring the MX rows. Capture a registrar variant and a Cloudflare variant if both turn up."
+    },
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "The MX and TXT records are the client's email",
+     "text": "Whatever method task 10.7 uses, those records must exist unchanged afterwards. Nameserver delegation to Netlify DNS removes them unless they are recreated first."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; The full DNS record list before any change &mdash; this is the one you will need if you have to roll back."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "10.3",
+   "id": "WEB-005.10.3",
+   "t": "Get DNS access, or a person who has it",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q3 — whether HGM gets a login to the DNS host, or the client or their IT makes the change while HGM watches]</strong>",
+   "expect": "Either you can edit the records yourself, or a named person is booked for the cutover window.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "10.4",
+   "id": "WEB-005.10.4",
+   "t": "Lower the TTL",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q6 — whether the TTL is lowered in advance, to what, and how long before]</strong>",
+   "expect": "The A and CNAME records show the lowered TTL, and the old TTL has had time to expire before task 10.7.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "10.5",
+   "id": "WEB-005.10.5",
+   "t": "Add the custom domain in Netlify and switch the site's own address",
+   "d": "In the Netlify project, open <strong>Domain management</strong> and add <code>&lt;client-domain&gt;</code> and <code>www.&lt;client-domain&gt;</code>. Set which one is primary. Then change <code>NEXT_PUBLIC_SITE_URL</code> on Netlify to the real domain and re-register the Stripe and booking platform webhooks against it. <strong class=\"hl\">[NEEDS INPUT: Q10 — apex or www as primary]</strong> <strong class=\"hl\">[NEEDS INPUT: Q28 — whether the site URL changes before or after the records change]</strong> <strong class=\"hl\">[NEEDS INPUT: Q15 — the webhook re-registration]</strong>",
+   "expect": "Netlify shows both domains awaiting DNS and tells you the records it wants.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Screenshot 10.5 to capture",
+     "text": "Netlify Domain management with both domains added and the awaiting-DNS state. Crop to the domain list; ring the add-domain button."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; Netlify <strong>Domain management</strong> after the custom domain is added, showing the records Netlify asks for. Ring the record values."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "10.6",
+   "id": "WEB-005.10.6",
+   "t": "Add the redirect map for old URLs",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q9 — whether a redirect map exists, who writes it, and whether it is a _redirects file or netlify.toml in the template]</strong>",
+   "expect": "Every URL from the old site's sitemap that has no page on the new site redirects to the right one. Test three.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -sI https://<site-name>.netlify.app/<old-path> | head -3",
+     "note": "expect a 301 and a Location header"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "10.7",
+   "id": "WEB-005.10.7",
+   "t": "Change the records at the agreed moment",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q4 — the method: A or ALIAS for the apex and a CNAME for www pointing at Netlify, or delegating the nameservers to Netlify DNS. The task text is written once the method is chosen.]</strong> Post in the client websites space that the cutover has started.",
+   "expect": "The records are saved in the DNS host and the change is announced.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "message",
+     "label": "Post in the client websites space",
+     "text": "<client> cutover started at <time>. Old records saved to 1Password. Will confirm when live."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "10.8",
+   "id": "WEB-005.10.8",
+   "t": "Watch it resolve",
+   "d": "Repeat until the answers change. Propagation takes from minutes up to the old TTL.",
+   "expect": "The A record answers with Netlify's address and <code>curl</code> returns <code>HTTP/2 200</code>.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "dig +short A <client-domain>\ndig +short CNAME www.<client-domain>\ncurl -sI https://<client-domain>/ | head -1",
+     "note": "repeat every few minutes"
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Every 60 seconds for up to 30 minutes, run dig +short A <client-domain> and curl -sI https://<client-domain>/. Tell me the moment the A record changes and the moment curl returns 200.",
+     "note": "paste into Claude Code"
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; A DNS lookup showing the new record resolving, from a machine outside the office network."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "10.9",
+   "id": "WEB-005.10.9",
+   "t": "Confirm the certificate",
+   "d": "In Netlify <strong>Domain management</strong>, check the HTTPS section shows a certificate issued for both domains. <strong class=\"hl\">[NEEDS INPUT: Q10 — the typical wait and whether it has ever needed a manual renew]</strong>",
+   "expect": "<code>https://&lt;client-domain&gt;</code> loads with no browser warning.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Screenshot 10.9 to capture",
+     "text": "Netlify's certificate status after cutover. Crop to the HTTPS panel; ring the issued state."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; Netlify's domain panel showing the certificate issued for the apex and <code>www</code>. Ring the certificate status."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "10.10",
+   "id": "WEB-005.10.10",
+   "t": "Prove the client's email survived",
+   "d": "Send a message from your HGM address to the client's address on the domain and ask the client contact from task 9.3 to confirm they received it. Check the MX and TXT records match the capture from task 10.2.",
+   "expect": "The client confirms receipt and the mail records are unchanged. This is rule 2, and it is not optional.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "dig +short MX <client-domain>\ndig +short TXT <client-domain>",
+     "note": "compare with the task 10.2 capture"
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> &mdash; An MX lookup for the domain after the cutover, showing the client's mail records unchanged."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "10.11",
+   "id": "WEB-005.10.11",
+   "t": "Rollback, if the site is wrong",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q8 — the rollback: restore the saved records to point at the old host, and whether the old site is kept running and for how long]</strong>",
+   "expect": "You know, before you need it, how to put the old site back within one TTL.",
+   "body": []
+  },
+  {
+   "type": "sub",
+   "id": "11",
+   "text": "Phase 11 &mdash; Confirm live and hand to WEB-003",
+   "d": "Everything that was checked on <code>netlify.app</code> is checked again on the live domain, and the repository is proven to be the live site."
+  },
+  {
+   "type": "step",
+   "n": "11.1",
+   "id": "WEB-005.11.1",
+   "t": "Prove the repository is the live site",
+   "d": "This is WEB-003 task 1.1, run for the first time.",
+   "expect": "<code>diff</code> is silent and the deployed commit equals <code>origin/main</code>.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "dig +short NS <client-domain>; dig +short A <client-domain>\ncurl -s https://<client-domain>/ > /tmp/live.html\ncurl -s https://<site-name>.netlify.app/ > /tmp/host.html\ndiff -q /tmp/live.html /tmp/host.html\ngit fetch origin && git rev-parse origin/main",
+     "note": "replace <client-domain> and <site-name>"
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "text": "Prove the repo is the live site: run dig for NS and A on <client-domain>; fetch https://<client-domain>/ and the netlify.app address and compare the HTML; ask the Netlify connector for get-deploy-for-site and compare commit_ref with origin/main after a fetch. Make no changes. Tell me clearly if any of the three do not match.",
+     "note": "paste into Claude Code"
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "11.2",
+   "id": "WEB-005.11.2",
+   "t": "Repeat the checks that depend on the address",
+   "d": "On <code>https://&lt;client-domain&gt;</code>: the Open Graph tags (task 2.2) show the real domain, <code>llms.txt</code> loads, the Stripe test-mode webhook shows a delivered event from a checkout started on the live domain, and the pixel is in the live HTML.",
+   "expect": "Every one passes on the real domain, not on <code>netlify.app</code>.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "terminal",
+     "label": "Terminal / CLI",
+     "text": "curl -s https://<client-domain>/ | grep -o '<meta property=\"og:url\" content=\"[^\"]*\"'\ncurl -sI https://<client-domain>/llms.txt | head -1\ncurl -s https://<client-domain>/ | grep -c \"fbq('init'\""
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "11.3",
+   "id": "WEB-005.11.3",
+   "t": "Switch Stripe to live",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q11 — who swaps the test keys for live keys, where, and whether HGM ever sees the live secret key]</strong> <strong class=\"hl\">[NEEDS INPUT: Q12 — who removes the 100% test coupon]</strong>",
+   "expect": "The site takes real payments and the test coupon from task 6.2 is gone.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "11.4",
+   "id": "WEB-005.11.4",
+   "t": "Close out and hand to WEB-003",
+   "d": "Append the session's row to <code>TOKENS.md</code>, save the final <code>.env.local</code> to 1Password, post the live URL in the client websites space, comment on the Asana task with the live URL and the cutover time, and move the task to the next stage. <strong class=\"hl\">[NEEDS INPUT: Q28 — the Asana stage after pre-launch]</strong> Continue in HGM-SOP-WEB-003 the same day.",
+   "expect": "Somebody else could start WEB-003 tomorrow from the Asana task alone.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "message",
+     "label": "Post in the client websites space",
+     "text": "<client> is live at https://<client-domain> as of <time>. Email confirmed arriving. Post-launch connections (WEB-003) start <date>."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "06",
+   "label": "Exceptions and edge cases"
+  },
+  {
+   "type": "cards",
+   "cols": 2,
+   "items": [
+    {
+     "t": "The client cannot supply Stripe test keys",
+     "d": "Ask for sandbox details instead. If neither arrives, phases 7 and 8 cannot run; do not substitute another client's keys or a Stripe account of HGM's. Raise it with the account manager and Gillian before the cutover date is agreed."
+    },
+    {
+     "t": "The Lighthouse loop will not reach 100 on one page",
+     "d": "Stop the loop after <strong class=\"hl\">[NEEDS INPUT: Q21]</strong> and fix the named items by hand. A third-party embed — the GoHighLevel iframe, a map — can cap a score; record the reason on the Asana task and move on."
+    },
+    {
+     "t": "The client's domain is on Cloudflare with the proxy on",
+     "d": "<strong class=\"hl\">[NEEDS INPUT: Q2 — whether HGM turns the proxy off for the Netlify records or leaves it on. Ridge &amp; Falls was on Cloudflare with no HGM login.]</strong>"
+    },
+    {
+     "t": "The client wants a launch date before sign-off has arrived",
+     "d": "Rule 6. The cutover moves; the sign-off does not get skipped."
+    },
+    {
+     "t": "The old host also serves the client's email",
+     "d": "Then the nameservers cannot move without the mail records being recreated first. <strong class=\"hl\">[NEEDS INPUT: Q5 — whether this has come up before]</strong>"
+    },
+    {
+     "t": "The client is on Hostaway, not Guesty",
+     "d": "<strong class=\"hl\">[NEEDS INPUT: Q17 — the Hostaway booking engine and webhook equivalents. AwayFrames is the first Hostaway run; record them there.]</strong>"
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "07",
+   "label": "Troubleshooting and escalation"
+  },
+  {
+   "type": "table",
+   "boxed": true,
+   "headers": [
+    "Symptom",
+    "Cause",
+    "What to do"
+   ],
+   "rows": [
+    [
+     "Claude reports 100/100 but DevTools shows less",
+     "The loop measured <code>localhost</code> or a different build",
+     "Run the loop against the same build you are checking (task 4.1)"
+    ],
+    [
+     "Resend shows the confirmation as failed",
+     "Sending domain not verified, or the key belongs to another domain",
+     "Check the domain Resend has verified against the from-address the site uses"
+    ],
+    [
+     "Stripe shows the payment, no webhook delivery",
+     "Endpoint registered against the wrong address, or the signing secret is wrong",
+     "Task 6.8; after cutover, task 10.5"
+    ],
+    [
+     "The GHL contact never appears",
+     "Wrong Location ID",
+     "Compare against the client's record in hgmportal.com (WEB-004 task 7.4)"
+    ],
+    [
+     "The site loads on <code>netlify.app</code> but not on the domain after an hour",
+     "Records not saved, or the old TTL has not expired",
+     "<code>dig</code> from a second network; check the record editor; wait one old TTL"
+    ],
+    [
+     "Browser shows a certificate warning on the domain",
+     "Certificate not yet issued",
+     "Task 10.9; if still missing after <strong class=\"hl\">[NEEDS INPUT: Q10]</strong>, escalate"
+    ],
+    [
+     "The client's email stops arriving",
+     "MX or TXT records lost in the cutover",
+     "Restore them from the task 10.2 capture now, then tell the account manager"
+    ],
+    [
+     "Old links from Google land on a 404",
+     "Redirect map missing an entry",
+     "Task 10.6"
+    ]
+   ]
+  },
+  {
+   "type": "cards",
+   "cols": 2,
+   "items": [
+    {
+     "t": "Escalate on a failed cutover or the client's email",
+     "d": "<strong class=\"hl\">[NEEDS INPUT: Q29 — person and channel]</strong>"
+    },
+    {
+     "t": "Escalate on the money path or a payment fault",
+     "d": "<strong class=\"hl\">[NEEDS INPUT: Q29 — person and channel]</strong>"
+    },
+    {
+     "t": "Escalate on the template's webhooks or variable names",
+     "d": "Leshan Patterson, template owner, in the <strong>client websites</strong> space in Google Chat."
+    },
+    {
+     "t": "Escalate on scope, the deadline or the client",
+     "d": "Gillian, Operations Manager, in Google Chat — through the account manager for anything the client has to do."
+    }
+   ]
+  },
+  {
+   "type": "panel",
+   "kind": "brand",
+   "t": "The cheap moment to say it",
+   "text": "A missing key is visible in task 1.1. A cutover with no DNS access is visible in task 10.3. Raise each on the day you see it, not on launch day."
+  },
+  {
+   "type": "section",
+   "num": "08",
+   "label": "Final checklist before the cutover"
+  },
+  {
+   "type": "para",
+   "text": "Do not start task 10.7 until every line is true."
+  },
+  {
+   "type": "checklist",
+   "items": [
+    "Phases 2 to 8 complete on the <code>netlify.app</code> production build, and the pull request from <code>pre-launch</code> merged.",
+    "Every audit checked by hand, not only reported by Claude: tags (2.2), schema (2.4), keyboard and alt (3.3), Lighthouse (4.2), a real phone (4.4).",
+    "Privacy policy and terms of use reachable from the footer; the cancellation policy identical on property page, confirmation and email.",
+    "Every variable in <code>ENV.template</code> set on Netlify; <code>.env.local</code> saved to the client's 1Password vault; no key beginning <code>sk_live_</code> on any HGM machine.",
+    "Webhooks registered for Stripe and the booking platform, and a delivered event seen for the test payment.",
+    "Test booking made, confirmation email seen delivered in Resend, reservation seen in the booking platform and cancelled, contact seen in GoHighLevel.",
+    "Client's written approval pasted into the Asana task, with the cutover time and the client contact for the day.",
+    "Registrar and DNS host known; every existing record captured to 1Password; MX and TXT records listed.",
+    "DNS access confirmed, or the person making the change booked for the window.",
+    "TTL lowered and the old TTL expired.",
+    "Both domains added in Netlify Domain management; redirect map in place and three redirects tested.",
+    "Rollback written down: which records to restore, and the old host still running.",
+    "A second person watching, if this is your first cutover."
+   ]
+  },
+  {
+   "type": "cards",
+   "cols": 2,
+   "items": [
+    {
+     "t": "Next: post-launch connections",
+     "d": "<strong>HGM-SOP-WEB-003</strong> — Google Analytics 4, Search Console, Hotjar, the structured-data check and the ownership map. Starts the day the site is live, from task 11.4."
+    },
+    {
+     "t": "Before this: the build",
+     "d": "<strong>HGM-SOP-WEB-004</strong> — the site this SOP starts from, complete on <code>netlify.app</code> at its task 8.4."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "09",
+   "label": "Related documents"
+  },
+  {
+   "type": "para",
+   "text": "This SOP is the last of three before launch. It starts where the build ends and stops where post-launch begins."
+  },
+  {
+   "type": "table",
+   "boxed": true,
+   "headers": [
+    "Document",
+    "Covers",
+    "When"
+   ],
+   "rows": [
+    [
+     "<strong>HGM-SOP-WEB-004</strong> — rebuild a live client site",
+     "The build, to a finished site on <code>netlify.app</code>",
+     "Before this document; its task 8.4 is this document's task 1.1"
+    ],
+    [
+     "<strong>HGM-SOP-WEB-005</strong> — this document",
+     "Audits, keys, money path, test booking, sign-off, DNS cutover",
+     "Between the merged build and the live domain"
+    ],
+    [
+     "<strong>HGM-SOP-WEB-003</strong> — post-launch connections",
+     "GA4, Search Console, Hotjar, structured data, the ownership map",
+     "The day the site is live, from task 11.4"
+    ],
+    [
+     "<strong>HGM-SOP-WEB-002</strong> — Asana to live",
+     "Branches, pull requests, deploy previews, merging",
+     "Referenced from tasks 1.4, 8.6 and 9.2"
+    ],
+    [
+     "<strong>HGM-SOP-WEB-001</strong> — env files in 1Password",
+     "Storing and updating the client's <code>.env</code> file",
+     "Referenced from tasks 1.3, 6.10 and 11.4"
+    ],
+    [
+     "The promo-code campaign links document",
+     "Coupons and campaign links in the money path",
+     "<strong class=\"hl\">[NEEDS INPUT: to be folded into tasks 7.3 and 7.4]</strong>"
+    ],
+    [
+     "The WCAG 2.2 AA audit prompt",
+     "The criteria for phase 3",
+     "<strong class=\"hl\">[NEEDS INPUT: to be folded into task 3.4]</strong>"
+    ]
+   ]
+  },
+  {
+   "type": "panel",
+   "kind": "brand",
+   "t": "The site is not launched when DNS resolves",
+   "text": "It is launched when the booking flow, the payment, the email and the client's own inbox have all been seen working on the real domain. Task 11.2 is the launch; task 10.7 is just the switch."
+  },
+  {
+   "type": "section",
+   "num": "10",
+   "label": "Revision history"
+  },
+  {
+   "type": "table",
+   "headers": [
+    "Date",
+    "Version",
+    "Author",
+    "Change"
+   ],
+   "rows": [
+    [
+     "2026-09-29",
+     "0.1",
+     "Kyle Zinger",
+     "Field-test draft from the notebook's Launch Process pages and the kickoff prompt. Interview answers, the WCAG audit prompt and the promo-code document outstanding; first run is AwayFrames."
+    ],
+    [
+     "2026-10-06",
+     "0.2",
+     "Kyle Zinger",
+     "Nineteen image placeholders added, weighted to the keys and cutover phases, ahead of the portal upload."
+    ]
+   ]
+  },
+  {
+   "type": "band",
+   "pill": "Remember",
+   "quote": "“Nothing is verified until you have seen it on the live domain, and nothing that touches money is done outside Fable against a test key.”",
+   "aside_t": "Next",
+   "aside_d": "HGM-SOP-WEB-003 — post-launch connections"
+  }
+ ]
+}

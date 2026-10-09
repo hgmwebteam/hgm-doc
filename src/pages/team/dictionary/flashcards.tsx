@@ -9,8 +9,9 @@ import { cx } from "@/utils/cx";
 /**
  * The flashcard game, shared by the terms deck (/dictionary/practice) and the tools deck
  * (/dictionary/tools/practice). A page supplies the cards' ids, the two sides a person can put
- * first, and what each face shows; everything else is here: the intro, the 3D turn (a fade
- * under reduced motion), Got it / Not yet, "8 of 12 got", focus and the end screen.
+ * first (or none, for a deck that only goes one way round: then there's no picker), and what
+ * each face shows; everything else is here: the intro, the 3D turn (a fade under reduced
+ * motion), Got it / Not yet, "8 of 12 got", focus and the end screen.
  *
  * The deck itself is practice-model.ts: "Not yet" sets a card aside until every card not yet
  * seen in this pass has come up. Nothing is written anywhere.
@@ -34,7 +35,7 @@ export const FaceWord = ({ children }: { children: ReactNode }) => (
     <span className="block text-display-xs font-semibold text-pretty text-primary md:text-display-sm">{children}</span>
 );
 
-/** A face's sentence: a definition, or a vendor's note. */
+/** A face's sentence: a definition. */
 export const FaceText = ({ children }: { children: ReactNode }) => <span className="block text-lg leading-relaxed text-pretty text-primary">{children}</span>;
 
 /** The dictionary's blue formula card. */
@@ -127,30 +128,43 @@ const FlashCard = ({ faces, flipped, onFlip, cardRef }: { faces: CardFaces; flip
 
 /* ── The game ───────────────────────────────────────────────────── */
 
-export const FlashcardDeck = ({
-    title,
-    intro,
-    cardIds,
-    sides,
-    side,
-    onSideChange,
-    faces,
-    entryLink,
-    endActions,
-}: {
+/**
+ * The two sides a person can put first, the one chosen and its setter, all three together; or none
+ * of them, for a deck that goes one way round and shows no picker.
+ */
+type DeckSides =
+    | { sides: readonly [DeckSide, DeckSide]; side: string; onSideChange: (side: string) => void }
+    | { sides?: undefined; side?: undefined; onSideChange?: undefined };
+
+type DeckProps = DeckSides & {
     title: string;
     /** The first sentence on the intro screen, e.g. "12 cards, one for each term you missed in the check." */
     intro: string;
     cardIds: string[];
-    sides: readonly [DeckSide, DeckSide];
-    side: string;
-    onSideChange: (side: string) => void;
     faces: (id: string, side: string) => CardFaces;
     /** A link under a turned card ("See the full entry"), opened in a new tab so the deck carries on. */
     entryLink?: (id: string) => { href: string; label: string } | null;
     /** The end screen's buttons after "Shuffle and keep going". */
     endActions: ReactNode;
-}) => {
+    /** Starts loading what a card will show (the tools deck's logos), for the next two cards while one is up. */
+    preload?: (id: string) => void;
+    /** Pin Got it / Not yet to the bottom of the pane when a turned card is taller than it (the tools deck). */
+    pinActions?: boolean;
+};
+
+export const FlashcardDeck = ({
+    title,
+    intro,
+    cardIds,
+    sides,
+    side = "",
+    onSideChange,
+    faces,
+    entryLink,
+    endActions,
+    preload,
+    pinActions = false,
+}: DeckProps) => {
     const [phase, setPhase] = useState<"intro" | "deck">("intro");
     const [deck, setDeck] = useState<Deck>(() => newDeck(cardIds, Math.random));
     const [flipped, setFlipped] = useState(false);
@@ -159,7 +173,7 @@ export const FlashcardDeck = ({
     const acted = useRef(false);
 
     const setSide = (s: string) => {
-        onSideChange(s);
+        onSideChange?.(s);
         setFlipped(false);
     };
 
@@ -172,6 +186,12 @@ export const FlashcardDeck = ({
         acted.current = false;
         (done ? endRef.current : cardRef.current)?.focus({ preventScroll: true });
     }, [deck, done, phase]);
+
+    // While a card is up, the next two start loading.
+    useEffect(() => {
+        if (phase !== "deck" || !preload) return;
+        for (const next of deck.queue.slice(1, 3)) preload(next);
+    }, [deck, phase, preload]);
 
     const answer = (got: boolean) => {
         acted.current = true;
@@ -193,9 +213,11 @@ export const FlashcardDeck = ({
                 <p className="mt-3 max-w-[60ch] text-md text-pretty text-tertiary">
                     {intro} Turn each one over, then say whether you had it. The ones you didn't come back round.
                 </p>
-                <div className="mt-6">
-                    <SideToggle sides={sides} side={side} onChange={setSide} />
-                </div>
+                {sides && (
+                    <div className="mt-6">
+                        <SideToggle sides={sides} side={side} onChange={setSide} />
+                    </div>
+                )}
                 <div className="mt-6">
                     <Button size="lg" onClick={start}>
                         Start
@@ -230,7 +252,7 @@ export const FlashcardDeck = ({
         <>
             <PageTitle>{title}</PageTitle>
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-                <SideToggle sides={sides} side={side} onChange={setSide} />
+                {sides && <SideToggle sides={sides} side={side} onChange={setSide} />}
                 <p role="status" className="text-sm font-semibold text-secondary tabular-nums">
                     {deck.got.length} of {deck.total} got
                 </p>
@@ -244,7 +266,14 @@ export const FlashcardDeck = ({
             </div>
 
             {flipped && id && (
-                <div className="mt-6 flex flex-wrap items-center gap-3">
+                // With pinActions (the tools deck, where a vendor under five or six boxes outgrows a phone), pinned
+                // to the bottom of the pane so Got it and Not yet are in reach the moment the card turns. Where it
+                // fits it sits under the card all the same: mt-3 and py-3 keep it 24 px below the hint, like mt-6.
+                <div
+                    className={
+                        pinActions ? "sticky bottom-0 z-10 mt-3 flex flex-wrap items-center gap-3 bg-primary py-3" : "mt-6 flex flex-wrap items-center gap-3"
+                    }
+                >
                     <Button size="lg" iconLeading={Check} onClick={() => answer(true)}>
                         Got it
                     </Button>

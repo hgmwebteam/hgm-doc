@@ -319,10 +319,10 @@ Options: **Rate parity** · Rack rate · Rate plan · Metasearch
 What does this term mean?
 Term shown: **metasearch**. Options (each slug's definition from the dictionary):
 - **→** `metasearch`: Google Hotel Ads, Tripadvisor, Trivago — rate comparison that passes traffic on to a booking channel.
-- `otas-and-niche-marketplaces`: Booking.com, Expedia, Airbnb, Vrbo, plus Hipcamp, Glamping Hub, Mr & Mrs Smith.
+- `ota-online-travel-agency`: A third-party marketplace selling the room for a cut.
 - `rate-parity`: A contractual commitment not to undercut an OTA's rate — Expedia or Booking.com, say — on your own site.
 - `channel-mix`: The split of bookings across channels — direct, each OTA, phone, walk-in — and the clearest read on OTA dependence.
-→ Metasearch compares rates and passes the guest on to a booking channel; it doesn't take the booking itself. The OTAs and marketplaces take the booking, and rate parity is a contract term.
+→ Metasearch compares rates and passes the guest on to a booking channel; it doesn't take the booking itself. An OTA takes the booking for a cut, channel mix is the split of bookings by channel, and rate parity is a contract term.
 
 **V1**
 A guest searched a resort's name on Google, saw its own rate next to Expedia's and Booking.com's, and clicked through to book direct. Where was she comparing?
@@ -426,9 +426,9 @@ What does this term mean?
 Term shown: **incrementality**. Options (each slug's definition from the dictionary):
 - **→** `incrementality`: Whether a booking actually happened because of the advertising, or would have happened anyway.
 - `cannibalization`: When an ad, promotion or channel takes bookings the resort would have gotten anyway, instead of creating new ones. The numbers look like growth, but revenue has only moved around, often at a higher cost.
-- `attribution-window`: How long after seeing or clicking an ad a booking still counts.
-- `click-vs-view-through`: Whether the booking followed someone clicking the ad, or merely seeing it.
-→ Incrementality asks whether the ads caused the booking at all. Cannibalization is what it catches: bookings you'd have had anyway. The attribution window and click vs view-through only decide which bookings an ad gets credit for.
+- `meta-attributed-bookings`: Bookings tied to Meta through link-in-bio, a promo code or a UTM rather than the pixel.
+- `billboard-effect`: The contested claim that being listed on an OTA drives extra direct bookings by putting the property in front of more people.
+→ Incrementality asks whether the ads caused the booking at all. Cannibalization is what it catches: bookings you'd have had anyway. Meta-attributed bookings are only tied to the ads, and the billboard effect is a contested claim about OTA listings.
 
 **V1**
 A resort switched off prospecting ads in one region for two weeks and compared bookings with a similar region where the ads kept running. What was it testing?
@@ -606,19 +606,43 @@ Order: $900,000 total revenue → $310,000 GOP → $215,000 NOI → $140,000 aft
 → Each rung is smaller than the one above. Debt and depreciation come off below NOI.
 
 ## 39. Matching · `match-brand`
-These are all about a property's brand. Terms: boutique, flagged, flag, franchise. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
+These are all about who owns and runs a property. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both (the page shows exactly which words).
+- **Boutique** — A small, design-led, independently run property — the category most of this ICP puts itself in. / *"You've built something boutique, so the story we tell needs to feel as personal as the place."*
+- **Flagged** — A property operating under a chain brand, as opposed to independent or soft-branded. / *"Were you ever approached about being flagged, or have you always wanted to stay independent?"*
+- **Franchise** — Paying a chain for its brand, systems and reservation flow while still owning and running the property. / *"A franchise brings you a chain's booking system, but you pay fees and give up some control."*
+- **Who you are talking to** — Owner, general manager, revenue manager, asset manager — four seats, four scorecards. / *"Before the call, it helps to know who we're talking to — the owner cares about different numbers than a general manager."*
 
 ## 40. Matching · `match-rates`
-These are all about rates and what goes into them. Terms: rack-rate, rate-plan, rate-fence, package-rate, resort-fee-amenity-fee. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
+These are all about rates and fees. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both (the page shows exactly which words).
+- **Rack rate** — The published undiscounted rate; increasingly notional, still quoted. / *"Hardly anyone pays the rack rate, but it's still the anchor guests compare your offers against."*
+- **Rate plan** — A sellable combination of rate, conditions and inclusions — the unit an owner actually loads. / *"How many rate plans do you have loaded? Too many can confuse guests on the booking page."*
+- **Rate fence** — The condition that stops a discount leaking to guests who would have paid full price — a date range, a membership, a non-refundable rule. / *"If we offer a midweek discount, we need a rate fence so weekend guests don't grab it too."*
+- **Resort fee / amenity fee** — A mandatory per-night charge outside the room rate. / *"Do you charge a resort fee? Guests notice it at checkout, so we should be upfront about it in the ads."*
 
 ## 41. Matching · `match-inventory`
-These are all about rooms and how they're sold. Terms: keys-rooms-and-units, room-type, overbooking, crs-central-reservation-system. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
+These are all about rooms and how they're sold. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both (the page shows exactly which words).
+- **Room type** — A sellable category of room or unit, each with its own rate and availability. / *"Which room type sells out first? That's usually where there's room to raise the rate."*
+- **Overbooking** — Selling past physical capacity on purpose, on the expectation that some bookings will cancel or not arrive. / *"Do you ever overbook to cover no-shows, or would you rather keep a room empty than walk a guest?"*
+- **CRS (central reservation system)** — The rate and inventory brain above the PMS, mostly at multi-property operations. / *"With several properties, a CRS keeps rates and availability in step across all of them."*
+- **Package rate** — Room plus something — breakfast, spa credit, an activity — sold at one price. / *"A package rate with breakfast and a spa credit gives people a reason to book direct instead of on an OTA."*
 
 ## 42. Matching · `match-demand`
-These are all about demand and the calendar. Terms: changeover-day, date-classes, feeder-market, shoulder-season, slow-season, otb-on-the-books. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
+These are all about demand and the calendar. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both (the page shows exactly which words).
+- **Changeover day** — The fixed day a multi-night property turns over, common at cabins and glamping sites, which shapes what can be sold at all. / *"If Saturday is your changeover day, we should sell weeks that start on Saturday."*
+- **Date classes** — Peak, shoulder and low, weekend and midweek — every pacing conversation happens per class, not per month. / *"Let's talk about pace by date class — peak weekends and quiet midweeks tell very different stories."*
+- **Feeder market** — The cities guests actually come from — the targeting question in an owner's words. / *"Where do most of your guests come from? That's your feeder market, and it's where we focus the ads."*
+- **Shoulder season** — The stretch between peak and low, where marketing pushes matter most. / *"The shoulder season is where marketing earns its keep — peak sells itself."*
+- **Slow season** — The owner's word for low season, and one of the ICP's stated pain points. / *"What does the slow season look like for you, and what have you tried to fill it?"*
+- **OTB (on the books)** — Rooms and revenue already reserved for a future date, before any further pickup. / *"What do you have on the books for the holidays so far?"*
 
 ## 43. Matching · `match-marketing`
-These are all about measuring marketing. Terms: impressions, reach, pixel, deliverability, email-open-rate, attribution-window. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both.
+These are all about measuring marketing. Version 1 matches to definitions; version 2 to call lines. The term is blanked in both (the page shows exactly which words).
+- **Impressions** — The number of times an ad was shown, counting repeats to the same person. / *"Impressions count every time the ad was shown, including repeats to the same person."*
+- **Reach** — The number of distinct people an ad was shown to. / *"Reach tells us how many different people saw the ad, not how many times it was shown."*
+- **Pixel** — The browser-side tag that reports site events back to the ad platform. / *"Is the pixel firing on your booking engine? Without it, we can't see which ads lead to bookings."*
+- **Deliverability** — Whether email reaches the inbox at all. / *"If deliverability is poor, the newsletter is landing in spam and nobody sees the offer."*
+- **Email open rate** — The share of delivered emails opened; increasingly noisy since mail privacy protections. / *"Your email open rate looks high, but privacy settings inflate it, so we watch clicks too."*
+- **Attribution window** — How long after seeing or clicking an ad a booking still counts. / *"With a seven-day attribution window, a guest who clicks on Monday and books on Friday still counts."*
 
 ## 44. True or false · `ebitda`
 **V1**
@@ -647,7 +671,25 @@ These are all about measuring marketing. Terms: impressions, reach, pixel, deliv
 *"Airbnb is moving all hosts onto the split fee."* → **False**
 → It's the other way: Airbnb is moving all hosts to the single, host-only fee.
 
-## 47. True or false · `review-score`
+## 47. True or false · `flag`
+**V1**
+*"A property that operates under a chain's brand carries a flag."* → **True**
+→ The flag is the chain brand; to be flagged is to carry one.
+
+**V2**
+*"Carrying a flag means a property is independent."* → **False**
+→ A flag is a chain brand, the opposite of independent.
+
+## 48. True or false · `keys`
+**V1**
+*"Keys, rooms and units are three words for the same inventory."* → **True**
+→ Owners say keys, the doctrine says units; they count the same rooms.
+
+**V2**
+*"A resort's cabins and suites don't count as keys."* → **False**
+→ Cabins and suites all count. Keys is the owner's word for every unit there is to sell.
+
+## 49. True or false · `review-score`
 **V1**
 *"A property's review score affects where it ranks on OTAs."* → **True**
 → Review scores feed ranking and rate power on every OTA.
@@ -656,7 +698,7 @@ These are all about measuring marketing. Terms: impressions, reach, pixel, deliv
 *"Review scores matter on Google and Tripadvisor but have no effect on OTA ranking."* → **False**
 → They feed OTA ranking too.
 
-## 48. True or false · `glv`
+## 50. True or false · `glv`
 **V1**
 *"Guest lifetime value counts what a guest is worth across every stay, not just one booking."* → **True**
 → That's the definition, and why winning a guest the first time can justify a higher cost.
@@ -665,7 +707,7 @@ These are all about measuring marketing. Terms: impressions, reach, pixel, deliv
 *"Guest lifetime value is the value of a guest's first booking."* → **False**
 → It's their value across every stay.
 
-## 49. True or false · `otas-niche`
+## 51. True or false · `otas-niche`
 **V1**
 *"Hipcamp and Glamping Hub are niche marketplaces, sitting alongside big OTAs like Booking.com and Expedia."* → **True**
 → Both are niche marketplaces in the same category as the big OTAs.
@@ -674,7 +716,7 @@ These are all about measuring marketing. Terms: impressions, reach, pixel, deliv
 *"Mr & Mrs Smith is a channel manager."* → **False**
 → Mr & Mrs Smith is a niche marketplace (owned by Hyatt since 2023), not a channel manager.
 
-## 50. True or false · `click-view`
+## 52. True or false · `click-view`
 **V1**
 *"A view-through booking followed someone seeing an ad without clicking it."* → **True**
 → Click-through followed a click; view-through followed only a view.
@@ -683,15 +725,15 @@ These are all about measuring marketing. Terms: impressions, reach, pixel, deliv
 *"In HGM's decision maths, view-through bookings count the same as click-through ones."* → **False**
 → HGM's decision maths uses 7-day click only; view-through is context.
 
-## 51. Scenario · `dynamic-pricing`
+## 53. Scenario · `dynamic-pricing`
 **D1**
 What does this term mean?
 Term shown: **dynamic-pricing**. Options (each slug's definition from the dictionary):
 - **→** `dynamic-pricing`: Rates moving automatically with demand; the category Wheelhouse and PriceLabs sit in.
 - `rate-shopping`: Watching what the comp set is charging, usually through a tool.
-- `comp-set`: The set of properties an owner benchmarks against, and the basis of every index on an STR report.
-- `revenue-management-the-function`: The job itself; at this ICP it may be the owner, a part-timer, or an outsourced firm.
-→ Dynamic pricing moves rates automatically with demand. Rate shopping watches what the comp set charges, and revenue management is the job that may use both.
+- `last-minute-rate`: A discount released close to arrival to clear unsold inventory.
+- `yield-calendar`: The month-at-a-glance view an owner works from, with each date coloured by how well it is selling.
+→ Dynamic pricing moves rates automatically with demand. Rate shopping watches what the comp set charges, a last-minute rate is one discount close to arrival, and the yield calendar shows how each date is selling.
 
 **V1**
 An owner says: "Our rates now change automatically every night depending on how fast dates are filling. We set it up through PriceLabs." What is this?
@@ -703,7 +745,16 @@ Wheelhouse raised a cabin's Saturday rate by $40 overnight because the weekend w
 Options: **Dynamic pricing** · CRM · Rate shopping · Channel manager
 → Wheelhouse moves rates with demand. It doesn't create demand; it prices what's already there.
 
-## 52. Scenario · `rate-shopping`
+## 54. Scenario · `rate-shopping`
+**D1**
+What does this term mean?
+Term shown: **rate-shopping**. Options (each slug's definition from the dictionary):
+- **→** `rate-shopping`: Watching what the comp set is charging, usually through a tool.
+- `mpi-market-penetration-index`: Your share of the comp set’s occupancy; above 100 means you are filling better than the set.
+- `channel-conflict`: Two channels selling the same room at prices that undercut each other.
+- `compression`: When demand across a whole market spikes and every property can hold or raise its rate.
+→ Rate shopping is watching what the comp set charges, usually through a tool. The market penetration index compares your occupancy with the set's, compression is a market-wide demand spike, and channel conflict is two channels undercutting each other.
+
 **V1**
 An owner says: "Every Monday I check what the three resorts down the road are charging for the next month." What is she doing?
 Options: **Rate shopping** · Building a comp set · Dynamic pricing · Reading pace
@@ -714,7 +765,7 @@ A GM pays for a tool that emails him competitors' nightly rates every morning. W
 Options: **Rate shopping** · Pickup reporting · Dynamic pricing · Metasearch
 → It automates rate shopping. Useful context, as long as it isn't the only thing setting the price.
 
-## 53. Scenario · `soft-dates`
+## 55. Scenario · `soft-dates`
 **V1**
 The first two weeks of November are pacing 15 percentage points behind last year. Going on the pacing alone, what are those dates?
 Options: **Soft dates** · Shoulder season · Orphan nights · Denials
@@ -725,7 +776,7 @@ You have $3,000 of ad budget for the next six weeks. Where does it usually do th
 Options: **On the soft dates — the ones pacing below target** · On the dates that are already sold out · Spread evenly across every date · On the peak weekends
 → Soft dates are the nights the property most needs help filling. Peak sells itself.
 
-## 54. Scenario · `drive-fly`
+## 56. Scenario · `drive-fly`
 **V1**
 An owner says: "Most of our guests drive up from Toronto, Kitchener and Hamilton, and they book about two weeks out." What is the lodge mainly?
 Options: **A drive market** · A fly market · A comp set · A shoulder season
@@ -736,7 +787,7 @@ A resort's guests mostly fly in from Calgary and Vancouver and book three months
 Options: **A fly market** · A drive market · Transient · A soft date
 → Guests arriving by plane make it a fly market, with longer lead times and a wider radius.
 
-## 55. Scenario · `midweek-gap`
+## 57. Scenario · `midweek-gap`
 **V1**
 Weekends are 90% full all summer, but Monday to Thursday sit at 40%. What is this pattern?
 Options: **The midweek gap** · Slow season · Orphan nights · Changeover days
@@ -747,7 +798,7 @@ A glamping owner says: "Every single week it's the same — Tuesday and Wednesda
 Options: **The midweek gap** · Orphan nights · Regret · Shoulder season
 → A weekly, structural soft spot is the midweek gap; orphan nights are one-off gaps between bookings.
 
-## 56. Scenario · `search-discovery`
+## 58. Scenario · `search-discovery`
 **V1**
 Google search ads catch people already typing "cabins near Algonquin". Instagram Reels make people want a trip they weren't planning. Which frame describes the difference?
 Options: **Search vs discovery demand** · Retargeting vs prospecting · Drive vs fly market · Click vs view-through
@@ -758,26 +809,15 @@ Which kind of demand is HGM mainly built to create?
 Options: **Discovery — making people want a stay before they search** · Search — competing on price for people already looking · Group — contracted blocks · Metasearch — rate comparison
 → Discovery demand is HGM's reason for existing.
 
-## 57. Scenario · `who-talking`
-**V1**
-The founder who built a lodge and the general manager she hired are both on your call. Why does it matter which of them asks about results?
-Options: **They answer for different numbers, so the same update lands differently** · Only the founder can sign off on ad spend · The GM always prefers OTA bookings · It doesn't; they want the same report
-→ Owner, GM, revenue manager and asset manager: four seats, four scorecards.
-
-**V2**
-Before a call you check whether you'll be speaking with the owner, the GM, the revenue manager or an asset manager. Which dictionary term is this habit?
-Options: **Who you are talking to** · Comp set · Revenue management (the function) · Feeder market
-→ Each seat answers for different numbers, so you shape the update to the person.
-
-## 58. Scenario · `pre-arrival`
+## 59. Scenario · `pre-arrival`
 **D1**
 What does this term mean?
 Term shown: **pre-arrival-sequence**. Options (each slug's definition from the dictionary):
 - **→** `pre-arrival-sequence`: The window where upsell and expectation-setting actually work.
-- `upsell-tools`: Paid upgrades before and at arrival; Oaky (part of Plusgrade since 2025).
-- `guest-lifetime-value`: Total value of a guest across every stay rather than one booking.
-- `repeat-rate`: The share of guests who come back — the cheapest demand a property has.
-→ The pre-arrival sequence is the window before the stay where upsells and setting expectations work. Upsell tools are what sell the extras; repeat rate and lifetime value are about guests coming back.
+- `post-stay-sequence`: Review requests, rebooking and the start of the repeat cycle.
+- `guest-journey-stages`: Dream, plan, book, stay, share — the frame most hospitality content sits on.
+- `add-on-enhancement`: An extra bought at or after booking — firewood, breakfast, a late checkout.
+→ The pre-arrival sequence is the window before the stay where upsells and setting expectations work. The post-stay sequence comes after checkout, the guest journey is the whole dream-to-share frame, and an add-on is the extra itself.
 
 **V1**
 Two days before check-in, guests get an email with directions, the dinner menu and an offer to book a spa treatment. What is that email part of?
@@ -789,16 +829,7 @@ When is usually the best moment to offer a booked guest a dinner reservation?
 Options: **In the pre-arrival sequence, while they're looking forward to the trip** · At checkout · In the post-stay review request · Before they've booked
 → Guests are most excited, and most open to extras, before they arrive.
 
-## 59. Scenario · `creative-fatigue`
-**D1**
-What does this term mean?
-Term shown: **creative-fatigue-index**. Options (each slug's definition from the dictionary):
-- **→** `creative-fatigue-index`: The doctrine's composite for when creative is worn out.
-- `frequency`: How many times the average person saw it; the fatigue diagnostic.
-- `hook-rate`: The share of impressions where someone watched at least the first three seconds of a video.
-- `reach`: The number of distinct people an ad was shown to.
-→ The creative fatigue index is the composite that says a creative is worn out. Frequency feeds into it, the hook rate measures the first three seconds, and reach counts distinct people.
-
+## 60. Scenario · `creative-fatigue`
 **V1**
 The same video has run for ten weeks. Frequency is up from 1.8 to 4.2, CTR has halved and CPM is flat. What is most likely telling you to refresh it?
 Options: **The creative fatigue index** · Incrementality · Deliverability · The attribution window
@@ -809,7 +840,7 @@ Bookings from an ad slipped. Searches for the area are steady and the audience h
 Options: **Creative fatigue** · Soft dates · Regret · Cannibalization
 → Results slipping because people have seen the same ad too often, not because demand has gone.
 
-## 60. Scenario · `retarget-prospect`
+## 61. Scenario · `retarget-prospect`
 **V1**
 Campaign A shows ads to people who visited the booking page in the last 30 days. Campaign B finds people who've never heard of the lodge. What are A and B?
 Options: **A is retargeting; B is prospecting** · A is prospecting; B is retargeting · A is search; B is discovery · A is transient; B is group
@@ -820,15 +851,15 @@ An owner wants to cut prospecting because retargeting's cost per booking is lowe
 Options: **The retargeting pool shrinks because nobody new is coming in** · Retargeting gets more expensive per click right away · Nothing; retargeting is always better · Meta will pause the account
 → Prospecting fills the pool retargeting draws from. Cut it and the pool empties.
 
-## 61. Scenario · `opportunity-cost`
+## 62. Scenario · `opportunity-cost`
 **D1**
 What does this term mean?
 Term shown: **opportunity-cost**. Options (each slug's definition from the dictionary):
 - **→** `opportunity-cost`: The value of the best option you gave up by choosing another. In hospitality, it's usually the revenue a room, date or budget could have earned if it had been used differently.
 - `cannibalization`: When an ad, promotion or channel takes bookings the resort would have gotten anyway, instead of creating new ones. The numbers look like growth, but revenue has only moved around, often at a higher cost.
-- `soft-dates`: Upcoming dates where bookings are pacing below target or below last year, signalling weak demand. These are the nights a property most needs help filling, and the best place to aim promotions and ad spend.
-- `effective-commission-ec`: The full cost of winning a booking as a percentage of its value, so a direct booking and an OTA booking compare on one line.
-→ Opportunity cost is the value of the option you gave up by choosing another. Cannibalization is taking bookings you'd have had anyway, and soft dates are nights pacing behind.
+- `budget-vs-forecast`: A budget sets the targets the organisation intends to hit; a forecast predicts what is likely to happen from live performance and current data.
+- `distribution-cost`: Everything paid to get the booking: commission, fees, processing.
+→ Opportunity cost is the value of the best option you gave up by choosing another. Cannibalization is taking bookings you'd have had anyway; a budget, a forecast and distribution cost are about planned and paid money, not what you gave up.
 
 **V1**
 A retreat group wants the whole lodge for the last week of August at $18,000. Individual guests usually bring in about $26,000 that week. What is the $26,000 you'd give up?
@@ -846,8 +877,9 @@ Options: **The opportunity cost** · Pickup · ROAS · Regret
 - **Effective OTB (item `effective-otb`).** Both versions mix non-refundable and refundable bookings, which is the dictionary's "common confusion" but harder than session 1's all-refundable example. [CONFIRM, Nicole and Kyle: keep it this hard.]
 - **Midweek (item `midweek-gap`).** It's a reference term, but "midweek" is out of session copy until the boundary with Dustin's training is agreed. The call lines for rate fence and date classes also say "midweek". [NEEDS INPUT, Dustin: the boundary; otherwise drop the item and the term's point.]
 - **Time-sensitive facts.** The Airbnb fee, Genius and Mr & Mrs Smith statements come from the dictionary's sources, checked 29 Sep 2026. Re-check them if the check runs past November.
-- **Who you're talking to.** Both versions lean on the dictionary entry whose scorecard detail is marked for Nicole to confirm. [CONFIRM, Nicole.]
+- **Who you're talking to.** Now a card in the matching item about who owns and runs a property; its definition's scorecard detail is still marked for Nicole to confirm. [CONFIRM, Nicole.]
 - **No property names.** Every scenario uses an unnamed lodge or resort, so there's nothing to check against client contacts.
-- **Reverse questions (new, 2 Oct).** Eight items now open with a term and four definitions: pace, denial, metasearch, incrementality, dynamic pricing, pre-arrival sequence, creative fatigue index, opportunity cost. The wrong options are neighbouring terms' definitions, picked to be close in topic and length. [CONFIRM, Nicole: the distractors and explanations.]
-- **Matching regrouped by theme (2 Oct).** Five items: a property's brand (flag moved here from true/false), rates, rooms and how they're sold, demand and the calendar, measuring marketing. Definitions that name their own term are now blanked too (keys, rooms and units; flag).
+- **Reverse questions (new, 2 Oct).** Eight items now open with a term and four definitions: pace, denial, metasearch, incrementality, dynamic pricing, rate shopping, pre-arrival sequence, opportunity cost. The wrong options are neighbouring terms' definitions, close in topic and length; where a scored term's definition would cue another question in the same sitting, the wrong option is an unscored tier C term instead. [CONFIRM, Nicole: the distractors and explanations.]
+- **Denial and regret (for the dictionary master).** Regret's definition ends "usually on price or restriction", while the denial entry treats demand blocked by a restriction as a denial. The Denial reverse question shows both definitions side by side, so settle the wording in the master.
+- **Matching regrouped by theme (2 Oct).** Five items: who owns and runs a property, rates and fees, rooms and how they're sold, demand and the calendar, measuring marketing. Flag stays a true/false item, and Keys, rooms and units has a new one: both read too close to a neighbour (or to themselves) in matching. Definitions are blanked like call lines.
 - **No "illustrative" line on questions (2 Oct).** The check's intro says it once.

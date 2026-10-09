@@ -40,6 +40,7 @@ import { HelpMenu } from "@/components/application/help-menu";
 import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, NavCollapseButton, useNavCollapsed } from "@/components/application/icon-rail";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
 import { Select } from "@/components/base/select/select";
+import { Avatar } from "@/components/base/avatar/avatar";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
 import {
@@ -54,9 +55,13 @@ import {
     filterPrivateClients,
     supabase,
 } from "@/lib/supabase";
+// Only OWNER_EMAIL can UNLOCK edit mode (add/edit/delete cards & clients). Everyone
+// else can view. Requires a real Supabase session — the password bypass has no user.
+import { ACCOUNT_MANAGERS, MARKETING_ASSISTANTS, OWNER_EMAIL, WEB_TEAM } from "@/lib/team-roster";
 // Aliased rather than reusing the slugify above: this must match the slug the dashboard's
 // own "+ New Page" wizard produces, so it uses the same function that wizard does.
 import { slugify as dashboardSlugify, genSharePassword, newDashboardRow } from "@/pages/client/dashboard/dashboard-model";
+import { AssetCollectionContent } from "@/pages/team/asset-collection/asset-collection-screen";
 import { LandingPageDirectoryContent } from "@/pages/team/landing-page-directory/landing-page-directory";
 import { SOP_DEPARTMENTS, sopDeptTabId } from "@/pages/team/sops/sop-departments";
 import { SopsContent } from "@/pages/team/sops/sops-content";
@@ -70,9 +75,6 @@ import { teamPhoto } from "@/utils/team-photos";
 // They carry no identity, so they never grant OWNER_EMAIL edit rights below.
 const PASSWORDS = ["ANHTUAN", "HGTEAM", "Zingdema07<3"];
 const ALLOWED_DOMAIN = "hiddengem.media";
-// Only this account can UNLOCK edit mode (add/edit/delete cards & clients). Everyone
-// else can view. Requires a real Supabase session — the password bypass has no user.
-const OWNER_EMAIL = "anhtuan@hiddengem.media";
 
 /* Google "G" mark (official multicolor). */
 export const GoogleIcon = ({ className }: { className?: string }) => (
@@ -270,14 +272,6 @@ export const ONBOARDING_PHASES = [
     { emoji: "🚀", label: "Marketing Launch" },
 ];
 
-/** The real HGM roster (hiddengem.media/team) — canonical names for the client
-    assignment dropdowns so per-person counts never fragment on typos. AMs pair
-    with a Marketing Assistant to handle each client. */
-// Gillian Conley is Operations Manager, not an AM — deliberately not listed.
-export const ACCOUNT_MANAGERS = ["Makenna Moran", "Alicia Morin", "Charlotte Pickering", "Ananya Arora", "Nicole Araya", "Chiara Henry", "Kristal Puguan"];
-export const MARKETING_ASSISTANTS = ["Vicky Si", "Lily Phanthavong", "Lucca Maggiolo"];
-export const WEB_TEAM = ["AnhTuan Bui", "Brandon Nguyen", "Leshan Patterson", "Kyle Zinger"];
-
 const DEPARTMENTS: Department[] = [
     {
         id: "clients",
@@ -312,14 +306,16 @@ const DEPARTMENTS: Department[] = [
         // Landing Page sits under Workflow as a section of its own, with its own tab list so
         // landing-page work doesn't pile into the website workflow tabs. Its Directory and Prompt
         // Library rows are the two pages of the Landing Page Directory tool
-        // (pages/team/landing-page-directory/), not card grids;
-        // tabs added beside it in edit mode are ordinary card grids.
+        // (pages/team/landing-page-directory/), not card grids, and Client Asset Collection is
+        // the team's standalone Media Collection Form shown in an iframe
+        // (pages/team/asset-collection/); tabs added beside them in edit mode are ordinary card grids.
         sections: [
             {
                 id: "landing-page",
                 label: "Landing Page",
                 tabs: [
                     { id: "landing-page", label: "Directory", icon: LayoutAlt01 },
+                    { id: "asset-collection", label: "Client Asset Collection", icon: LayoutAlt01 },
                     { id: "landing-page-prompts", label: "Prompt Library", icon: LayoutAlt01 },
                 ],
             },
@@ -514,6 +510,89 @@ const AddTabRow = ({ onAdd }: { onAdd: (label: string) => void }) => {
     );
 };
 
+/* The side menu's width is the viewer's own preference, shared by every department so the
+   menu doesn't jump between them. Drag its right edge, arrow keys on the focused edge, or
+   double-click to reset. */
+const SIDE_MENU_WIDTH_KEY = "dashboard-side-menu-width";
+const SIDE_MENU_MIN = 200;
+const SIDE_MENU_MAX = 480;
+const SIDE_MENU_DEFAULT = 240;
+
+const clampSideMenu = (w: number) => Math.min(SIDE_MENU_MAX, Math.max(SIDE_MENU_MIN, Math.round(w)));
+
+const readSideMenuWidth = () => {
+    try {
+        const n = Number(localStorage.getItem(SIDE_MENU_WIDTH_KEY));
+        return n ? clampSideMenu(n) : SIDE_MENU_DEFAULT;
+    } catch {
+        return SIDE_MENU_DEFAULT;
+    }
+};
+
+const ResizableSideMenu = ({ children }: { children: ReactNode }) => {
+    const [width, setWidth] = useState(readSideMenuWidth);
+    const widthRef = useRef(width);
+
+    const apply = (w: number, persist: boolean) => {
+        widthRef.current = clampSideMenu(w);
+        setWidth(widthRef.current);
+        if (!persist) return;
+        try {
+            localStorage.setItem(SIDE_MENU_WIDTH_KEY, String(widthRef.current));
+        } catch {
+            /* private window: the width just won't be remembered */
+        }
+    };
+
+    const onPointerDown = (e: React.PointerEvent) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = widthRef.current;
+        const move = (ev: PointerEvent) => apply(startWidth + ev.clientX - startX, false);
+        const up = () => {
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            apply(widthRef.current, true);
+        };
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+    };
+
+    const onKeyDown = (e: React.KeyboardEvent) => {
+        const step = e.shiftKey ? 40 : 10;
+        if (e.key === "ArrowLeft") apply(widthRef.current - step, true);
+        else if (e.key === "ArrowRight") apply(widthRef.current + step, true);
+        else if (e.key === "Home") apply(SIDE_MENU_MIN, true);
+        else if (e.key === "End") apply(SIDE_MENU_MAX, true);
+        else return;
+        e.preventDefault();
+    };
+
+    return (
+        <aside style={{ width }} className="relative flex h-full shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+            {children}
+            <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize menu"
+                aria-valuenow={width}
+                aria-valuemin={SIDE_MENU_MIN}
+                aria-valuemax={SIDE_MENU_MAX}
+                tabIndex={0}
+                title="Drag to resize · double-click to reset"
+                onPointerDown={onPointerDown}
+                onKeyDown={onKeyDown}
+                onDoubleClick={() => apply(SIDE_MENU_DEFAULT, true)}
+                className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize touch-none transition duration-100 ease-linear outline-none hover:bg-brand-solid/40 focus-visible:bg-brand-solid"
+            />
+        </aside>
+    );
+};
+
 const Sidebar = ({
     department,
     tabs,
@@ -545,7 +624,7 @@ const Sidebar = ({
     animate?: boolean;
 }) => {
     return (
-        <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+        <ResizableSideMenu>
             {/* Department header */}
             <div className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary px-5">
                 <h2 className="text-md font-semibold text-primary">{department.header}</h2>
@@ -637,7 +716,7 @@ const Sidebar = ({
                     </div>
                 ))}
             </nav>
-        </aside>
+        </ResizableSideMenu>
     );
 };
 
@@ -3105,7 +3184,7 @@ const ClientCard = ({
                     clickable && "cursor-pointer hover:shadow-md",
                 )}
             >
-                <div className="relative size-12 shrink-0 overflow-hidden rounded-lg">
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-xl">
                     {client.logo_url ? (
                         <div className="flex size-full items-center justify-center bg-secondary ring-1 ring-secondary">
                             <img src={client.logo_url} alt={`${client.name} logo`} className="size-full object-contain p-1" draggable={false} />
@@ -3114,7 +3193,7 @@ const ClientCard = ({
                         <img src={client.cover_url} alt={client.name} className="size-full object-cover" draggable={false} />
                     ) : (
                         <div className="flex size-full items-center justify-center" style={{ background: gradientFor(client.name || "Client") }}>
-                            <span className="text-lg font-bold text-white/90">{(client.name || "C").charAt(0).toUpperCase()}</span>
+                            <span className="text-xl font-bold text-white/90">{(client.name || "C").charAt(0).toUpperCase()}</span>
                         </div>
                     )}
                 </div>
@@ -3389,7 +3468,8 @@ const NavItem = ({
         )}
     >
         {photo ? (
-            <img src={photo} alt={label} className="size-5 shrink-0 rounded-full object-cover ring-1 ring-secondary" draggable={false} />
+            // Untitled UI's sidebar nav rows carry a 24px (xs) avatar.
+            <Avatar src={photo} alt={label} size="xs" className="shrink-0" />
         ) : (
             <Icon className="size-4 shrink-0" aria-hidden="true" />
         )}
@@ -3532,7 +3612,7 @@ const ClientListContent = ({ editing, navCollapsed = false, onCollapse }: { edit
         <>
             {/* Client List sidebar (tier + AM grouping) */}
             {!navCollapsed && (
-                <aside className="flex h-full w-60 shrink-0 flex-col overflow-hidden rounded-lg bg-primary shadow-sm">
+                <ResizableSideMenu>
                     <div className="flex h-[73px] shrink-0 items-center justify-between border-b border-secondary px-5">
                         <h2 className="text-md font-semibold text-primary">Client List</h2>
                         {onCollapse && <NavCollapseButton onClick={onCollapse} />}
@@ -3573,7 +3653,7 @@ const ClientListContent = ({ editing, navCollapsed = false, onCollapse }: { edit
                             </SidebarGroup>
                         </motion.div>
                     </nav>
-                </aside>
+                </ResizableSideMenu>
             )}
 
             {/* Main */}
@@ -3953,6 +4033,8 @@ const DashboardLayout = () => {
                             <SopsContent tab={activeSection} onSelectTab={selectTab} />
                         ) : activeSection === "owner-guides" ? (
                             <OwnerGuidesContent editing={editing} isOwner={isOwner} />
+                        ) : dept.id === "website" && activeSection === "asset-collection" ? (
+                            <AssetCollectionContent />
                         ) : dept.id === "website" && (activeSection === "landing-page" || activeSection === "landing-page-prompts") ? (
                             <LandingPageDirectoryContent editing={editing} page={activeSection === "landing-page-prompts" ? "prompts" : "directory"} />
                         ) : dept.kind === "docs" ? (

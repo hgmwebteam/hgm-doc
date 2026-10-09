@@ -3,6 +3,7 @@ import { Check, CheckCircle, Edit03, MessageChatCircle, XCircle, XClose } from "
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type Key as AriaKey, Tab as AriaTab, TabList as AriaTabList, TabPanel as AriaTabPanel, Tabs as AriaTabs } from "react-aria-components";
 import { Avatar } from "@/components/base/avatar/avatar";
+import { BadgeWithIcon } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import type { Suggestion } from "@/pages/client/dashboard/suggestions-model";
@@ -314,7 +315,7 @@ type HistoryItem = {
     /** Whose initials the avatar shows; verdicts show an icon instead. */
     author?: string;
     text?: string;
-    /** How it ended: "Done by Ananya, Oct 6". */
+    /** Who closed it and when, beside the outcome badge: "by Ananya, Oct 6". */
     outcome: string;
     /** When it was written. */
     writtenAt?: string;
@@ -365,7 +366,7 @@ export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor
                 heading: label ? `${s.suggested_by}, ${label}` : s.suggested_by,
                 author: s.suggested_by,
                 text: s.suggested_value,
-                outcome: [done ? "Done" : "Dismissed", who && `by ${who}`].filter(Boolean).join(" ") + (when ? `, ${when}` : ""),
+                outcome: [who && `by ${who}`, when].filter(Boolean).join(", "),
                 writtenAt: s.created_at,
                 sortAt: s.resolved_at ?? s.created_at,
             };
@@ -383,9 +384,11 @@ export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor
 };
 
 /** Who and when on one line; the time is relative, the exact one is on hover. */
-const Byline = ({ heading, at, muted = false }: { heading: string; at?: string; muted?: boolean }) => (
+const Byline = ({ heading, at, tone = "default" }: { heading: string; at?: string; tone?: "default" | "muted" | "faint" }) => (
     <div className="flex min-w-0 items-baseline gap-2">
-        <p className={cx("min-w-0 truncate text-sm font-medium", muted ? "text-secondary" : "text-primary")}>{heading}</p>
+        <p className={cx("min-w-0 truncate text-sm font-medium", tone === "default" ? "text-primary" : tone === "muted" ? "text-secondary" : "text-tertiary")}>
+            {heading}
+        </p>
         {at && (
             <time dateTime={at} title={sentStamp(at)} className="shrink-0 text-xs text-quaternary">
                 {ago(at)}
@@ -447,27 +450,56 @@ const OpenNote = ({
     );
 };
 
-/** One closed item: the same shape, quieter, with how it ended on the last line. */
+/** How a closed item ended, as a badge: green for done, grey for dismissed. Verdicts that
+ *  asked for changes carry none, since their heading already says so. */
+const OUTCOME: Record<HistoryItem["kind"], { label: string; color: "success" | "gray"; icon: typeof CheckCircle } | null> = {
+    done: { label: "Done", color: "success", icon: CheckCircle },
+    approved: { label: "Approved", color: "success", icon: CheckCircle },
+    dismissed: { label: "Dismissed", color: "gray", icon: XCircle },
+    changes: null,
+};
+
+/** One closed item: the same shape as an open note, quieter, with how it ended on the last
+ *  line. Done and Dismissed have to tell apart at a glance, so the outcome leads that line as
+ *  a coloured badge, and a dismissed note also fades back a step. */
 const DoneNote = ({ item }: { item: HistoryItem }) => {
     const [expanded, setExpanded] = useState(false);
     const text = item.text?.trim() ?? "";
-    const long = text.length > 220 || text.split("\n").length > 3;
-    // The avatar slot already shows the chat icon for a verdict, so its last line has none.
-    const OutcomeIcon = item.kind === "done" || item.kind === "approved" ? CheckCircle : item.kind === "dismissed" ? XCircle : null;
-    const positive = item.kind === "done" || item.kind === "approved";
+    // "Show more" only when the clamp actually cuts something off: measured, not guessed
+    // from length, so a note that fits in three lines never offers to show more of itself.
+    const textRef = useRef<HTMLParagraphElement>(null);
+    const [clipped, setClipped] = useState(false);
+    useEffect(() => {
+        const el = textRef.current;
+        if (!el || expanded) return;
+        const measure = () => setClipped(el.scrollHeight > el.clientHeight + 1);
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [text, expanded]);
+    const outcome = OUTCOME[item.kind];
+    const dismissed = item.kind === "dismissed";
     return (
         <div className="flex gap-3">
             {item.author ? (
-                <Avatar size="xs" initials={initialsOf(item.author)} className="mt-0.5 shrink-0 opacity-80" />
+                <Avatar size="xs" initials={initialsOf(item.author)} className={cx("mt-0.5 shrink-0", dismissed && "opacity-60")} />
             ) : (
                 <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary ring-1 ring-secondary_alt ring-inset">
                     <MessageChatCircle className="size-3.5 text-fg-quaternary" aria-hidden="true" />
                 </span>
             )}
             <div className="min-w-0 flex-1">
-                <Byline heading={item.heading} at={item.writtenAt} muted />
-                {text && <p className={cx("mt-1 text-sm whitespace-pre-wrap text-tertiary", !expanded && long && "line-clamp-3")}>{text}</p>}
-                {long && (
+                <Byline heading={item.heading} at={item.writtenAt} tone={dismissed ? "faint" : "muted"} />
+                {text && (
+                    <p
+                        ref={textRef}
+                        className={cx("mt-1 text-sm whitespace-pre-wrap", dismissed ? "text-quaternary" : "text-tertiary", !expanded && "line-clamp-3")}
+                    >
+                        {text}
+                    </p>
+                )}
+                {(clipped || expanded) && (
                     <button
                         type="button"
                         onClick={() => setExpanded((v) => !v)}
@@ -476,16 +508,15 @@ const DoneNote = ({ item }: { item: HistoryItem }) => {
                         {expanded ? "Show less" : "Show more"}
                     </button>
                 )}
-                {item.outcome && (
-                    <p className="mt-1.5 flex items-center gap-1 text-xs text-quaternary">
-                        {OutcomeIcon && (
-                            <OutcomeIcon
-                                className={cx("size-3.5 shrink-0", positive ? "text-fg-success-secondary" : "text-fg-quaternary")}
-                                aria-hidden="true"
-                            />
+                {(outcome || item.outcome) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {outcome && (
+                            <BadgeWithIcon type="pill-color" size="sm" color={outcome.color} iconLeading={outcome.icon}>
+                                {outcome.label}
+                            </BadgeWithIcon>
                         )}
-                        {item.outcome}
-                    </p>
+                        {item.outcome && <span className="text-xs text-quaternary">{item.outcome}</span>}
+                    </div>
                 )}
             </div>
         </div>

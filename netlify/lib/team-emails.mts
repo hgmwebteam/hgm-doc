@@ -25,6 +25,13 @@ const ACCOUNT_MANAGER_EMAILS: Record<string, string> = {
  */
 export const FORM_SUBMISSION_CC: string[] = ["dustin@hiddengem.media", "gillian@hiddengem.media", "makenna@hiddengem.media", "alicia@hiddengem.media"];
 
+/**
+ * Copied on every client-note alert (client-note-alert.mts) — every client, whoever their AM is,
+ * and still copied when the note goes to FORM_SUBMISSION_CC because no AM resolved. Added at
+ * Brandon's request on 2026-10-09 so one person sees every comment as it comes in.
+ */
+export const CLIENT_NOTE_CC: string[] = ["brandon@hiddengem.media"];
+
 /** Case- and whitespace-insensitive, because `clients.am` also keeps legacy free-typed names. */
 export const accountManagerEmail = (name: string | null | undefined): string | null => {
     const key = (name ?? "").trim().replace(/\s+/g, " ").toLowerCase();

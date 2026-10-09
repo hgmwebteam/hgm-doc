@@ -9,7 +9,8 @@
  */
 import assert from "node:assert/strict";
 import { sectionForKey } from "../../src/pages/client/dashboard/suggestions-model.ts";
-import { CHAT_CLIP, CHAT_ITEMS, CHAT_MAX, EMAIL_CLIP, buildClientNoteMessages } from "./client-note-alert.mts";
+import { CHAT_CLIP, CHAT_ITEMS, CHAT_MAX, EMAIL_CLIP, buildClientNoteMessages, noteRecipients } from "./client-note-alert.mts";
+import { FORM_SUBMISSION_CC } from "./team-emails.mts";
 
 const SLUG = "alpine-lodge-dashboard";
 const BY = "host@alpinelodge.com";
@@ -141,5 +142,12 @@ const ev = { slug: SLUG, by: BY, items: [{ key: "hosts", label: "About the hosts
 const before = JSON.stringify(ev);
 buildClientNoteMessages(ev, ctx);
 assert.equal(JSON.stringify(ev), before);
+
+/* 11. Recipients: the AM is addressed and Brandon copied; with no AM the fallback list is
+       addressed and Brandon still copied; nobody is listed twice. */
+assert.deepEqual(noteRecipients("ananya@hiddengem.media"), { to: ["ananya@hiddengem.media"], cc: ["brandon@hiddengem.media"] });
+assert.deepEqual(noteRecipients(null), { to: FORM_SUBMISSION_CC, cc: ["brandon@hiddengem.media"] });
+assert.deepEqual(noteRecipients("Brandon@hiddengem.media"), { to: ["Brandon@hiddengem.media"], cc: [] }, "never addressed and copied at once");
+assert.notEqual(noteRecipients(null).to, FORM_SUBMISSION_CC, "the shared list is copied, never handed out to be mutated");
 
 console.log("client-note-alert.check: all assertions passed");

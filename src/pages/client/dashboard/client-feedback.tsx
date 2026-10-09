@@ -1,9 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, CheckCircle, Edit03, MessageChatCircle, XCircle, XClose } from "@untitledui/icons";
+import { Check, CheckCircle, Edit03, XClose } from "@untitledui/icons";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type Key as AriaKey, Tab as AriaTab, TabList as AriaTabList, TabPanel as AriaTabPanel, Tabs as AriaTabs } from "react-aria-components";
-import { Avatar } from "@/components/base/avatar/avatar";
-import { BadgeWithIcon } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import type { Suggestion } from "@/pages/client/dashboard/suggestions-model";
@@ -283,19 +281,19 @@ export const ClientFeedbackReview = ({ feedback, labelFor }: { feedback: Omit<Cl
     );
 };
 
-/* ── Open and Done, in one place ─────────────────────────────────────────────
+/* ── Open, Done and Dismissed ───────────────────────────────────────────────
    ClientFeedbackReview above shows open notes only, so a note marked done vanished: the
    row was kept in dashboard_suggestions (status, resolved_by, resolved_at) but nothing on
-   the page could show it again. This panel keeps both in one thread, the way a comment
-   thread in Docs or Linear reads: a small avatar, who and when on one line, the words, and
-   one quiet action. A slim toggle switches Open and Done, each with its count, so what is
-   waiting reads first and what was handled is one click away.
+   the page could show it again. This panel keeps every note, sorted into three tabs: Open
+   to act on, Done, and Dismissed. The tab says what happened, so a row needs no badge or
+   avatar: who and when on one line, the words, and who closed it.
 
    Used by the Landing Page's Client review card (2026-10-09); the other sections still use
    ClientFeedbackReview and can move over by swapping the component. */
 
 /** A closed item from outside dashboard_suggestions that belongs in the same history, such
- *  as the client's verdict on an older landing-page version. */
+ *  as the client's verdict on an older landing-page version. Filed under Done: a newer
+ *  version answered it. */
 export interface PastVerdict {
     id: string;
     /** "Changes requested on v1", "Approved v2". */
@@ -310,12 +308,10 @@ export interface PastVerdict {
 type HistoryItem = {
     id: string;
     kind: "done" | "dismissed" | "changes" | "approved";
-    /** The line in bold: who wrote it, or what the verdict was. */
+    /** The name line: who wrote it, or what the verdict was. */
     heading: string;
-    /** Whose initials the avatar shows; verdicts show an icon instead. */
-    author?: string;
     text?: string;
-    /** Who closed it and when, beside the outcome badge: "by Ananya, Oct 6". */
+    /** How it ended, who closed it and when: "Done by Ananya, Oct 6". */
     outcome: string;
     /** When it was written. */
     writtenAt?: string;
@@ -331,13 +327,6 @@ const firstNameOf = (email?: string | null) => {
     const local = (email ?? "").split("@")[0] ?? "";
     return local ? local.charAt(0).toUpperCase() + local.slice(1) : "";
 };
-
-/** "bsmith@waldenretreats.com" → "BS". */
-const initialsOf = (email: string) =>
-    (email.split("@")[0] ?? "")
-        .replace(/[^a-z]/gi, "")
-        .slice(0, 2)
-        .toUpperCase() || "?";
 
 /** "just now", "12m ago", "3h ago", "2d ago", then the date. The exact time is the tooltip. */
 const ago = (iso: string) => {
@@ -356,17 +345,15 @@ export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor
     const notes: HistoryItem[] = items
         .filter((s) => s.status !== "pending")
         .map((s) => {
-            const done = s.status === "accepted";
             const who = firstNameOf(s.resolved_by);
             const when = s.resolved_at ? shortDate(s.resolved_at) : "";
             const label = labelFor?.(s) ?? null;
             return {
                 id: s.id,
-                kind: done ? "done" : "dismissed",
+                kind: s.status === "accepted" ? "done" : "dismissed",
                 heading: label ? `${s.suggested_by}, ${label}` : s.suggested_by,
-                author: s.suggested_by,
                 text: s.suggested_value,
-                outcome: [who && `by ${who}`, when].filter(Boolean).join(", "),
+                outcome: [[s.status === "accepted" ? "Done" : "Dismissed", who && `by ${who}`].filter(Boolean).join(" "), when].filter(Boolean).join(", "),
                 writtenAt: s.created_at,
                 sortAt: s.resolved_at ?? s.created_at,
             };
@@ -384,11 +371,9 @@ export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor
 };
 
 /** Who and when on one line; the time is relative, the exact one is on hover. */
-const Byline = ({ heading, at, tone = "default" }: { heading: string; at?: string; tone?: "default" | "muted" | "faint" }) => (
+const Byline = ({ heading, at, muted = false }: { heading: string; at?: string; muted?: boolean }) => (
     <div className="flex min-w-0 items-baseline gap-2">
-        <p className={cx("min-w-0 truncate text-sm font-medium", tone === "default" ? "text-primary" : tone === "muted" ? "text-secondary" : "text-tertiary")}>
-            {heading}
-        </p>
+        <p className={cx("min-w-0 truncate text-sm font-medium", muted ? "text-secondary" : "text-primary")}>{heading}</p>
         {at && (
             <time dateTime={at} title={sentStamp(at)} className="shrink-0 text-xs text-quaternary">
                 {ago(at)}
@@ -397,9 +382,9 @@ const Byline = ({ heading, at, tone = "default" }: { heading: string; at?: strin
     </div>
 );
 
-/** One open note: avatar, who and when, the words, and the two ways to close it. The
- *  actions sit on the byline's right when the panel is wide, and drop under the words when it
- *  is narrow, so a long email address is never squeezed to a few letters. */
+/** One open note: who and when, the words, and the two ways to close it. The actions sit on
+ *  the name line's right when the panel is wide, and drop under the words when it is narrow,
+ *  so a long email address is never squeezed to a few letters. */
 const OpenNote = ({
     s,
     label,
@@ -435,34 +420,20 @@ const OpenNote = ({
         </div>
     );
     return (
-        <div className="flex gap-3">
-            <Avatar size="xs" initials={initialsOf(s.suggested_by)} className="mt-0.5 shrink-0" />
-            <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-3">
-                    <Byline heading={s.suggested_by} at={s.created_at} />
-                    <div className="-my-1 hidden @md/comments:block">{actions}</div>
-                </div>
-                {label && <p className="text-xs text-quaternary">{label}</p>}
-                <p className="mt-1 text-sm whitespace-pre-wrap text-secondary">{s.suggested_value}</p>
-                <div className="mt-2.5 @md/comments:hidden">{actions}</div>
+        <div>
+            <div className="flex items-center justify-between gap-3">
+                <Byline heading={s.suggested_by} at={s.created_at} />
+                <div className="-my-1 hidden @md/comments:block">{actions}</div>
             </div>
+            {label && <p className="text-xs text-quaternary">{label}</p>}
+            <p className="mt-1 text-sm whitespace-pre-wrap text-secondary">{s.suggested_value}</p>
+            <div className="mt-2.5 @md/comments:hidden">{actions}</div>
         </div>
     );
 };
 
-/** How a closed item ended, as a badge: green for done, grey for dismissed. Verdicts that
- *  asked for changes carry none, since their heading already says so. */
-const OUTCOME: Record<HistoryItem["kind"], { label: string; color: "success" | "gray"; icon: typeof CheckCircle } | null> = {
-    done: { label: "Done", color: "success", icon: CheckCircle },
-    approved: { label: "Approved", color: "success", icon: CheckCircle },
-    dismissed: { label: "Dismissed", color: "gray", icon: XCircle },
-    changes: null,
-};
-
-/** One closed item: the same shape as an open note, quieter, with how it ended on the last
- *  line. Done and Dismissed have to tell apart at a glance, so the outcome leads that line as
- *  a coloured badge, and a dismissed note also fades back a step. */
-const DoneNote = ({ item }: { item: HistoryItem }) => {
+/** One closed item: the same shape as an open note, quieter, with who closed it last. */
+const ClosedNote = ({ item }: { item: HistoryItem }) => {
     const [expanded, setExpanded] = useState(false);
     const text = item.text?.trim() ?? "";
     // "Show more" only when the clamp actually cuts something off: measured, not guessed
@@ -478,48 +449,47 @@ const DoneNote = ({ item }: { item: HistoryItem }) => {
         ro.observe(el);
         return () => ro.disconnect();
     }, [text, expanded]);
-    const outcome = OUTCOME[item.kind];
-    const dismissed = item.kind === "dismissed";
     return (
-        <div className="flex gap-3">
-            {item.author ? (
-                <Avatar size="xs" initials={initialsOf(item.author)} className={cx("mt-0.5 shrink-0", dismissed && "opacity-60")} />
-            ) : (
-                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary ring-1 ring-secondary_alt ring-inset">
-                    <MessageChatCircle className="size-3.5 text-fg-quaternary" aria-hidden="true" />
-                </span>
+        <div>
+            <Byline heading={item.heading} at={item.writtenAt} muted />
+            {text && (
+                <p ref={textRef} className={cx("mt-1 text-sm whitespace-pre-wrap text-tertiary", !expanded && "line-clamp-3")}>
+                    {text}
+                </p>
             )}
-            <div className="min-w-0 flex-1">
-                <Byline heading={item.heading} at={item.writtenAt} tone={dismissed ? "faint" : "muted"} />
-                {text && (
-                    <p
-                        ref={textRef}
-                        className={cx("mt-1 text-sm whitespace-pre-wrap", dismissed ? "text-quaternary" : "text-tertiary", !expanded && "line-clamp-3")}
-                    >
-                        {text}
-                    </p>
-                )}
-                {(clipped || expanded) && (
-                    <button
-                        type="button"
-                        onClick={() => setExpanded((v) => !v)}
-                        className="mt-0.5 text-xs font-semibold text-tertiary transition duration-100 ease-linear hover:text-primary"
-                    >
-                        {expanded ? "Show less" : "Show more"}
-                    </button>
-                )}
-                {(outcome || item.outcome) && (
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                        {outcome && (
-                            <BadgeWithIcon type="pill-color" size="sm" color={outcome.color} iconLeading={outcome.icon}>
-                                {outcome.label}
-                            </BadgeWithIcon>
-                        )}
-                        {item.outcome && <span className="text-xs text-quaternary">{item.outcome}</span>}
-                    </div>
-                )}
-            </div>
+            {(clipped || expanded) && (
+                <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    className="mt-0.5 text-xs font-semibold text-tertiary transition duration-100 ease-linear hover:text-primary"
+                >
+                    {expanded ? "Show less" : "Show more"}
+                </button>
+            )}
+            {item.outcome && <p className="mt-1.5 text-xs text-quaternary">{item.outcome}</p>}
         </div>
+    );
+};
+
+/** A closed list with its own "Show all", so opening one tab's history leaves the other's as it was. */
+const ClosedList = ({ items, empty }: { items: HistoryItem[]; empty: { title: string; body: string } }) => {
+    const [shown, setShown] = useState(HISTORY_STEP);
+    if (items.length === 0) return <EmptyNote {...empty} />;
+    return (
+        <>
+            <ul className="flex flex-col gap-5">
+                {items.slice(0, shown).map((item) => (
+                    <li key={item.id}>
+                        <ClosedNote item={item} />
+                    </li>
+                ))}
+            </ul>
+            {items.length > shown && (
+                <Button color="link-gray" size="sm" className="mt-4" onClick={() => setShown(items.length)}>
+                    {`Show all ${items.length}`}
+                </Button>
+            )}
+        </>
     );
 };
 
@@ -533,8 +503,8 @@ const EmptyNote = ({ title, body }: { title: string; body: string }) => (
     </div>
 );
 
-/** A count that gives a small pulse when it goes up, so a note marked done visibly lands
- *  in Done. Feedback, not decoration: it fires only on an increase, never on first paint. */
+/** A count that gives a small pulse when it goes up, so a note marked done or dismissed
+ *  visibly lands in its tab. Feedback, not decoration: it fires only on an increase. */
 const Count = ({ n, waiting = false }: { n: number; waiting?: boolean }) => {
     const reduceMotion = useReducedMotion();
     const prev = useRef(n);
@@ -559,7 +529,7 @@ const Count = ({ n, waiting = false }: { n: number; waiting?: boolean }) => {
     );
 };
 
-/** The Open / Done switch: a slim segmented control whose highlight slides between the two. */
+/** One segment of the switch; the highlight slides between segments. */
 const Segment = ({ id, groupId, label, count, waiting }: { id: string; groupId: string; label: string; count: number; waiting?: boolean }) => {
     const reduceMotion = useReducedMotion();
     return (
@@ -594,9 +564,9 @@ const Segment = ({ id, groupId, label, count, waiting }: { id: string; groupId: 
 };
 
 /**
- * The team's comment thread for one section: Open (to act on) and Done (what was already
- * handled), with past verdicts from outside the table folded into Done. Renders nothing
- * unless `mode` is "review". It renders the body only: the caller puts it inside its card.
+ * The team's comments on one section, in three tabs: Open (to act on), Done (handled, plus
+ * past verdicts from outside the table) and Dismissed. Renders nothing unless `mode` is
+ * "review". It renders the body only: the caller puts it inside its own card.
  */
 export const ClientFeedbackTabs = ({
     feedback,
@@ -611,22 +581,24 @@ export const ClientFeedbackTabs = ({
     const groupId = useId();
     /** Null until the viewer picks, so the default can follow the data as it loads. */
     const [picked, setPicked] = useState<AriaKey | null>(null);
-    const [shown, setShown] = useState(HISTORY_STEP);
 
     if (feedback.mode !== "review") return null;
 
     const open = feedback.items.filter((s) => s.status === "pending");
     const history = historyOf(feedback.items, pastVerdicts, labelFor);
-    // Open first while anything is waiting; otherwise the history, if there is one.
-    const selected = picked ?? (open.length > 0 || history.length === 0 ? "open" : "done");
+    const done = history.filter((h) => h.kind !== "dismissed");
+    const dismissed = history.filter((h) => h.kind === "dismissed");
+    // Open first while anything is waiting; otherwise the first tab with something in it.
+    const selected = picked ?? (open.length > 0 ? "open" : done.length > 0 ? "done" : dismissed.length > 0 ? "dismissed" : "open");
 
     return (
         <AriaTabs selectedKey={selected} onSelectionChange={setPicked} keyboardActivation="manual" className="@container/comments">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <p className="text-sm font-semibold text-primary">Comments</p>
                 <AriaTabList aria-label="Client comments" className="flex gap-0.5 rounded-lg bg-secondary p-0.5 ring-1 ring-secondary ring-inset">
                     <Segment id="open" groupId={groupId} label="Open" count={open.length} waiting />
-                    <Segment id="done" groupId={groupId} label="Done" count={history.length} />
+                    <Segment id="done" groupId={groupId} label="Done" count={done.length} />
+                    <Segment id="dismissed" groupId={groupId} label="Dismissed" count={dismissed.length} />
                 </AriaTabList>
             </div>
 
@@ -635,8 +607,8 @@ export const ClientFeedbackTabs = ({
                     <EmptyNote title="All caught up" body="New comments from the client show up here." />
                 ) : (
                     <ul className="flex flex-col gap-5">
-                        {/* A note leaving for Done fades out where it is, then the rest close
-                            the gap, so the list never jumps. Opacity only under reduced motion. */}
+                        {/* A note leaving the list fades out where it is, then the rest close the
+                            gap, so the list never jumps. Opacity only under reduced motion. */}
                         <AnimatePresence initial={false} mode="popLayout">
                             {open.map((s) => (
                                 <motion.li
@@ -654,24 +626,17 @@ export const ClientFeedbackTabs = ({
             </AriaTabPanel>
 
             <AriaTabPanel id="done" className="mt-4 outline-none">
-                {history.length === 0 ? (
-                    <EmptyNote title="Nothing closed yet" body="Comments you mark as done or dismiss stay here, so you can look back at them." />
-                ) : (
-                    <>
-                        <ul className="flex flex-col gap-5">
-                            {history.slice(0, shown).map((item) => (
-                                <li key={item.id}>
-                                    <DoneNote item={item} />
-                                </li>
-                            ))}
-                        </ul>
-                        {history.length > shown && (
-                            <Button color="link-gray" size="sm" className="mt-4" onClick={() => setShown(history.length)}>
-                                {`Show all ${history.length}`}
-                            </Button>
-                        )}
-                    </>
-                )}
+                <ClosedList
+                    items={done}
+                    empty={{ title: "Nothing marked done yet", body: "Comments you mark as done stay here, so you can look back at them." }}
+                />
+            </AriaTabPanel>
+
+            <AriaTabPanel id="dismissed" className="mt-4 outline-none">
+                <ClosedList
+                    items={dismissed}
+                    empty={{ title: "Nothing dismissed", body: "Comments you dismiss land here, so nothing a client wrote is lost." }}
+                />
             </AriaTabPanel>
         </AriaTabs>
     );

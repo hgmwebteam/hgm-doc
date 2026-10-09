@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { alertClientNote } from "../lib/client-note-alert.mts";
 import { flowSlot, pickFlowEmailRow } from "../lib/flow-feedback.mts";
 
 /**
@@ -190,11 +191,22 @@ export default async (req: Request) => {
         const { error: insErr } = await supabaseAdmin.from("dashboard_suggestions").insert(clean);
         if (insErr) return Response.json({ error: "Could not save suggestions." }, { status: 500 });
 
+        // Tell the team — started here so it overlaps the mirror below, awaited before the
+        // response so the function isn't frozen with it half-done. Best-effort and bounded:
+        // the rows are saved, so a failed alert never fails the client's send.
+        const alert = alertClientNote(supabaseAdmin, {
+            slug,
+            by: email,
+            dashboardClientName: String((row as { client_name?: unknown }).client_name ?? ""),
+            items: clean.map((c) => ({ key: c.field_key, label: c.field_label, text: c.suggested_value })),
+        });
+
         // Feedback on a welcome email also lands on that email's own row.
         for (const c of clean) {
             const slot = flowSlot(c.field_key);
             if (slot !== null) await mirrorToEmailTable(slot, c.suggested_value);
         }
+        await alert;
         return Response.json({ ok: true, created: clean.length });
     }
 

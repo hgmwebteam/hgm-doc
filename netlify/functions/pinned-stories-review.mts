@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { alertClientNote } from "../lib/client-note-alert.mts";
 
 /**
  * Client review actions on Marketing → Pinned Stories: a note on one slide, a note on the
@@ -55,7 +56,7 @@ export default async (req: Request) => {
     const admin = createClient(supabaseUrl, serviceKey);
 
     // Identity: read fresh from the dashboard row, never from anything the browser sends.
-    const { data: dashboardRow, error: dashboardErr } = await admin.from("dashboard_pages").select("data").eq("slug", slug).single();
+    const { data: dashboardRow, error: dashboardErr } = await admin.from("dashboard_pages").select("data, client_name").eq("slug", slug).single();
     if (dashboardErr || !dashboardRow) return Response.json({ error: "Not found." }, { status: 404 });
     const dashboardData = (dashboardRow.data ?? {}) as Record<string, unknown>;
     const allowed = Array.isArray(dashboardData.allowed_emails) ? (dashboardData.allowed_emails as unknown[]).map(norm) : [];
@@ -74,6 +75,9 @@ export default async (req: Request) => {
     const comments = Array.isArray(current.comments) ? current.comments : [];
     const now = new Date().toISOString();
     let review: Record<string, unknown>;
+    // What the team's alert says about a note: the highlight it is on, or the whole set.
+    let noteLabel = "";
+    let noteText = "";
 
     if (action === "approve") {
         review = { status: "approved", respondedAt: now, respondedBy: email, comments };
@@ -85,11 +89,13 @@ export default async (req: Request) => {
         const slideId = String(body.slideId ?? "").slice(0, 80);
         // A slide reference must point at a slide that exists in the live version; anything
         // else is stored as a note on the whole set rather than rejected.
-        const highlights = Array.isArray(live.highlights) ? (live.highlights as { id: string; slides?: { id: string }[] }[]) : [];
+        const highlights = Array.isArray(live.highlights) ? (live.highlights as { id: string; title?: string; slides?: { id: string }[] }[]) : [];
         const h = highlights.find((x) => x.id === highlightId);
         const valid = !!h && !!h.slides?.some((s) => s.id === slideId);
         const comment = { id: newId(), highlightId: valid ? highlightId : "", slideId: valid ? slideId : "", text, by: email, at: now };
         review = { status: "changes", respondedAt: now, respondedBy: email, comments: [...comments, comment] };
+        noteLabel = valid ? `Pinned stories · “${String(h!.title ?? "").trim() || "Untitled"}”` : "Pinned stories · whole set";
+        noteText = text;
     }
 
     const nextVersions = [{ ...live, review }, ...versions.slice(1)];
@@ -98,6 +104,17 @@ export default async (req: Request) => {
         .update({ data: { ...data, versions: nextVersions }, updated_at: now })
         .eq("slug", slug);
     if (writeErr) return Response.json({ error: "Could not save your note." }, { status: 500 });
+
+    // A note is for the team; an approval is not. Best-effort and bounded — the note is
+    // saved, so a failed alert never fails the client's send.
+    if (action === "comment") {
+        await alertClientNote(admin, {
+            slug,
+            by: email,
+            dashboardClientName: String(dashboardRow.client_name ?? ""),
+            items: [{ key: "pinnedStories.review", label: noteLabel, text: noteText }],
+        });
+    }
 
     return Response.json({ ok: true, review });
 };

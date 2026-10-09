@@ -453,7 +453,14 @@ const ClosedNote = ({ item }: { item: HistoryItem }) => {
     }, [text, expanded]);
     return (
         <div>
-            <Byline heading={item.heading} at={item.writtenAt} muted />
+            {/* How it ended sits on the name line's right when the panel is wide, like an open
+                note's actions, and drops under the words when it is narrow. */}
+            <div className="flex items-center justify-between gap-3">
+                <Byline heading={item.heading} at={item.writtenAt} muted />
+                <div className="hidden shrink-0 @md/comments:block">
+                    <Outcome item={item} />
+                </div>
+            </div>
             {text && (
                 <p ref={textRef} className={cx("mt-1 text-sm whitespace-pre-wrap text-tertiary", !expanded && "line-clamp-3")}>
                     {text}
@@ -468,7 +475,9 @@ const ClosedNote = ({ item }: { item: HistoryItem }) => {
                     {expanded ? "Show less" : "Show more"}
                 </button>
             )}
-            <Outcome item={item} />
+            <div className="mt-1.5 @md/comments:hidden">
+                <Outcome item={item} />
+            </div>
         </div>
     );
 };
@@ -487,7 +496,7 @@ const Outcome = ({ item }: { item: HistoryItem }) => {
                 : null;
     if (!mark && !item.outcome) return null;
     return (
-        <p className="mt-1.5 flex flex-wrap items-center gap-x-1 text-xs text-quaternary">
+        <p className="flex flex-wrap items-center gap-x-1 text-xs whitespace-nowrap text-quaternary">
             {mark && (
                 <span className={cx("inline-flex items-center gap-1 font-semibold", mark.cls)}>
                     <mark.Icon className={cx("size-3.5 shrink-0", mark.icon)} aria-hidden="true" />

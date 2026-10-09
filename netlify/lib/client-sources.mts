@@ -577,6 +577,13 @@ const READER_WARNING = /^Warning:.*CAPTCHA/im;
 const BOT_WALL =
     /Robot Challenge Screen|Checking the site connection security|sgcaptcha|\/\.well-known\/captcha|cf-browser-verification|cdn-cgi\/challenge|Just a moment\.\.\.|Attention Required!|Checking your browser|__cf_chl|px-captcha|incapsula|_Incapsula_Resource|DataDome/i;
 
+/**
+ * A page that is a bot wall's stub rather than the site: almost no text, plus a challenge
+ * marker. Both, because BOT_WALL alone matches Cloudflare's /cdn-cgi/challenge-platform/
+ * script, which ordinary pages carry too.
+ */
+export const behindBotWall = (html: string): boolean => BOT_WALL.test(html) && stripHtml(html, 400).length < 200;
+
 export interface SiteRead {
     site: string;
     /** Homepage text plus a few inner pages, each headed by its URL. */

@@ -785,26 +785,6 @@ async function fetchLogos(html: string, base: URL): Promise<Logo[]> {
 
 /* ── the read ───────────────────────────────────────────────────────────── */
 
-/**
- * The host's bot check, served in place of the site — named so the AM is told the site
- * refused us rather than that it had no brand. Hosts serve these by the visitor's IP: a
- * cloud function's address gets one whatever headers it sends, while the same URL opens
- * fine in a browser. gooseberrylodges.com (SiteGround) answered every read with a
- * 169-byte meta-refresh to its captcha, whose `<link rel="icon" href="data:;">` then
- * passed as a logo. Markers are the challenge pages' own, never the scripts these
- * services also put on ordinary pages (Cloudflare's /cdn-cgi/challenge-platform/ is on both).
- */
-const BOT_WALLS: [RegExp, string][] = [
-    [/\/\.well-known\/sgcaptcha\//i, "SiteGround"],
-    [/<title>\s*Just a moment\.\.\.\s*<\/title>|window\._cf_chl_opt/i, "Cloudflare"],
-    [/sucuri_cloudproxy_js|<title>[^<]*Sucuri WebSite Firewall/i, "Sucuri"],
-];
-
-/** The host whose bot check this page is, or null when it is the site itself. */
-export function botWall(html: string): string | null {
-    return BOT_WALLS.find(([re]) => re.test(html))?.[1] ?? null;
-}
-
 export interface SiteBrand {
     colors: Swatch[];
     /** False when the palette rests on thin evidence — see CONFIDENT_SCORE. */

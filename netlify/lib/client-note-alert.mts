@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sectionForKey } from "../../src/pages/client/dashboard/suggestions-model.ts";
 import { isStaffEmail } from "./staff.mts";
-import { FORM_SUBMISSION_CC, accountManagerEmail } from "./team-emails.mts";
+import { CLIENT_NOTE_CC, FORM_SUBMISSION_CC, accountManagerEmail } from "./team-emails.mts";
 
 /**
  * Tells the team a client left a note on their dashboard: one email to the client's Account
@@ -27,7 +27,8 @@ import { FORM_SUBMISSION_CC, accountManagerEmail } from "./team-emails.mts";
  *
  * The AM is found the only way the data links them (form-submitted.mts): the `clients` row
  * whose `link` ends in /{slug} → `clients.am` → team-emails.mts. With no AM the note goes to
- * FORM_SUBMISSION_CC, as the forms do. A staff address never alerts: a teammate on a test
+ * FORM_SUBMISSION_CC, as the forms do. CLIENT_NOTE_CC is copied on every one either way. A staff
+ * address never alerts: a teammate on a test
  * dashboard's allowlist is not a client writing in.
  */
 
@@ -154,6 +155,15 @@ export const buildClientNoteMessages = (
     return { subject, text, html, chat };
 };
 
+/** Who an alert email goes to: the client's AM, else the fallback list, with CLIENT_NOTE_CC
+ *  copied either way. Nobody gets it twice. Pure — pinned by client-note-alert.check.mts. */
+export const noteRecipients = (amEmail: string | null): { to: string[]; cc: string[] } => {
+    const to = amEmail ? [amEmail] : [...FORM_SUBMISSION_CC];
+    const addressed = new Set(to.map((e) => e.toLowerCase()));
+    const cc = CLIENT_NOTE_CC.filter((e) => !addressed.has(e.toLowerCase()));
+    return { to, cc };
+};
+
 type Outcome = boolean | "skipped";
 type ClientRow = { name: string | null; am: string | null };
 
@@ -186,7 +196,7 @@ export const alertClientNote = async (db: SupabaseClient, ev: ClientNoteEvent): 
         const clientName = (client?.name || ev.dashboardClientName || base).trim();
         const amEmail = accountManagerEmail(client?.am);
         if (!amEmail) console.warn(`[client-note-alert] ${ev.slug}: no AM email (client row ${client ? "found" : "missing"}, am="${client?.am ?? ""}")`);
-        const to = amEmail ? [amEmail] : FORM_SUBMISSION_CC;
+        const { to, cc } = noteRecipients(amEmail);
         const amFirstName = (amEmail && (client?.am ?? "").trim().split(/\s+/)[0]) || null;
 
         const msg = buildClientNoteMessages(ev, { clientName, amFirstName });
@@ -197,7 +207,7 @@ export const alertClientNote = async (db: SupabaseClient, ev: ClientNoteEvent): 
                 const res = await fetch("https://api.resend.com/emails", {
                     method: "POST",
                     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ from, to, subject: msg.subject, text: msg.text, html: msg.html }),
+                    body: JSON.stringify({ from, to, ...(cc.length ? { cc } : {}), subject: msg.subject, text: msg.text, html: msg.html }),
                     signal: AbortSignal.timeout(ALERT_TIMEOUT_MS),
                 });
                 if (res.ok) return true;

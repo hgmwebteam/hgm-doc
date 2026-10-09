@@ -316,7 +316,7 @@ and the access email names which logins were shared, never their values.
 `dashboard-suggestions.mts` (`create`: brand-doc edits and the section comment boxes),
 `landing-page-review.mts` (`request_changes`) or `pinned-stories-review.mts` (`comment`), and each
 tells the team once per call through `netlify/lib/client-note-alert.mts`, after the row is saved: one
-email to the client's AM (resolved as above; `FORM_SUBMISSION_CC` addressed directly when none) through
+email to the client's AM (resolved as above; `FORM_SUBMISSION_CC` addressed directly when none), copying `CLIENT_NOTE_CC` (Brandon) on every one, through
 Resend, and one message to the team's Google Chat space (`TEAM_CHAT_WEBHOOK_URL`, an incoming webhook
 on the space, set in the Netlify UI). Each channel is optional and both unset is a logged no-op. It is
 best-effort and bounded (4 s per channel, in parallel): the note is already saved, so a failed alert

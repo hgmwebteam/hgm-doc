@@ -424,7 +424,7 @@ const FUNCTIONS: { name: string; what: string }[] = [
     { name: "mark-booked", what: "Lets a client's browser tick exactly one journey step (kick-off call booked) — deliberately can't write anything else." },
     {
         name: "dashboard-suggestions",
-        what: "Client suggestion traffic: list / send / withdraw. Validates the client's email against that dashboard's allowlist on every call. A send also emails the client's AM and posts to the team's Google Chat (netlify/lib/client-note-alert.mts), best-effort, after the rows are saved.",
+        what: "Client suggestion traffic: list / send / withdraw. Validates the client's email against that dashboard's allowlist on every call. A send also emails the client's AM, with Brandon copied (CLIENT_NOTE_CC in netlify/lib/team-emails.mts), and posts to the team's Google Chat (netlify/lib/client-note-alert.mts), best-effort, after the rows are saved.",
     },
     {
         name: "landing-page-review",

@@ -143,6 +143,9 @@ import {
     type JourneyMark,
     type JourneyStepId,
     KICKOFF_CALENDLY,
+    LEGACY_JOURNEY_BAR,
+    LEGACY_JOURNEY_STAGES,
+    LEGACY_JOURNEY_STEPS,
     LINK_ONLY_SECTIONS,
     NAV_GROUPS,
     OVERVIEW_ITEM,
@@ -152,6 +155,7 @@ import {
     type SearchHit,
     TEAM_JOURNEY_STEPS,
     TEAM_ONLY_SECTIONS,
+    hasNewJourney,
     isJourneyItemDone,
     journeyItemKey,
     phaseOfSection,
@@ -161,6 +165,7 @@ import {
 } from "@/pages/client/dashboard/dashboard-navigation";
 import { ExampleReelsSection } from "@/pages/client/dashboard/example-reels";
 import { JourneyMarkPicker, JourneyProgress, type JourneyStatus } from "@/pages/client/dashboard/journey-progress";
+import { LegacyJourneyProgress } from "@/pages/client/dashboard/journey-progress-legacy";
 import {
     FOUNDATION_SECTIONS,
     LEGACY_FOUNDATION_FIELDS,
@@ -2448,6 +2453,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const chatLink = content.chat_link;
     const folderLink = content.brand.folder_link;
     const onboardingCallUrl = content.onboarding_call_url;
+    /** Older clients keep the journey they were sent: the old bar and step list, no marks. */
+    const newJourney = hasNewJourney(content, isTemplate);
 
     /**
      * Each step with its resolved state. The two form steps read their live answer counts;
@@ -2460,7 +2467,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         const linkFor = (key?: JourneyLink) =>
             key === "chat" ? (chatLink ?? "").trim() : key === "folder" ? folderLink.trim() : key === "onboarding_call" ? (onboardingCallUrl ?? "").trim() : "";
 
-        return JOURNEY_STEPS.map((step) => {
+        return (newJourney ? JOURNEY_STEPS : LEGACY_JOURNEY_STEPS).map((step) => {
             // Resolved once here so the renderer treats a static href (the Kick-off
             // Calendly) and a per-client one (the Onboarding Call) identically.
             const resolved = {
@@ -2527,6 +2534,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         chatLink,
         folderLink,
         onboardingCallUrl,
+        newJourney,
     ]);
 
     const journeyDoneCount = journeySteps.filter((s) => s.done).length;
@@ -2598,6 +2606,61 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [journeySteps, journeyCurrentId, clientVisible, journeyMarks]);
     const journeyLaunched = journeySteps[journeySteps.length - 1]?.done ?? false;
+
+    /**
+     * The OLD launch meter's cells and the stages bracketing them, for dashboards created
+     * before the chevron meter (see hasNewJourney). Kept exactly as it was: a cell per thing
+     * a client can finish, a step ticked piece by piece becomes a cell per piece, and a cell
+     * fills fractionally only where there is something real to count.
+     */
+    const { legacyCells, legacyGroups, legacyNextLabel } = useMemo(() => {
+        if (newJourney) return { legacyCells: [], legacyGroups: [], legacyNextLabel: null };
+        const fractionOf = (step: (typeof journeySteps)[number]) =>
+            step.done ? 1 : step.progress && step.progress.total > 0 ? step.progress.value / step.progress.total : 0;
+        const byId = new Map(journeySteps.map((step) => [step.id, step]));
+
+        const cellsFor = (bar: (typeof LEGACY_JOURNEY_BAR)[number], isLast: boolean) => {
+            const steps = bar.steps.map((id) => byId.get(id)).filter((step): step is (typeof journeySteps)[number] => !!step);
+            if (!steps.length) return [];
+            const [only] = steps;
+            if (steps.length === 1 && only.itemsTickable && only.items?.length) {
+                const nextUp = only.items.findIndex((item) => !item.done);
+                return only.items.map((item, i) => ({
+                    id: `${only.id}:${item.id ?? item.label}`,
+                    label: item.label,
+                    fraction: item.done ? 1 : 0,
+                    current: only.id === journeyCurrentId && i === nextUp,
+                    rocket: false,
+                }));
+            }
+            return [
+                {
+                    id: bar.id,
+                    label: bar.label,
+                    fraction: steps.reduce((sum, step) => sum + fractionOf(step), 0) / steps.length,
+                    current: steps.some((step) => step.id === journeyCurrentId),
+                    rocket: isLast,
+                },
+            ];
+        };
+
+        const cells: ReturnType<typeof cellsFor> = [];
+        const counts = new Map<string, number>();
+        LEGACY_JOURNEY_BAR.forEach((bar, i) => {
+            const made = cellsFor(bar, i === LEGACY_JOURNEY_BAR.length - 1);
+            cells.push(...made);
+            counts.set(bar.stage, (counts.get(bar.stage) ?? 0) + made.length);
+        });
+        const groups = LEGACY_JOURNEY_STAGES.map((stage) => ({ id: stage.id, label: stage.label, cells: counts.get(stage.id) ?? 0 })).filter(
+            (group) => group.cells > 0,
+        );
+
+        const current = journeySteps.find((s) => s.id === journeyCurrentId);
+        const piece = current?.itemsTickable ? current.items?.find((item) => !item.done) : undefined;
+        const nextLabel = current ? (piece ? `${current.label} — ${piece.label}` : current.label) : null;
+
+        return { legacyCells: cells, legacyGroups: groups, legacyNextLabel: nextLabel };
+    }, [newJourney, journeySteps, journeyCurrentId]);
 
     /** Whatever now follows the Kick-off Call — named in the booking confirmation so that
      *  copy can't go stale the next time the order is reshuffled. It has twice already. */
@@ -3568,11 +3631,21 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                         sit beside the heading: two readings of the same number is one too
                                                         many, and the ring was the quieter of the two on the page a client
                                                         opens to find out how close they are to going live. */}
-                                                    <JourneyProgress
-                                                        phases={journeyPhases}
-                                                        launched={journeyLaunched}
-                                                        launchWeek={JOURNEY_STAGES[JOURNEY_STAGES.length - 1].week}
-                                                    />
+                                                    {newJourney ? (
+                                                        <JourneyProgress
+                                                            phases={journeyPhases}
+                                                            launched={journeyLaunched}
+                                                            launchWeek={JOURNEY_STAGES[JOURNEY_STAGES.length - 1].week}
+                                                        />
+                                                    ) : (
+                                                        <LegacyJourneyProgress
+                                                            cells={legacyCells}
+                                                            groups={legacyGroups}
+                                                            stepsDone={journeyDoneCount}
+                                                            stepsTotal={journeySteps.length}
+                                                            nextLabel={legacyNextLabel}
+                                                        />
+                                                    )}
 
                                                     <ol className="mt-6 grid list-none gap-0 p-0">
                                                         {journeySteps.map((step, i) => {
@@ -3733,7 +3806,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                                                 {item.action ?? "Open"}
                                                                                                             </Button>
                                                                                                         )}
-                                                                                                        {step.itemsTickable &&
+                                                                                                        {newJourney &&
+                                                                                                            step.itemsTickable &&
                                                                                                             !isLocked &&
                                                                                                             isTeam &&
                                                                                                             !item.done && (
@@ -3894,7 +3968,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             {/* The AM's status mark, for what the meter can't see on
                                                                                 its own. The launch is the rocket, not a pill, so it
                                                                                 gets none; a piece-by-piece step is marked per piece. */}
-                                                                            {!isLocked &&
+                                                                            {newJourney &&
+                                                                                !isLocked &&
                                                                                 isTeam &&
                                                                                 !step.done &&
                                                                                 !step.itemsTickable &&

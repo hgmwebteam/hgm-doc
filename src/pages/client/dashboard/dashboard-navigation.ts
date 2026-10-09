@@ -31,7 +31,7 @@ import {
     TrendUp01,
     Users01,
 } from "@untitledui-pro/icons/line";
-import type { SectionId } from "@/pages/client/dashboard/dashboard-model";
+import { JOURNEY_VERSION, type SectionId } from "@/pages/client/dashboard/dashboard-model";
 
 /**
  * Side-menu groups — what the client actually needs to see, in the order they meet it:
@@ -427,6 +427,50 @@ export const JOURNEY_BAR: { id: string; label: string; stage: string; owner: Jou
 
 /** Steps only the team can finish — never the client's "next thing to do". */
 export const TEAM_JOURNEY_STEPS = new Set<JourneyStepId>(JOURNEY_BAR.filter((bar) => bar.owner === "team").flatMap((bar) => bar.steps));
+
+/**
+ * ── Which journey a dashboard gets ──
+ *
+ * The chevron meter, the AM status marks and the five team steps (Tech setup, Content
+ * optimization, Website forms) came in October 2026, for clients onboarded from then on.
+ * Dashboards created before it keep the journey they were sent — the old bar, the old
+ * fifteen-step list — so a client never sees "13 of 13" turn into "13 of 18" overnight.
+ *
+ * createDefaultContent stamps `journey_version: 2` on every new copy; a row without it is
+ * an older client. Never put it in TEMPLATE_CONTENT: mergeContent spreads that over every
+ * row, which would move every existing client onto the new journey at once. The template
+ * page itself shows the new one, since that is what a new client will get.
+ */
+export const hasNewJourney = (content: { journey_version?: number }, isTemplate = false) => isTemplate || (content.journey_version ?? 1) >= JOURNEY_VERSION;
+
+/** The five steps only the new journey has. */
+export const NEW_JOURNEY_STEP_IDS = new Set<JourneyStepId>(["crm", "adaccount", "manychat", "contentopt", "webforms"]);
+
+/** The old journey's step list: the same steps, in the same order, minus the new five. */
+export const LEGACY_JOURNEY_STEPS = JOURNEY_STEPS.filter((step) => !NEW_JOURNEY_STEP_IDS.has(step.id));
+
+/** The old bar's four stages, exactly as they were. */
+export const LEGACY_JOURNEY_STAGES: { id: string; label: string; steps: JourneyStepId[] }[] = [
+    { id: "start", label: "Get started", steps: ["chat", "form", "kickoff", "vision", "resources", "call"] },
+    { id: "foundation", label: "Brand foundation", steps: ["masterdoc", "brandkit"] },
+    { id: "funnel", label: "Marketing funnel", steps: ["funnel"] },
+    { id: "live", label: "Live", steps: ["launch"] },
+];
+
+/**
+ * The old bar's cells, exactly as they were: a summary rather than a mirror, so joining the
+ * Google Chat is off it and the two forms share one cell. The last cell wears the rocket.
+ */
+export const LEGACY_JOURNEY_BAR: { id: string; label: string; stage: string; steps: JourneyStepId[] }[] = [
+    { id: "forms", label: "Forms", stage: "start", steps: ["form", "vision"] },
+    { id: "kickoff", label: "Kickoff Call", stage: "start", steps: ["kickoff"] },
+    { id: "resources", label: "Assets", stage: "start", steps: ["resources"] },
+    { id: "call", label: "Onboarding Call", stage: "start", steps: ["call"] },
+    { id: "masterdoc", label: "Master Brand", stage: "foundation", steps: ["masterdoc"] },
+    { id: "brandkit", label: "Brand Kit", stage: "foundation", steps: ["brandkit"] },
+    { id: "funnel", label: "Marketing Funnel", stage: "funnel", steps: ["funnel"] },
+    { id: "launch", label: "Launch", stage: "live", steps: ["launch"] },
+];
 
 /**
  * ── Journey completion, as stored ──

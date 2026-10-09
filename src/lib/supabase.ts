@@ -339,6 +339,10 @@ export interface DashboardContent {
      *  "progress" = we're working on it. Absent = the launch meter works it out. A tick in
      *  journey_done always wins, so a finished step never shows a stale mark. */
     journey_status?: Record<string, "waiting" | "progress">;
+    /** Which client journey this dashboard shows. 2 = the chevron meter with Tech setup,
+     *  stamped on every copy created from October 2026. Absent = an older client, who keeps
+     *  the old bar and step list — see hasNewJourney in dashboard-navigation.ts. */
+    journey_version?: number;
     /**
      * Emails allowed to open this client's dashboard, entered by the AM.
      *

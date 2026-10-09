@@ -15,11 +15,17 @@
  *   && node /tmp/hgm-check/check.cjs
  */
 import assert from "node:assert/strict";
+import { createDefaultContent, mergeContent } from "./dashboard-model";
 import {
     JOURNEY_BAR,
     JOURNEY_STAGES,
     JOURNEY_STEPS,
     type JourneyStepId,
+    LEGACY_JOURNEY_BAR,
+    LEGACY_JOURNEY_STAGES,
+    LEGACY_JOURNEY_STEPS,
+    NEW_JOURNEY_STEP_IDS,
+    hasNewJourney,
     isJourneyItemDone,
     journeyItemIds,
     journeyItemKey,
@@ -169,6 +175,35 @@ assert.deepEqual(twice, []);
     assert.deepEqual(setJourneyMark(b, "kickoff", "progress"), { kickoff: "progress", "funnel:landing": "progress" });
     assert.deepEqual(setJourneyMark(b, "kickoff", null), { "funnel:landing": "progress" });
     assert.deepEqual(a, { kickoff: "waiting" }, "the input map must not be mutated");
+}
+
+/* 17. Older clients keep the journey they were sent. A row with no journey_version is on the
+       old one, even after mergeContent fills in the template; a new copy and the template
+       page are on the new one. */
+{
+    assert.equal(hasNewJourney(mergeContent({ journey_done: ["chat"] })), false, "an existing row must keep the old journey");
+    assert.equal(hasNewJourney(mergeContent(null)), false, "TEMPLATE_CONTENT must not carry journey_version");
+    assert.equal(hasNewJourney(mergeContent(null), true), true, "the template page shows the new journey");
+    assert.equal(hasNewJourney(mergeContent(createDefaultContent("acme"))), true, "a new client copy gets the new journey");
+}
+
+/* 18. The old journey is exactly the ten steps older clients were shown, in their order —
+       their "10 of 10" must stay that, not become "10 of 15". */
+{
+    assert.deepEqual(
+        LEGACY_JOURNEY_STEPS.map((s) => s.id),
+        ["chat", "form", "kickoff", "vision", "resources", "call", "masterdoc", "brandkit", "funnel", "launch"],
+    );
+    assert.ok(LEGACY_JOURNEY_STEPS.every((s) => !NEW_JOURNEY_STEP_IDS.has(s.id)));
+    const legacyIds = new Set(LEGACY_JOURNEY_STEPS.map((s) => s.id));
+    const staged = LEGACY_JOURNEY_STAGES.flatMap((st) => st.steps);
+    assert.deepEqual(new Set(staged), legacyIds, "every old step sits in exactly one old stage");
+    assert.equal(staged.length, legacyIds.size);
+    const stageIds = new Set(LEGACY_JOURNEY_STAGES.map((st) => st.id));
+    for (const cell of LEGACY_JOURNEY_BAR) {
+        assert.ok(stageIds.has(cell.stage), `old bar cell ${cell.id} names no old stage`);
+        for (const id of cell.steps) assert.ok(legacyIds.has(id), `old bar cell ${cell.id} names ${id}, not an old step`);
+    }
 }
 
 console.log("dashboard-navigation.check: all assertions passed");

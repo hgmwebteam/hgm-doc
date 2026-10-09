@@ -24,8 +24,13 @@ import { useInView, useReducedMotion } from "motion/react";
  * WITHOUT A POSTER (the dashboard's uploaded Example Reels have none) the element
  * preloads metadata instead, so the browser paints the first frame: a paused or
  * reduced-motion reel then shows a still rather than a black screen.
+ *
+ * SOUND IS OPT-IN. `muted` defaults to true, and a caller unmutes only after the viewer
+ * asks (the Example Reels sound button): browsers refuse an unmuted play() until the page
+ * has had a click, so a reel that started with sound would just not start. If a browser
+ * still refuses, it falls back to playing muted rather than freezing.
  */
-export const ReelVideo = ({ src, poster, paused = false }: { src: string; poster?: string; paused?: boolean }) => {
+export const ReelVideo = ({ src, poster, paused = false, muted = true }: { src: string; poster?: string; paused?: boolean; muted?: boolean }) => {
     const ref = useRef<HTMLVideoElement>(null);
     const prefersReducedMotion = useReducedMotion();
     // Not `once` — leaving the section should pause the loop, not just skip
@@ -36,17 +41,21 @@ export const ReelVideo = ({ src, poster, paused = false }: { src: string; poster
         const video = ref.current;
         if (!video) return;
 
-        // Assert `muted` as a property — an unmuted play() is refused by every
-        // browser.
-        video.muted = true;
+        // Asserted as a property: the attribute only sets the starting state.
+        video.muted = muted;
 
         if (prefersReducedMotion || !inView || paused) {
             video.pause();
         } else {
-            // Rejects when the browser blocks playback; the poster is the fallback.
-            video.play().catch(() => {});
+            // Rejects when the browser blocks playback. Blocked with sound → try muted;
+            // blocked muted → the poster is the fallback.
+            video.play().catch(() => {
+                if (video.muted) return;
+                video.muted = true;
+                video.play().catch(() => {});
+            });
         }
-    }, [prefersReducedMotion, inView, paused]);
+    }, [prefersReducedMotion, inView, paused, muted]);
 
     return (
         <video

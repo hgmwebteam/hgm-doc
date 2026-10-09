@@ -1,5 +1,5 @@
 import { type CSSProperties, type ChangeEvent, type KeyboardEvent, useState } from "react";
-import { ChevronLeft, ChevronRight, RefreshCw01, UploadCloud02, XClose } from "@untitledui-pro/icons/line";
+import { ChevronLeft, ChevronRight, RefreshCw01, UploadCloud02, VolumeMax, VolumeX, XClose } from "@untitledui-pro/icons/line";
 import { motion, useReducedMotion } from "motion/react";
 import { MAX_VIDEO_BYTES, uploadVideo } from "@/components/application/video-block";
 import { PhoneFrame } from "@/components/shared-assets/phone-frame";
@@ -25,7 +25,11 @@ import { cx } from "@/utils/cx";
  * stage, empty ones as an upload target when in focus and a labelled blank beside it;
  * locked, only filled slots are, and the client gets one quiet line when none are.
  *
- * THE CAPTION IS THE TEXT ALTERNATIVE. These loops are silent and autoplay, so the title
+ * SOUND IS ONE TAP AWAY. A reel starts muted (browsers won't autoplay sound) and the reel
+ * in focus carries a speaker button; turning it on keeps it on as the viewer moves between
+ * reels, and only the reel in focus ever plays, so two never talk over each other.
+ *
+ * THE CAPTION IS THE TEXT ALTERNATIVE. These loops autoplay muted, so the title
  * and description at the top of the stage are what a reduced-motion visitor (or a screen
  * reader) gets instead of the footage — which is why both are editable rather than fixed
  * labels. The caption follows the reel in focus and is a live region, so moving between
@@ -74,6 +78,8 @@ const ReelSlide = ({
     count,
     isLocked,
     upload,
+    soundOn,
+    onToggleSound,
     onFocus,
     onFile,
 }: {
@@ -83,6 +89,8 @@ const ReelSlide = ({
     count: number;
     isLocked: boolean;
     upload: UploadState;
+    soundOn: boolean;
+    onToggleSound: () => void;
     onFocus: () => void;
     onFile: (e: ChangeEvent<HTMLInputElement>) => void;
 }) => {
@@ -117,7 +125,7 @@ const ReelSlide = ({
                     // The description is the footage's text alternative (WCAG 1.2.1).
                     <div role="img" aria-label={description || title || "Example reel"} className="size-full">
                         {/* Only the reel in focus moves; a neighbour holds its first frame. */}
-                        <ReelVideo src={reel.url} paused={!isActive} />
+                        <ReelVideo src={reel.url} paused={!isActive} muted={!isActive || !soundOn} />
                     </div>
                 ) : isLocked || !isActive ? undefined : (
                     <label
@@ -133,6 +141,19 @@ const ReelSlide = ({
                     </label>
                 )}
             </PhoneFrame>
+            {/* Outside the frame, not in the screen: screen content sits behind the bezel.
+                Hidden under reduced motion, where the reel holds a still and has nothing to play. */}
+            {reel.url && isActive && !reduced && (
+                <button
+                    type="button"
+                    aria-label={soundOn ? "Mute reel" : "Turn on sound"}
+                    aria-pressed={soundOn}
+                    onClick={onToggleSound}
+                    className="absolute right-[9%] bottom-[5%] z-10 flex size-10 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition duration-100 ease-linear outline-none hover:bg-black/70 focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                    {soundOn ? <VolumeMax className="size-5" aria-hidden="true" /> : <VolumeX className="size-5" aria-hidden="true" />}
+                </button>
+            )}
         </motion.div>
     );
 };
@@ -178,6 +199,7 @@ export const ExampleReelsSection = ({
 }) => {
     const reduced = useReducedMotion();
     const [focused, setFocused] = useState(0);
+    const [soundOn, setSoundOn] = useState(false);
     const [uploads, setUploads] = useState<Record<string, UploadState>>({});
 
     const shown = isLocked ? reels.filter((r) => r.url) : reels;
@@ -342,6 +364,8 @@ export const ExampleReelsSection = ({
                                 offset={offsetOf(i, active, count)}
                                 isLocked={isLocked}
                                 upload={uploads[r.id] ?? {}}
+                                soundOn={soundOn}
+                                onToggleSound={() => setSoundOn((on) => !on)}
                                 onFocus={() => setFocused(i)}
                                 onFile={fileHandler(r.id)}
                             />

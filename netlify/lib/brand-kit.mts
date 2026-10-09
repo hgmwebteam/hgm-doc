@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { PAGE_CAP, asText, assertPublicUrl, grab } from "./client-sources.mts";
 import { PDF_CAP, type PdfCode, readBrandPdf } from "./pdf-brand.mts";
-import { GENERIC_FONT, type Logo, type Swatch, readSiteBrand } from "./site-brand.mts";
+import { GENERIC_FONT, type Logo, type Swatch, botWall, readSiteBrand } from "./site-brand.mts";
 
 /**
  * Builds a first-draft Brand Kit — palette, fonts and logo files — from a client's website,
@@ -325,7 +325,19 @@ export async function buildKit(input: KitInput, env: { supabaseUrl: string; anon
             if (!pdfKit) throw new KitError(`Couldn't load ${site.hostname}. Is the address right, and the site public?`);
             notes.push(`Couldn't load ${site.hostname}, so logos weren't pulled.`);
         } else {
-            siteRead = await readSiteBrand(site, asText(page.body), { sheetMs: 10_000 });
+            const html = asText(page.body);
+            const wall = botWall(html);
+            if (wall) {
+                const why = `${site.hostname}'s host (${wall}) showed our reader a bot check instead of the site, so nothing could be read from it`;
+                if (!pdfKit) {
+                    throw new KitError(
+                        `${why}. The site opens fine in a browser — ask the web team to measure it with /brand-kit, upload the brand guidelines PDF, or add the colours by hand.`,
+                    );
+                }
+                notes.push(`${why}, so logos weren't pulled.`);
+            } else {
+                siteRead = await readSiteBrand(site, html, { sheetMs: 10_000 });
+            }
         }
     }
 

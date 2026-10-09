@@ -721,6 +721,8 @@ export function logoCandidates(html: string, base: URL): { src: string; name: st
     const add = (u: string | undefined | null, name?: string) => {
         if (!u) return;
         try {
+            // `data:;` (an empty favicon, which bot-check pages carry) isn't an image.
+            if (u.startsWith("data:") && !/^data:image\/[^,]+,./i.test(u)) return;
             const src = u.startsWith("data:") ? u : new URL(u.replace(/&amp;/g, "&"), base).href;
             if (!out.some((o) => o.src === src)) out.push({ src, name: name ?? decodeURIComponent(src.split("/").pop() ?? "logo").replace(/[?#].*$/, "") });
         } catch {
@@ -782,6 +784,26 @@ async function fetchLogos(html: string, base: URL): Promise<Logo[]> {
 }
 
 /* ── the read ───────────────────────────────────────────────────────────── */
+
+/**
+ * The host's bot check, served in place of the site — named so the AM is told the site
+ * refused us rather than that it had no brand. Hosts serve these by the visitor's IP: a
+ * cloud function's address gets one whatever headers it sends, while the same URL opens
+ * fine in a browser. gooseberrylodges.com (SiteGround) answered every read with a
+ * 169-byte meta-refresh to its captcha, whose `<link rel="icon" href="data:;">` then
+ * passed as a logo. Markers are the challenge pages' own, never the scripts these
+ * services also put on ordinary pages (Cloudflare's /cdn-cgi/challenge-platform/ is on both).
+ */
+const BOT_WALLS: [RegExp, string][] = [
+    [/\/\.well-known\/sgcaptcha\//i, "SiteGround"],
+    [/<title>\s*Just a moment\.\.\.\s*<\/title>|window\._cf_chl_opt/i, "Cloudflare"],
+    [/sucuri_cloudproxy_js|<title>[^<]*Sucuri WebSite Firewall/i, "Sucuri"],
+];
+
+/** The host whose bot check this page is, or null when it is the site itself. */
+export function botWall(html: string): string | null {
+    return BOT_WALLS.find(([re]) => re.test(html))?.[1] ?? null;
+}
 
 export interface SiteBrand {
     colors: Swatch[];

@@ -380,7 +380,7 @@ export const isUntouchedBrandKit = (brand: DashboardContent["brand"]) =>
     !brand.heading2_font?.trim() &&
     !brand.folder_link.trim();
 
-/** The client journey new copies get — see hasNewJourney in dashboard-navigation.ts. */
+/** The new client journey's version — see hasNewJourney in dashboard-navigation.ts. Not stamped on new copies yet. */
 export const JOURNEY_VERSION = 2;
 
 /** Fresh content for a newly created client copy — no sample numbers. */
@@ -404,9 +404,6 @@ export const createDefaultContent = (base: string): DashboardContent => ({
     reels: normalizeReels(),
     pinned_posts: { ...EMPTY_PINNED_POSTS, posts: normalizePinnedPosts() },
     client_visible: [...DEFAULT_CLIENT_VISIBLE],
-    // New clients get the new journey; rows without this keep the old one. Here and not in
-    // TEMPLATE_CONTENT, which mergeContent spreads over every existing row.
-    journey_version: JOURNEY_VERSION,
 });
 
 /**

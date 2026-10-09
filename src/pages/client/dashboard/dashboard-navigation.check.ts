@@ -177,14 +177,14 @@ assert.deepEqual(twice, []);
     assert.deepEqual(a, { kickoff: "waiting" }, "the input map must not be mutated");
 }
 
-/* 17. Older clients keep the journey they were sent. A row with no journey_version is on the
-       old one, even after mergeContent fills in the template; a new copy and the template
-       page are on the new one. */
+/* 17. The new journey is not live: every row, a new copy and the template stay on the old
+       one. Only the test dashboards, or a row that opts in with journey_version 2, get it. */
 {
-    assert.equal(hasNewJourney(mergeContent({ journey_done: ["chat"] })), false, "an existing row must keep the old journey");
+    assert.equal(hasNewJourney(mergeContent({ journey_done: ["chat"] }), "lastcom-dashboard"), false, "an existing row keeps the old journey");
     assert.equal(hasNewJourney(mergeContent(null)), false, "TEMPLATE_CONTENT must not carry journey_version");
-    assert.equal(hasNewJourney(mergeContent(null), true), true, "the template page shows the new journey");
-    assert.equal(hasNewJourney(mergeContent(createDefaultContent("acme"))), true, "a new client copy gets the new journey");
+    assert.equal(hasNewJourney(mergeContent(createDefaultContent("acme")), "acme-dashboard"), false, "a new client copy stays on the old journey for now");
+    assert.equal(hasNewJourney(mergeContent(null), "testa-dashboard"), true, "the Test A dashboard previews the new journey");
+    assert.equal(hasNewJourney(mergeContent({ journey_version: 2 })), true, "a row can opt in");
 }
 
 /* 18. The old journey is exactly the ten steps older clients were shown, in their order —

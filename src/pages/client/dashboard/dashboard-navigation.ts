@@ -432,16 +432,20 @@ export const TEAM_JOURNEY_STEPS = new Set<JourneyStepId>(JOURNEY_BAR.filter((bar
  * ── Which journey a dashboard gets ──
  *
  * The chevron meter, the AM status marks and the five team steps (Tech setup, Content
- * optimization, Website forms) came in October 2026, for clients onboarded from then on.
- * Dashboards created before it keep the journey they were sent — the old bar, the old
- * fifteen-step list — so a client never sees "13 of 13" turn into "13 of 18" overnight.
+ * optimization, Website forms) are still being built and are NOT live for clients. Every
+ * dashboard — existing, newly created, and the template — shows the old bar and the old
+ * ten steps, except the test dashboards in NEW_JOURNEY_PREVIEW_SLUGS, where the team
+ * works on the new one.
  *
- * createDefaultContent stamps `journey_version: 2` on every new copy; a row without it is
- * an older client. Never put it in TEMPLATE_CONTENT: mergeContent spreads that over every
- * row, which would move every existing client onto the new journey at once. The template
- * page itself shows the new one, since that is what a new client will get.
+ * A row can also opt in with `journey_version: 2`. Nothing writes that yet: when the new
+ * journey is ready for new clients, stamp it in createDefaultContent (never in
+ * TEMPLATE_CONTENT — mergeContent spreads that over every row, which would move every
+ * existing client at once).
  */
-export const hasNewJourney = (content: { journey_version?: number }, isTemplate = false) => isTemplate || (content.journey_version ?? 1) >= JOURNEY_VERSION;
+export const NEW_JOURNEY_PREVIEW_SLUGS = new Set(["testa-dashboard"]);
+
+export const hasNewJourney = (content: { journey_version?: number }, slug?: string) =>
+    (!!slug && NEW_JOURNEY_PREVIEW_SLUGS.has(slug)) || (content.journey_version ?? 1) >= JOURNEY_VERSION;
 
 /** The five steps only the new journey has. */
 export const NEW_JOURNEY_STEP_IDS = new Set<JourneyStepId>(["crm", "adaccount", "manychat", "contentopt", "webforms"]);

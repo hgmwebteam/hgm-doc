@@ -2453,8 +2453,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const chatLink = content.chat_link;
     const folderLink = content.brand.folder_link;
     const onboardingCallUrl = content.onboarding_call_url;
-    /** Older clients keep the journey they were sent: the old bar and step list, no marks. */
-    const newJourney = hasNewJourney(content, isTemplate);
+    /** The new journey is test-dashboard only for now; everyone else gets the old bar and step list, no marks. */
+    const newJourney = hasNewJourney(content, slug);
 
     /**
      * Each step with its resolved state. The two form steps read their live answer counts;

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Check, CheckCircle, Edit03, XCircle, XClose } from "@untitledui/icons";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type Key as AriaKey, Tab as AriaTab, TabList as AriaTabList, TabPanel as AriaTabPanel, Tabs as AriaTabs } from "react-aria-components";
@@ -559,6 +559,36 @@ const Segment = ({ id, groupId, label, count, waiting }: { id: string; groupId: 
     );
 };
 
+/** Eases its own height to whatever its content measures, so switching tabs (a short empty
+ *  state to a long history, or back) never snaps the card and shoves the page below it.
+ *  Content is clipped only while the height moves, so focus rings aren't cut off at rest.
+ *  Under reduced motion the height follows instantly. */
+const AutoHeight = ({ children }: { children: ReactNode }) => {
+    const reduceMotion = useReducedMotion();
+    const inner = useRef<HTMLDivElement>(null);
+    const [height, setHeight] = useState<number | "auto">("auto");
+    const [moving, setMoving] = useState(false);
+    useLayoutEffect(() => {
+        const el = inner.current;
+        if (!el) return;
+        const ro = new ResizeObserver(() => setHeight(el.offsetHeight));
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    return (
+        <motion.div
+            initial={false}
+            animate={{ height }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+            onAnimationStart={() => setMoving(true)}
+            onAnimationComplete={() => setMoving(false)}
+            style={{ overflow: moving ? "hidden" : "visible" }}
+        >
+            <div ref={inner}>{children}</div>
+        </motion.div>
+    );
+};
+
 /**
  * The team's comments on one section, in two tabs: Open (to act on) and Feedback history
  * (everything closed, plus past verdicts from outside the table). Renders nothing unless
@@ -582,8 +612,14 @@ export const ClientFeedbackTabs = ({
 }) => {
     const reduceMotion = useReducedMotion();
     const groupId = useId();
-    /** Null until the viewer picks, so the default can follow the data as it loads. */
+    /** The tab the viewer picked; null until they pick one. */
     const [picked, setPicked] = useState<AriaKey | null>(null);
+    /** Which way the last switch went: the new tab's content slides in from that side. */
+    const [direction, setDirection] = useState<1 | -1>(1);
+    /** The tab to open on, decided once, the first time there is anything to show, and then
+     *  kept: otherwise marking the last open note done would flip the panel to history under
+     *  the viewer's cursor. */
+    const startTab = useRef<AriaKey | null>(null);
 
     if (feedback.mode !== "review") return null;
 
@@ -591,12 +627,18 @@ export const ClientFeedbackTabs = ({
     const history = historyOf(feedback.items, pastVerdicts, labelFor);
     if (hideWhenEmpty && open.length === 0 && history.length === 0) return null;
     // Open first while anything is waiting; otherwise the history, if there is one.
-    const selected = picked ?? (open.length > 0 || history.length === 0 ? "open" : "history");
+    if (startTab.current === null && (open.length > 0 || history.length > 0)) startTab.current = open.length > 0 ? "open" : "history";
+    const selected = picked ?? startTab.current ?? "open";
+    const pick = (key: AriaKey) => {
+        if (key === selected) return;
+        setDirection(key === "history" ? 1 : -1);
+        setPicked(key);
+    };
 
     return (
         <AriaTabs
             selectedKey={selected}
-            onSelectionChange={setPicked}
+            onSelectionChange={pick}
             keyboardActivation="manual"
             className={cx("@container/comments", framed && "rounded-2xl bg-primary px-5 py-4 ring-1 ring-secondary")}
         >
@@ -608,35 +650,49 @@ export const ClientFeedbackTabs = ({
                 </AriaTabList>
             </div>
 
-            <AriaTabPanel id="open" className="mt-4 outline-none">
-                {open.length === 0 ? (
-                    <EmptyNote title="All caught up" body="New comments from the client show up here." />
-                ) : (
-                    <ul className="flex flex-col gap-5">
-                        {/* A note leaving the list fades out where it is, then the rest close the
-                            gap, so the list never jumps. Opacity only under reduced motion. */}
-                        <AnimatePresence initial={false} mode="popLayout">
-                            {open.map((s) => (
-                                <motion.li
-                                    key={s.id}
-                                    layout={!reduceMotion}
-                                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, filter: "blur(2px)" }}
-                                    transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-                                >
-                                    <OpenNote s={s} label={labelFor?.(s) ?? null} resolve={feedback.resolve} />
-                                </motion.li>
-                            ))}
-                        </AnimatePresence>
-                    </ul>
-                )}
-            </AriaTabPanel>
-
-            <AriaTabPanel id="history" className="mt-4 outline-none">
-                <ClosedList
-                    items={history}
-                    empty={{ title: "No feedback history yet", body: "Comments you mark as done or dismiss stay here, so you can look back at them." }}
-                />
-            </AriaTabPanel>
+            {/* One panel at a time, keyed by tab: the card eases to the new height while the
+                new content fades in, sliding a few pixels from the side of the tab just picked.
+                The old content leaves at once, so the two never overlap mid-switch. */}
+            <AutoHeight>
+                <AriaTabPanel key={selected} id={String(selected)} className="pt-4 outline-none">
+                    <motion.div
+                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: reduceMotion ? 0.15 : 0.22, ease: [0.23, 1, 0.32, 1] }}
+                    >
+                        {selected === "open" ? (
+                            open.length === 0 ? (
+                                <EmptyNote title="All caught up" body="New comments from the client show up here." />
+                            ) : (
+                                <ul className="flex flex-col gap-5">
+                                    {/* A note leaving the list fades out where it is, then the rest close
+                                        the gap, so the list never jumps. Opacity only under reduced motion. */}
+                                    <AnimatePresence initial={false} mode="popLayout">
+                                        {open.map((s) => (
+                                            <motion.li
+                                                key={s.id}
+                                                layout={!reduceMotion}
+                                                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, filter: "blur(2px)" }}
+                                                transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                                            >
+                                                <OpenNote s={s} label={labelFor?.(s) ?? null} resolve={feedback.resolve} />
+                                            </motion.li>
+                                        ))}
+                                    </AnimatePresence>
+                                </ul>
+                            )
+                        ) : (
+                            <ClosedList
+                                items={history}
+                                empty={{
+                                    title: "No feedback history yet",
+                                    body: "Comments you mark as done or dismiss stay here, so you can look back at them.",
+                                }}
+                            />
+                        )}
+                    </motion.div>
+                </AriaTabPanel>
+            </AutoHeight>
         </AriaTabs>
     );
 };

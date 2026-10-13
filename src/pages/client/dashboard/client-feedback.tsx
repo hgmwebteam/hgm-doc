@@ -323,9 +323,9 @@ export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor
 };
 
 /** Who and when on one line; the time is relative, the exact one is on hover. */
-const Byline = ({ heading, at, muted = false }: { heading: string; at?: string; muted?: boolean }) => (
+const Byline = ({ heading, at, muted = false, faint = false }: { heading: string; at?: string; muted?: boolean; faint?: boolean }) => (
     <div className="flex min-w-0 items-baseline gap-2">
-        <p className={cx("min-w-0 truncate text-sm font-medium", muted ? "text-secondary" : "text-primary")}>{heading}</p>
+        <p className={cx("min-w-0 truncate text-sm font-medium", faint ? "text-tertiary" : muted ? "text-secondary" : "text-primary")}>{heading}</p>
         {at && (
             <time dateTime={at} title={sentStamp(at)} className="shrink-0 text-xs text-quaternary">
                 {ago(at)}
@@ -401,18 +401,32 @@ const ClosedNote = ({ item }: { item: HistoryItem }) => {
         ro.observe(el);
         return () => ro.disconnect();
     }, [text, expanded]);
+    // The whole comment carries how it ended: a faint green wash for done (or approved), a grey
+    // one with the words dimmed for dismissed. The small marker stays as well, so the outcome
+    // never rests on colour alone. A past "changes requested" verdict keeps a plain outline.
+    const tone = item.kind === "done" || item.kind === "approved" ? "done" : item.kind === "dismissed" ? "dismissed" : "plain";
     return (
-        <div>
+        <div
+            className={cx(
+                "rounded-xl px-3.5 py-3",
+                tone === "done" && "bg-success-primary dark:bg-success-solid/10",
+                tone === "dismissed" && "bg-secondary",
+                tone === "plain" && "ring-1 ring-secondary ring-inset",
+            )}
+        >
             {/* How it ended sits on the name line's right when the panel is wide, like an open
                 note's actions, and drops under the words when it is narrow. */}
             <div className="flex items-center justify-between gap-3">
-                <Byline heading={item.heading} at={item.writtenAt} muted />
+                <Byline heading={item.heading} at={item.writtenAt} muted={tone !== "dismissed"} faint={tone === "dismissed"} />
                 <div className="hidden shrink-0 @md/comments:block">
                     <Outcome item={item} />
                 </div>
             </div>
             {text && (
-                <p ref={textRef} className={cx("mt-1 text-sm whitespace-pre-wrap text-tertiary", !expanded && "line-clamp-3")}>
+                <p
+                    ref={textRef}
+                    className={cx("mt-1 text-sm whitespace-pre-wrap", tone === "dismissed" ? "text-quaternary" : "text-tertiary", !expanded && "line-clamp-3")}
+                >
                     {text}
                 </p>
             )}
@@ -459,7 +473,7 @@ const ClosedList = ({ items, empty }: { items: HistoryItem[]; empty: { title: st
     if (items.length === 0) return <EmptyNote {...empty} />;
     return (
         <>
-            <ul className="flex flex-col gap-5">
+            <ul className="flex flex-col gap-2">
                 {items.slice(0, shown).map((item) => (
                     <li key={item.id}>
                         <ClosedNote item={item} />

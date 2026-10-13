@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { MAX_VIDEO_BYTES, uploadVideo } from "@/components/application/video-block";
 import { PhoneFrame } from "@/components/shared-assets/phone-frame";
 import { ReelVideo } from "@/components/shared-assets/reel-video";
-import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackTabs } from "@/pages/client/dashboard/client-feedback";
 import { editInput } from "@/pages/client/dashboard/dashboard-chrome";
 import type { ExampleReel } from "@/pages/client/dashboard/dashboard-model";
 import { cx } from "@/utils/cx";
@@ -256,10 +256,10 @@ export const ExampleReelsSection = ({
             {/* The team's side above the stage: an open note is the reason they opened this
                 section, so it shouldn't sit below a full-height reel. */}
             {feedback && (
-                // `empty:hidden` because the review list renders nothing at all for a client,
-                // or for a team with no open notes — an empty div would leave its margin behind.
+                // `empty:hidden` because the panel renders nothing at all for a client, or for a
+                // team with no comments yet — an empty div would leave its margin behind.
                 <div className="mt-8 empty:hidden">
-                    <ClientFeedbackReview feedback={feedback} />
+                    <ClientFeedbackTabs feedback={feedback} framed hideWhenEmpty />
                 </div>
             )}
 

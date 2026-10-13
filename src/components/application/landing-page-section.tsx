@@ -5,7 +5,7 @@ import { Button } from "@/components/base/buttons/button";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { LANDING_SECTION, recordDashboardPublish } from "@/lib/dashboard-updates";
 import { supabase } from "@/lib/supabase";
-import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackTabs, type PastVerdict } from "@/pages/client/dashboard/client-feedback";
 import { uid } from "@/pages/client/dashboard/dashboard-model";
 import { cx } from "@/utils/cx";
 
@@ -54,6 +54,10 @@ interface LandingPageVersion {
     note: string;
     publishedAt: string;
     publishedBy: string;
+    /** The client's verdict on this version, filed here when a newer one was published so
+     *  the next publish doesn't wipe it (withVerdict). Absent on the live version, whose
+     *  verdict is LandingPageData.review, and on versions published before 2026-10-09. */
+    review?: LandingPageReview;
 }
 
 interface LandingPageReview {
@@ -71,6 +75,12 @@ interface LandingPageData {
 }
 
 const EMPTY_DATA: LandingPageData = { versions: [], review: { status: "pending" } };
+
+/** Every publish resets the review to pending. Before it does, the client's verdict on the
+ *  outgoing version is filed on that version, so "Request changes" notes are history rather
+ *  than gone. A pending review has nothing worth keeping. */
+const withVerdict = (versions: LandingPageVersion[], review: LandingPageReview): LandingPageVersion[] =>
+    versions.length > 0 && review.status !== "pending" ? [{ ...versions[0], review }, ...versions.slice(1)] : versions;
 const ENDPOINT = "/.netlify/functions/landing-page-review";
 const BUCKET = "landing-pages";
 // Matches the bucket's file_size_limit. Exports with inline base64 images run 3–10 MB;
@@ -422,7 +432,7 @@ export const LandingPageSection = ({
             publishedAt: new Date().toISOString(),
             publishedBy: teamName,
         };
-        const next: LandingPageData = { versions: [version, ...versions], review: { status: "pending" } };
+        const next: LandingPageData = { versions: [version, ...withVerdict(versions, data.review)], review: { status: "pending" } };
         const ok = await persist(next);
         setPublishing(false);
         if (!ok) {
@@ -478,7 +488,7 @@ export const LandingPageSection = ({
             publishedAt: new Date().toISOString(),
             publishedBy: teamName,
         };
-        const next: LandingPageData = { versions: [version, ...versions], review: { status: "pending" } };
+        const next: LandingPageData = { versions: [version, ...withVerdict(versions, data.review)], review: { status: "pending" } };
         const ok = await persist(next);
         setPublishing(false);
         if (!ok) {
@@ -504,7 +514,7 @@ export const LandingPageSection = ({
             publishedAt: new Date().toISOString(),
             publishedBy: teamName,
         };
-        const next: LandingPageData = { versions: [version, ...versions], review: { status: "pending" } };
+        const next: LandingPageData = { versions: [version, ...withVerdict(versions, data.review)], review: { status: "pending" } };
         const ok = await persist(next);
         setRestoringId(null);
         if (ok) setData(next);
@@ -547,6 +557,24 @@ export const LandingPageSection = ({
         changes: { color: "gray", text: "Changes requested" },
     };
     const rv = reviewCopy[data.review.status];
+
+    // Older versions' verdicts, for the Done tab: versions[0] is live, so its verdict is
+    // data.review above and only versions[1..] can carry a filed one.
+    const pastVerdicts: PastVerdict[] = versions.slice(1).flatMap((v, j) => {
+        const r = v.review;
+        if (!r || r.status === "pending") return [];
+        const tag = tagOf(j + 1);
+        return [
+            {
+                id: `verdict-${v.id}`,
+                kind: r.status === "approved" ? ("approved" as const) : ("changes" as const),
+                title: r.status === "approved" ? `Approved ${tag}` : `Changes requested on ${tag}`,
+                text: r.note,
+                by: r.respondedBy,
+                at: r.respondedAt,
+            },
+        ];
+    });
 
     return (
         <div>
@@ -801,71 +829,79 @@ export const LandingPageSection = ({
                 </div>
             )}
 
-            {/* ── Team panels: versions + review summary ── */}
+            {/* ── Team panels: versions + review summary ──
+                The review card carries the comments too, so it gets the wider column once
+                there is room for two; below that the two cards stack. */}
             {isTeam && live && (
-                <div className="mt-6 grid [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))] gap-6">
-                    <div className="flex flex-col rounded-2xl bg-primary ring-1 ring-secondary">
-                        <div className="flex items-center justify-between border-b border-secondary px-5 py-4">
-                            <p className="text-md font-semibold text-primary">Versions</p>
-                            <span className="text-sm text-quaternary">
-                                {versions.length} version{versions.length === 1 ? "" : "s"}
-                            </span>
+                <div className="@container mt-6">
+                    <div className="grid grid-cols-1 items-start gap-6 @3xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                        <div className="flex flex-col rounded-2xl bg-primary ring-1 ring-secondary">
+                            <div className="flex items-center justify-between border-b border-secondary px-5 py-4">
+                                <p className="text-md font-semibold text-primary">Versions</p>
+                                <span className="text-sm text-quaternary">
+                                    {versions.length} version{versions.length === 1 ? "" : "s"}
+                                </span>
+                            </div>
+                            {versions.map((v, i) => (
+                                <div key={v.id} className="flex items-center gap-3 border-b border-secondary px-5 py-3 last:border-b-0">
+                                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary font-mono text-xs font-medium text-tertiary">
+                                        {tagOf(i)}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium text-primary">{v.note || "Landing page update"}</p>
+                                        <p className="text-sm text-quaternary">
+                                            {shortDate(v.publishedAt)}
+                                            {v.publishedBy ? ` · ${v.publishedBy}` : ""} · {descOf(v)}
+                                        </p>
+                                    </div>
+                                    {i === 0 ? (
+                                        <BadgeWithDot color="success" size="sm" type="pill-color">
+                                            Live
+                                        </BadgeWithDot>
+                                    ) : (
+                                        canEdit && (
+                                            <Button color="tertiary" size="sm" isLoading={restoringId === v.id} onClick={() => void restore(v, tagOf(i))}>
+                                                Restore
+                                            </Button>
+                                        )
+                                    )}
+                                </div>
+                            ))}
                         </div>
-                        {versions.map((v, i) => (
-                            <div key={v.id} className="flex items-center gap-3 border-b border-secondary px-5 py-3 last:border-b-0">
-                                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary font-mono text-xs font-medium text-tertiary">
-                                    {tagOf(i)}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-medium text-primary">{v.note || "Landing page update"}</p>
-                                    <p className="text-sm text-quaternary">
-                                        {shortDate(v.publishedAt)}
-                                        {v.publishedBy ? ` · ${v.publishedBy}` : ""} · {descOf(v)}
-                                    </p>
-                                </div>
-                                {i === 0 ? (
-                                    <BadgeWithDot color="success" size="sm" type="pill-color">
-                                        Live
-                                    </BadgeWithDot>
-                                ) : (
-                                    canEdit && (
-                                        <Button color="tertiary" size="sm" isLoading={restoringId === v.id} onClick={() => void restore(v, tagOf(i))}>
-                                            Restore
-                                        </Button>
-                                    )
+
+                        <div className="flex flex-col rounded-2xl bg-primary ring-1 ring-secondary">
+                            <div className="flex items-center justify-between gap-3 border-b border-secondary px-5 py-4">
+                                <p className="text-md font-semibold text-primary">Client review</p>
+                                <BadgeWithDot color={rv.color} size="sm" type="pill-color">
+                                    {rv.text}
+                                </BadgeWithDot>
+                            </div>
+                            <div className="flex flex-col gap-3 px-5 py-4">
+                                <p className="text-sm text-pretty text-tertiary">
+                                    {data.review.status === "pending" &&
+                                        `The client hasn't reviewed ${tagOf(0)} yet. They'll see Approve and Request changes under the preview.`}
+                                    {data.review.status === "approved" &&
+                                        `${data.review.respondedBy ?? "The client"} approved ${tagOf(0)}${data.review.respondedAt ? ` on ${shortDate(data.review.respondedAt)}` : ""}.`}
+                                    {data.review.status === "changes" &&
+                                        `${data.review.respondedBy ?? "The client"} asked for changes${data.review.respondedAt ? ` on ${shortDate(data.review.respondedAt)}` : ""}. Publish a new version to send it back for review.`}
+                                </p>
+                                {data.review.status === "changes" && data.review.note && (
+                                    <div className="border-l-2 border-brand py-1 pl-3.5">
+                                        <p className="text-sm whitespace-pre-wrap text-secondary">{data.review.note}</p>
+                                    </div>
                                 )}
                             </div>
-                        ))}
-                    </div>
 
-                    <div className="flex flex-col rounded-2xl bg-primary ring-1 ring-secondary">
-                        <div className="flex items-center justify-between gap-3 border-b border-secondary px-5 py-4">
-                            <p className="text-md font-semibold text-primary">Client review</p>
-                            <BadgeWithDot color={rv.color} size="sm" type="pill-color">
-                                {rv.text}
-                            </BadgeWithDot>
-                        </div>
-                        <div className="flex flex-col gap-3 px-5 py-4">
-                            <p className="text-sm text-pretty text-tertiary">
-                                {data.review.status === "pending" &&
-                                    `The client hasn't reviewed ${tagOf(0)} yet. They'll see Approve and Request changes under the preview.`}
-                                {data.review.status === "approved" &&
-                                    `${data.review.respondedBy ?? "The client"} approved ${tagOf(0)}${data.review.respondedAt ? ` on ${shortDate(data.review.respondedAt)}` : ""}.`}
-                                {data.review.status === "changes" &&
-                                    `${data.review.respondedBy ?? "The client"} asked for changes${data.review.respondedAt ? ` on ${shortDate(data.review.respondedAt)}` : ""}. Publish a new version to send it back for review.`}
-                            </p>
-                            {data.review.status === "changes" && data.review.note && (
-                                <div className="border-l-2 border-secondary py-1 pl-3.5">
-                                    <p className="text-sm text-pretty text-secondary">{data.review.note}</p>
+                            {/* Comments sit under the verdict, in the same card: they arrive before a
+                            decision and after an approval alike, so they show whatever it says.
+                            Open first; Done keeps what was handled, plus older versions' verdicts. */}
+                            {feedback && feedback.mode === "review" && (
+                                <div className="border-t border-secondary px-5 py-4">
+                                    <ClientFeedbackTabs feedback={feedback} pastVerdicts={pastVerdicts} />
                                 </div>
                             )}
-                            <p className="text-sm text-quaternary">The client can approve this from their own dashboard, or ask for changes.</p>
                         </div>
                     </div>
-
-                    {/* Open feedback notes — separate from the verdict above, and they can
-                        arrive after an approval, so they are listed whatever the review says. */}
-                    {feedback && <ClientFeedbackReview feedback={feedback} />}
                 </div>
             )}
 

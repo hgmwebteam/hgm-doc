@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
-import { Check, CheckCircle, Edit03 } from "@untitledui/icons";
+import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { Check, CheckCircle, Edit03, XCircle, XClose } from "@untitledui/icons";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { type Key as AriaKey, Tab as AriaTab, TabList as AriaTabList, TabPanel as AriaTabPanel, Tabs as AriaTabs } from "react-aria-components";
 import { Button } from "@/components/base/buttons/button";
+import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import type { Suggestion } from "@/pages/client/dashboard/suggestions-model";
 import { cx } from "@/utils/cx";
 
@@ -13,10 +16,10 @@ import { cx } from "@/utils/cx";
  * loop as a Master Document edit, which is why nothing here talks to Supabase itself. The
  * section owns every read and write; this only renders and calls back.
  *
- * Shared by the Welcome Email Flow (in a sticky rail beside the previews) and the Landing
- * Page (a card under the preview, which is one full-width frame with no room beside it).
- * The box renders the card only — its caller positions it, so a new section can drop it
- * anywhere without inheriting either of those layouts.
+ * The client's box is shared by every section a client can comment on (Welcome Email Flow,
+ * Landing Page, Example Reels, Pinned Stories, Pinned Posts); so is the team's side,
+ * ClientFeedbackTabs below. Each renders its body only — the caller positions it, so a
+ * section can drop it anywhere without inheriting another's layout.
  */
 
 /** What a section hands the box so a client can comment and the team can close it. */
@@ -239,41 +242,458 @@ export const ClientFeedbackBox = ({
     );
 };
 
+/* ── Open and Feedback history ──────────────────────────────────────────────
+   The team's side of every section's comments. Until 2026-10-09 it listed open notes only
+   (ClientFeedbackReview), so a note marked done vanished: the row was kept in
+   dashboard_suggestions (status, resolved_by, resolved_at) but nothing could show it again.
+   This panel keeps every note in two tabs: Open, to act on, and Feedback history, everything
+   already closed. A row is the email and a relative time on one line, then the words. In
+   history each row is tinted (green for done, grey and dimmed for dismissed) and carries a
+   small Done / Dismissed marker on the email line's right. Who closed it is not shown, by
+   request. (Three tabs, Open / Done / Dismissed, were tried and dropped as one too many.)
+
+   Used by every section a client comments on: inside the Landing Page's Client review card,
+   inside each Pinned Post, and as its own card (`framed`) on Welcome Emails, Example Reels
+   and Pinned Stories, where `hideWhenEmpty` keeps a section with no comments free of an
+   empty box. */
+
+/** A closed item from outside dashboard_suggestions that belongs in the same history, such
+ *  as the client's verdict on an older landing-page version: a newer version answered it. */
+export interface PastVerdict {
+    id: string;
+    /** "Changes requested on v1", "Approved v2". */
+    title: string;
+    /** What the client wrote, when there was anything. */
+    text?: string;
+    by?: string;
+    at?: string;
+    kind: "changes" | "approved";
+}
+
+type HistoryItem = {
+    id: string;
+    kind: "done" | "dismissed" | "changes" | "approved";
+    /** The name line: who wrote it, or what the verdict was. */
+    heading: string;
+    text?: string;
+    /** When it was written. */
+    writtenAt?: string;
+    /** When it was closed, for the order: newest first. */
+    sortAt: string;
+};
+
+/** How many closed items show before "Show all". */
+const HISTORY_STEP = 5;
+
+/** "just now", "12m ago", "3h ago", "2d ago", then the date. The exact time is the tooltip. */
+const ago = (iso: string) => {
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t)) return "";
+    const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
+    if (mins < 7 * 1440) return `${Math.round(mins / 1440)}d ago`;
+    return shortDate(iso);
+};
+
+/** Every closed note and past verdict, newest first, in one shape. Pure. */
+export const historyOf = (items: Suggestion[], verdicts: PastVerdict[], labelFor?: (s: Suggestion) => string | null): HistoryItem[] => {
+    const notes: HistoryItem[] = items
+        .filter((s) => s.status !== "pending")
+        .map((s) => {
+            const label = labelFor?.(s) ?? null;
+            return {
+                id: s.id,
+                kind: s.status === "accepted" ? "done" : "dismissed",
+                heading: label ? `${s.suggested_by}, ${label}` : s.suggested_by,
+                text: s.suggested_value,
+                writtenAt: s.created_at,
+                sortAt: s.resolved_at ?? s.created_at,
+            };
+        });
+    const past: HistoryItem[] = verdicts.map((v) => ({
+        id: v.id,
+        kind: v.kind,
+        heading: v.title,
+        text: v.text,
+        writtenAt: v.at,
+        sortAt: v.at ?? "",
+    }));
+    return [...notes, ...past].sort((a, b) => b.sortAt.localeCompare(a.sortAt));
+};
+
+/** Who and when on one line; the time is relative, the exact one is on hover. */
+const Byline = ({ heading, at, muted = false, faint = false }: { heading: string; at?: string; muted?: boolean; faint?: boolean }) => (
+    <div className="flex min-w-0 items-baseline gap-2">
+        <p className={cx("min-w-0 truncate text-sm font-medium", faint ? "text-tertiary" : muted ? "text-secondary" : "text-primary")}>{heading}</p>
+        {at && (
+            <time dateTime={at} title={sentStamp(at)} className="shrink-0 text-xs text-quaternary">
+                {ago(at)}
+            </time>
+        )}
+    </div>
+);
+
+/** One open note: who and when, the words, and the two ways to close it. The actions sit on
+ *  the name line's right when the panel is wide, and drop under the words when it is narrow,
+ *  so a long email address is never squeezed to a few letters. */
+const OpenNote = ({
+    s,
+    label,
+    resolve,
+}: {
+    s: Suggestion;
+    label: string | null;
+    resolve: (s: Suggestion, status: "accepted" | "declined") => Promise<void>;
+}) => {
+    const [busy, setBusy] = useState<"accepted" | "declined" | null>(null);
+    const act = async (status: "accepted" | "declined") => {
+        setBusy(status);
+        try {
+            await resolve(s, status);
+        } finally {
+            setBusy(null);
+        }
+    };
+    const actions = (
+        <div className="flex shrink-0 items-center gap-0.5">
+            <Button
+                size="xs"
+                color="secondary"
+                iconLeading={Check}
+                isLoading={busy === "accepted"}
+                showTextWhileLoading
+                isDisabled={busy !== null}
+                onClick={() => void act("accepted")}
+            >
+                Mark done
+            </Button>
+            <ButtonUtility size="xs" color="tertiary" icon={XClose} tooltip="Dismiss" isDisabled={busy !== null} onClick={() => void act("declined")} />
+        </div>
+    );
+    return (
+        <div>
+            <div className="flex items-center justify-between gap-3">
+                <Byline heading={s.suggested_by} at={s.created_at} />
+                <div className="-my-1 hidden @md/comments:block">{actions}</div>
+            </div>
+            {label && <p className="text-xs text-quaternary">{label}</p>}
+            <p className="mt-1 text-sm whitespace-pre-wrap text-secondary">{s.suggested_value}</p>
+            <div className="mt-2.5 @md/comments:hidden">{actions}</div>
+        </div>
+    );
+};
+
+/** One closed item: the same shape as an open note, quieter, with who closed it last. */
+const ClosedNote = ({ item }: { item: HistoryItem }) => {
+    const [expanded, setExpanded] = useState(false);
+    const text = item.text?.trim() ?? "";
+    // "Show more" only when the clamp actually cuts something off: measured, not guessed
+    // from length, so a note that fits in three lines never offers to show more of itself.
+    const textRef = useRef<HTMLParagraphElement>(null);
+    const [clipped, setClipped] = useState(false);
+    useEffect(() => {
+        const el = textRef.current;
+        if (!el || expanded) return;
+        const measure = () => setClipped(el.scrollHeight > el.clientHeight + 1);
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [text, expanded]);
+    // The whole comment carries how it ended: a faint green wash for done (or approved), a grey
+    // one with the words dimmed for dismissed. The small marker stays as well, so the outcome
+    // never rests on colour alone. A past "changes requested" verdict keeps a plain outline.
+    const tone = item.kind === "done" || item.kind === "approved" ? "done" : item.kind === "dismissed" ? "dismissed" : "plain";
+    return (
+        <div
+            className={cx(
+                "rounded-xl px-3.5 py-3",
+                tone === "done" && "bg-success-primary dark:bg-success-solid/10",
+                tone === "dismissed" && "bg-secondary",
+                tone === "plain" && "ring-1 ring-secondary ring-inset",
+            )}
+        >
+            {/* How it ended sits on the name line's right when the panel is wide, like an open
+                note's actions, and drops under the words when it is narrow. */}
+            <div className="flex items-center justify-between gap-3">
+                <Byline heading={item.heading} at={item.writtenAt} muted={tone !== "dismissed"} faint={tone === "dismissed"} />
+                <div className="hidden shrink-0 @md/comments:block">
+                    <Outcome item={item} />
+                </div>
+            </div>
+            {text && (
+                <p
+                    ref={textRef}
+                    className={cx("mt-1 text-sm whitespace-pre-wrap", tone === "dismissed" ? "text-quaternary" : "text-tertiary", !expanded && "line-clamp-3")}
+                >
+                    {text}
+                </p>
+            )}
+            {(clipped || expanded) && (
+                <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    className="mt-0.5 text-xs font-semibold text-tertiary transition duration-100 ease-linear hover:text-primary"
+                >
+                    {expanded ? "Show less" : "Show more"}
+                </button>
+            )}
+            <div className="mt-1.5 empty:hidden @md/comments:hidden">
+                <Outcome item={item} />
+            </div>
+        </div>
+    );
+};
+
+/** How a closed item ended, and nothing else: a green check and "Done" (or "Approved"), or a
+ *  grey X and "Dismissed". Who closed it is deliberately not shown (Brandon, 2026-10-09). A
+ *  verdict that asked for changes has no marker, since its heading already says so. */
+const Outcome = ({ item }: { item: HistoryItem }) => {
+    const mark =
+        item.kind === "done"
+            ? { Icon: CheckCircle, word: "Done", cls: "text-success-primary", icon: "text-fg-success-secondary" }
+            : item.kind === "approved"
+              ? { Icon: CheckCircle, word: "Approved", cls: "text-success-primary", icon: "text-fg-success-secondary" }
+              : item.kind === "dismissed"
+                ? { Icon: XCircle, word: "Dismissed", cls: "text-tertiary", icon: "text-fg-quaternary" }
+                : null;
+    if (!mark) return null;
+    return (
+        <p className={cx("inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap", mark.cls)}>
+            <mark.Icon className={cx("size-3.5 shrink-0", mark.icon)} aria-hidden="true" />
+            {mark.word}
+        </p>
+    );
+};
+
+/** The history list, five at a time until "Show all". */
+const ClosedList = ({ items, empty }: { items: HistoryItem[]; empty: { title: string; body: string } }) => {
+    const [shown, setShown] = useState(HISTORY_STEP);
+    if (items.length === 0) return <EmptyNote {...empty} />;
+    return (
+        <>
+            <ul className="flex flex-col gap-2">
+                {items.slice(0, shown).map((item) => (
+                    <li key={item.id}>
+                        <ClosedNote item={item} />
+                    </li>
+                ))}
+            </ul>
+            {items.length > shown && (
+                <Button color="link-gray" size="sm" className="mt-4" onClick={() => setShown(items.length)}>
+                    {`Show all ${items.length}`}
+                </Button>
+            )}
+        </>
+    );
+};
+
+const EmptyNote = ({ title, body }: { title: string; body: string }) => (
+    <div className="flex items-start gap-3 rounded-xl bg-secondary px-4 py-3.5">
+        <CheckCircle className="mt-0.5 size-4 shrink-0 text-fg-quaternary" aria-hidden="true" />
+        <div>
+            <p className="text-sm font-medium text-secondary">{title}</p>
+            <p className="mt-0.5 text-sm text-pretty text-tertiary">{body}</p>
+        </div>
+    </div>
+);
+
+/** A count that gives a small pulse when it goes up, so a note marked done or dismissed
+ *  visibly lands in Feedback history. Feedback, not decoration: it fires only on an increase. */
+const Count = ({ n, waiting = false }: { n: number; waiting?: boolean }) => {
+    const reduceMotion = useReducedMotion();
+    const prev = useRef(n);
+    const grew = n > prev.current;
+    useEffect(() => {
+        prev.current = n;
+    }, [n]);
+    const loud = waiting && n > 0;
+    return (
+        <motion.span
+            key={n}
+            initial={grew && !reduceMotion ? { scale: 1.25 } : false}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            className={cx(
+                "inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[11px] leading-none font-semibold tabular-nums",
+                loud ? "bg-brand-solid text-white" : "bg-tertiary text-tertiary",
+            )}
+        >
+            {n}
+        </motion.span>
+    );
+};
+
+/** One segment of the switch; the highlight slides between segments. */
+const Segment = ({ id, groupId, label, count, waiting }: { id: string; groupId: string; label: string; count: number; waiting?: boolean }) => {
+    const reduceMotion = useReducedMotion();
+    return (
+        <AriaTab
+            id={id}
+            className={({ isSelected, isFocusVisible, isHovered }) =>
+                cx(
+                    "relative flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold outline-focus-ring transition-colors duration-150 ease-out",
+                    isSelected ? "text-primary" : isHovered ? "text-secondary" : "text-tertiary",
+                    isFocusVisible && "outline-2 outline-offset-1",
+                )
+            }
+        >
+            {({ isSelected }) => (
+                <>
+                    {isSelected && (
+                        <motion.span
+                            layoutId={`segment-${groupId}`}
+                            aria-hidden="true"
+                            className="absolute inset-0 rounded-md bg-primary shadow-xs ring-1 ring-secondary"
+                            transition={reduceMotion ? { duration: 0 } : { type: "spring", duration: 0.28, bounce: 0 }}
+                        />
+                    )}
+                    <span className="relative">{label}</span>
+                    <span className="relative flex">
+                        <Count n={count} waiting={waiting} />
+                    </span>
+                </>
+            )}
+        </AriaTab>
+    );
+};
+
+/** Eases its own height to whatever its content measures, so switching tabs (a short empty
+ *  state to a long history, or back) never snaps the card and shoves the page below it.
+ *  Content is clipped only while the height moves, so focus rings aren't cut off at rest.
+ *  Under reduced motion the height follows instantly. */
+const AutoHeight = ({ children }: { children: ReactNode }) => {
+    const reduceMotion = useReducedMotion();
+    const inner = useRef<HTMLDivElement>(null);
+    const [height, setHeight] = useState<number | "auto">("auto");
+    const [moving, setMoving] = useState(false);
+    useLayoutEffect(() => {
+        const el = inner.current;
+        if (!el) return;
+        const ro = new ResizeObserver(() => setHeight(el.offsetHeight));
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    return (
+        <motion.div
+            initial={false}
+            animate={{ height }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+            onAnimationStart={() => setMoving(true)}
+            onAnimationComplete={() => setMoving(false)}
+            style={{ overflow: moving ? "hidden" : "visible" }}
+        >
+            <div ref={inner}>{children}</div>
+        </motion.div>
+    );
+};
+
 /**
- * The team's side: every open note on this section, read and closed here. Renders nothing
- * unless `mode` is "review" or there is nothing open, so it can sit unconditionally in a
- * section body.
- *
- * `labelFor` adds a per-note suffix where a section has one worth showing (the Welcome Flow
- * names the email a legacy per-email note was written about). Return null for no suffix.
+ * The team's comments on one section, in two tabs: Open (to act on) and Feedback history
+ * (everything closed, plus past verdicts from outside the table). Renders nothing unless
+ * `mode` is "review". By default it renders the body only, for a caller that already has a
+ * card; `framed` gives it a card of its own.
  */
-export const ClientFeedbackReview = ({ feedback, labelFor }: { feedback: Omit<ClientFeedbackProps, "send">; labelFor?: (s: Suggestion) => string | null }) => {
+export const ClientFeedbackTabs = ({
+    feedback,
+    pastVerdicts = [],
+    labelFor,
+    framed = false,
+    hideWhenEmpty = false,
+}: {
+    feedback: Pick<ClientFeedbackProps, "mode" | "items" | "resolve">;
+    pastVerdicts?: PastVerdict[];
+    labelFor?: (s: Suggestion) => string | null;
+    /** Wrap in its own card, for a section with no card to put it in. */
+    framed?: boolean;
+    /** Render nothing at all while there is nothing open and no history. */
+    hideWhenEmpty?: boolean;
+}) => {
+    const reduceMotion = useReducedMotion();
+    const groupId = useId();
+    /** The tab the viewer picked; null until they pick one. */
+    const [picked, setPicked] = useState<AriaKey | null>(null);
+    /** Which way the last switch went: the new tab's content slides in from that side. */
+    const [direction, setDirection] = useState<1 | -1>(1);
+    /** The tab to open on, decided once, the first time there is anything to show, and then
+     *  kept: otherwise marking the last open note done would flip the panel to history under
+     *  the viewer's cursor. */
+    const startTab = useRef<AriaKey | null>(null);
+
     if (feedback.mode !== "review") return null;
-    const pending = feedback.items.filter((s) => s.status === "pending");
-    if (pending.length === 0) return null;
+
+    const open = feedback.items.filter((s) => s.status === "pending");
+    const history = historyOf(feedback.items, pastVerdicts, labelFor);
+    if (hideWhenEmpty && open.length === 0 && history.length === 0) return null;
+    // Open first while anything is waiting; otherwise the history, if there is one.
+    if (startTab.current === null && (open.length > 0 || history.length > 0)) startTab.current = open.length > 0 ? "open" : "history";
+    const selected = picked ?? startTab.current ?? "open";
+    const pick = (key: AriaKey) => {
+        if (key === selected) return;
+        setDirection(key === "history" ? 1 : -1);
+        setPicked(key);
+    };
 
     return (
-        <div className="flex flex-col gap-2">
-            {pending.map((s) => {
-                const label = labelFor?.(s) ?? null;
-                return (
-                    <div key={s.id} className="rounded-xl bg-brand-primary p-3.5 ring-1 ring-secondary">
-                        <p className="text-xs font-medium text-secondary">
-                            Client feedback · {s.suggested_by} · {shortDate(s.created_at)}
-                            {label && <span> · {label}</span>}
-                        </p>
-                        <p className="mt-1 text-sm whitespace-pre-wrap text-primary">{s.suggested_value}</p>
-                        <div className="mt-2.5 flex items-center gap-2">
-                            <Button size="sm" color="primary" onClick={() => void feedback.resolve(s, "accepted")}>
-                                Mark as done
-                            </Button>
-                            <Button size="sm" color="secondary" onClick={() => void feedback.resolve(s, "declined")}>
-                                Dismiss
-                            </Button>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
+        <AriaTabs
+            selectedKey={selected}
+            onSelectionChange={pick}
+            keyboardActivation="manual"
+            className={cx("@container/comments", framed && "rounded-2xl bg-primary px-5 py-4 ring-1 ring-secondary")}
+        >
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <p className="text-sm font-semibold text-primary">Comments</p>
+                <AriaTabList aria-label="Client comments" className="flex gap-0.5 rounded-lg bg-secondary p-0.5 ring-1 ring-secondary ring-inset">
+                    <Segment id="open" groupId={groupId} label="Open" count={open.length} waiting />
+                    <Segment id="history" groupId={groupId} label="Feedback history" count={history.length} />
+                </AriaTabList>
+            </div>
+
+            {/* One panel at a time, keyed by tab: the card eases to the new height while the
+                new content fades in, sliding a few pixels from the side of the tab just picked.
+                The old content leaves at once, so the two never overlap mid-switch. */}
+            <AutoHeight>
+                <AriaTabPanel key={selected} id={String(selected)} className="pt-4 outline-none">
+                    <motion.div
+                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: reduceMotion ? 0.15 : 0.22, ease: [0.23, 1, 0.32, 1] }}
+                    >
+                        {selected === "open" ? (
+                            open.length === 0 ? (
+                                <EmptyNote title="All caught up" body="New comments from the client show up here." />
+                            ) : (
+                                <ul className="flex flex-col gap-5">
+                                    {/* A note leaving the list fades out where it is, then the rest close
+                                        the gap, so the list never jumps. Opacity only under reduced motion. */}
+                                    <AnimatePresence initial={false} mode="popLayout">
+                                        {open.map((s) => (
+                                            <motion.li
+                                                key={s.id}
+                                                layout={!reduceMotion}
+                                                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, filter: "blur(2px)" }}
+                                                transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                                            >
+                                                <OpenNote s={s} label={labelFor?.(s) ?? null} resolve={feedback.resolve} />
+                                            </motion.li>
+                                        ))}
+                                    </AnimatePresence>
+                                </ul>
+                            )
+                        ) : (
+                            <ClosedList
+                                items={history}
+                                empty={{
+                                    title: "No feedback history yet",
+                                    body: "Comments you mark as done or dismiss stay here, so you can look back at them.",
+                                }}
+                            />
+                        )}
+                    </motion.div>
+                </AriaTabPanel>
+            </AutoHeight>
+        </AriaTabs>
     );
 };

@@ -50,7 +50,7 @@ import {
     readCanvaOutcome,
     startCanvaConnect,
 } from "@/lib/canva-import";
-import { ClientFeedbackBox } from "@/pages/client/dashboard/client-feedback";
+import { ClientFeedbackBox, ClientFeedbackTabs } from "@/pages/client/dashboard/client-feedback";
 import { SectionEyebrow, SectionHeading, editInput } from "@/pages/client/dashboard/dashboard-chrome";
 import {
     MAX_PINNED_POSTS,
@@ -358,31 +358,19 @@ interface FeedbackProps {
     reviewerEmail: string;
     onSend: (items: SuggestionItem[]) => Promise<void>;
     onWithdraw: (s: Suggestion) => void;
-    onResolve: (s: Suggestion) => void;
+    /** Closes a note as done ("accepted") or dismissed ("declined"). */
+    onResolve: (s: Suggestion, status: "accepted" | "declined") => Promise<void>;
 }
 
 const FeedbackPanel = ({ post, ordinal, review, isTeam, canReview, reviewerEmail, onSend, onWithdraw, onResolve }: FeedbackProps) => {
     const label = `Pinned post ${ordinal}${post.title.trim() ? ` · ${post.title.trim()}` : ""}`;
-    const mine = (s: Suggestion | null) => !!s && !!reviewerEmail && s.suggested_by === reviewerEmail;
 
     return (
         <div className="mt-4 flex flex-col gap-3 border-t border-secondary pt-4">
-            {/* The team's side: every open note on this post, marked addressed here. A client
-                never reads this list — their own note comes back to them inside the box. */}
-            {isTeam &&
-                review.openNotes.map((n) => (
-                    <div key={n.id} className="rounded-xl bg-warning-primary p-3 ring-1 ring-secondary">
-                        <p className="text-xs font-medium text-secondary">
-                            {mine(n) ? "You asked" : `${n.suggested_by} asked`} · {shortDate(n.created_at)}
-                        </p>
-                        <p className="mt-1 text-sm whitespace-pre-wrap text-primary">{n.suggested_value}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <Button size="sm" color="primary" iconLeading={Check} onClick={() => onResolve(n)}>
-                                Mark as addressed
-                            </Button>
-                        </div>
-                    </div>
-                ))}
+            {/* The team's side: this post's notes, open and closed, in the same Open / Feedback
+                history panel every section uses. A client never reads it — their own note comes
+                back to them inside the box below. Renders nothing while the post has no notes. */}
+            {isTeam && <ClientFeedbackTabs feedback={{ mode: "review", items: review.notes, resolve: onResolve }} hideWhenEmpty />}
 
             {/* Legacy approvals: nobody can send one any more, but a post approved before the
                 box replaced the buttons still says so to the team. */}
@@ -390,13 +378,6 @@ const FeedbackPanel = ({ post, ordinal, review, isTeam, canReview, reviewerEmail
                 <p className="flex items-center gap-1.5 text-xs text-success-primary">
                     <ThumbsUp className="size-3.5" aria-hidden="true" />
                     Approved by {review.approval.suggested_by} · {shortDate(review.approval.created_at)}
-                </p>
-            )}
-
-            {isTeam && !review.openNote && review.lastAddressed && (
-                <p className="text-xs text-quaternary">
-                    The note from {shortDate(review.lastAddressed.created_at)} was addressed
-                    {review.lastAddressed.resolved_at ? ` on ${shortDate(review.lastAddressed.resolved_at)}` : ""}.
                 </p>
             )}
 
@@ -698,7 +679,7 @@ export interface PinnedPostsSectionProps {
     reviewerEmail: string;
     onSendFeedback: (items: SuggestionItem[]) => Promise<void>;
     onWithdrawFeedback: (s: Suggestion) => void;
-    onResolveFeedback: (s: Suggestion) => void;
+    onResolveFeedback: (s: Suggestion, status: "accepted" | "declined") => Promise<void>;
 }
 
 type TrayPage = { id: string; page: number; url: string };

@@ -34,7 +34,7 @@ import {
 } from "@/lib/canva-import";
 import { STORIES_SECTION, recordDashboardPublish } from "@/lib/dashboard-updates";
 import { supabase } from "@/lib/supabase";
-import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackReview } from "@/pages/client/dashboard/client-feedback";
+import { ClientFeedbackBox, type ClientFeedbackProps, ClientFeedbackTabs } from "@/pages/client/dashboard/client-feedback";
 import { type PinnedPost, parseCanvaUrl, uid } from "@/pages/client/dashboard/dashboard-model";
 import { type PinnedProfileInputs, buildProfile } from "@/pages/client/dashboard/pinned-posts";
 import {
@@ -1366,10 +1366,10 @@ export const PinnedStoriesSection = ({
                             </div>
                         )}
 
-                        {/* Team: the open feedback notes, which are about the section rather than
-                            one slide, so they sit beside the version list and not inside a
-                            version's own note list. Renders nothing when there are none. */}
-                        {feedback && <ClientFeedbackReview feedback={feedback} />}
+                        {/* Team: the comments about the whole section rather than one slide, open
+                            and closed, so they sit beside the version list and not inside a
+                            version's own note list. Renders nothing while there are none. */}
+                        {feedback && <ClientFeedbackTabs feedback={feedback} framed hideWhenEmpty />}
 
                         {/* Team: versions */}
                         {isTeam && data.versions.length > 1 && (

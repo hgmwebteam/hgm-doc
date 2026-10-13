@@ -245,11 +245,12 @@ export const ClientFeedbackBox = ({
 /* ── Open and Feedback history ──────────────────────────────────────────────
    The team's side of every section's comments. Until 2026-10-09 it listed open notes only
    (ClientFeedbackReview), so a note marked done vanished: the row was kept in
-   dashboard_suggestions (status, resolved_by, resolved_at) but nothing could show it again. This panel keeps every note in two tabs: Open, to act on,
-   and Feedback history, everything already closed. A row is who and when on one line, the
-   words, and how it ended; that last line leads with a green check for done or a grey X
-   for dismissed, so the two separate at a glance inside one list. (Three tabs, Open / Done
-   / Dismissed, were tried on 2026-10-09 and dropped as one tab too many.)
+   dashboard_suggestions (status, resolved_by, resolved_at) but nothing could show it again.
+   This panel keeps every note in two tabs: Open, to act on, and Feedback history, everything
+   already closed. A row is the email and a relative time on one line, then the words. In
+   history each row is tinted (green for done, grey and dimmed for dismissed) and carries a
+   small Done / Dismissed marker on the email line's right. Who closed it is not shown, by
+   request. (Three tabs, Open / Done / Dismissed, were tried and dropped as one too many.)
 
    Used by every section a client comments on: inside the Landing Page's Client review card,
    inside each Pinned Post, and as its own card (`framed`) on Welcome Emails, Example Reels

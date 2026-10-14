@@ -154,10 +154,11 @@ export const emptyPersona = (rank: string): Persona => ({
  * How many focus properties the document holds.
  *
  * Focus properties are a selection — the handful a client is marketed on — not their
- * portfolio; Cabin Collective alone has sixty listings. Five is the section, so it is also
- * what the Add button stops at and what a draft from the website links fills.
+ * portfolio; Cabin Collective alone has sixty listings. This is also what the Add button
+ * stops at and what a draft from the website links fills. Raised from 5 to 6 on 2026-10-14
+ * (Gooseberry Lodges needed a sixth) — a round number, not a hard limit of any kind.
  */
-export const FOCUS_PROPERTY_MAX = 5;
+export const FOCUS_PROPERTY_MAX = 6;
 
 export const emptyFocusProperty = (): FocusProperty => ({
     id: uid(),

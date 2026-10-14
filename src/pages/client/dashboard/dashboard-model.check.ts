@@ -237,7 +237,7 @@ console.log("mergeFoundationDraft: all checks passed");
     assert.deepEqual(fillFocusProperty(empty, { name: "   ", guests: "" }), empty, "blank strings are not values");
 }
 
-/* ── The section is five cards ─────────────────────────────────────────────
+/* ── The section is FOCUS_PROPERTY_MAX cards ───────────────────────────────
    Blank cards accumulate from the Add button and persist; filled ones are never dropped. */
 {
     const blank = () => emptyFocusProperty();
@@ -262,12 +262,13 @@ console.log("mergeFoundationDraft: all checks passed");
     /* A filled card is never dropped — not at the size, not past it. */
     assert.equal(stored(Array.from({ length: 8 }, (_, i) => named(`Cabin ${i + 1}`))).length, 8);
 
-    /* Mixed: the filled ones stay, blanks fill up to five, and the order is the stored one. */
-    const kept = stored([blank(), named("Coach House"), blank(), blank(), named("Wild Blue"), blank(), blank(), blank()]);
+    /* Mixed: the filled ones stay, blanks fill up to the max, and the order is the stored one. */
+    const mixedNames = ["", "Coach House", "", "", "Wild Blue", "", "", ""];
+    const kept = stored(mixedNames.map((name) => (name ? named(name) : blank())));
     assert.equal(kept.length, FOCUS_PROPERTY_MAX);
     assert.deepEqual(
         kept.map((p) => p.name),
-        ["", "Coach House", "", "", "Wild Blue"],
+        mixedNames.slice(0, FOCUS_PROPERTY_MAX),
         "stored order, not filled-first",
     );
 
@@ -284,4 +285,4 @@ console.log("mergeFoundationDraft: all checks passed");
     );
 }
 
-console.log("newDashboardRow, websites, fillFocusProperty and the five-card section: all checks passed");
+console.log("newDashboardRow, websites, fillFocusProperty and the focus-properties section: all checks passed");

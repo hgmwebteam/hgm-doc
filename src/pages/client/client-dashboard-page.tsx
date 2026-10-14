@@ -5163,7 +5163,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="audience"
                                                                         label="Target audience profile"
-                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From client onboarding form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
@@ -5179,7 +5179,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="uvp"
                                                                         label="Unique value proposition"
-                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From client onboarding form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
@@ -5195,7 +5195,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="brand"
                                                                         label="About the brand"
-                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From client onboarding form</SourceBadge> : undefined}
                                                                     >
                                                                         <DocField
                                                                             isLocked={isLocked}
@@ -5274,7 +5274,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     <DocSection
                                                                         id="personas"
                                                                         label="Personas"
-                                                                        badge={isTeam ? <SourceBadge>From Brand Vision form</SourceBadge> : undefined}
+                                                                        badge={isTeam ? <SourceBadge>From client onboarding form</SourceBadge> : undefined}
                                                                         action={
                                                                             !isLocked && (
                                                                                 <button
@@ -5826,7 +5826,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         the client view drops empty rows and, once nothing is left,
                                                                                         the whole block. */}
                                                                                         {(() => {
-                                                                                            const visibleReviews = isTeam ? p.reviews : p.reviews.filter(filled);
+                                                                                            const visibleReviews = isTeam
+                                                                                                ? p.reviews
+                                                                                                : p.reviews.filter(filled);
                                                                                             if (!isTeam && !visibleReviews.length) return null;
                                                                                             return (
                                                                                                 <div className="mt-4">

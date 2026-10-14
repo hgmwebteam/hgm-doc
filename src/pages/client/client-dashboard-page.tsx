@@ -5821,90 +5821,106 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                             />
                                                                                         </div>
 
-                                                                                        {/* Top reviews — trend evidence, not testimonials. */}
-                                                                                        <div className="mt-4">
-                                                                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                                                                <p className="text-sm font-medium text-secondary">
-                                                                                                    Top reviews
-                                                                                                </p>
-                                                                                                <span className="text-xs text-quaternary">
-                                                                                                    3–5, look for trends
-                                                                                                </span>
-                                                                                            </div>
-                                                                                            <div className="mt-2 flex flex-col gap-2">
-                                                                                                {p.reviews.map((r, ri) => (
-                                                                                                    <div
-                                                                                                        key={ri}
-                                                                                                        className="flex items-start gap-2 rounded-xl px-3 py-2 ring-1 ring-secondary"
-                                                                                                    >
-                                                                                                        <span
-                                                                                                            className="font-mono text-md leading-none text-quaternary"
-                                                                                                            aria-hidden="true"
-                                                                                                        >
-                                                                                                            &ldquo;
-                                                                                                        </span>
-                                                                                                        {isLocked ? (
-                                                                                                            <span
-                                                                                                                className={cx(
-                                                                                                                    "text-sm",
-                                                                                                                    filled(r)
-                                                                                                                        ? "text-tertiary"
-                                                                                                                        : "text-quaternary italic",
-                                                                                                                )}
-                                                                                                            >
-                                                                                                                {filled(r)
-                                                                                                                    ? r
-                                                                                                                    : "Paste review, note the trend it supports"}
+                                                                                        {/* Top reviews — trend evidence, not testimonials. A blank
+                                                                                        slot is the AM's to-do, not something a client should see, so
+                                                                                        the client view drops empty rows and, once nothing is left,
+                                                                                        the whole block. */}
+                                                                                        {(() => {
+                                                                                            const visibleReviews = isTeam ? p.reviews : p.reviews.filter(filled);
+                                                                                            if (!isTeam && !visibleReviews.length) return null;
+                                                                                            return (
+                                                                                                <div className="mt-4">
+                                                                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                                                        <p className="text-sm font-medium text-secondary">
+                                                                                                            Top reviews
+                                                                                                        </p>
+                                                                                                        {isTeam && (
+                                                                                                            <span className="text-xs text-quaternary">
+                                                                                                                3–5, look for trends
                                                                                                             </span>
-                                                                                                        ) : (
-                                                                                                            <>
-                                                                                                                <textarea
-                                                                                                                    rows={1}
-                                                                                                                    placeholder="Paste review, note the trend it supports"
-                                                                                                                    value={r}
-                                                                                                                    onChange={(e) =>
-                                                                                                                        patchFocus(p.id, {
-                                                                                                                            reviews: p.reviews.map((x, j) =>
-                                                                                                                                j === ri ? e.target.value : x,
-                                                                                                                            ),
-                                                                                                                        })
-                                                                                                                    }
-                                                                                                                    className="w-full resize-y border-0 bg-transparent p-0 text-sm text-primary outline-none placeholder:text-placeholder"
-                                                                                                                />
-                                                                                                                <button
-                                                                                                                    type="button"
-                                                                                                                    title="Remove review"
-                                                                                                                    onClick={() =>
-                                                                                                                        patchFocus(p.id, {
-                                                                                                                            reviews: p.reviews.filter(
-                                                                                                                                (_, j) => j !== ri,
-                                                                                                                            ),
-                                                                                                                        })
-                                                                                                                    }
-                                                                                                                    className="flex size-5 shrink-0 items-center justify-center rounded-full text-fg-quaternary transition duration-100 ease-linear hover:bg-secondary hover:text-error-primary"
-                                                                                                                >
-                                                                                                                    <XClose
-                                                                                                                        className="size-3"
-                                                                                                                        aria-hidden="true"
-                                                                                                                    />
-                                                                                                                </button>
-                                                                                                            </>
                                                                                                         )}
                                                                                                     </div>
-                                                                                                ))}
-                                                                                                {!isLocked && (
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        onClick={() =>
-                                                                                                            patchFocus(p.id, { reviews: [...p.reviews, ""] })
-                                                                                                        }
-                                                                                                        className="self-start text-sm font-semibold text-brand-secondary transition duration-100 ease-linear hover:underline"
-                                                                                                    >
-                                                                                                        + Add review
-                                                                                                    </button>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
+                                                                                                    <div className="mt-2 flex flex-col gap-2">
+                                                                                                        {visibleReviews.map((r, ri) => (
+                                                                                                            <div
+                                                                                                                key={ri}
+                                                                                                                className="flex items-start gap-2 rounded-xl px-3 py-2 ring-1 ring-secondary"
+                                                                                                            >
+                                                                                                                <span
+                                                                                                                    className="font-mono text-md leading-none text-quaternary"
+                                                                                                                    aria-hidden="true"
+                                                                                                                >
+                                                                                                                    &ldquo;
+                                                                                                                </span>
+                                                                                                                {isLocked ? (
+                                                                                                                    <span
+                                                                                                                        className={cx(
+                                                                                                                            "text-sm",
+                                                                                                                            filled(r)
+                                                                                                                                ? "text-tertiary"
+                                                                                                                                : "text-quaternary italic",
+                                                                                                                        )}
+                                                                                                                    >
+                                                                                                                        {filled(r)
+                                                                                                                            ? r
+                                                                                                                            : "Paste review, note the trend it supports"}
+                                                                                                                    </span>
+                                                                                                                ) : (
+                                                                                                                    <>
+                                                                                                                        <textarea
+                                                                                                                            rows={1}
+                                                                                                                            placeholder="Paste review, note the trend it supports"
+                                                                                                                            value={r}
+                                                                                                                            onChange={(e) =>
+                                                                                                                                patchFocus(p.id, {
+                                                                                                                                    reviews: p.reviews.map(
+                                                                                                                                        (x, j) =>
+                                                                                                                                            j === ri
+                                                                                                                                                ? e.target.value
+                                                                                                                                                : x,
+                                                                                                                                    ),
+                                                                                                                                })
+                                                                                                                            }
+                                                                                                                            className="w-full resize-y border-0 bg-transparent p-0 text-sm text-primary outline-none placeholder:text-placeholder"
+                                                                                                                        />
+                                                                                                                        <button
+                                                                                                                            type="button"
+                                                                                                                            title="Remove review"
+                                                                                                                            onClick={() =>
+                                                                                                                                patchFocus(p.id, {
+                                                                                                                                    reviews: p.reviews.filter(
+                                                                                                                                        (_, j) => j !== ri,
+                                                                                                                                    ),
+                                                                                                                                })
+                                                                                                                            }
+                                                                                                                            className="flex size-5 shrink-0 items-center justify-center rounded-full text-fg-quaternary transition duration-100 ease-linear hover:bg-secondary hover:text-error-primary"
+                                                                                                                        >
+                                                                                                                            <XClose
+                                                                                                                                className="size-3"
+                                                                                                                                aria-hidden="true"
+                                                                                                                            />
+                                                                                                                        </button>
+                                                                                                                    </>
+                                                                                                                )}
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                        {!isLocked && (
+                                                                                                            <button
+                                                                                                                type="button"
+                                                                                                                onClick={() =>
+                                                                                                                    patchFocus(p.id, {
+                                                                                                                        reviews: [...p.reviews, ""],
+                                                                                                                    })
+                                                                                                                }
+                                                                                                                className="self-start text-sm font-semibold text-brand-secondary transition duration-100 ease-linear hover:underline"
+                                                                                                            >
+                                                                                                                + Add review
+                                                                                                            </button>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })()}
                                                                                     </div>
                                                                                 </div>
                                                                             ))}

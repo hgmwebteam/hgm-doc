@@ -2542,7 +2542,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      * meter's stages. Each row still ticks and marks its own step — the card owns no state.
      */
     const journeyCards = useMemo(() => {
-        type Card = (typeof journeySteps)[number] & { group?: { steps: JourneyStepId[]; markLabel: string } };
+        /** A grouped card's row is a whole step, or one piece of a step ticked piece by piece. */
+        type CardRow = { stepId: JourneyStepId; itemId?: string; markLabel: string };
+        type Card = (typeof journeySteps)[number] & { group?: { steps: JourneyStepId[]; rows: Map<string, CardRow> } };
         if (!newJourney) return journeySteps as Card[];
         const byId = new Map(journeySteps.map((step) => [step.id, step]));
         return journeySteps.flatMap((step): Card[] => {
@@ -2550,8 +2552,36 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             if (!group) return [step];
             if (group.steps[0] !== step.id) return [];
             const members = group.steps.map((id) => byId.get(id)).filter((m): m is (typeof journeySteps)[number] => !!m);
-            const total = members.length;
-            const value = members.filter((m) => m.done).length;
+            const rows = new Map<string, CardRow>();
+            const items = members.flatMap((m) => {
+                const markLabel = TEAM_JOURNEY_STEPS.has(m.id) ? "Mark done" : "Mark reviewed";
+                if (m.itemsTickable && m.items?.length) {
+                    return m.items.map((item) => {
+                        const itemId = item.id ?? item.label;
+                        const key = journeyItemKey(m.id, itemId);
+                        rows.set(key, { stepId: m.id, itemId, markLabel });
+                        return { ...item, id: key };
+                    });
+                }
+                rows.set(m.id, { stepId: m.id, markLabel });
+                return [
+                    {
+                        id: m.id,
+                        // "Review the Master Brand" → "Master Brand": the card heading already says review.
+                        label: m.label.replace(/^Review the /, ""),
+                        note: m.detail,
+                        to: m.to,
+                        eta: m.eta,
+                        // A step's own outside link (Content optimization's folder) rides on its row.
+                        url: m.href ?? "",
+                        link: m.hrefFrom,
+                        action: m.hrefLabel,
+                        done: m.done,
+                    },
+                ];
+            });
+            const total = items.length;
+            const value = items.filter((item) => item.done).length;
             return [
                 {
                     ...step,
@@ -2562,19 +2592,10 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                     hrefFrom: undefined,
                     eta: undefined,
                     itemsTickable: true,
-                    // "Review the Master Brand" → "Master Brand": the card heading already says review.
-                    items: members.map((m) => ({
-                        id: m.id,
-                        label: m.label.replace(/^Review the /, ""),
-                        note: m.detail,
-                        to: m.to,
-                        eta: m.eta,
-                        url: "",
-                        done: m.done,
-                    })),
+                    items,
                     done: value === total,
                     progress: { value, total },
-                    group: { steps: group.steps, markLabel: group.markLabel },
+                    group: { steps: group.steps, rows },
                 },
             ];
         });
@@ -3798,8 +3819,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         const itemTarget = item.to;
                                                                                         const canOpenItem =
                                                                                             !!itemTarget && (isTeam || revealedToClient(itemTarget));
-                                                                                        // A grouped card's row IS a step, so its mark is
-                                                                                        // keyed by the step id, as the meter reads it.
+                                                                                        // A grouped card's row id is already the key its
+                                                                                        // step (or piece) is marked by, as the meter reads it.
+                                                                                        const groupRow = step.group?.rows.get(item.id ?? "");
                                                                                         const itemKey = step.group
                                                                                             ? (item.id ?? item.label)
                                                                                             : journeyItemKey(step.id, item.id ?? item.label);
@@ -3873,10 +3895,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                                                     item.done ? RefreshCw01 : CheckCircle
                                                                                                                 }
                                                                                                                 onClick={() =>
-                                                                                                                    step.group
-                                                                                                                        ? toggleJourneyStep(
-                                                                                                                              item.id as JourneyStepId,
-                                                                                                                          )
+                                                                                                                    groupRow
+                                                                                                                        ? groupRow.itemId
+                                                                                                                            ? toggleJourneyItem(
+                                                                                                                                  groupRow.stepId,
+                                                                                                                                  groupRow.itemId,
+                                                                                                                              )
+                                                                                                                            : toggleJourneyStep(groupRow.stepId)
                                                                                                                         : toggleJourneyItem(
                                                                                                                               step.id,
                                                                                                                               item.id ?? item.label,
@@ -3885,8 +3910,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                                             >
                                                                                                                 {item.done
                                                                                                                     ? "Undo"
-                                                                                                                    : (step.group?.markLabel ??
-                                                                                                                      "Mark reviewed")}
+                                                                                                                    : (groupRow?.markLabel ?? "Mark reviewed")}
                                                                                                             </Button>
                                                                                                         )}
                                                                                                         {item.url ? (

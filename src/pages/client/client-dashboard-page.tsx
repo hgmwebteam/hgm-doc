@@ -137,6 +137,7 @@ import {
 } from "@/pages/client/dashboard/dashboard-model";
 import {
     JOURNEY_BAR,
+    JOURNEY_CARD_GROUPS,
     JOURNEY_STAGES,
     JOURNEY_STEPS,
     type JourneyLink,
@@ -2536,6 +2537,51 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const journeyCurrentId = journeySteps.find((s) => !s.done && !TEAM_JOURNEY_STEPS.has(s.id))?.id ?? journeySteps.find((s) => !s.done)?.id ?? null;
 
     /**
+     * The cards the Overview list draws. On the new journey, each JOURNEY_CARD_GROUPS group
+     * folds into one card shaped like the funnel's (a row per step), so the list reads in the
+     * meter's stages. Each row still ticks and marks its own step — the card owns no state.
+     */
+    const journeyCards = useMemo(() => {
+        type Card = (typeof journeySteps)[number] & { group?: { steps: JourneyStepId[]; markLabel: string } };
+        if (!newJourney) return journeySteps as Card[];
+        const byId = new Map(journeySteps.map((step) => [step.id, step]));
+        return journeySteps.flatMap((step): Card[] => {
+            const group = JOURNEY_CARD_GROUPS.find((g) => g.steps.includes(step.id));
+            if (!group) return [step];
+            if (group.steps[0] !== step.id) return [];
+            const members = group.steps.map((id) => byId.get(id)).filter((m): m is (typeof journeySteps)[number] => !!m);
+            const total = members.length;
+            const value = members.filter((m) => m.done).length;
+            return [
+                {
+                    ...step,
+                    label: group.label,
+                    detail: value === total ? group.doneDetail : `${value} of ${total} ${group.countVerb}.`,
+                    to: undefined,
+                    href: undefined,
+                    hrefFrom: undefined,
+                    eta: undefined,
+                    itemsTickable: true,
+                    // "Review the Master Brand" → "Master Brand": the card heading already says review.
+                    items: members.map((m) => ({
+                        id: m.id,
+                        label: m.label.replace(/^Review the /, ""),
+                        note: m.detail,
+                        to: m.to,
+                        eta: m.eta,
+                        url: "",
+                        done: m.done,
+                    })),
+                    done: value === total,
+                    progress: { value, total },
+                    group: { steps: group.steps, markLabel: group.markLabel },
+                },
+            ];
+        });
+    }, [newJourney, journeySteps]);
+    const journeyCardsDone = journeyCards.filter((card) => card.done).length;
+
+    /**
      * The launch meter's stages and the pills under each.
      *
      * The meter's composition lives in JOURNEY_BAR rather than being read off the step
@@ -3608,13 +3654,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                         <div>
                                                             <h2 className="text-lg font-semibold text-primary">Your journey</h2>
                                                             <p className="mt-1 text-sm text-tertiary">
-                                                                {journeyDoneCount === journeySteps.length
+                                                                {journeyCardsDone === journeyCards.length
                                                                     ? "Every step is done — you're fully set up."
                                                                     : "Where you are, and what happens next. Weeks are estimates, counted from your Kick-off Call."}
                                                             </p>
                                                         </div>
                                                         <span className="text-sm font-semibold text-secondary tabular-nums">
-                                                            {journeyDoneCount} of {journeySteps.length}
+                                                            {journeyCardsDone} of {journeyCards.length}
                                                         </span>
                                                     </div>
 
@@ -3639,9 +3685,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                     )}
 
                                                     <ol className="mt-6 grid list-none gap-0 p-0">
-                                                        {journeySteps.map((step, i) => {
-                                                            const isCurrent = step.id === journeyCurrentId;
-                                                            const isLast = i === journeySteps.length - 1;
+                                                        {journeyCards.map((step, i) => {
+                                                            const isCurrent = step.group
+                                                                ? !!journeyCurrentId && step.group.steps.includes(journeyCurrentId)
+                                                                : step.id === journeyCurrentId;
+                                                            const isLast = i === journeyCards.length - 1;
                                                             // A client must not be offered a jump into a section they
                                                             // can't open — same rule the side menu uses.
                                                             const target = step.to;
@@ -3750,6 +3798,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                         const itemTarget = item.to;
                                                                                         const canOpenItem =
                                                                                             !!itemTarget && (isTeam || revealedToClient(itemTarget));
+                                                                                        // A grouped card's row IS a step, so its mark is
+                                                                                        // keyed by the step id, as the meter reads it.
+                                                                                        const itemKey = step.group
+                                                                                            ? (item.id ?? item.label)
+                                                                                            : journeyItemKey(step.id, item.id ?? item.label);
                                                                                         return (
                                                                                             <li
                                                                                                 key={item.label}
@@ -3804,22 +3857,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                                             !item.done && (
                                                                                                                 <JourneyMarkPicker
                                                                                                                     name={item.label}
-                                                                                                                    value={
-                                                                                                                        journeyMarks?.[
-                                                                                                                            journeyItemKey(
-                                                                                                                                step.id,
-                                                                                                                                item.id ?? item.label,
-                                                                                                                            )
-                                                                                                                        ] ?? null
-                                                                                                                    }
+                                                                                                                    value={journeyMarks?.[itemKey] ?? null}
                                                                                                                     onChange={(mark) =>
-                                                                                                                        setJourneyStatus(
-                                                                                                                            journeyItemKey(
-                                                                                                                                step.id,
-                                                                                                                                item.id ?? item.label,
-                                                                                                                            ),
-                                                                                                                            mark,
-                                                                                                                        )
+                                                                                                                        setJourneyStatus(itemKey, mark)
                                                                                                                     }
                                                                                                                 />
                                                                                                             )}
@@ -3833,13 +3873,20 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                                                     item.done ? RefreshCw01 : CheckCircle
                                                                                                                 }
                                                                                                                 onClick={() =>
-                                                                                                                    toggleJourneyItem(
-                                                                                                                        step.id,
-                                                                                                                        item.id ?? item.label,
-                                                                                                                    )
+                                                                                                                    step.group
+                                                                                                                        ? toggleJourneyStep(
+                                                                                                                              item.id as JourneyStepId,
+                                                                                                                          )
+                                                                                                                        : toggleJourneyItem(
+                                                                                                                              step.id,
+                                                                                                                              item.id ?? item.label,
+                                                                                                                          )
                                                                                                                 }
                                                                                                             >
-                                                                                                                {item.done ? "Undo" : "Mark reviewed"}
+                                                                                                                {item.done
+                                                                                                                    ? "Undo"
+                                                                                                                    : (step.group?.markLabel ??
+                                                                                                                      "Mark reviewed")}
                                                                                                             </Button>
                                                                                                         )}
                                                                                                         {item.url ? (
@@ -3974,8 +4021,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             {/* AM tick, edit mode only. Auto steps get no tick:
                                                                                 a manual override could contradict the answer
                                                                                 count printed directly above it. */}
+                                                                            {/* A grouped card has no tick of its own: each row
+                                                                                ticks its own step, and the card is done when they are. */}
                                                                             {!isLocked &&
                                                                                 isTeam &&
+                                                                                !step.group &&
                                                                                 (step.auto ? (
                                                                                     <span className="text-xs text-quaternary">
                                                                                         Tracked from the form itself

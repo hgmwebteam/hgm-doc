@@ -425,6 +425,43 @@ export const JOURNEY_BAR: { id: string; label: string; stage: string; owner: Jou
     { id: "webforms", label: "Website forms", stage: "funnel", owner: "team", steps: ["webforms"] },
 ];
 
+/**
+ * ── Overview cards that hold several steps ──
+ *
+ * New journey only. The step list on Overview draws each of these as ONE card, laid out like
+ * the marketing funnel's: a count, a bar, and a row per step with its own tick and Open. It
+ * makes the list read in the same groups as the launch meter's chevrons instead of as a run
+ * of one-line cards. Display only: every step keeps its own id, tick and AM mark in storage,
+ * so the meter and the legacy journey read exactly what they did before.
+ *
+ * Steps in a group must sit next to each other in JOURNEY_STEPS; the card takes the place of
+ * the first one.
+ */
+export const JOURNEY_CARD_GROUPS: {
+    label: string;
+    steps: JourneyStepId[];
+    /** Finishes "{n} of {total} …" under the heading. */
+    countVerb: string;
+    doneDetail: string;
+    /** The AM's per-row tick, edit mode only. */
+    markLabel: string;
+}[] = [
+    {
+        label: "Review the brand foundation",
+        steps: ["masterdoc", "brandkit"],
+        countVerb: "reviewed",
+        doneDetail: "Every piece reviewed — thank you.",
+        markLabel: "Mark reviewed",
+    },
+    {
+        label: "Technical setup",
+        steps: ["crm", "adaccount", "manychat"],
+        countVerb: "set up",
+        doneDetail: "Everything is set up.",
+        markLabel: "Mark done",
+    },
+];
+
 /** Steps only the team can finish — never the client's "next thing to do". */
 export const TEAM_JOURNEY_STEPS = new Set<JourneyStepId>(JOURNEY_BAR.filter((bar) => bar.owner === "team").flatMap((bar) => bar.steps));
 

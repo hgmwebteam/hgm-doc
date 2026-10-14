@@ -85,6 +85,39 @@ export const SourceBadge = ({ children, manual }: { children: ReactNode; manual?
  *  that would mutate real content a client can't save anyway), and in every mode the
  *  field shows its pending / resolved suggestions underneath. No sKey ⇒ exactly the
  *  old behaviour. */
+/**
+ * A list like corePillars/emotionalThemes, read-only: one key item per line, each
+ * optionally followed by detail lines (guest quotes, a tagline) that `isDetailLine`
+ * recognises. The key item renders bold with its details listed underneath it,
+ * instead of every line running together as one dense paragraph.
+ *
+ * A detail line before any key item (malformed content) still gets its own line
+ * rather than being silently dropped — it just has no heading above it.
+ */
+const GroupedLines = ({ text, isDetailLine }: { text: string; isDetailLine: (line: string) => boolean }) => {
+    const groups: { heading: string; details: string[] }[] = [];
+    for (const raw of text.split("\n")) {
+        const line = raw.trim();
+        if (!line) continue;
+        if (isDetailLine(line) && groups.length) groups[groups.length - 1].details.push(line);
+        else groups.push({ heading: line, details: [] });
+    }
+    return (
+        <div className="mt-1 flex flex-col gap-3">
+            {groups.map((g, i) => (
+                <div key={i}>
+                    <p className="text-md font-semibold text-primary">{g.heading}</p>
+                    {g.details.map((d, j) => (
+                        <p key={j} className="mt-1 pl-4 text-sm text-pretty text-tertiary">
+                            {d}
+                        </p>
+                    ))}
+                </div>
+            ))}
+        </div>
+    );
+};
+
 export const DocField = ({
     label,
     hint,
@@ -96,6 +129,7 @@ export const DocField = ({
     className,
     mono,
     sKey,
+    isDetailLine,
 }: {
     label?: string;
     hint?: string;
@@ -108,6 +142,9 @@ export const DocField = ({
     className?: string;
     mono?: boolean;
     sKey?: string;
+    /** Renders the locked view as a bolded key-item list instead of one block of text —
+     *  see GroupedLines. Editing is unaffected: still a plain textarea either way. */
+    isDetailLine?: (line: string) => boolean;
 }) => {
     const sctx = useContext(SuggestionContext);
     const suggesting = !!sKey && sctx?.mode === "suggest";
@@ -118,9 +155,19 @@ export const DocField = ({
             {label && <p className="text-sm font-medium text-secondary">{label}</p>}
             {hint && <p className="mt-0.5 text-xs text-quaternary">{hint}</p>}
             {isLocked && !suggesting ? (
-                <p className={cx("mt-1 text-md whitespace-pre-wrap", filled(value) ? "text-tertiary" : "text-quaternary italic", mono && "font-mono text-sm")}>
-                    {filled(value) ? value : "Not filled in"}
-                </p>
+                filled(value) && isDetailLine ? (
+                    <GroupedLines text={value} isDetailLine={isDetailLine} />
+                ) : (
+                    <p
+                        className={cx(
+                            "mt-1 text-md whitespace-pre-wrap",
+                            filled(value) ? "text-tertiary" : "text-quaternary italic",
+                            mono && "font-mono text-sm",
+                        )}
+                    >
+                        {filled(value) ? value : "Not filled in"}
+                    </p>
+                )
             ) : rows ? (
                 <textarea
                     rows={rows}

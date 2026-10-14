@@ -5966,6 +5966,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             placeholder="Top 5–7 praised amenities, features or design elements."
                                                                             sKey="corePillars"
                                                                             onChange={(v) => patchFoundation({ corePillars: v })}
+                                                                            // Guest quotes under a pillar start with a quotation mark — see the
+                                                                            // "reviews" group's instruction in generate-master-section.mts.
+                                                                            isDetailLine={(line) => /^["“]/.test(line)}
                                                                         />
                                                                         <DocField
                                                                             className="mt-4"
@@ -5976,6 +5979,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                             placeholder="Top 5–7 themes, plus the taglines they suggest."
                                                                             sKey="emotionalThemes"
                                                                             onChange={(v) => patchFoundation({ emotionalThemes: v })}
+                                                                            isDetailLine={(line) => /^tagline:/i.test(line)}
                                                                         />
 
                                                                         {/* Paste the reviews and the Draft button fills the two fields above, which

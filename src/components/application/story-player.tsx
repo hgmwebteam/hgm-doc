@@ -220,10 +220,10 @@ const StoryView = ({
                         if (v.duration) onVideoProgress(v.currentTime / v.duration);
                     }}
                     onEnded={onNext}
-                    className="absolute inset-0 size-full object-cover"
+                    className="absolute inset-0 size-full object-contain"
                 />
             ) : (
-                <img key={slide.id} src={slide.url} alt="" className="absolute inset-0 size-full object-cover" draggable={false} />
+                <img key={slide.id} src={slide.url} alt="" className="absolute inset-0 size-full object-contain" draggable={false} />
             )}
 
             {/* Legibility scrims for the chrome, like the app's own. */}

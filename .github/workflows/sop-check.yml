@@ -1,0 +1,60 @@
+# Runs on every pull request that touches an SOP master.
+# Builds the changed SOPs, runs the automated quality gate, attaches the
+# HTML / PDF / Markdown as a downloadable artifact, and posts the report
+# as a comment on the pull request. Nothing is published from here.
+name: SOP check
+
+on:
+  pull_request:
+    paths:
+      - "reference/sop/masters/**"
+      - "reference/sop/renderer/**"
+      - "sops/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # build.py --changed compares against origin/main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the renderer's dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libpango-1.0-0 libpangoft2-1.0-0 poppler-utils
+          pip install -q weasyprint pillow
+
+      - name: Build changed SOPs and run the gate
+        id: build
+        run: python3 sops/tools/build.py --changed
+        continue-on-error: true
+
+      - name: Attach the rendered files
+        uses: actions/upload-artifact@v4
+        with:
+          name: sop-outputs
+          path: sops/dist/
+          if-no-files-found: ignore
+
+      - name: Post the report on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          echo "" >> sops/dist/REPORT.md
+          echo "Rendered files: **Actions → this run → Artifacts → sop-outputs**." >> sops/dist/REPORT.md
+          gh pr comment "$PR" --body-file sops/dist/REPORT.md --edit-last \
+            || gh pr comment "$PR" --body-file sops/dist/REPORT.md
+
+      - name: Fail the check if the gate failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1

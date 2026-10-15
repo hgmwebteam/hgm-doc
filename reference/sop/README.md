@@ -6,7 +6,7 @@ bucket for the pages and PDFs.
 
 ```
 reference/sop/
-  masters/    HGM-SOP-WEB-002_v1_4.json          every version, never deleted — the source of truth
+  masters/    HGM-SOP-WEB-002_v1_4.json          current version only — the source of truth (see masters/README.md)
   figures/    fig_HGM-SOP-WEB-002_f1-….jpg       screenshots, annotated and credential-swept; extension matches the bytes
   html/       HGM-SOP-WEB-002.html               current version only, self-contained; the copy in the bucket
   pdf/        HGM-SOP-WEB-002_v1_4.pdf           current version's print copy; the copy in the bucket
@@ -28,14 +28,20 @@ python3 renderer/to_markdown.py masters/HGM-SOP-WEB-002_v1_4.json markdown/HGM-S
 Figure paths in a master are bare filenames. The renderer looks beside the master
 first, then in `../figures/`, so the same master renders from flat project knowledge
 and from this layout without editing. The HTML build must print `Brand fonts
-embedded: OK`; anything else is a failed build. `renderer/` here and the
-`hgm-doc-render` Claude skill are the same code — when one changes, update the other.
+embedded: OK`; anything else is a failed build. `renderer/` here is the only copy in
+this repo: the repo's `hgm-doc-render` skill bundles none. The claude.ai copy of that
+skill still bundles its own, so when this one changes, update that one from here.
+
+`python3 sops/tools/build.py [SOP-ID]` runs all three renderers plus the automated
+quality gate into `sops/dist/`. How SOPs are written and revised is in
+`sops/CLAUDE.md`.
 
 ## Adding or updating an SOP (until Create SOP ships in phase 2)
 
-1. Author or revise the SOP in the SOP Claude Project. The quality gate runs there and
-   four files come back plus figures.
-2. Copy the master into `masters/` (new version number in the name), the HTML over
+1. Author or revise the SOP in this repo (`sops/CLAUDE.md`, `/sop-new`, `/sop-update`)
+   and build it with `sops/tools/build.py`. The SOP Claude Project is retired.
+2. Put the master in `masters/` (new version number in the name) and `git rm` the
+   previous version's master in the same commit. Copy the HTML over
    `html/<id>.html`, the PDF into `pdf/`, the Markdown into `markdown/`, figures into
    `figures/`.
 3. Upload the HTML and PDF to the `sops` bucket at the same relative paths

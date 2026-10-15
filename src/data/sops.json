@@ -3,16 +3,23 @@
         "id": "HGM-SOP-WEB-001",
         "dept": "WEB",
         "title": "Store, share, and update client .env files in 1Password",
-        "version": "1.1",
-        "status": "live",
+        "version": "1.2",
+        "status": "draft",
         "owner_role": "Web & Content Specialist",
         "owner": "Kyle Zinger",
-        "updated": "2026-09-01",
+        "updated": "2026-10-15",
         "next_review": "2027-03-01",
-        "html": "html/HGM-SOP-WEB-001_v1_1.html",
-        "pdf": "pdf/HGM-SOP-WEB-001_v1_1.pdf",
-        "change_summary": "Rebuilt to the phased task structure. Four screenshots still to be captured.",
+        "html": "html/HGM-SOP-WEB-001_v1_2.html",
+        "pdf": "pdf/HGM-SOP-WEB-001_v1_2.pdf",
+        "change_summary": "Loom review layout (house style v1.9).",
         "versions": [
+            {
+                "version": "1.2",
+                "date": "2026-10-15",
+                "summary": "Loom review layout (house style v1.9).",
+                "html": "html/HGM-SOP-WEB-001_v1_2.html",
+                "pdf": "pdf/HGM-SOP-WEB-001_v1_2.pdf"
+            },
             {
                 "version": "1.1",
                 "date": "2026-09-01",
@@ -27,22 +34,33 @@
                 "html": null,
                 "pdf": null
             }
-        ]
+        ],
+        "pending": {
+            "images": 4,
+            "inputs": 0
+        }
     },
     {
         "id": "HGM-SOP-WEB-002",
         "dept": "WEB",
         "title": "Take a website change request from Asana to live",
-        "version": "1.4",
+        "version": "1.5",
         "status": "live",
         "owner_role": "Web & Content Specialist",
         "owner": "Kyle Zinger",
-        "updated": "2026-09-12",
+        "updated": "2026-10-15",
         "next_review": "2027-03-01",
-        "html": "html/HGM-SOP-WEB-002_v1_4.html",
-        "pdf": "pdf/HGM-SOP-WEB-002_v1_4.pdf",
-        "change_summary": "Route selection reframed as a platform choice (VS Code, Terminal, Claude Desktop app). No change to the procedure.",
+        "html": "html/HGM-SOP-WEB-002_v1_5.html",
+        "pdf": "pdf/HGM-SOP-WEB-002_v1_5.pdf",
+        "change_summary": "Loom review layout (house style v1.9).",
         "versions": [
+            {
+                "version": "1.5",
+                "date": "2026-10-15",
+                "summary": "Loom review layout (house style v1.9).",
+                "html": "html/HGM-SOP-WEB-002_v1_5.html",
+                "pdf": "pdf/HGM-SOP-WEB-002_v1_5.pdf"
+            },
             {
                 "version": "1.4",
                 "date": "2026-09-12",
@@ -78,22 +96,33 @@
                 "html": null,
                 "pdf": null
             }
-        ]
+        ],
+        "pending": {
+            "images": 0,
+            "inputs": 0
+        }
     },
     {
         "id": "HGM-SOP-WEB-003",
         "dept": "WEB",
         "title": "Post-launch connections: analytics, search, behaviour tracking and the deploy that carries them",
-        "version": "0.1",
-        "status": "live",
+        "version": "0.2",
+        "status": "draft",
         "owner_role": "Web & Content Specialist",
         "owner": "Kyle Zinger",
-        "updated": "2026-09-11",
+        "updated": "2026-10-15",
         "next_review": "2027-03-11",
-        "html": "html/HGM-SOP-WEB-003_v0_1.html",
-        "pdf": "pdf/HGM-SOP-WEB-003_v0_1.pdf",
-        "change_summary": "Working draft for Brandon. Not yet interviewed or approved.",
+        "html": "html/HGM-SOP-WEB-003_v0_2.html",
+        "pdf": "pdf/HGM-SOP-WEB-003_v0_2.pdf",
+        "change_summary": "Loom review layout (house style v1.9).",
         "versions": [
+            {
+                "version": "0.2",
+                "date": "2026-10-15",
+                "summary": "Loom review layout (house style v1.9).",
+                "html": "html/HGM-SOP-WEB-003_v0_2.html",
+                "pdf": "pdf/HGM-SOP-WEB-003_v0_2.pdf"
+            },
             {
                 "version": "0.1",
                 "date": "2026-09-11",
@@ -101,14 +130,18 @@
                 "html": "html/HGM-SOP-WEB-003_v0_1.html",
                 "pdf": "pdf/HGM-SOP-WEB-003_v0_1.pdf"
             }
-        ]
+        ],
+        "pending": {
+            "images": 0,
+            "inputs": 0
+        }
     },
     {
         "id": "HGM-SOP-WEB-004",
         "dept": "WEB",
         "title": "Rebuild a live client site as a Next.js and Supabase site",
         "version": "0.6",
-        "status": "live",
+        "status": "draft",
         "owner_role": "Web & Content Specialist",
         "owner": "Kyle Zinger",
         "updated": "2026-10-09",
@@ -120,7 +153,7 @@
             {
                 "version": "0.6",
                 "date": "2026-10-09",
-                "summary": "Loom review with AnhTuan.",
+                "summary": "Loom review: VS Code only; roles, definitions and troubleshooting removed; where every key comes from; function checks; account manager and client review before hand-on.",
                 "html": "html/HGM-SOP-WEB-004_v0_6.html",
                 "pdf": "pdf/HGM-SOP-WEB-004_v0_6.pdf"
             },
@@ -159,14 +192,18 @@
                 "html": null,
                 "pdf": null
             }
-        ]
+        ],
+        "pending": {
+            "images": 16,
+            "inputs": 8
+        }
     },
     {
         "id": "HGM-SOP-WEB-005",
         "dept": "WEB",
         "title": "Pre-launch readiness and go-live",
         "version": "0.3",
-        "status": "live",
+        "status": "draft",
         "owner_role": "Web & Content Specialist",
         "owner": "Kyle Zinger",
         "updated": "2026-10-09",
@@ -178,7 +215,7 @@
             {
                 "version": "0.3",
                 "date": "2026-10-09",
-                "summary": "Loom review with AnhTuan.",
+                "summary": "Loom review: starts at client approval; push to production after accessibility; Lighthouse against production; key directions moved to WEB-004; privacy pop-up removed.",
                 "html": "html/HGM-SOP-WEB-005_v0_3.html",
                 "pdf": "pdf/HGM-SOP-WEB-005_v0_3.pdf"
             },
@@ -196,6 +233,10 @@
                 "html": null,
                 "pdf": null
             }
-        ]
+        ],
+        "pending": {
+            "images": 15,
+            "inputs": 34
+        }
     }
 ]

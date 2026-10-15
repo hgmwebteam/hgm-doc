@@ -34,7 +34,8 @@ flag. `build.py` fails an SOP marked `live` that still has one.
 | Published pages and PDFs, one per version | `public/sops/html/<SOP-ID>_v#_#.html`, `public/sops/pdf/<SOP-ID>_v#_#.pdf` |
 | Markdown review copies, one per version | `sops/markdown/<SOP-ID>_v#_#.md` |
 | The SOP list the portal reads | `src/data/sops.json`, written by `sops/tools/build-index.py` (never by hand) |
-| Build, gate and publish on a pull request | `.github/workflows/sop-check.yml` |
+| Build and gate on a pull request (report only) | `.github/workflows/sop-check.yml` |
+| Publish after the merge, on main | `.github/workflows/sop-publish.yml` |
 
 The skills were written for a Claude Project. Translate as you read them:
 "project knowledge" and `masters/` mean `sops/masters/`; "deliver the four
@@ -50,18 +51,24 @@ version are never deleted: they are what the portal's version links open.
 
 ```
 request in VS Code → new sops/masters/<ID>_v#_#.json on a branch → build.py → pull request
-   → "SOP check" builds it on GitHub (PDF included), runs the gate, and commits the
-     page, PDF, Markdown and updated src/data/sops.json back to the pull request
-   → Kyle merges → Netlify deploys main → live at hgmportal.com/sop/<ID>,
-     with the previous version at hgmportal.com/sop/<ID>/v<old version>
+   → "SOP check" builds it on GitHub (PDF included), runs the gate and posts the report
+   → Kyle merges (no need to wait for the check)
+   → "SOP publish" builds what the merge changed on main and commits the page, PDF,
+     Markdown and updated src/data/sops.json → Netlify deploys → live at
+     hgmportal.com/sop/<ID>, with the previous version at hgmportal.com/sop/<ID>/v<old version>
 ```
 
 Nothing reaches the portal until a pull request is merged into `main`. Never push
-to `main` directly and never merge a pull request yourself; Kyle merges.
+to `main` directly and never merge a pull request yourself; Kyle merges. Publishing
+happens after the merge, not on the pull request: publishing on the pull request
+was tried first and lost both times Kyle merged within seconds of opening one.
+If SOP publish ever fails, Actions → SOP publish → Run workflow rebuilds and
+publishes every SOP.
 
 PDFs are built on GitHub, so a Mac without WeasyPrint can still revise an SOP:
-`build.py --no-pdf` checks the page and the Markdown locally, and the pull request
-gets its PDF from the check. `build.py --publish` does locally what the check does
+`build.py --no-pdf` checks the page and the Markdown locally, the pull request's
+check attaches a PDF to look at, and SOP publish builds the one that goes live.
+`build.py --publish` does locally what SOP publish does
 (it needs WeasyPrint for the PDF; without it, `sops/tools/build-index.py` stops
 because the new version's PDF is missing).
 

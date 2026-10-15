@@ -3,7 +3,7 @@
 Read this together with `HGM-SOP-House-Style_v1_8.md`. Where the two disagree, this
 file wins. Decided 2026-10-09 from Kyle and AnhTuan's Loom walkthrough of WEB-004 and
 WEB-005, following Gillian's direction against extra review layers. The reference
-implementation of the new layout is `reference/sop/masters/HGM-SOP-WEB-004_v0_6.json` (v0.6). The skills that
+implementation of the new layout is `sops/masters/HGM-SOP-WEB-004_v0_6.json` (v0.6). The skills that
 carry this are `hgm-sop-author` and `hgm-doc-render`, both 2026-10-09.
 
 ## Replaces §4 "Ten sections"
@@ -60,7 +60,7 @@ Everyone works in VS Code, where every block kind runs, so there is no platform 
 - **A hash link in a `srcdoc` iframe resolves against the portal's URL.** If the browser
   follows one itself, the whole portal loads inside the SOP (the doubled header). The
   page's script now handles every `#` link.
-- **The skill's renderer had drifted behind the repo's** `reference/sop/renderer/`, which
+- **The skill's renderer had drifted behind the repo's** `sops/renderer/`, which
   embeds fonts and has `figpath.py`. The 2026-10-09 skill zip is the repo copy plus the
   fixes above. Keep the two identical.
 - **Test portal-page changes inside an iframe with the portal's sandbox.** Opening the

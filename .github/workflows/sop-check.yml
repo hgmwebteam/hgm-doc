@@ -2,7 +2,7 @@
 # Builds the changed SOPs (every SOP when the renderer or a figure changed),
 # runs the automated quality gate, and publishes the result INTO THE PULL
 # REQUEST: each version's page and PDF in public/sops/, its Markdown in
-# reference/sop/markdown/, and src/data/sops.json, committed back to the
+# sops/markdown/, and src/data/sops.json, committed back to the
 # branch. Merging the pull request is publishing: Netlify deploys main.
 #
 # No secrets: every SOP is a public file on the site (since 2026-10-15).
@@ -13,9 +13,9 @@ name: SOP check
 on:
   pull_request:
     paths:
-      - "reference/sop/masters/**"
-      - "reference/sop/figures/**"
-      - "reference/sop/renderer/**"
+      - "sops/masters/**"
+      - "sops/figures/**"
+      - "sops/renderer/**"
       - "sops/tools/**"
 
 permissions:
@@ -53,7 +53,7 @@ jobs:
       - name: Commit the published files to this pull request
         if: steps.build.outcome == 'success'
         run: |
-          git add public/sops reference/sop/markdown src/data/sops.json
+          git add public/sops sops/markdown src/data/sops.json
           if git diff --cached --quiet; then
             echo "Nothing new to publish."
             exit 0

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Build src/data/sops.json from the masters in reference/sop/masters/.
+"""Build src/data/sops.json from the masters in sops/masters/.
 
 The index is hand-maintainable — this script just makes it reproducible, and
 makes "current version only" a rule the code enforces rather than one someone
 has to remember.
 
-    python3 tools/build-sops-index.py
+    python3 sops/tools/build-index.py
 
 Rules it applies:
 
@@ -39,9 +39,9 @@ import os
 import re
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MASTERS = os.path.join(ROOT, "reference", "sop", "masters")
-FIGURES = os.path.join(ROOT, "reference", "sop", "figures")
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+MASTERS = os.path.join(ROOT, "sops", "masters")
+FIGURES = os.path.join(ROOT, "sops", "figures")
 PUBLISHED = os.path.join(ROOT, "public", "sops")
 OUT = os.path.join(ROOT, "src", "data", "sops.json")
 

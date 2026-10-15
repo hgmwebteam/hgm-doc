@@ -5,7 +5,7 @@ argument-hint: <SOP-ID> <what to change>
 Revise an HGM SOP. Request: $ARGUMENTS
 
 Read `sops/CLAUDE.md` first and follow "Revising an existing SOP" step by step
-(the master is the highest `_v#_#` file for the ID in `reference/sop/masters/`),
+(the master is the highest `_v#_#` file for the ID in `sops/masters/`),
 using the `hgm-sop-author` and `hgm-doc-render` skills and the house style in
 `sops/house-style/`.
 

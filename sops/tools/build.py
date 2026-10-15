@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build HGM SOPs from their JSON masters and run the automated quality gate.
 
-    python3 sops/tools/build.py                    # every SOP in reference/sop/masters/
+    python3 sops/tools/build.py                    # every SOP in sops/masters/
     python3 sops/tools/build.py HGM-SOP-WEB-002    # one SOP (ID, short ID or path)
     python3 sops/tools/build.py --changed          # masters changed vs origin/main (all, if the renderer changed)
     python3 sops/tools/build.py --no-pdf ...       # skip the PDF (no WeasyPrint needed)
@@ -14,16 +14,16 @@ For each master it:
      sops/dist/REPORT.md, which the pull-request check posts as a comment.
 
 Masters are named <SOP-ID>_v<major>_<minor>.json (HGM-SOP-WEB-002_v1_4.json),
-the convention tools/build-sops-index.py and reference/sop/README.md use. If
+the convention sops/tools/build-index.py and sops/README.md use. If
 more than one version of an SOP is in the folder, only the highest is built.
 
-The renderer is reference/sop/renderer/. This script never changes how a
+The renderer is sops/renderer/. This script never changes how a
 page looks; it only calls the renderer.
 
 With --publish, each SOP that passes is also copied to where the portal reads
 it, under its version: public/sops/html/<SOP-ID>_v#_#.html,
-public/sops/pdf/<SOP-ID>_v#_#.pdf and reference/sop/markdown/<SOP-ID>_v#_#.md.
-Then tools/build-sops-index.py rewrites src/data/sops.json. Earlier versions'
+public/sops/pdf/<SOP-ID>_v#_#.pdf and sops/markdown/<SOP-ID>_v#_#.md.
+Then sops/tools/build-index.py rewrites src/data/sops.json. Earlier versions'
 files are never touched: they are the portal's links to past versions. The
 "SOP build" pull-request check runs this and commits the result.
 
@@ -39,16 +39,16 @@ import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-MASTERS = os.path.join(ROOT, "reference", "sop", "masters")
-FIGURES = os.path.join(ROOT, "reference", "sop", "figures")
+MASTERS = os.path.join(ROOT, "sops", "masters")
+FIGURES = os.path.join(ROOT, "sops", "figures")
 DIST = os.path.join(ROOT, "sops", "dist")
 PUBLISH_TO = {
     "html": os.path.join(ROOT, "public", "sops", "html"),
     "pdf": os.path.join(ROOT, "public", "sops", "pdf"),
-    "md": os.path.join(ROOT, "reference", "sop", "markdown"),
+    "md": os.path.join(ROOT, "sops", "markdown"),
 }
 # One renderer only: the portal repo's copy. The skill no longer bundles one.
-RENDERER = os.path.join(ROOT, "reference", "sop", "renderer")
+RENDERER = os.path.join(ROOT, "sops", "renderer")
 
 GEM_YELLOW = re.compile(r"#?ffd602", re.I)
 NEEDS_INPUT = re.compile(r"\[NEEDS INPUT", re.I)
@@ -187,7 +187,7 @@ def gate(data, raw, pdf_log, emptiness, md_text=None, pdf_images=None):
 
 
 def vkey(v):
-    """'1.4' -> (1, 4), so 1.10 sorts above 1.9. Same rule as build-sops-index.py."""
+    """'1.4' -> (1, 4), so 1.10 sorts above 1.9. Same rule as build-index.py."""
     return tuple(int(x) for x in re.findall(r"\d+", str(v))) or (0,)
 
 
@@ -319,7 +319,7 @@ def main():
             publish(sop_id, meta.get("version"), stem)
 
     if do_publish and rows:
-        code, log = run([os.path.join(ROOT, "tools", "build-sops-index.py")])
+        code, log = run([os.path.join(ROOT, "sops", "tools", "build-index.py")])
         print(log)
         if code:
             any_fail = True

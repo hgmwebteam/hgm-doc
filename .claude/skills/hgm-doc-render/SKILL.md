@@ -5,10 +5,10 @@ description: Render a Hidden Gem Media (HGM) document — SOP, guide, or interna
 
 > **In the hgm-doc repo:** read `sops/CLAUDE.md` first. Build with
 > `python3 sops/tools/build.py <SOP-ID>`, which calls the renderer for you and runs
-> the automated gate. The renderer lives in `reference/sop/renderer/`; this repo's
+> the automated gate. The renderer lives in `sops/renderer/`; this repo's
 > copy of the skill bundles none, so read every `renderer/` below as
-> `reference/sop/renderer/`. Where this file says "store the JSON in project
-> knowledge", commit `reference/sop/masters/<ID>_v#_#.json` and `git rm` the
+> `sops/renderer/`. Where this file says "store the JSON in project
+> knowledge", commit `sops/masters/<ID>_v#_#.json` and `git rm` the
 > previous version's file in the same commit. There is no approval step and no
 > draft marker: every merged version is published, and earlier ones stay linked.
 

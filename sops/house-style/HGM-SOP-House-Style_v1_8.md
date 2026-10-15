@@ -5,7 +5,7 @@ the former house style (v1.7) and the document design system (v2.2); everything 
 that still applies is here, and nothing else has to be read before building.
 
 > **Repo note (2026-10-15):** this file was written for the Claude Project workflow. In
-> this repository, "project knowledge" means `reference/sop/masters/`, and the v1.9
+> this repository, "project knowledge" means `sops/masters/`, and the v1.9
 > addendum beside this file overrides §4, §5, §11 and gate items 2, 6 and 11. §3's
 > versioned master still holds: a revision writes `<ID>_v#_#.json` and deletes the old
 > version's file in the same commit, so there is one file per SOP and every past

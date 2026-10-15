@@ -25,23 +25,23 @@ flag. `build.py` fails an SOP marked `live` that still has one.
 
 | What | Where |
 |---|---|
-| Masters, one JSON per SOP, current version only (the only source of truth) | `reference/sop/masters/HGM-SOP-<DEPT>-###_v#_#.json` |
-| Figures | `reference/sop/figures/fig_HGM-SOP-<DEPT>-###_<name>.png` or `.jpg` (extension matches the bytes). The master's `figure.path` is the bare filename; the renderer finds it in `../figures/` (`renderer/figpath.py`) |
+| Masters, one JSON per SOP, current version only (the only source of truth) | `sops/masters/HGM-SOP-<DEPT>-###_v#_#.json` |
+| Figures | `sops/figures/fig_HGM-SOP-<DEPT>-###_<name>.png` or `.jpg` (extension matches the bytes). The master's `figure.path` is the bare filename; the renderer finds it in `../figures/` (`renderer/figpath.py`) |
 | House style | `sops/house-style/` — read v1.8, then the v1.9 addendum, which wins where they disagree |
 | Authoring rules, template, interview | `.claude/skills/hgm-sop-author/` |
-| Renderer, schema tool, annotator | `reference/sop/renderer/`, the only copy (the skill no longer bundles one) |
+| Renderer, schema tool, annotator | `sops/renderer/`, the only copy (the skill no longer bundles one) |
 | Build + automated gate | `python3 sops/tools/build.py <SOP-ID>` → `sops/dist/<SOP-ID>/` |
 | Published pages and PDFs, one per version | `public/sops/html/<SOP-ID>_v#_#.html`, `public/sops/pdf/<SOP-ID>_v#_#.pdf` |
-| Markdown review copies, one per version | `reference/sop/markdown/<SOP-ID>_v#_#.md` |
-| The SOP list the portal reads | `src/data/sops.json`, written by `tools/build-sops-index.py` (never by hand) |
+| Markdown review copies, one per version | `sops/markdown/<SOP-ID>_v#_#.md` |
+| The SOP list the portal reads | `src/data/sops.json`, written by `sops/tools/build-index.py` (never by hand) |
 | Build, gate and publish on a pull request | `.github/workflows/sop-check.yml` |
 
 The skills were written for a Claude Project. Translate as you read them:
-"project knowledge" and `masters/` mean `reference/sop/masters/`; "deliver the four
+"project knowledge" and `masters/` mean `sops/masters/`; "deliver the four
 files" means build them with `build.py` and open a pull request; "store the master"
 means commit it. A master's filename carries its version
-(`HGM-SOP-WEB-002_v1_4.json`, underscores), the convention `tools/build-sops-index.py`
-and `reference/sop/README.md` use. There is only ever one master per SOP: **a
+(`HGM-SOP-WEB-002_v1_4.json`, underscores), the convention `sops/tools/build-index.py`
+and `sops/README.md` use. There is only ever one master per SOP: **a
 revision writes the new version's file and deletes the old one (`git rm`) in the
 same commit.** Git keeps every past master. The published page and PDF of every
 version are never deleted: they are what the portal's version links open.
@@ -49,7 +49,7 @@ version are never deleted: they are what the portal's version links open.
 ## How a change reaches hgmportal.com
 
 ```
-request in VS Code → new reference/sop/masters/<ID>_v#_#.json on a branch → build.py → pull request
+request in VS Code → new sops/masters/<ID>_v#_#.json on a branch → build.py → pull request
    → "SOP check" builds it on GitHub (PDF included), runs the gate, and commits the
      page, PDF, Markdown and updated src/data/sops.json back to the pull request
    → Kyle merges → Netlify deploys main → live at hgmportal.com/sop/<ID>,
@@ -62,7 +62,7 @@ to `main` directly and never merge a pull request yourself; Kyle merges.
 PDFs are built on GitHub, so a Mac without WeasyPrint can still revise an SOP:
 `build.py --no-pdf` checks the page and the Markdown locally, and the pull request
 gets its PDF from the check. `build.py --publish` does locally what the check does
-(it needs WeasyPrint for the PDF; without it, `tools/build-sops-index.py` stops
+(it needs WeasyPrint for the PDF; without it, `sops/tools/build-index.py` stops
 because the new version's PDF is missing).
 
 ## Revising an existing SOP (`/sop-update`)
@@ -100,7 +100,7 @@ because the new version's PDF is missing).
 Follow `hgm-sop-author` exactly: intake anything (notes, a Fireflies transcript,
 a Scribe export, screenshots), interview once, draft in chat as Markdown for
 review, then build the JSON master on approval of the draft. Number the ID
-sequentially within its department; check `reference/sop/masters/` for the last
+sequentially within its department; check `sops/masters/` for the last
 one used and ask Kyle before using a number, because IDs have been consumed out
 of order before.
 

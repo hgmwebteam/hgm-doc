@@ -1,6 +1,6 @@
 # Industry Acumen check: handoff for the hgmportal build
 
-This folder carries everything Claude Code needs to build the check, the results page and the flashcards on hgmportal.com/dictionary. Put this folder at `reference/industry-acumen-check/` in the hgm-doc repo (next to `reference/sop/`), open Claude Code, and paste the prompt from `PROMPT.md`.
+This folder carries everything Claude Code needs to build the check, the results page and the flashcards on hgmportal.com/dictionary. Put this folder at `reference/industry-acumen-check/` in the hgm-doc repo (next to `reference/design/`), open Claude Code, and paste the prompt from `PROMPT.md`.
 
 ## What's in here
 

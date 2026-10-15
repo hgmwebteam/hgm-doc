@@ -18,7 +18,7 @@ import { SOP_DEPARTMENTS, findSopDepartment, sopDeptTabId } from "./sop-departme
  *
  * Every SOP is public and there is no approval step (since 2026-10-15): each
  * version is published as `public/sops/{html,pdf}/<id>_v#_#.*` and stays there,
- * so `versions` links every earlier one. `tools/build-sops-index.py` writes it.
+ * so `versions` links every earlier one. `sops/tools/build-index.py` writes it.
  */
 
 export type SopStatus = "draft" | "live" | "pending_approval" | "archived";

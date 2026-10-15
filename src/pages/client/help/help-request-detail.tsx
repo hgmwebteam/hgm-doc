@@ -45,8 +45,8 @@
  */
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { type CallerProof, HelpApiError, fetchTicket, withdrawTicket } from "@/pages/client/help/help-api";
-import { Button, Card, ErrorIcon, Eyebrow, MonoRef, type PillTone, SpinnerIcon, StatusPill, formatFileSize } from "@/pages/client/help/help-atoms";
+import { type CallerProof, HelpApiError, askForUpdate, fetchTicket, withdrawTicket } from "@/pages/client/help/help-api";
+import { Button, Card, ErrorIcon, Eyebrow, FieldTextarea, MonoRef, type PillTone, SpinnerIcon, StatusPill, formatFileSize } from "@/pages/client/help/help-atoms";
 import {
     STATUS_META,
     type StepState,
@@ -56,6 +56,7 @@ import {
     type TicketStatus,
     type TicketTopic,
     actorName,
+    canAsk,
     canWithdraw,
     displayUrl,
     elapsedLabel,
@@ -67,7 +68,7 @@ import {
     timelineSteps,
     topicLabel,
 } from "@/pages/client/help/help-model";
-import { FILE_TYPES, type StoredWebsites, storedWebsitesOf } from "@/pages/client/help/request-rules";
+import { FILE_TYPES, MAX_QUESTION_CHARS, type StoredWebsites, cleanQuestion, storedWebsitesOf } from "@/pages/client/help/request-rules";
 import { cx } from "@/utils/cx";
 import { Linkified } from "@/utils/linkify";
 
@@ -426,17 +427,19 @@ const Timeline = ({ ticket, events, files }: { ticket: Ticket; events: TicketEve
  * the hidden one is display:none, so it is neither drawn nor read out.
  */
 const TeamUpdates = ({ events }: { events: TicketEvent[] }) => {
-    const updates = events.filter((e) => e.kind === "team_update" && (e.body ?? "").trim());
+    // The team's updates and the client's own questions (ticket-ask), in the order they
+    // happened, so a question reads next to the update that answered it.
+    const updates = events.filter((e) => (e.kind === "team_update" || e.kind === "client_question") && (e.body ?? "").trim());
     if (updates.length === 0) return null;
-    const signed = (e: TicketEvent) => `${actorName(e)}${DOT}${formatDayMonthTime(e.created_at)}`;
+    const signed = (e: TicketEvent) => `${actorName(e)}${e.kind === "client_question" ? " asked" : ""}${DOT}${formatDayMonthTime(e.created_at)}`;
 
     return (
         <>
             <section aria-labelledby="hc-updates" className="hidden flex-col gap-3 border-t border-(--hc-border-secondary) pt-[15px] sm:flex">
                 <h2 id="hc-updates" className="sr-only">
-                    Updates from the team
+                    Updates
                 </h2>
-                <Eyebrow>TEAM UPDATES</Eyebrow>
+                <Eyebrow>UPDATES</Eyebrow>
                 <ul className="flex flex-col gap-3">
                     {updates.map((e) => (
                         <li key={e.id} className="flex flex-col gap-1">
@@ -448,10 +451,10 @@ const TeamUpdates = ({ events }: { events: TicketEvent[] }) => {
                     ))}
                 </ul>
             </section>
-            <ul aria-label="Team updates" className="flex flex-col gap-4 sm:hidden">
+            <ul aria-label="Updates" className="flex flex-col gap-4 sm:hidden">
                 {updates.map((e) => (
                     <Card as="li" key={e.id} className="flex flex-col gap-1.5">
-                        <Eyebrow>TEAM UPDATE</Eyebrow>
+                        <Eyebrow>{e.kind === "client_question" ? "YOUR QUESTION" : "TEAM UPDATE"}</Eyebrow>
                         <p className="hc-t-label-field whitespace-pre text-(--hc-text-primary)">{signed(e)}</p>
                         <p className="hc-t-body-input whitespace-pre-wrap text-(--hc-text-secondary)">
                             <Linkified text={e.body!.trim()} />
@@ -460,6 +463,102 @@ const TeamUpdates = ({ events }: { events: TicketEvent[] }) => {
                 ))}
             </ul>
         </>
+    );
+};
+
+/* ── Asking for an update ───────────────────────────────────────────────── */
+
+/**
+ * "Do we inquire about updates on timing of completion through the portal as well?" (FLOHOM,
+ * 15 Oct 2026). Yes: a text link on an open request opens a box, and the question goes on the
+ * request's timeline and by email to the people working on it, who reply to the asker
+ * directly (ticket-ask.mts). The frame draws no such control, so it borrows the withdraw
+ * link's shape and the form's textarea. Anyone on the dashboard's list may ask, not only the
+ * raiser: a front desk asking after a colleague's request is the normal case.
+ */
+const AskBlock = ({ ticket, proof, onAsked }: { ticket: Ticket; proof: CallerProof; onAsked: () => void }) => {
+    const [open, setOpen] = useState(false);
+    const [question, setQuestion] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const linkRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        if (open) document.getElementById("hc-ask")?.focus();
+    }, [open]);
+
+    if (!canAsk(ticket)) return null;
+
+    const submit = async () => {
+        const cleaned = cleanQuestion(question);
+        if (!cleaned.ok) {
+            setError(cleaned.error);
+            return;
+        }
+        setBusy(true);
+        setError("");
+        try {
+            await askForUpdate(proof, ticket.reference, cleaned.question);
+            setQuestion("");
+            setOpen(false);
+            onAsked();
+        } catch (e) {
+            setError(e instanceof HelpApiError ? e.message : "We could not send that just then. Try again in a moment.");
+        }
+        setBusy(false);
+    };
+
+    return (
+        <section aria-labelledby="hc-ask-heading" className="flex flex-col gap-3 border-t border-(--hc-border-secondary) pt-[15px]">
+            <h2 id="hc-ask-heading" className="sr-only">
+                Ask for an update
+            </h2>
+            {!open ? (
+                <button
+                    ref={linkRef}
+                    type="button"
+                    onClick={() => setOpen(true)}
+                    className={cx("hc-hover relative w-max cursor-pointer rounded-(--hc-radius-sm) after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline", HELPER_TERTIARY)}
+                >
+                    Ask for an update
+                </button>
+            ) : (
+                <>
+                    <FieldTextarea
+                        id="hc-ask"
+                        label="Ask for an update"
+                        value={question}
+                        onChange={(v) => {
+                            setQuestion(v);
+                            if (error) setError("");
+                        }}
+                        placeholder="When do you expect this to be done?"
+                        helper="Goes to the people working on this request. They reply to you by email."
+                        error={error}
+                        disabled={busy}
+                        maxLength={MAX_QUESTION_CHARS}
+                    />
+                    <div className="flex flex-col-reverse gap-2 sm:grid sm:grid-cols-[176px_176px]">
+                        <Button
+                            variant="secondary"
+                            fill
+                            disabled={busy}
+                            className={busy ? undefined : "cursor-pointer"}
+                            onClick={() => {
+                                setOpen(false);
+                                setError("");
+                                setTimeout(() => linkRef.current?.focus(), 0);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button fill loading={busy} className={busy ? undefined : "cursor-pointer"} onClick={submit}>
+                            {busy ? "Sending" : "Send"}
+                        </Button>
+                    </div>
+                </>
+            )}
+        </section>
     );
 };
 
@@ -670,6 +769,14 @@ export const HelpRequestDetail = ({
                 <RequestLinks websites={storedWebsitesOf(ticket.websites)} urls={Array.isArray(ticket.urls) ? ticket.urls : []} files={files} />
                 <Timeline ticket={ticket} events={events} files={files} />
                 <TeamUpdates events={events} />
+                <AskBlock
+                    ticket={ticket}
+                    proof={proof}
+                    onAsked={() => {
+                        setAnnounce("Your question has been sent to the team.");
+                        void load();
+                    }}
+                />
             </article>
 
             <WithdrawBlock

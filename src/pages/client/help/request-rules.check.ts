@@ -52,8 +52,7 @@ import {
     submitterNamePrefill,
     uploadTypeFor,
     urlError,
-    websitesOnRow,
-} from "./request-rules.ts";
+    websitesOnRow, QUESTION_MISSING, QUESTION_TOO_LONG, cleanQuestion } from "./request-rules.ts";
 
 const type = (name: string, mime: string) => fileTypeFor(name, mime)?.ext ?? null;
 const upload = (name: string, mime: string) => uploadTypeFor(name, mime)?.ext ?? null;
@@ -312,10 +311,18 @@ assert.equal(storedWebsitesOf({ offered: 6, chosen: [EUS[0], { ...EUS[1], name: 
 assert.equal(storedWebsitesOf({ offered: 6, chosen: [EUS[0], { ...EUS[0], name: "Other" }] }), null, "no duplicate hrefs");
 assert.equal(storedWebsitesOf({ offered: 6, chosen: [{ ...EUS[0], tenant_slug: "Bad Slug" }] }), null);
 
+/* 11b. cleanQuestion: the Ask for an update message. */
+assert.deepEqual(cleanQuestion("  Any idea when  this will be done?\r\n\r\n\r\nThanks "), { ok: true, question: "Any idea when this will be done?\n\nThanks" }, "spaces collapse, paragraphs stay, three blank lines become one");
+assert.deepEqual(cleanQuestion("when\u200b?"), { ok: true, question: "when?" }, "invisible characters go");
+assert.deepEqual(cleanQuestion("   \n "), { ok: false, error: QUESTION_MISSING });
+assert.deepEqual(cleanQuestion(undefined), { ok: false, error: QUESTION_MISSING });
+assert.deepEqual(cleanQuestion("é".repeat(1000)), { ok: true, question: "é".repeat(1000) }, "1000 characters, counted by character");
+assert.deepEqual(cleanQuestion("é".repeat(1001)), { ok: false, error: QUESTION_TOO_LONG });
+
 /* 12. House style: no en or em dash in the rules or their sentences. */
 const dashes = new RegExp(`[${String.fromCharCode(0x2013)}${String.fromCharCode(0x2014)}]`);
 assert.ok(!dashes.test(readFileSync(new URL("./request-rules.ts", import.meta.url), "utf8")), "no en or em dash in request-rules.ts");
-for (const sentence of [WEBSITES_NONE, WEBSITES_CHANGED, RELOAD_FOR_FORM]) assert.ok(!dashes.test(sentence), `no en or em dash in "${sentence}"`);
+for (const sentence of [WEBSITES_NONE, WEBSITES_CHANGED, RELOAD_FOR_FORM, QUESTION_MISSING, QUESTION_TOO_LONG]) assert.ok(!dashes.test(sentence), `no en or em dash in "${sentence}"`);
 assert.ok(!/[\p{Cc}\p{Cf}]/u.test(readFileSync(new URL("./request-rules.ts", import.meta.url), "utf8").replace(/[\n\t]/g, "")), "no invisible character written as itself in request-rules.ts (stripInvisible spells them as escapes)");
 
 console.log("request-rules: all checks passed");

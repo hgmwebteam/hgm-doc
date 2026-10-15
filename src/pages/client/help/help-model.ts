@@ -37,7 +37,9 @@ export type TicketEventKind =
     | "completed"
     | "withdrawn"
     | "route_failed"
-    | "promised_date_set";
+    | "promised_date_set"
+    /** A client's question on an open request (ticket-ask), shown among the updates. */
+    | "client_question";
 
 export interface TicketTopic {
     key: string;
@@ -328,6 +330,8 @@ export const inProgressCount = (tickets: Ticket[]): number => tickets.filter((t)
 
 /** A ticket can only be withdrawn while it is still open. Closed rows are never deleted. */
 export const canWithdraw = (t: Ticket): boolean => isOpen(t);
+/** A question goes to the team while the work is still theirs; a finished request takes a new one. */
+export const canAsk = (t: Ticket): boolean => isOpen(t);
 
 /* ── Small shared helpers ────────────────────────────────────────────────── */
 

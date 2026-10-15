@@ -13,6 +13,14 @@ published as it stands, and every earlier version stays published and linked fro
 the SOP's page. Where the house style or the skills talk about approval, the
 Operations Manager signing off, `status: approved` or a draft marker, ignore it.
 
+**Draft means unfinished, not unapproved.** An SOP is published as soon as its
+skeleton and layout are right, even while it waits on screenshots or answers.
+`meta.status` is `draft` until nothing is outstanding, then `live`. The portal
+shows Draft, with what it is waiting on ("Waiting on 15 images and 34 answers"),
+whenever the master says `draft` or still has a gap open: a figure whose file is
+missing, an "Image to be added" panel, or a `[SCREENSHOT]` or `[NEEDS INPUT]`
+flag. `build.py` fails an SOP marked `live` that still has one.
+
 ## Where things are
 
 | What | Where |

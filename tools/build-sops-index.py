@@ -19,12 +19,17 @@ Rules it applies:
   * versions lists every row of the master's revision history, newest first,
     with the page and PDF of each version that has them (versions from before
     the repo have neither, and are listed without links).
-  * No approval step (since 2026-10-15): a published SOP is "live" unless its
-    meta.status is "archived".
+  * No approval step (since 2026-10-15). Every merged version is published;
+    status only says whether it is finished. "draft" means published but still
+    waiting on something, usually images: the master says meta.status "draft",
+    or it has gaps open (a figure whose file is missing, an "Image to be added"
+    placeholder, a [SCREENSHOT] or [NEEDS INPUT] flag). "live" means the master
+    says "live" and nothing is open. "archived" is kept as written. pending
+    counts the open gaps, so the dashboard can say what a draft is waiting on.
   * change_summary is the first sentence of the newest revision-history row,
     unless the index already carries a summary for this exact version, which
     is kept: those are often written by hand.
-  * Fields are exactly the thirteen the dashboard reads. Adding another here
+  * Fields are exactly the fourteen the dashboard reads. Adding another here
     without adding it to SopIndexEntry too puts the two out of sync.
 """
 
@@ -36,11 +41,14 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MASTERS = os.path.join(ROOT, "reference", "sop", "masters")
+FIGURES = os.path.join(ROOT, "reference", "sop", "figures")
 PUBLISHED = os.path.join(ROOT, "public", "sops")
 OUT = os.path.join(ROOT, "src", "data", "sops.json")
 
 FIELDS = ["id", "dept", "title", "version", "status", "owner_role", "owner",
-          "updated", "next_review", "html", "pdf", "change_summary", "versions"]
+          "updated", "next_review", "html", "pdf", "change_summary", "versions", "pending"]
+
+IMAGE_TODO = re.compile(r"image to be added|screenshot to be added", re.I)
 
 
 def plain(s):
@@ -59,6 +67,25 @@ def files_for(sid, version):
     page, pdf = f"html/{sid}_v{u}.html", f"pdf/{sid}_v{u}.pdf"
     exists = lambda rel: os.path.exists(os.path.join(PUBLISHED, rel))
     return (page if exists(page) else None), (pdf if exists(pdf) else None)
+
+
+def gaps(doc, raw):
+    """What a master is still waiting on: {"images": n, "inputs": n}."""
+    images = 0
+
+    def walk(blocks):
+        nonlocal images
+        for b in blocks:
+            if b.get("type") == "figure":
+                name = os.path.basename(str(b.get("path", "")))
+                if not any(os.path.exists(os.path.join(d, name)) for d in (MASTERS, FIGURES)):
+                    images += 1
+            elif b.get("type") == "panel" and IMAGE_TODO.search(f"{b.get('t', '')} {b.get('text', '')}"):
+                images += 1
+            walk(b.get("body") or [])
+    walk(doc.get("blocks", []))
+    images += len(re.findall(r"\[SCREENSHOT", raw, re.I))
+    return {"images": images, "inputs": len(re.findall(r"\[NEEDS INPUT", raw, re.I))}
 
 
 def split_owner(s):
@@ -97,7 +124,8 @@ def first_sentence(s):
 
 def entry(path, kept):
     with open(path) as f:
-        doc = json.load(f)
+        raw = f.read()
+    doc = json.loads(raw)
     meta = doc.get("meta", {})
 
     sid = meta.get("sop_id")
@@ -112,7 +140,11 @@ def entry(path, kept):
         dept = m.group(1)
 
     version = str(meta.get("version", "")).strip()
-    status = "archived" if plain(meta.get("status", "")).lower() == "archived" else "live"
+    pending = gaps(doc, raw)
+    said = plain(meta.get("status", "")).lower()
+    status = ("archived" if said == "archived"
+              else "live" if said == "live" and not any(pending.values())
+              else "draft")
     role, person = split_owner(meta.get("owner", ""))
     revs = revisions(doc)
     newest = revs[0] if revs else None
@@ -145,6 +177,7 @@ def entry(path, kept):
         "pdf": pdf or f"pdf/{sid}_v{u}.pdf",
         "change_summary": summary,
         "versions": versions,
+        "pending": pending,
     }
     return {k: e[k] for k in FIELDS}
 

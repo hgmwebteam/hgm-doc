@@ -53,6 +53,7 @@ RENDERER = os.path.join(ROOT, "reference", "sop", "renderer")
 GEM_YELLOW = re.compile(r"#?ffd602", re.I)
 NEEDS_INPUT = re.compile(r"\[NEEDS INPUT", re.I)
 SCREENSHOT_TODO = re.compile(r"\[SCREENSHOT \d", re.I)
+IMAGE_TODO = re.compile(r"image to be added|screenshot to be added", re.I)
 
 
 def run(args):
@@ -105,6 +106,15 @@ def count_figures(blocks):
     return n
 
 
+def count_image_todos(blocks):
+    """Panels that stand in for a screenshot not taken yet."""
+    n = 0
+    for b in blocks:
+        n += b.get("type") == "panel" and bool(IMAGE_TODO.search(f"{b.get('t', '')} {b.get('text', '')}"))
+        n += count_image_todos(b.get("body") or [])
+    return n
+
+
 def pdf_image_count(pdf_path):
     r = subprocess.run(["pdfimages", "-list", pdf_path], capture_output=True, text=True)
     if r.returncode != 0:
@@ -116,14 +126,16 @@ def gate(data, raw, pdf_log, emptiness, md_text=None, pdf_images=None):
     """Return (fails, warns) — the machine-checkable part of the quality gate."""
     meta, blocks = data.get("meta", {}), data.get("blocks", [])
     fails, warns = [], []
-    approved = str(meta.get("status", "")).lower() == "approved"
+    # "live" says the SOP is finished, so an open gap is a failure; a draft
+    # is published while it waits on images or answers, so it is a warning.
+    finished = str(meta.get("status", "")).lower() in ("live", "approved")
 
     flags = len(NEEDS_INPUT.findall(raw))
-    shots = len(SCREENSHOT_TODO.findall(raw))
+    shots = len(SCREENSHOT_TODO.findall(raw)) + count_image_todos(blocks)
     if flags:
-        (fails if approved else warns).append(f"{flags} [NEEDS INPUT] flag(s) open")
+        (fails if finished else warns).append(f"{flags} [NEEDS INPUT] flag(s) open")
     if shots:
-        (fails if approved else warns).append(f"{shots} [SCREENSHOT] placeholder(s) open")
+        (fails if finished else warns).append(f"{shots} image placeholder(s) open")
 
     for k in ("sop_id", "title", "version", "owner", "approved_by",
               "effective_date", "next_review", "frequency", "duration"):

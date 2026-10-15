@@ -51,6 +51,8 @@ export interface SopIndexEntry {
     change_summary: string;
     /** Every version, newest first; the first is the current one. */
     versions: SopVersion[];
+    /** What a draft is still waiting on. Absent until the index is rebuilt. */
+    pending?: { images: number; inputs: number };
 }
 
 export const SOPS: SopIndexEntry[] = sopsIndex as SopIndexEntry[];
@@ -81,6 +83,15 @@ export const openSopPdf = (pdf: string) => {
     window.open(sopFileUrl(pdf), "_blank", "noopener");
 };
 
+/** "Waiting on 15 images and 34 answers", or nothing when the SOP is complete. */
+const waitingOn = ({ pending }: SopIndexEntry) => {
+    const parts = [
+        pending?.images ? `${pending.images} image${pending.images === 1 ? "" : "s"}` : "",
+        pending?.inputs ? `${pending.inputs} answer${pending.inputs === 1 ? "" : "s"}` : "",
+    ].filter(Boolean);
+    return parts.length ? `Waiting on ${parts.join(" and ")}` : "";
+};
+
 const StatusPill = ({ status }: { status: SopStatus }) => (
     <span className={cx("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", STATUS_CLASS[status])}>{STATUS_LABEL[status]}</span>
 );
@@ -107,6 +118,7 @@ const SopCard = ({ entry }: { entry: SopIndexEntry }) => {
                 <span>
                     {entry.owner_role} ({entry.owner}){entry.next_review ? ` · review ${formatSopDate(entry.next_review)}` : ""}
                 </span>
+                {entry.status === "draft" && waitingOn(entry) && <span className="text-warning-primary">{waitingOn(entry)}</span>}
             </div>
             <div className="flex items-center gap-2 border-t border-secondary pt-3">
                 <button

@@ -118,6 +118,28 @@ const SopViewer = () => {
         el.scrollIntoView({ block: "start" });
     };
 
+    // A link to another SOP is `<a target="_top" href="https://hgmportal.com/sop/…">`.
+    // Followed by the frame itself it resolves against the portal's URL and loads the
+    // whole portal inside the frame (the doubled header), so it goes through the
+    // router instead, keeping any `#task` hash. hgmportal.com is matched as well as
+    // this origin because the renderer always writes that host, and the link should
+    // stay on a deploy preview or localhost too.
+    const routeSopLink = (event: MouseEvent) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        // tagName, not instanceof, for the same realm reason as in scrollToHash.
+        const link = (event.target as Element | null)?.closest?.("a[href]");
+        if (link?.tagName !== "A") return;
+        const { origin, hostname, pathname, hash: linkHash, target } = link as HTMLAnchorElement;
+        if (target === "_blank" || !pathname.startsWith("/sop/") || (origin !== window.location.origin && hostname !== "hgmportal.com")) return;
+        event.preventDefault();
+        navigate(pathname + linkHash);
+    };
+
+    const onFrameLoad = () => {
+        frame.current?.contentDocument?.addEventListener("click", routeSopLink);
+        scrollToHash();
+    };
+
     if (!entry) {
         return (
             <div className="flex flex-1 items-center justify-center p-6">
@@ -186,13 +208,16 @@ const SopViewer = () => {
                 </div>
             ) : (
                 // allow-same-origin keeps the page's follow-along ticks in this browser's
-                // storage; allow-popups lets links inside the SOP open in a new tab.
+                // storage; allow-popups lets links inside the SOP open in a new tab;
+                // allow-top-navigation-by-user-activation lets a clicked target="_top" link
+                // that routeSopLink misses take the whole tab rather than the frame. No
+                // allow-modals: the renderer asks twice instead of calling confirm().
                 <iframe
                     ref={frame}
                     title={entry.title}
                     srcDoc={html}
-                    onLoad={scrollToHash}
-                    sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                    onLoad={onFrameLoad}
+                    sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
                     className="min-h-0 w-full flex-1 border-0 bg-primary"
                 />
             )}

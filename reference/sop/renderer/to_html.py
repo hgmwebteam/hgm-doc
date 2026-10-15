@@ -138,16 +138,8 @@ def font_head():
     return "<style>" + "".join(faces) + "</style>"
 
 
-def draft_strip(meta):
-    """A visible draft marker on every copy that has not been approved.
-    House rule: no SOP appears in the portal without one until the Operations
-    Manager approves.  Anything other than status "approved" is a draft."""
-    st = (meta.get("status") or "draft").strip().lower()
-    if st == "approved":
-        return ""
-    label = "Draft" if st == "draft" else esc(st.replace("_", " ").capitalize())
-    return (f'<p class="draft"><b>{label}</b> · v{esc(str(meta.get("version","")))}'
-            f'<span class="dsub">Not yet approved. Follow with care and tell the owner what is wrong.</span></p>')
+# No draft marker: since 2026-10-15 there is no approval step. Every merged
+# version is published as it stands, and the portal links each earlier version.
 
 CSS = """
 :root{
@@ -308,15 +300,6 @@ a.chip .cn{font-family:'Roboto Mono',ui-monospace,monospace;font-size:10.5px;col
 /* masthead */
 .eyebrow{font-family:'Roboto Mono',ui-monospace,monospace;font-size:11px;font-weight:500;
   letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0}
-/* draft marker: shown when meta.status is not "approved"; warning tint, never gem yellow */
-.draft{display:inline-flex;align-items:center;gap:8px;margin:14px 0 0;padding:6px 12px;max-width:none;white-space:nowrap;
-  border:1px solid var(--warn-edge);background:var(--warn-bg);color:var(--warn-ink);
-  border-radius:999px;font-family:'Roboto Mono',ui-monospace,monospace;font-size:11px;
-  font-weight:500;letter-spacing:.12em;text-transform:uppercase}
-.draft b{font-weight:700}
-.draft .dsub{font-family:Inter,system-ui,sans-serif;font-size:12px;letter-spacing:0;text-transform:none;font-weight:400;margin-left:4px}
-@media(max-width:640px){.draft{white-space:normal;flex-wrap:wrap}}
-@media print{.draft{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 h1{font-size:clamp(33px,4.7vw,54px);line-height:1.07;letter-spacing:-.022em;font-weight:700;
   margin:26px 0 0;max-width:19ch;text-wrap:balance}
 .lead{font-size:20px;line-height:1.62;color:var(--ink-muted);margin:26px 0 0;max-width:60ch}
@@ -1517,7 +1500,6 @@ def build(doc, base="."):
 <section class="sct mast tone-a">
   <div class="wrap">
     <p class="eyebrow">{esc(meta.get('eyebrow',''))}</p>
-    {draft_strip(meta)}
     <h1>{esc(meta.get('title',''))}</h1>
     <p class="lead">{meta.get('lead','')}</p>
     {jump}

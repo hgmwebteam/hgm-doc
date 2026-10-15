@@ -1,6 +1,8 @@
 > **Run on 2026-10-15** (branch `sop-workflow-setup`). Kept as a record. Two of its
 > assumptions were corrected: masters stay in `reference/sop/masters/` with versioned
-> names, and figures in `reference/sop/figures/`. `sops/CLAUDE.md` is current.
+> names, and figures in `reference/sop/figures/`. Later the same day the approval step,
+> the bucket and the SOP publish workflow were dropped: every SOP is public and every
+> version stays published. Steps 5 and 9 no longer apply. `sops/CLAUDE.md` is current.
 
 # One-time setup prompt
 

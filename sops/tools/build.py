@@ -3,8 +3,9 @@
 
     python3 sops/tools/build.py                    # every SOP in reference/sop/masters/
     python3 sops/tools/build.py HGM-SOP-WEB-002    # one SOP (ID, short ID or path)
-    python3 sops/tools/build.py --changed          # masters changed vs origin/main
+    python3 sops/tools/build.py --changed          # masters changed vs origin/main (all, if the renderer changed)
     python3 sops/tools/build.py --no-pdf ...       # skip the PDF (no WeasyPrint needed)
+    python3 sops/tools/build.py --publish ...      # also publish the outputs into the site (see below)
 
 For each master it:
   1. validates the JSON against schema v2 (sop_schema.py validate)
@@ -19,19 +20,33 @@ more than one version of an SOP is in the folder, only the highest is built.
 The renderer is reference/sop/renderer/. This script never changes how a
 page looks; it only calls the renderer.
 
+With --publish, each SOP that passes is also copied to where the portal reads
+it, under its version: public/sops/html/<SOP-ID>_v#_#.html,
+public/sops/pdf/<SOP-ID>_v#_#.pdf and reference/sop/markdown/<SOP-ID>_v#_#.md.
+Then tools/build-sops-index.py rewrites src/data/sops.json. Earlier versions'
+files are never touched: they are the portal's links to past versions. The
+"SOP build" pull-request check runs this and commits the result.
+
 Exit code is non-zero if any SOP fails a hard check. Warnings (open
-[NEEDS INPUT] flags on a draft, a sparse page) never fail the build.
+[NEEDS INPUT] flags, a sparse page) never fail the build.
 """
 import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 MASTERS = os.path.join(ROOT, "reference", "sop", "masters")
+FIGURES = os.path.join(ROOT, "reference", "sop", "figures")
 DIST = os.path.join(ROOT, "sops", "dist")
+PUBLISH_TO = {
+    "html": os.path.join(ROOT, "public", "sops", "html"),
+    "pdf": os.path.join(ROOT, "public", "sops", "pdf"),
+    "md": os.path.join(ROOT, "reference", "sop", "markdown"),
+}
 # One renderer only: the portal repo's copy. The skill no longer bundles one.
 RENDERER = os.path.join(ROOT, "reference", "sop", "renderer")
 
@@ -181,8 +196,9 @@ def newest(paths):
     return sorted(p for _, p in best.values())
 
 
-def changed_masters():
-    rel = os.path.relpath(MASTERS, ROOT)
+def changed_files(path):
+    """Files under path that differ from origin/main, committed or not."""
+    rel = os.path.relpath(path, ROOT)
     try:
         out = subprocess.run(["git", "diff", "--name-only", "origin/main...HEAD", "--", rel],
                              capture_output=True, text=True, cwd=ROOT).stdout
@@ -190,7 +206,29 @@ def changed_masters():
                               capture_output=True, text=True, cwd=ROOT).stdout
     except FileNotFoundError:
         return []
-    return sorted({os.path.join(ROOT, p) for p in out.split() if p.endswith(".json")})
+    return sorted({os.path.join(ROOT, p) for p in out.split()})
+
+
+def changed_masters():
+    """Masters changed vs origin/main; every master if the renderer or a figure
+    changed, because then every current page has to be rebuilt."""
+    if changed_files(RENDERER) or changed_files(FIGURES):
+        return glob.glob(os.path.join(MASTERS, "*.json"))
+    return [p for p in changed_files(MASTERS) if p.endswith(".json")]
+
+
+def publish(sop_id, version, stem):
+    """Copy one build into the site under its version; never touch other versions."""
+    name = f"{sop_id}_v{str(version).replace('.', '_')}"
+    for ext, folder in PUBLISH_TO.items():
+        src = f"{stem}.{ext}"
+        if not os.path.exists(src):
+            print(f"  publish: no .{ext} built; public/sops keeps whatever {name}.{ext} it has")
+            continue
+        os.makedirs(folder, exist_ok=True)
+        dst = os.path.join(folder, f"{name}.{ext}")
+        shutil.copyfile(src, dst)
+        print(f"  published {os.path.relpath(dst, ROOT)}")
 
 
 def resolve(arg):
@@ -208,6 +246,7 @@ def resolve(arg):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     no_pdf = "--no-pdf" in sys.argv
+    do_publish = "--publish" in sys.argv
     if "--changed" in sys.argv:
         targets = newest(p for p in changed_masters() if os.path.exists(p))
     elif args:
@@ -264,6 +303,15 @@ def main():
         for m in g_warn:
             print("  warn", m)
         rows.append((sop_id, meta.get("version"), meta.get("status", ""), fails, g_warn))
+        if do_publish and not fails:
+            publish(sop_id, meta.get("version"), stem)
+
+    if do_publish and rows:
+        code, log = run([os.path.join(ROOT, "tools", "build-sops-index.py")])
+        print(log)
+        if code:
+            any_fail = True
+            rows.append(("src/data/sops.json", "", "", ["index not written: " + log.splitlines()[-1]], []))
 
     open_report(rows)
     print("\nReport: sops/dist/REPORT.md")

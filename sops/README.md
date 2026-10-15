@@ -1,32 +1,31 @@
 # HGM SOPs — how this works
 
 SOPs are written and revised in VS Code with Claude Code, inside the `hgm-doc` repo,
-and published to hgmportal.com by GitHub Actions. The Claude Project ("HGM SOP Studio")
-is retired: everything it knew lives in this repo.
+and published to hgmportal.com when a pull request is merged. The Claude Project
+("HGM SOP Studio") is retired: everything it knew lives in this repo.
 
 ## The flow
 
 ```
-You, in VS Code:  /sop-update WEB-002 make task 6.1's approver table add Brandon for design
+You, in VS Code:  /sop-update WEB-002 make task 6.1's table add Brandon for design
         │
         ▼
 Claude Code: reads sops/CLAUDE.md + the skills + the master → makes a branch
              → writes reference/sop/masters/HGM-SOP-WEB-002_v1_5.json, removes
-             _v1_4, adds a revision row → build.py renders HTML/PDF/MD and runs the gate
+             _v1_4, adds a revision row → build.py renders HTML/MD and runs the gate
              → looks at every page → opens a pull request
         │
         ▼
-GitHub "SOP check" (on the pull request): rebuilds, posts the gate report as a
-             comment, attaches the HTML/PDF/MD under the run's Artifacts
+GitHub "SOP check" (on the pull request): rebuilds with the PDF, posts the gate
+             report as a comment, and commits the new version's page, PDF,
+             Markdown and the updated SOP list back to the pull request
         │
         ▼
 You: read the report, open the PDF or HTML, merge
         │
         ▼
-GitHub "SOP publish" (on main): rebuilds every SOP and uploads to the Supabase
-             `sops` bucket. SWITCHED OFF for now: the portal's SOP list is
-             src/data/sops.json and WEB-003/004/005 load from public/sops/, so
-             an upload alone shows nothing new (see sops/CLAUDE.md)
+Netlify deploys main: hgmportal.com/sop/HGM-SOP-WEB-002 shows v1.5, and
+             v1.4 stays one click away under Versions
 ```
 
 Your part is two things: typing the request, and merging. Nothing goes live until
@@ -39,13 +38,14 @@ you merge, and nothing is published by Claude Code directly.
 - **Git replaces "store the master".** One file per SOP in `reference/sop/masters/`,
   named with its version in underscores (`HGM-SOP-WEB-002_v1_4.json`, never `_v1.4`).
   A revision adds the new version's file and deletes the old one in the same commit, so
-  every past version is in the history and never in the folder.
-- **The merge is the approval step for publishing.** It is a deliberate human click,
-  and branch protection can require the gate to pass first. Gillian's approval of an
-  SOP's *content* is still separate: that is `meta.status: approved`, set only with
-  `/sop-approve` after she says yes.
-- **The service role key never touches your laptop or Claude.** It lives in GitHub
-  Actions secrets and is only used by the publish job.
+  every past master is in the history and never in the folder.
+- **Every version stays published.** Each version's page and PDF are kept in
+  `public/sops/` under their version number, and the SOP's page lists them all.
+- **No approval step.** The merge is the only gate: a deliberate human click after
+  reading the report.
+- **No secrets.** Every SOP is a public file on the site, so nothing needs a Supabase
+  key, in GitHub or anywhere else. The PDF is built on GitHub, so your Mac does not
+  need WeasyPrint.
 
 ## Commands
 
@@ -53,13 +53,13 @@ you merge, and nothing is published by Claude Code directly.
 |---|---|
 | `/sop-update <ID> <change>` | Revise an SOP, open a pull request |
 | `/sop-new <DEPT> <title>` + material | Interview, draft for review, then build v0.1 |
-| `/sop-approve <ID>` | Gillian said yes: mark approved, 0.x → 1.0, set dates |
-| `python3 sops/tools/build.py [ID]` | Build and gate by hand; outputs in `sops/dist/` |
+| `python3 sops/tools/build.py [ID]` | Build and gate by hand; outputs in `sops/dist/` (`--no-pdf` without WeasyPrint) |
 
 Screenshots: drop the image into `reference/sop/figures/` named
 `fig_HGM-SOP-<DEPT>-###_<what-it-shows>.png` (`.jpg` for a JPEG: the extension matches
 the bytes) and tell Claude which task it belongs to.
-Claude checks it for credentials, crops it, and rings the click target.
+Claude checks it for credentials, crops it, and rings the click target. SOPs are
+public, so nothing secret may be in a screenshot.
 
 ## Install (once)
 
@@ -70,9 +70,7 @@ Claude checks it for credentials, crops it, and rings the click target.
 2. Nothing to download: the masters are already in `reference/sop/masters/` and
    their figures in `reference/sop/figures/` (done at setup, 2026-10-15).
 3. Open `hgm-doc` in VS Code, open Claude Code, and paste `sops/SETUP-PROMPT.md`.
-4. Do the GitHub settings it lists at the end (secrets, the publish switch, branch
-   protection). Check with AnhTuan before adding the Supabase service role key to
-   GitHub, since it is the portal's key.
+   (Done 2026-10-15; its secrets and publish switch are no longer needed.)
 
 ## Keeping the skills current
 

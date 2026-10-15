@@ -9,7 +9,9 @@ description: Write or revise a Hidden Gem Media (HGM) Standard Operating Procedu
 > Definitions or Troubleshooting sections. "Project knowledge" and `masters/`
 > mean `reference/sop/masters/`: one file per SOP, named `<ID>_v#_#.json`. A
 > revision writes the new version's file and deletes the old one in the same
-> commit. Figures are in `reference/sop/figures/`.
+> commit. Figures are in `reference/sop/figures/`. There is no approval step:
+> ignore anything below about approval or `status: approved`; every merged
+> version is published, and SOPs are public, so no screenshot may hold a secret.
 
 
 # Authoring an HGM SOP

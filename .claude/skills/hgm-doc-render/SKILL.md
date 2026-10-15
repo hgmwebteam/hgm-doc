@@ -9,7 +9,8 @@ description: Render a Hidden Gem Media (HGM) document — SOP, guide, or interna
 > copy of the skill bundles none, so read every `renderer/` below as
 > `reference/sop/renderer/`. Where this file says "store the JSON in project
 > knowledge", commit `reference/sop/masters/<ID>_v#_#.json` and `git rm` the
-> previous version's file in the same commit.
+> previous version's file in the same commit. There is no approval step and no
+> draft marker: every merged version is published, and earlier ones stay linked.
 
 
 # Rendering an HGM document

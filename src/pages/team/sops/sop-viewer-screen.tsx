@@ -1,104 +1,107 @@
-import { useEffect, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, Download01 } from "@untitledui/icons";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { AlertCircle, ArrowLeft, ChevronDown, ClockRewind, Download01 } from "@untitledui/icons";
+import type { Key } from "react-aria-components";
 import { useLocation, useNavigate, useParams } from "react-router";
-import { useAuthUser } from "@/hooks/use-auth-user";
-import { supabase } from "@/lib/supabase";
-import { TeamGate } from "@/pages/team/dashboard-screen";
+import { Button } from "@/components/base/buttons/button";
+import { Dropdown } from "@/components/base/dropdown/dropdown";
 import { findSopDepartment, sopDeptTabId } from "./sop-departments";
-import { SOPS, isPublicSop, openSopPdf } from "./sops-content";
+import { SOPS, type SopIndexEntry, type SopVersion, formatSopDate, openSopPdf, sopFileUrl, sopPath } from "./sops-content";
 
 /**
- * `/sop/:id` — public SOPs load from /sops/ without sign-in. The other SOPs
- * still require TeamGate and a Google session to read the private storage bucket.
- * Documents are self-contained, with their own phase menu and follow-along ticks.
+ * `/sop/:id` — the current version of an SOP; `/sop/:id/v0.5` — an earlier one.
+ * Every SOP is public: each version's page and PDF are files the site serves from
+ * public/sops/, so nothing here needs a sign-in. Documents are self-contained, with
+ * their own phase menu and follow-along ticks.
  *
  * `#5.4` in the URL scrolls to task 5.4 once the page has loaded — the renderer gives
  * every task `id="task-5.4"`. Best effort: a hash that matches nothing is ignored.
  */
 
-const ALLOWED_DOMAIN = "hiddengem.media";
-
-const SignInCard = ({ onSignIn, busy, error }: { onSignIn: () => void; busy: boolean; error: string }) => (
+const Notice = ({ tone, children }: { tone: "error" | "warning"; children: ReactNode }) => (
     <div className="flex flex-1 items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-xl bg-primary p-6 shadow-sm ring-1 ring-secondary">
-            <h1 className="text-lg font-semibold text-primary">SOPs need your Google sign-in</h1>
-            <p className="mt-1 text-sm text-tertiary">
-                Standard operating procedures are stored privately and opened with your own account, not the shared team password. Sign in with your{" "}
-                <span className="font-medium text-secondary">@{ALLOWED_DOMAIN}</span> Google account to continue.
-            </p>
-            {error && <p className="mt-3 text-sm text-error-primary">{error}</p>}
-            <button
-                type="button"
-                onClick={onSignIn}
-                disabled={busy}
-                className="mt-5 w-full rounded-lg bg-brand-solid px-3.5 py-2.5 text-sm font-semibold text-white transition duration-100 ease-linear hover:opacity-90 disabled:opacity-60"
-            >
-                {busy ? "Opening Google…" : "Sign in with Google"}
-            </button>
+        <div className="flex max-w-md items-start gap-3 rounded-xl bg-primary p-5 shadow-sm ring-1 ring-secondary">
+            <AlertCircle
+                className={tone === "error" ? "mt-0.5 size-5 shrink-0 text-error-primary" : "mt-0.5 size-5 shrink-0 text-warning-primary"}
+                aria-hidden="true"
+            />
+            <div>{children}</div>
         </div>
     </div>
 );
 
+/** The menu of every version; one without a published copy is listed but cannot be opened. */
+const VersionMenu = ({ entry, shown }: { entry: SopIndexEntry; shown: SopVersion }) => {
+    const navigate = useNavigate();
+    const open = (keys: "all" | Set<Key>) => {
+        const version = keys === "all" ? undefined : String([...keys][0] ?? "");
+        if (!version || version === shown.version) return;
+        navigate(sopPath(entry.id, version === entry.version ? undefined : version));
+    };
+    return (
+        <Dropdown.Root>
+            <Button size="sm" color="secondary" iconLeading={ClockRewind} iconTrailing={ChevronDown}>
+                <span className="hidden sm:inline">Versions</span>
+            </Button>
+            <Dropdown.Popover className="w-72">
+                <Dropdown.Menu
+                    aria-label={`Versions of ${entry.id}`}
+                    selectionMode="single"
+                    disallowEmptySelection
+                    selectedKeys={[shown.version]}
+                    disabledKeys={entry.versions.filter((v) => !v.html).map((v) => v.version)}
+                    onSelectionChange={open}
+                >
+                    {entry.versions.map((v) => (
+                        <Dropdown.Item
+                            key={v.version}
+                            id={v.version}
+                            textValue={`v${v.version}`}
+                            label={`v${v.version}${v.date ? ` · ${formatSopDate(v.date)}` : ""}`}
+                            addon={v.version === entry.version ? "Current" : v.html ? undefined : "No copy"}
+                        />
+                    ))}
+                </Dropdown.Menu>
+            </Dropdown.Popover>
+        </Dropdown.Root>
+    );
+};
+
 const SopViewer = () => {
-    const { id = "" } = useParams();
+    const { id = "", version: versionParam } = useParams();
     const { hash } = useLocation();
     const navigate = useNavigate();
-    const { user, loading: authLoading } = useAuthUser();
     const entry = SOPS.find((s) => s.id.toLowerCase() === id.toLowerCase());
-    const isPublic = isPublicSop(id);
     const dept = entry ? findSopDepartment(entry.dept) : undefined;
+    const wanted = versionParam?.replace(/^v/i, "");
+    const shown = entry && (wanted ? entry.versions.find((v) => v.version === wanted) : (entry.versions[0] ?? null));
+    const isCurrent = !!entry && shown?.version === entry.version;
 
     const [html, setHtml] = useState<string | null>(null);
     const [error, setError] = useState("");
-    const [signInBusy, setSignInBusy] = useState(false);
-    const [signInError, setSignInError] = useState("");
     const frame = useRef<HTMLIFrameElement>(null);
 
-    const signIn = async () => {
-        setSignInError("");
-        setSignInBusy(true);
-        const { error: e } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: {
-                redirectTo: `${window.location.origin}${window.location.pathname}${window.location.hash}`,
-                queryParams: { hd: ALLOWED_DOMAIN, prompt: "select_account" },
-            },
-        });
-        if (e) {
-            setSignInError(e.message);
-            setSignInBusy(false);
-        }
-    };
-
-    // Public copies are deployed with the site; private documents stay in Storage.
     useEffect(() => {
-        if (!entry || (!isPublic && !user)) return;
+        if (!entry || !shown?.html) return;
+        const path = shown.html;
         let cancelled = false;
         setError("");
         setHtml(null);
         const load = async () => {
             try {
-                let document: string;
-                if (isPublic) {
-                    const response = await fetch(`/sops/${entry.html}`);
-                    if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) throw new Error("Missing SOP");
-                    document = await response.text();
-                    if (!document.includes(entry.id)) throw new Error("Missing SOP");
-                } else {
-                    const { data, error } = await supabase.storage.from("sops").download(entry.html);
-                    if (error || !data) throw error ?? new Error("Missing SOP");
-                    document = await data.text();
-                }
+                const response = await fetch(sopFileUrl(path));
+                if (!response.ok || !response.headers.get("content-type")?.includes("text/html")) throw new Error("Missing SOP");
+                const document = await response.text();
+                if (!document.includes(entry.id)) throw new Error("Missing SOP");
                 if (!cancelled) setHtml(document);
             } catch {
-                if (!cancelled) setError(`This SOP's page could not be loaded (${entry.html}). Please try again.`);
+                if (!cancelled) setError(`This SOP's page could not be loaded (${path}). Please try again.`);
             }
         };
         void load();
         return () => {
             cancelled = true;
         };
-    }, [entry?.id, isPublic, user?.email]);
+    }, [entry?.id, shown?.html]);
 
     // Deep link to a task: `/sop/HGM-SOP-WEB-002#5.4` → the renderer's `#task-5.4`.
     const scrollToHash = () => {
@@ -142,22 +145,17 @@ const SopViewer = () => {
 
     if (!entry) {
         return (
-            <div className="flex flex-1 items-center justify-center p-6">
-                <div className="flex max-w-md items-start gap-3 rounded-xl bg-primary p-5 shadow-sm ring-1 ring-secondary">
-                    <AlertCircle className="mt-0.5 size-5 shrink-0 text-error-primary" aria-hidden="true" />
-                    <div>
-                        <p className="text-sm font-semibold text-primary">No SOP with the ID “{id}”</p>
-                        <p className="mt-1 text-sm text-tertiary">Check the ID against the library, or open the SOP dashboard and pick it from there.</p>
-                        <button
-                            type="button"
-                            onClick={() => navigate("/dashboard?dept=sops")}
-                            className="mt-3 text-sm font-semibold text-brand-secondary hover:underline"
-                        >
-                            Go to SOPs
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <Notice tone="error">
+                <p className="text-sm font-semibold text-primary">No SOP with the ID “{id}”</p>
+                <p className="mt-1 text-sm text-tertiary">Check the ID against the library, or open the SOP dashboard and pick it from there.</p>
+                <button
+                    type="button"
+                    onClick={() => navigate("/dashboard?dept=sops")}
+                    className="mt-3 text-sm font-semibold text-brand-secondary hover:underline"
+                >
+                    Go to SOPs
+                </button>
+            </Notice>
         );
     }
 
@@ -174,34 +172,60 @@ const SopViewer = () => {
                         SOPs
                     </button>
                     <span className="hidden font-mono text-xs text-tertiary sm:inline">
-                        {entry.id} · v{entry.version}
+                        {entry.id} · v{shown?.version ?? wanted}
                     </span>
                     <span className="truncate text-sm font-semibold text-primary">{entry.title}</span>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => void openSopPdf(entry)}
-                    disabled={!isPublic && !user}
-                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-secondary bg-primary px-3 py-1.5 text-sm font-semibold text-secondary transition duration-100 ease-linear hover:bg-secondary hover:text-primary disabled:opacity-50"
-                >
-                    <Download01 className="size-4" aria-hidden="true" />
-                    PDF
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                    {shown && entry.versions.length > 1 && <VersionMenu entry={entry} shown={shown} />}
+                    <button
+                        type="button"
+                        onClick={() => shown?.pdf && openSopPdf(shown.pdf)}
+                        disabled={!shown?.pdf}
+                        className="flex shrink-0 items-center gap-1.5 rounded-lg border border-secondary bg-primary px-3 py-1.5 text-sm font-semibold text-secondary transition duration-100 ease-linear hover:bg-secondary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <Download01 className="size-4" aria-hidden="true" />
+                        PDF
+                    </button>
+                </div>
             </header>
 
-            {!isPublic && authLoading ? (
-                <div className="flex flex-1 items-center justify-center">
-                    <div className="size-6 animate-spin rounded-full border-2 border-brand border-t-transparent opacity-60" />
+            {shown && !isCurrent && (
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-secondary bg-warning-primary px-4 py-2.5">
+                    <p className="text-sm text-secondary">
+                        <span className="font-semibold text-primary">You're reading v{shown.version}</span>
+                        {shown.date ? `, published ${formatSopDate(shown.date)}` : ""}. The current version is v{entry.version}.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => navigate(sopPath(entry.id))}
+                        className="text-sm font-semibold text-brand-secondary transition duration-100 ease-linear hover:underline"
+                    >
+                        Open the current version
+                    </button>
                 </div>
-            ) : !isPublic && !user ? (
-                <SignInCard onSignIn={() => void signIn()} busy={signInBusy} error={signInError} />
+            )}
+
+            {!shown || !shown.html ? (
+                <Notice tone="warning">
+                    <p className="text-sm font-semibold text-primary">
+                        {shown ? `v${shown.version} has no published copy` : `${entry.id} has no version ${wanted}`}
+                    </p>
+                    <p className="mt-1 text-sm text-tertiary">
+                        {shown ? "It predates the SOP library, so only its revision-history row survives." : "Pick one from the list of versions."}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => navigate(sopPath(entry.id))}
+                        className="mt-3 text-sm font-semibold text-brand-secondary hover:underline"
+                    >
+                        Open v{entry.version}, the current version
+                    </button>
+                </Notice>
             ) : error ? (
-                <div className="flex flex-1 items-center justify-center p-6">
-                    <div className="flex max-w-md items-start gap-3 rounded-xl bg-primary p-5 shadow-sm ring-1 ring-secondary">
-                        <AlertCircle className="mt-0.5 size-5 shrink-0 text-warning-primary" aria-hidden="true" />
-                        <p className="text-sm text-secondary">{error}</p>
-                    </div>
-                </div>
+                <Notice tone="warning">
+                    <p className="text-sm text-secondary">{error}</p>
+                </Notice>
             ) : html === null ? (
                 <div className="flex flex-1 items-center justify-center">
                     <div className="size-6 animate-spin rounded-full border-2 border-brand border-t-transparent opacity-60" />
@@ -214,7 +238,7 @@ const SopViewer = () => {
                 // allow-modals: the renderer asks twice instead of calling confirm().
                 <iframe
                     ref={frame}
-                    title={entry.title}
+                    title={`${entry.title}, v${shown.version}`}
                     srcDoc={html}
                     onLoad={onFrameLoad}
                     sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
@@ -225,12 +249,4 @@ const SopViewer = () => {
     );
 };
 
-export const SopViewerScreen = () => {
-    const { id = "" } = useParams();
-    if (isPublicSop(id)) return <SopViewer />;
-    return (
-        <TeamGate>
-            <SopViewer />
-        </TeamGate>
-    );
-};
+export const SopViewerScreen = SopViewer;

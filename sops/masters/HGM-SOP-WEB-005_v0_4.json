@@ -4,7 +4,7 @@
   "title": "Pre-launch readiness and go-live",
   "lead": "How a client-approved site on its <code>netlify.app</code> address becomes the client's live site on their own domain — audited, keyed, paid-path-tested and cut over. If you remember one thing: <strong class=\"hl\">nothing is verified until you have seen it on the live domain</strong>, and nothing that touches money is done outside Claude Fable against a test key.",
   "sop_id": "HGM-SOP-WEB-005",
-  "version": "0.3",
+  "version": "0.4",
   "status": "draft",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "approved_by": "Operations Manager (Gillian) — pending",
@@ -319,10 +319,9 @@
      "note": "use your local port"
     },
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — One page's rendered <code>&lt;head&gt;</code> showing the title, description and social tags."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-005_f1-head-tags.jpg",
+     "caption": "The home page's &lt;head&gt; in view-source: the title, the description, then the og: and twitter: tags, each with the client's own wording."
     }
    ]
   },
@@ -500,10 +499,9 @@
      "text": "A Lighthouse loop is safer than a matching loop because the score is a hard number, but if it stops improving, stop it and fix the remaining items by name. A third-party embed — the GoHighLevel form, a map — can cap a score."
     },
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — A Lighthouse run on the home page showing the four scores at the end of the loop. Ring the Performance score."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-005_f2-pagespeed-scores.jpg",
+     "caption": "PageSpeed Insights (Lighthouse) on the netlify.app address, desktop: Performance, Accessibility, Best Practices and SEO. Every page needs all four at 100, or a written reason a score is capped."
     }
    ]
   },
@@ -642,10 +640,9 @@
    "expect": "Every variable in <code>ENV.template</code> exists on Netlify with a non-empty value.",
    "body": [
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — Netlify Environment variables with the full list for this site, values redacted."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-005_f3-netlify-env-list.jpg",
+     "caption": "Netlify → Project configuration → Environment variables: every variable by name and scope. This list never shows a value; the lock marks a secret."
     }
    ]
   },
@@ -835,10 +832,9 @@
      "text": "The Resend email log with the confirmation delivered. Crop to the row; ring the delivered status."
     },
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — The Resend log showing the confirmation email delivered, recipient redacted. Ring the delivered status."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-005_f4-resend-delivered.jpg",
+     "caption": "Resend → Emails: the booking confirmation reads Delivered, not just Sent. Recipients hidden here."
     }
    ]
   },
@@ -942,10 +938,9 @@
      "text": "MX routes the client's mail; TXT carries SPF, DKIM and DMARC, which keep it out of spam. Whatever method task 9.8 uses, those records must exist unchanged afterwards. Moving the nameservers to Netlify DNS removes them unless they are recreated first."
     },
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — The full DNS record list before any change — this is the one you will need if you have to roll back."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-005_f5-dns-export.jpg",
+     "caption": "The DNS host's record list before anything changes (Cloudflare here). Export downloads every record in one file; save it to the client's vault with today's date."
     }
    ]
   },
@@ -982,10 +977,9 @@
      "text": "Netlify Domain management with both domains added and the awaiting-DNS state. Crop to the domain list; ring the add-domain button."
     },
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — Netlify Domain management after the custom domain is added, showing the records Netlify asks for. Ring the record values."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-005_f6-netlify-domains-pending.jpg",
+     "caption": "Netlify → Domain management with both domains added: the apex is primary, www redirects to it, and both wait on DNS. Pending DNS verification opens the records Netlify wants."
     }
    ]
   },
@@ -1067,10 +1061,9 @@
      "text": "Netlify's certificate status after cutover. Crop to the HTTPS panel; ring the issued state."
     },
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — Netlify's domain panel showing the certificate issued for the apex and www. Ring the certificate status."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-005_f8-https-certificate.jpg",
+     "caption": "Netlify → Domain management → HTTPS: HTTPS enabled, with a Let's Encrypt certificate covering the apex and www."
     }
    ]
   },
@@ -1343,6 +1336,12 @@
      "0.3",
      "Kyle Zinger",
      "Loom review with AnhTuan. Starts at client approval, not Asana; client sign-off moved to WEB-004. Roles, definitions, troubleshooting and the platform choice removed. Push to production after accessibility; Lighthouse against production. Key directions moved to WEB-004. Privacy pop-up removed."
+    ],
+    [
+     "2026-10-15",
+     "0.4",
+     "Kyle Zinger",
+     "Seven screenshots from the Awayframes pre-launch and cutover added at 2.2, 4.1, 6.2, 8.3, 9.3, 9.6 and 9.10, each replacing its image placeholder."
     ]
    ]
   },

@@ -4,7 +4,7 @@
   "title": "Rebuild a live client site as a Next.js and Supabase site",
   "lead": "How an existing client website becomes a new Next.js site built from the HGM template, matched section by section against the original. If you remember one thing: <strong class=\"hl\">the live site is the reference, not your memory</strong> — every section is judged against a saved capture of the original, never against what looks about right on screen.",
   "sop_id": "HGM-SOP-WEB-004",
-  "version": "0.6",
+  "version": "0.7",
   "status": "draft",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "approved_by": "Operations Manager (Gillian)",
@@ -550,10 +550,9 @@
    "expect": "A Resend API key in <code>.env.local</code> under <strong class=\"hl\">[NEEDS INPUT: the variable name in ENV.template]</strong>.",
    "body": [
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — The Resend API keys screen, value redacted."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-004_f10-resend-api-keys.jpg",
+     "caption": "Resend → API keys → Create API key. Tokens hidden here."
     }
    ]
   },
@@ -574,6 +573,11 @@
    "d": "In the client's GoHighLevel sub-account, open the business profile and copy the Location ID. Then create a new private integration and copy its token. <strong class=\"hl\">[NEEDS INPUT: Q16 — which scopes to select, and the menu labels in HGM's white-labelled GoHighLevel]</strong>",
    "expect": "The Location ID matches the one on the client's record in hgmportal.com, and both values are in <code>.env.local</code>.",
    "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-004_f11-ghl-location-id.jpg",
+     "caption": "GoHighLevel → Settings → Business Profile: the Location ID, with its copy button, top right. (The private-integration scopes picture is still wanted.)"
+    },
     {
      "type": "panel",
      "kind": "critical",
@@ -631,10 +635,9 @@
      "text": "This replaces typing each variable in by hand. Check the list Claude prints against Netlify on the first build that uses it, and tell the Web & Content Specialist if anything was missed."
     },
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — Netlify Site configuration → Environment variables, mid-way through adding one, values redacted. Ring the Add a variable button."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-004_f12-netlify-add-variable.jpg",
+     "caption": "Netlify → Project configuration → Environment variables → Add a variable, for the by-hand route."
     }
    ],
    "id": "WEB-004.4.6"
@@ -1421,6 +1424,12 @@
      "0.6",
      "Kyle Zinger",
      "Loom review with AnhTuan. Roles, definitions, troubleshooting and the platform choice removed; VS Code only. Where every key comes from (4.6–4.10). Function checks, a changed-original check, and account manager and client review before hand-on (7.10–8.7)."
+    ],
+    [
+     "2026-10-15",
+     "0.7",
+     "Kyle Zinger",
+     "Three screenshots added: the Resend API keys screen (4.7), the GoHighLevel Location ID (4.9) and Netlify's Add a variable (4.11). Two image placeholders filled; the GoHighLevel scopes picture is still to come."
     ]
    ]
   },

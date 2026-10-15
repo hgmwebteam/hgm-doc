@@ -4,7 +4,7 @@
   "title": "Post-launch connections: analytics, search, behaviour tracking and the deploy that carries them",
   "lead": "How a freshly launched site gets its GA4, Search Console and Hotjar wired up, published, verified and handed over. If you remember one thing: <strong class=\"hl\">an env change is not live until the next build, and nothing is verified until you have seen the marker in the live HTML</strong>. Ridge &amp; Falls values are left in as a worked example — replace them per site.",
   "sop_id": "HGM-SOP-WEB-003",
-  "version": "0.2",
+  "version": "0.3",
   "status": "draft",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "approved_by": "Not yet approved — working draft for Brandon (approver: Operations Manager, Gillian)",
@@ -576,7 +576,14 @@
    "t": "Turn on page views for browser history events",
    "d": "<strong>Admin → Data streams → </strong>your stream<strong> → Enhanced measurement → </strong>gear icon<strong> → Page views → Show advanced settings → Page changes based on browser history events</strong>: <strong>ON</strong>. The site fires one page view per full load and relies on this setting for client-side navigations.",
    "expect": "The toggle shows on and the setting is saved.",
-   "id": "WEB-003.4.4"
+   "id": "WEB-003.4.4",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f1-ga-history-events.jpg",
+     "caption": "Enhanced measurement → Page views → Show advanced settings: tick Page changes based on browser history events, then Save."
+    }
+   ]
   },
   {
    "type": "step",
@@ -584,7 +591,14 @@
    "t": "Set data retention to 14 months",
    "d": "<strong>Admin → Data collection and modification → Data retention → Event data retention</strong>: <strong>14 months</strong>. The default is 2.",
    "expect": "Retention reads 14 months.",
-   "id": "WEB-003.4.5"
+   "id": "WEB-003.4.5",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f2-ga-retention.jpg",
+     "caption": "Admin → Data retention: Event data set to 14 months, then Save."
+    }
+   ]
   },
   {
    "type": "step",
@@ -592,7 +606,14 @@
    "t": "Set the property time zone and currency",
    "d": "<strong>Admin → Property details</strong>. Time zone = the site's, from <code>BRAND.timezone</code> in the codebase (Eastern for Ridge &amp; Falls). Currency <strong>USD</strong>.",
    "expect": "Property details show the site's time zone and USD.",
-   "id": "WEB-003.4.6"
+   "id": "WEB-003.4.6",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f3-ga-time-zone.jpg",
+     "caption": "Admin → Property details: choose the site's time zone (still unset here) and US Dollar."
+    }
+   ]
   },
   {
    "type": "step",
@@ -654,6 +675,11 @@
    "t": "Decide which property type you can verify",
    "d": "Find where the domain's DNS is hosted (<code>dig +short NS &lt;domain&gt;</code> from 1.1). <strong>If the agency holds that DNS login</strong> → add a <strong>Domain</strong> property in Search Console and verify with the DNS TXT record it gives you, then go to 5.4. <strong>If not</strong> → go to 5.2.",
    "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f4-gsc-property-types.jpg",
+     "caption": "Search Console lists both kinds: a Domain property (the whole domain, verified by a DNS record) and a URL-prefix property (one exact address)."
+    },
     {
      "type": "panel",
      "kind": "note",
@@ -722,7 +748,14 @@
    "t": "Submit the sitemap",
    "d": "<strong>Sitemaps → Add a new sitemap</strong>: <code>sitemap.xml</code>. Noindex pages are excluded from it on purpose.",
    "expect": "Status Success. Ridge &amp; Falls: 13 URLs.",
-   "id": "WEB-003.5.4"
+   "id": "WEB-003.5.4",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f5-gsc-sitemap.jpg",
+     "caption": "Sitemaps → Add a new sitemap: type sitemap.xml and Submit. The submitted sitemap should read Success."
+    }
+   ]
   },
   {
    "type": "step",
@@ -730,7 +763,14 @@
    "t": "Request indexing for the home page and the listings page only",
    "d": "<strong>URL Inspection</strong> → enter <code>https://&lt;domain&gt;/</code> → <strong>Request indexing</strong>. Repeat for <code>/listings</code>. Stop there: the daily quota is small and the sitemap covers the rest.",
    "expect": "Both URLs show \"Indexing requested\".",
-   "id": "WEB-003.5.5"
+   "id": "WEB-003.5.5",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f6-gsc-request-indexing.jpg",
+     "caption": "URL inspection's result card: Request indexing is on the right."
+    }
+   ]
   },
   {
    "type": "step",
@@ -738,6 +778,11 @@
    "t": "Add the client as Owner",
    "d": "<strong>Settings → Users and permissions → Add user</strong>, permission <strong>Owner</strong>.",
    "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f7-gsc-add-owner.jpg",
+     "caption": "Settings → Users and permissions: Add user, then choose Owner. Emails hidden here."
+    },
     {
      "type": "panel",
      "kind": "warning",
@@ -754,6 +799,11 @@
    "t": "Link GA4 to Search Console from one login that holds both",
    "d": "The link must be created by a Google account that has verified ownership in Search Console <strong>and</strong> Editor or above on the GA property. If they are split across two logins, share Search Console ownership to the GA login first. Then <strong>GA Admin → Product links → Search Console links → Link</strong>.",
    "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f8-ga-search-console-link.jpg",
+     "caption": "GA Admin → Product links → Search Console links → Link: choose the verified property, then Next."
+    },
     {
      "type": "panel",
      "kind": "note",
@@ -815,7 +865,19 @@
    "t": "Add the site, then set HOTJAR_SITE_ID and redeploy",
    "d": "Inside the client organisation, add the site for the apex domain and copy its numeric Site ID. Run task 2.5 with <code>HOTJAR_SITE_ID</code> = that ID.",
    "expect": "The Hotjar snippet with your ID is in the live HTML. Ridge &amp; Falls: <code>6776829</code>.",
-   "id": "WEB-003.6.3"
+   "id": "WEB-003.6.3",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f9-hotjar-new-site.jpg",
+     "caption": "Hotjar → Sites &amp; Organizations → New site: choose the client's organisation first, never the top level."
+    },
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f10-hotjar-site-id.jpg",
+     "caption": "Once the site is added, its Site ID is at the top right of the install page. That number is HOTJAR_SITE_ID."
+    }
+   ]
   },
   {
    "type": "step",
@@ -1126,6 +1188,12 @@
      "0.2",
      "Kyle Zinger",
      "Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal."
+    ],
+    [
+     "2026-10-15",
+     "0.3",
+     "Kyle Zinger",
+     "Ten screenshots from the Awayframes launch added to tasks 4.4–6.3 (Google Analytics, Search Console, Hotjar), cropped and ringed."
     ]
    ]
   },

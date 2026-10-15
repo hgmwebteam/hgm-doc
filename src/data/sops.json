@@ -106,16 +106,23 @@
         "id": "HGM-SOP-WEB-003",
         "dept": "WEB",
         "title": "Post-launch connections: analytics, search, behaviour tracking and the deploy that carries them",
-        "version": "0.2",
+        "version": "0.3",
         "status": "draft",
         "owner_role": "Web & Content Specialist",
         "owner": "Kyle Zinger",
         "updated": "2026-10-15",
         "next_review": "2027-03-11",
-        "html": "html/HGM-SOP-WEB-003_v0_2.html",
-        "pdf": "pdf/HGM-SOP-WEB-003_v0_2.pdf",
-        "change_summary": "Loom review layout (house style v1.9).",
+        "html": "html/HGM-SOP-WEB-003_v0_3.html",
+        "pdf": "pdf/HGM-SOP-WEB-003_v0_3.pdf",
+        "change_summary": "Ten screenshots from the Awayframes launch added to tasks 4.4–6.3 (Google Analytics, Search Console, Hotjar), cropped and ringed.",
         "versions": [
+            {
+                "version": "0.3",
+                "date": "2026-10-15",
+                "summary": "Ten screenshots from the Awayframes launch added to tasks 4.4–6.3 (Google Analytics, Search Console, Hotjar), cropped and ringed.",
+                "html": "html/HGM-SOP-WEB-003_v0_3.html",
+                "pdf": "pdf/HGM-SOP-WEB-003_v0_3.pdf"
+            },
             {
                 "version": "0.2",
                 "date": "2026-10-15",
@@ -140,20 +147,27 @@
         "id": "HGM-SOP-WEB-004",
         "dept": "WEB",
         "title": "Rebuild a live client site as a Next.js and Supabase site",
-        "version": "0.6",
+        "version": "0.7",
         "status": "draft",
         "owner_role": "Web & Content Specialist",
         "owner": "Kyle Zinger",
-        "updated": "2026-10-09",
+        "updated": "2026-10-15",
         "next_review": "2027-03-23",
-        "html": "html/HGM-SOP-WEB-004_v0_6.html",
-        "pdf": "pdf/HGM-SOP-WEB-004_v0_6.pdf",
-        "change_summary": "Loom review: VS Code only; roles, definitions and troubleshooting removed; where every key comes from; function checks; account manager and client review before hand-on.",
+        "html": "html/HGM-SOP-WEB-004_v0_7.html",
+        "pdf": "pdf/HGM-SOP-WEB-004_v0_7.pdf",
+        "change_summary": "Three screenshots added: the Resend API keys screen (4.7), the GoHighLevel Location ID (4.9) and Netlify's Add a variable (4.11).",
         "versions": [
+            {
+                "version": "0.7",
+                "date": "2026-10-15",
+                "summary": "Three screenshots added: the Resend API keys screen (4.7), the GoHighLevel Location ID (4.9) and Netlify's Add a variable (4.11).",
+                "html": "html/HGM-SOP-WEB-004_v0_7.html",
+                "pdf": "pdf/HGM-SOP-WEB-004_v0_7.pdf"
+            },
             {
                 "version": "0.6",
                 "date": "2026-10-09",
-                "summary": "Loom review: VS Code only; roles, definitions and troubleshooting removed; where every key comes from; function checks; account manager and client review before hand-on.",
+                "summary": "Loom review with AnhTuan.",
                 "html": "html/HGM-SOP-WEB-004_v0_6.html",
                 "pdf": "pdf/HGM-SOP-WEB-004_v0_6.pdf"
             },
@@ -194,7 +208,7 @@
             }
         ],
         "pending": {
-            "images": 16,
+            "images": 14,
             "inputs": 8
         }
     },
@@ -202,20 +216,27 @@
         "id": "HGM-SOP-WEB-005",
         "dept": "WEB",
         "title": "Pre-launch readiness and go-live",
-        "version": "0.3",
+        "version": "0.4",
         "status": "draft",
         "owner_role": "Web & Content Specialist",
         "owner": "Kyle Zinger",
-        "updated": "2026-10-09",
+        "updated": "2026-10-15",
         "next_review": "2027-03-29",
-        "html": "html/HGM-SOP-WEB-005_v0_3.html",
-        "pdf": "pdf/HGM-SOP-WEB-005_v0_3.pdf",
-        "change_summary": "Loom review: starts at client approval; push to production after accessibility; Lighthouse against production; key directions moved to WEB-004; privacy pop-up removed.",
+        "html": "html/HGM-SOP-WEB-005_v0_4.html",
+        "pdf": "pdf/HGM-SOP-WEB-005_v0_4.pdf",
+        "change_summary": "Seven screenshots from the Awayframes pre-launch and cutover added at 2.2, 4.1, 6.2, 8.3, 9.3, 9.6 and 9.10, each replacing its image placeholder.",
         "versions": [
+            {
+                "version": "0.4",
+                "date": "2026-10-15",
+                "summary": "Seven screenshots from the Awayframes pre-launch and cutover added at 2.2, 4.1, 6.2, 8.3, 9.3, 9.6 and 9.10, each replacing its image placeholder.",
+                "html": "html/HGM-SOP-WEB-005_v0_4.html",
+                "pdf": "pdf/HGM-SOP-WEB-005_v0_4.pdf"
+            },
             {
                 "version": "0.3",
                 "date": "2026-10-09",
-                "summary": "Loom review: starts at client approval; push to production after accessibility; Lighthouse against production; key directions moved to WEB-004; privacy pop-up removed.",
+                "summary": "Loom review with AnhTuan.",
                 "html": "html/HGM-SOP-WEB-005_v0_3.html",
                 "pdf": "pdf/HGM-SOP-WEB-005_v0_3.pdf"
             },
@@ -235,7 +256,7 @@
             }
         ],
         "pending": {
-            "images": 15,
+            "images": 8,
             "inputs": 34
         }
     }

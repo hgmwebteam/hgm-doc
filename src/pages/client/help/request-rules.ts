@@ -281,6 +281,32 @@ export function cleanSubmitterName(raw: unknown): { ok: true; name: string } | {
     return { ok: true, name };
 }
 
+/* ── Asking for an update ─────────────────────────────────────────────────── */
+
+/**
+ * The Ask for an update box on an open request (FLOHOM, 15 Oct 2026: "Do we inquire about
+ * updates on timing of completion through the portal as well?"). One message, 1 to 1000
+ * characters, cleaned the way the Submitted by name is: line breaks are kept because a
+ * question can run to a second paragraph, every other control and invisible character goes.
+ */
+export const MAX_QUESTION_CHARS = 1000;
+export const QUESTION_MISSING = "Write what you would like to know.";
+export const QUESTION_TOO_LONG = "Keep it to 1000 characters or fewer.";
+
+export function cleanQuestion(raw: unknown): { ok: true; question: string } | { ok: false; error: string } {
+    if (typeof raw !== "string") return { ok: false, error: QUESTION_MISSING };
+    // Line by line, because stripInvisible removes CR and LF with the other controls.
+    const question = raw
+        .split(/\r\n?|\n/)
+        .map((line) => stripInvisible(line).replace(/\s+/g, " ").trim())
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    if (!question) return { ok: false, error: QUESTION_MISSING };
+    if (Array.from(question).length > MAX_QUESTION_CHARS) return { ok: false, error: QUESTION_TOO_LONG };
+    return { ok: true, question };
+}
+
 /**
  * What the Submitted by field starts with: the first candidate that is a clean name and is not
  * just the mailbox of `email`, else empty. The servers fall back to the mailbox ("marcus") when

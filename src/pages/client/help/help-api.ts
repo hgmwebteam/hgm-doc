@@ -175,7 +175,7 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
     return payload as T;
 };
 
-/* ── The five endpoints ──────────────────────────────────────────────────── */
+/* ── The six endpoints ──────────────────────────────────────────────────── */
 
 /** The topics a client may raise a request against. */
 export const fetchTopics = (proof: CallerProof): Promise<{ viewer: Viewer; topics: TicketTopic[] }> => callFunction("ticket-topics", { slug: proof.slug });
@@ -216,6 +216,14 @@ export const signOutHere = async (): Promise<void> => {
 /** Closes a request and marks it withdrawn. The row is never deleted. */
 export const withdrawTicket = (proof: CallerProof, reference: string): Promise<{ ticket: Ticket }> =>
     callFunction("ticket-withdraw", { slug: proof.slug, reference, confirm: true });
+
+/**
+ * A question on an open request. Stored on its timeline as a client_question event and emailed
+ * to the people on the request, who reply to the asker directly. Anyone on the dashboard's list
+ * may ask; the server decides, as with every other write.
+ */
+export const askForUpdate = (proof: CallerProof, reference: string, question: string): Promise<{ event: TicketEvent }> =>
+    callFunction("ticket-ask", { slug: proof.slug, reference, question });
 
 export interface NewTicketInput {
     topic: string;

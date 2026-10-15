@@ -4,13 +4,13 @@
   "title": "Rebuild a live client site as a Next.js and Supabase site",
   "lead": "How an existing client website becomes a new Next.js site built from the HGM template, matched section by section against the original. If you remember one thing: <strong class=\"hl\">the live site is the reference, not your memory</strong> — every section is judged against a saved capture of the original, never against what looks about right on screen.",
   "sop_id": "HGM-SOP-WEB-004",
-  "version": "0.5",
+  "version": "0.6",
   "status": "draft",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "approved_by": "Operations Manager (Gillian)",
   "effective_date": "2026-09-23",
   "next_review": "2027-03-23",
-  "frequency": "Every new AI website build assigned in Asana",
+  "frequency": "Every new AI website build request in Asana",
   "duration": "3 to 5 working days (provisional)",
   "schema_version": 2,
   "dept": "WEB",
@@ -41,7 +41,7 @@
    {
     "badge": "Phase 4",
     "label": "Collect the keys",
-    "hint": "Tasks 4.1–4.7 · as much as you can get today",
+    "hint": "Tasks 4.1–4.12 · as much as you can get today",
     "proc": "4"
    },
    {
@@ -59,13 +59,13 @@
    {
     "badge": "Phase 7",
     "label": "Build it and match it",
-    "hint": "Tasks 7.1–7.10 · the long part of the job",
+    "hint": "Tasks 7.1–7.13 · the long part of the job",
     "proc": "7"
    },
    {
     "badge": "Phase 8",
-    "label": "Close out and hand on",
-    "hint": "Tasks 8.1–8.4 · cost, review, next SOP",
+    "label": "Review, approval and hand-on",
+    "hint": "Tasks 8.1–8.6 · team, account manager, client",
     "proc": "8"
    }
   ]
@@ -86,92 +86,54 @@
     },
     {
      "t": "In scope",
-     "d": "Making the repository, connecting Netlify, collecting keys, gathering reference material, writing and executing the plan, matching every page and section to the original, building the forms and pop-up, and recording what the build cost in tokens."
+     "d": "Making the repository, connecting Netlify, collecting every key the build needs, gathering reference material, writing and executing the plan, matching every page and section to the original, building the forms and pop-up, checking the build works, and taking it through team, account manager and client review to approval."
     },
     {
      "t": "Out of scope",
-     "d": "Pricing and payment paths, SEO and accessibility audits, Lighthouse, BrowserStack, the test booking, legal pages and the DNS cutover — all of those belong to the pre-launch SOP. Analytics and Search Console belong to WEB-003, after launch."
+     "d": "Everything after client approval belongs to <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-005\">WEB-005</a>: SEO and GEO, accessibility, Lighthouse, BrowserStack, legal pages, the money path, the test booking and the DNS cutover. Analytics and Search Console belong to <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-003\">WEB-003</a>, after launch."
     }
    ]
   },
   {
    "type": "para",
-   "text": "This SOP covers the case where a <strong>live website already exists</strong> and is being reproduced. Building a site from a Figma design with no live original is a different job with a different reference: see section 09."
+   "text": "This SOP covers the case where a <strong>live website already exists</strong> and is being reproduced. Building a site from a Figma design with no live original is a separate SOP, not yet written."
   },
   {
    "type": "rules",
    "k": "Always true",
    "t": "Five standing rules",
-   "d": "These hold on every build. Everything else in this document is procedure; these are not negotiable.",
+   "d": "True on every build.",
    "items": [
     {
      "t": "The live site is the reference",
-     "d": "Every section is judged against a saved capture of the original in <code>Resources/</code>, not against what looks right on screen. If there is no capture, make one before you build the section."
+     "d": "Judge every section against a saved capture in <code>Resources/</code>, not against how it looks."
     },
     {
      "t": "Never touch pricing or payment",
-     "d": "The booking flow's money path — prices, deposits, Stripe, coupons — is not built or altered in this SOP. Work up to the property page and stop. The money path is handled in the pre-launch SOP."
+     "d": "Stop at the property page. The money path is WEB-005's job."
     },
     {
-     "t": "Secret keys go in two places and nowhere else",
-     "d": "<code>.env.local</code> on your machine and the client's 1Password vault. Never in a commit, never in a prompt, never in a screenshot. The Supabase service role key bypasses row level security — treat it as a password."
+     "t": "Secret keys live in two places",
+     "d": "<code>.env.local</code> and the client's 1Password vault. Never in a commit, a prompt or a screenshot."
     },
     {
-     "t": "Nothing gets a custom domain here",
-     "d": "The site lives on its <code>*.netlify.app</code> address for the whole of this SOP. The DNS cutover happens at launch, in the pre-launch SOP, after the client has approved the site."
+     "t": "No custom domain",
+     "d": "The site stays on its <code>*.netlify.app</code> address until the WEB-005 cutover."
     },
     {
      "t": "Record what it cost",
-     "d": "Every working session appends its token count and dollar cost to <code>TOKENS.md</code> in the repository root. Operations needs a real cost per build, and nobody can reconstruct it afterwards."
+     "d": "Every session adds a row to <code>TOKENS.md</code>."
     }
    ]
   },
   {
    "type": "section",
    "num": "02",
-   "label": "Roles and responsibilities"
-  },
-  {
-   "type": "table",
-   "headers": [
-    "Role",
-    "Responsibility"
-   ],
-   "rows": [
-    [
-     "Web team member running the build",
-     "Performs tasks 1.1 to 8.4. Anyone on the web team can run this SOP."
-    ],
-    [
-     "Web & Content Specialist (Kyle Zinger)",
-     "Owns this SOP and keeps it current. First point of contact when the procedure and reality disagree."
-    ],
-    [
-     "Template owner (Leshan Patterson)",
-     "Owns the two template repositories. Escalation point when the template itself is wrong, stale or missing a file."
-    ],
-    [
-     "Operations Manager (Gillian)",
-     "Approves this SOP. Approves scope changes that add days to a build."
-    ],
-    [
-     "Client websites space, Google Chat",
-     "Where the build is posted for the team to review for mistakes and issues before it moves to pre-launch."
-    ],
-    [
-     "Client",
-     "Owns the Supabase project and the property management system account. Supplies keys and reviews the finished site."
-    ]
-   ]
-  },
-  {
-   "type": "section",
-   "num": "03",
    "label": "Prerequisites"
   },
   {
    "type": "numcards",
-   "columns": 2,
+   "columns": 1,
    "items": [
     {
      "t": "Access to the hgmwebteam GitHub organisation",
@@ -191,11 +153,11 @@
     },
     {
      "t": "1Password, with the client's vault",
-     "d": "Client logins and the site's <code>.env.local</code> entry live here. See HGM-SOP-WEB-001."
+     "d": "Client logins and the site's <code>.env.local</code> entry live here. See <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>."
     },
     {
      "t": "VS Code with Claude Code signed in",
-     "d": "The build is driven from Claude Code inside VS Code. Node and npm installed — HGM-SOP-WEB-002 task 1.1 lists the four tools."
+     "d": "Every task in this SOP is done in VS Code, with Claude Code and the VS Code terminal. Node and npm installed — <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> task 1.1 lists the four tools."
     },
     {
      "t": "The URL of the live site",
@@ -209,83 +171,12 @@
      "t": "The Asana task",
      "d": "The build request. It carries the client, the deadline and anything the account manager has already agreed."
     }
-   ]
-  },
-  {
-   "type": "sub",
-   "text": "Where are you working?"
-  },
-  {
-   "type": "cards",
-   "cols": 3,
-   "items": [
-    {
-     "icon": "vscode",
-     "t": "VS Code",
-     "d": "The whole build. Clone, edit, run the site locally, and drive Claude Code. This is the normal route."
-    },
-    {
-     "icon": "terminal",
-     "t": "Terminal",
-     "d": "Install, run and build commands. Everything here also works from the VS Code terminal."
-    },
-    {
-     "icon": "desktop",
-     "t": "Claude Desktop app",
-     "d": "Prompts only. Useful for reading a plan or drafting a correction prompt away from the machine."
-    }
-   ]
+   ],
+   "collapse": true
   },
   {
    "type": "section",
-   "num": "04",
-   "label": "Definitions"
-  },
-  {
-   "type": "cards",
-   "cols": 2,
-   "items": [
-    {
-     "t": "Property management system (PMS)",
-     "d": "The booking platform the client's properties live in — Guesty or Hostaway. It supplies listings, availability and rates through its API. Which one the client uses decides which template you start from, and it is recorded on the client's record in hgmportal.com."
-    },
-    {
-     "t": "Template repository",
-     "d": "A GitHub repository marked <strong>Private template</strong>. Pressing <strong>Use this template</strong> makes a new repository containing a copy of its files, with no shared history. HGM has two: <code>ai-website-template-guesty</code> and <code>ai-website-template-hostaway</code>."
-    },
-    {
-     "t": "The three places the site exists",
-     "d": "<strong>Local</strong> — the copy running on your machine at <code>localhost</code>, the only one you edit. <strong>Preview</strong> — a Netlify build of a branch or pull request, on a temporary address. <strong>Production</strong> — the build of <code>main</code>, on the site's <code>netlify.app</code> address. A change is only in the place you put it."
-    },
-    {
-     "t": "Resources folder",
-     "d": "<code>Resources/</code> in the repository root. Holds the saved HTML and screen captures of the original site and the design exports. It is the evidence the build is checked against, and it stays in the repository."
-    },
-    {
-     "t": "PLAN.md",
-     "d": "The build plan, shipped in the template and rewritten for each client. It names the template, the client, the property management system, the host, the database and the site being reproduced, and lists the work section by section."
-    },
-    {
-     "t": "Design tokens",
-     "d": "The small set of repeated values a site's look is built from — its colours, font families and weights, size scale, spacing steps, corner radii and breakpoints. On the original they live in its stylesheets; here they are collected once into <code>Resources/VARIABLES.md</code> and the build is held to them."
-    },
-    {
-     "t": "Row level security (RLS)",
-     "d": "The Supabase rule set deciding which rows a key may read or write. The <strong>anon</strong> key is subject to it and is safe in the browser. The <strong>service role</strong> key ignores it entirely and is only ever used server-side."
-    },
-    {
-     "t": "GHL form",
-     "d": "A form built in GoHighLevel and embedded on the site as an <code>iframe</code> — inline in a page, or inside a pop-up. HGM builds the page around the embed; the form itself is edited in GoHighLevel. Each client has their own <strong>sub-account</strong>, identified by a <strong>Location ID</strong>, and that ID is what decides whose CRM a submission lands in."
-    },
-    {
-     "t": "Deploy preview",
-     "d": "The Netlify build of a pull request, on its own address. It is the link you send for review, and it is not the production site."
-    }
-   ]
-  },
-  {
-   "type": "section",
-   "num": "05",
+   "num": "03",
    "label": "Procedure"
   },
   {
@@ -311,7 +202,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; The client's record on hgmportal.com, cropped to the property management system field. Ring the PMS field."
+     "text": "<strong>(image to be added)</strong> — The client's record on hgmportal.com, cropped to the property management system field. Ring the PMS field."
     }
    ],
    "id": "WEB-004.1.1"
@@ -327,6 +218,12 @@
      "type": "figure",
      "path": "fig_HGM-SOP-WEB-004_f1-templates.png",
      "caption": "The two site templates in the hgmwebteam organisation. Pick the one matching the client's booking platform."
+    },
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "No template for this booking platform",
+     "text": "If the client is on a platform with no template — Cloudbeds, for example — start from <strong class=\"hl\">[NEEDS INPUT: the name of the standard AI website template repository in hgmwebteam]</strong> or from whichever PMS template is closer, then tell Claude the platform is different in task 6.2. Do not start building against the wrong platform's booking engine."
     }
    ],
    "id": "WEB-004.1.2"
@@ -402,7 +299,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; Netlify <strong>Team settings</strong> &rarr; <strong>Members</strong> with the invite dialog open and the role list showing. Ring the <strong>Developer</strong> option."
+     "text": "<strong>(image to be added)</strong> — Netlify Team settings → Members with the invite dialog open and the role list showing. Ring the Developer option."
     }
    ],
    "id": "WEB-004.2.1"
@@ -412,7 +309,7 @@
    "n": "2.2",
    "t": "Import the repository into Netlify",
    "d": "In Netlify, click <strong>Add new project</strong>, then <strong>Import an existing project</strong>, then <strong>GitHub</strong>, then choose <code>hgmwebteam/&lt;client-name&gt;</code>. Accept the build settings the template supplies and click <strong>Deploy</strong>.",
-   "expect": "A Netlify project exists and its first build starts. That build will fail, because no environment variables are set yet. That is expected and is fixed in task 4.6.",
+   "expect": "A Netlify project exists and its first build starts. That build will fail, because no environment variables are set yet. That is expected and is fixed in task 4.11.",
    "body": [
     {
      "type": "panel",
@@ -424,7 +321,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; Netlify <strong>Import an existing project</strong> &rarr; GitHub, with the repository list showing. Ring the repository row."
+     "text": "<strong>(image to be added)</strong> — Netlify Import an existing project → GitHub, with the repository list showing. Ring the repository row."
     }
    ],
    "id": "WEB-004.2.2"
@@ -440,7 +337,7 @@
      "type": "panel",
      "kind": "critical",
      "t": "No custom domain in this SOP",
-     "text": "Pointing the client's real domain at this project takes their current site down. The DNS cutover happens at launch, after the client has approved the build — see the pre-launch SOP in section 09."
+     "text": "Pointing the client's real domain at this project takes their current site down. The DNS cutover happens at launch, after the client has approved the build — see WEB-005."
     }
    ],
    "id": "WEB-004.2.3"
@@ -515,7 +412,7 @@
    "n": "3.4",
    "t": "Start the cost file",
    "d": "Create <code>TOKENS.md</code> in the repository root with one heading and a table — date, session, approximate tokens, cost in Canadian dollars — and commit it.",
-   "expect": "Every later session has somewhere to record what it cost. Task 8.1 fills in the first row.",
+   "expect": "Every later session has somewhere to record what it cost. Task 8.1 fills in a row.",
    "body": [
     {
      "type": "code",
@@ -549,7 +446,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; The keys section of the client's record on hgmportal.com, with every value redacted before you send it."
+     "text": "<strong>(image to be added)</strong> — The keys section of the client's record on hgmportal.com, with every value redacted before you send it."
     }
    ],
    "id": "WEB-004.4.1"
@@ -571,7 +468,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; Supabase <strong>Project settings</strong> &rarr; <strong>Members</strong> with the invite dialog open. Ring the <strong>Invite</strong> button."
+     "text": "<strong>(image to be added)</strong> — Supabase Project settings → Members with the invite dialog open. Ring the Invite button."
     }
    ],
    "id": "WEB-004.4.2"
@@ -611,7 +508,7 @@
    "type": "step",
    "n": "4.5",
    "t": "Set the site's own address",
-   "d": "Set <code>NEXT_PUBLIC_SITE_URL</code> to the <code>*.netlify.app</code> address you recorded in task 2.2, with no trailing slash.",
+   "d": "Set <code>NEXT_PUBLIC_SITE_URL</code> to the <code>*.netlify.app</code> address you recorded in task 2.3, with no trailing slash.",
    "expect": "The variable is set. Leaving it empty makes the site throw during the build rather than falling back to a default.",
    "body": [],
    "id": "WEB-004.4.5"
@@ -619,37 +516,141 @@
   {
    "type": "step",
    "n": "4.6",
-   "t": "Put the same variables on Netlify and rebuild",
-   "d": "In the Netlify project, open <strong>Site configuration</strong> → <strong>Environment variables</strong>, add each variable from <code>.env.local</code> by hand, then trigger a new deploy.",
-   "expect": "The deploy succeeds and the <code>netlify.app</code> address serves the template's home page.",
+   "id": "WEB-004.4.8",
+   "t": "Get the Stripe test keys and a 100% coupon from the client",
+   "d": "Through the account manager, ask the client for the test publishable key and test secret key from their Stripe account, or sandbox details, plus a 100% coupon for the WEB-005 test booking. <strong class=\"hl\">[NEEDS INPUT: Q11 — whether Stripe is the client's own account and who swaps test for live]</strong>",
+   "expect": "Two keys beginning <code>pk_test_</code> and <code>sk_test_</code>, and a coupon code, in the client's 1Password vault.",
    "body": [
     {
+     "type": "code",
+     "kind": "message",
+     "label": "Message for the account manager to forward",
+     "text": "For <client>'s new site we need Stripe test access so we can prove the payment path without charging anyone: the test publishable key and test secret key from their Stripe dashboard (test mode), or sandbox login details, plus a 100% coupon code for one test booking. Please send them through 1Password, not email."
+    },
+    {
      "type": "panel",
-     "kind": "warning",
-     "t": "Add them by hand, one at a time",
-     "text": "Bulk-importing <code>.env.local</code> uploads everything in the file, including anything personal to your own machine, and arms every scheduled function the template ships. Type in the variables the site needs and no others."
+     "kind": "critical",
+     "t": "Test keys only",
+     "text": "A key beginning <code>sk_live_</code> never goes into <code>.env.local</code>. If the client sends live keys, put them in 1Password and stop; the live swap happens in WEB-005."
     },
     {
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; Netlify <strong>Site configuration</strong> &rarr; <strong>Environment variables</strong>, mid-way through adding one, values redacted. Ring the <strong>Add a variable</strong> button."
+     "text": "<strong>(image to be added)</strong> — Stripe's test-mode API keys screen, both values redacted before you send it. Ring the test-mode toggle."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "4.7",
+   "id": "WEB-004.4.9",
+   "t": "Get the Resend API key",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q13 — whether Resend is the client's account or HGM's, and where the key is created]</strong>",
+   "expect": "A Resend API key in <code>.env.local</code> under <strong class=\"hl\">[NEEDS INPUT: the variable name in ENV.template]</strong>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> — The Resend API keys screen, value redacted."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "4.8",
+   "id": "WEB-004.4.10",
+   "t": "Get the Meta pixel ID and access token",
+   "d": "<strong class=\"hl\">[NEEDS INPUT: Q19 — where the shared HGM conversions API token is kept, and whether the pixel ID is per client]</strong>",
+   "expect": "Both values in <code>.env.local</code>.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "4.9",
+   "id": "WEB-004.4.11",
+   "t": "Get the GoHighLevel Location ID and private integration token",
+   "d": "In the client's GoHighLevel sub-account, open the business profile and copy the Location ID. Then create a new private integration and copy its token. <strong class=\"hl\">[NEEDS INPUT: Q16 — which scopes to select, and the menu labels in HGM's white-labelled GoHighLevel]</strong>",
+   "expect": "The Location ID matches the one on the client's record in hgmportal.com, and both values are in <code>.env.local</code>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "Check which sub-account you are in",
+     "text": "A token from the wrong sub-account sends this client's enquiries and bookings into another client's CRM, and nothing errors."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> — The GoHighLevel private integration screen after creation, with the scope list showing. Ring the scope list."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "4.10",
+   "id": "WEB-004.4.12",
+   "t": "Get the booking platform's booking engine details",
+   "d": "For Guesty: open <strong>Marketing + Sales</strong> → <strong>Distribution</strong> → <strong>Guesty Booking Engine</strong> and copy the booking engine API (BEAPI) URL. <strong class=\"hl\">[NEEDS INPUT: Q17 — the variable it fills, and the Hostaway and Cloudbeds equivalents]</strong>",
+   "expect": "The booking platform values are in <code>.env.local</code>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> — The booking platform's distribution screen where the booking engine URL is shown. Ring the URL field."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "4.11",
+   "t": "Put the variables on Netlify and rebuild",
+   "d": "Ask Claude Code to set each variable from <code>.env.local</code> on the Netlify project, one at a time, then trigger a new deploy. If Claude cannot reach Netlify, add them by hand in <strong>Site configuration</strong> → <strong>Environment variables</strong>.",
+   "expect": "The deploy succeeds and the <code>netlify.app</code> address serves the template's home page.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "needs the Netlify CLI logged in and linked",
+     "text": "Using the Netlify CLI on the project linked to this repository, set each variable that has a value in .env.local and also appears in ENV.template, one at a time with netlify env:set. Skip NETLIFY_SITE_ID. Never use netlify env:import, never print a value, and list the variable names you set. If the CLI is not logged in or the site is not linked, stop and tell me."
+    },
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "Named variables only, never a bulk import",
+     "text": "Importing <code>.env.local</code> whole uploads anything personal to your machine and arms every scheduled function the template ships. The prompt sets only names that are in <code>ENV.template</code>."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "First run of the automated route",
+     "text": "This replaces typing each variable in by hand. Check the list Claude prints against Netlify on the first build that uses it, and tell the Web & Content Specialist if anything was missed."
+    },
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Image to be added",
+     "text": "<strong>(image to be added)</strong> — Netlify Site configuration → Environment variables, mid-way through adding one, values redacted. Ring the Add a variable button."
     }
    ],
    "id": "WEB-004.4.6"
   },
   {
    "type": "step",
-   "n": "4.7",
-   "t": "Write the environment file back to 1Password, and note what is missing",
-   "d": "Save the current <code>.env.local</code> into the client's 1Password vault following HGM-SOP-WEB-001, then comment on the Asana task listing every variable still empty and who has to supply it.",
-   "expect": "Someone other than you could pick the build up tomorrow. The missing keys — typically Stripe, Resend and the booking platform's live credentials — are somebody's named job rather than a surprise at launch.",
+   "n": "4.12",
+   "t": "Write the environment file back to 1Password",
+   "d": "Save the current <code>.env.local</code> into the client's 1Password vault following <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>. Leave a key blank if the client has not supplied it yet; the blank is the record of what is still owed.",
+   "expect": "Someone else could pick the build up tomorrow from 1Password alone, and WEB-005 task 1.3 finds the missing keys by their blank values.",
    "body": [
     {
      "type": "panel",
      "kind": "note",
      "t": "Deferring a key is normal",
-     "text": "Fill in everything you can get in the moment and defer the rest to launch. What is not normal is nobody knowing a key is missing until the day the site is meant to go live."
+     "text": "Some keys are not needed until launch, and some clients are slow to supply them. Build without them and fill them in when they arrive — WEB-005 checks for blanks before anything goes live."
     }
    ],
    "id": "WEB-004.4.7"
@@ -695,7 +696,7 @@
    "type": "step",
    "n": "5.3",
    "t": "Capture every page as a full-page image",
-   "d": "Capture each page of the original site top to bottom at 2× pixel density and save it into <code>Resources/Page PNG/</code>, named for the page.",
+   "d": "Capture each page of the original site top to bottom at 2× pixel density with a full-page capture extension — the team uses FireShot — and save it into <code>Resources/Page PNG/</code>, named for the page.",
    "expect": "One image per page, showing the whole page rather than the visible window.",
    "body": [
     {
@@ -733,7 +734,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; The browser's <strong>Network</strong> panel filtered to CSS on the original site, showing the stylesheet list. Ring the filter control."
+     "text": "<strong>(image to be added)</strong> — The browser's Network panel filtered to CSS on the original site, showing the stylesheet list. Ring the filter control."
     }
    ],
    "id": "WEB-004.5.5"
@@ -783,7 +784,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; Devtools with <strong>Computed</strong> open on a heading, with font, size and colour visible."
+     "text": "<strong>(image to be added)</strong> — Devtools with Computed open on a heading, with font, size and colour visible."
     }
    ],
    "id": "WEB-004.5.7"
@@ -814,9 +815,17 @@
    "type": "step",
    "n": "6.2",
    "t": "Replace the property management system throughout",
-   "d": "In the same file, replace every mention of the template's booking platform with the one this client uses, if they differ.",
-   "expect": "<code>PLAN.md</code> names one booking platform and it is the client's.",
-   "body": [],
+   "d": "In the same file, replace every mention of the template's booking platform with the one this client uses. If the client's platform has no template, also run the prompt below before task 6.3.",
+   "expect": "<code>PLAN.md</code> names one booking platform, it is the client's, and the booking sections are written for it.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "only when the platform has no template",
+     "text": "This client is on <booking platform>, not <template's platform>. Its booking engine, API, listings, availability and reservation model are different. Research how <booking platform>'s API and booking engine work, then update plan.md so every section that touches booking, listings, availability or checkout is written for <booking platform>. List what you changed and anything you could not confirm."
+    }
+   ],
    "id": "WEB-004.6.2"
   },
   {
@@ -965,7 +974,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; GoHighLevel <strong>Sites</strong> &rarr; <strong>Forms</strong> with the HGM form template in the list. Ring the template row."
+     "text": "<strong>(image to be added)</strong> — GoHighLevel Sites → Forms with the HGM form template in the list. Ring the template row."
     }
    ],
    "id": "WEB-004.7.4"
@@ -987,7 +996,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; The GoHighLevel form builder with the integrate control visible, then the embed dialog with the inline layout selected. Ring the <strong>Integrate form</strong> control."
+     "text": "<strong>(image to be added)</strong> — The GoHighLevel form builder with the integrate control visible, then the embed dialog with the inline layout selected. Ring the Integrate form control."
     }
    ],
    "id": "WEB-004.7.5"
@@ -1038,7 +1047,7 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; The finished pop-up on a phone width and on a desktop width, side by side."
+     "text": "<strong>(image to be added)</strong> — The finished pop-up on a phone width and on a desktop width, side by side."
     }
    ],
    "id": "WEB-004.7.7"
@@ -1071,6 +1080,12 @@
      "kind": "prompt",
      "label": "Animations",
      "text": "Add an immersive experience by applying the appropriate animations to all the pages — for example elements fading in — using the /emil-design-eng skill."
+    },
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "Install the skill first",
+     "text": "The <code>/emil-design-eng</code> command only works if the skill is installed in your Claude Code. Install it from <strong class=\"hl\">[NEEDS INPUT: where the team gets the emil-design-eng skill]</strong> before you run the prompt."
     }
    ],
    "id": "WEB-004.7.9"
@@ -1078,8 +1093,34 @@
   {
    "type": "step",
    "n": "7.10",
+   "id": "WEB-004.7.13",
+   "t": "Ask Claude to check the build works like the original",
+   "d": "Run the prompt below. It checks function, not looks — including the parts you cannot see.",
+   "expect": "A list of what works, what does not and what was fixed. Treat it as a first pass; task 7.11 is the check that counts.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Compare this build with <live site URL> for function, not appearance. Check every page loads, every link and button goes where the original's does, every form submits, listings and their images load from Supabase and the booking platform, the search widget returns results, and nothing in the browser console errors. Fix what is broken, then list what you checked, what you fixed and anything you could not check."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "7.11",
+   "id": "WEB-004.7.14",
+   "t": "Check it yourself: every page, every button",
+   "d": "Open the build on <code>localhost</code>. Go to every page in the sitemap and click every link, button, menu and form. Try to break it. Write down anything that fails and give the list to Claude in one prompt, as in task 7.3.",
+   "expect": "Every page opens, every control does something, and nothing on your list is still broken.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "7.12",
    "t": "Walk the booking flow as a guest",
-   "d": "Start at the search widget on the home page, search, open the listings, and open a property page. Check the dates and guest counts a visitor chooses are carried through every step, and that the URLs are the ones the plan describes.",
+   "d": "Start at the search widget on the home page. Choose dates, guests and pets if the site asks, and search. On the stays page, check the widget shows what you chose. Open a property and check its listing page shows the same dates and guests, so the guest never chooses them twice.",
    "expect": "A guest can get from the home page to a property page with their dates intact. Stop there.",
    "body": [
     {
@@ -1092,15 +1133,32 @@
      "type": "panel",
      "kind": "note",
      "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> &mdash; The finished build's search widget with dates and guests filled in, and the property page it leads to."
+     "text": "<strong>(image to be added)</strong> — The finished build's search widget with dates and guests filled in, and the property page it leads to."
     }
    ],
    "id": "WEB-004.7.10"
   },
   {
+   "type": "step",
+   "n": "7.13",
+   "id": "WEB-004.7.15",
+   "t": "Check the original site has not changed during the build",
+   "d": "Run the prompt below against the original.",
+   "expect": "Either nothing changed, or the changed pages are re-captured into <code>Resources/</code> and rebuilt.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Compare <live site URL> today with the captures in Resources/Page HTML and Resources/Page PNG. List every page whose content, layout or wording has changed since they were saved. Make no changes to the build."
+    }
+   ]
+  },
+  {
    "type": "sub",
    "id": "8",
-   "text": "Phase 8 &mdash; Close out and hand on",
+   "text": "Phase 8 &mdash; Review, approval and hand-on",
    "d": "Record what the build cost, get it reviewed by the team, and pass it to pre-launch."
   },
   {
@@ -1129,7 +1187,7 @@
    "type": "step",
    "n": "8.2",
    "t": "Push the branch and open a pull request",
-   "d": "Push your branch and open a pull request against <code>main</code>, following HGM-SOP-WEB-002 phase 5.",
+   "d": "Push your branch and open a pull request against <code>main</code>, following <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> phase 5.",
    "expect": "Netlify builds a deploy preview and posts its link on the pull request.",
    "body": [],
    "id": "WEB-004.8.2"
@@ -1139,7 +1197,7 @@
    "n": "8.3",
    "t": "Post the site for team review",
    "d": "Post the deploy preview link in the <strong>client websites</strong> space in Google Chat and ask the team to review it for mistakes and issues.",
-   "expect": "The team has the link and a deadline. Work through what comes back before task 8.4.",
+   "expect": "The team has the link and a deadline. Work through what comes back, then merge the pull request so the <code>netlify.app</code> address carries it.",
    "body": [
     {
      "type": "code",
@@ -1153,15 +1211,53 @@
   {
    "type": "step",
    "n": "8.4",
-   "t": "Hand the build to pre-launch",
-   "d": "Merge the pull request, comment on the Asana task with the <code>netlify.app</code> address, the list of keys still missing from task 4.7, and the <code>TOKENS.md</code> total, then move the task to the pre-launch stage.",
-   "expect": "The build is finished and somebody else could take it to launch without asking you a question. Continue in the pre-launch SOP — see section 09.",
-   "body": [],
+   "id": "WEB-004.8.5",
+   "t": "Send the site to the account manager",
+   "d": "Once the team's comments are fixed and merged, post the <code>netlify.app</code> address in the <strong>client websites</strong> space for the account manager and ask them to review it before the client sees it.",
+   "expect": "The account manager has the link and replies with changes or a go-ahead to send it to the client.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "message",
+     "label": "Post in the client websites space",
+     "text": "@<account manager> <client>'s new site is ready for your review before it goes to the client: <netlify.app URL>. Original for comparison: <live site URL>. Reply here with anything to change, or a go-ahead to send it on."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "8.5",
+   "id": "WEB-004.8.6",
+   "t": "Work through the client's revisions",
+   "d": "The account manager sends the site to the client. Make each change they ask for through the <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> branch-and-preview path, until the client has no open comments.",
+   "expect": "Every revision is merged and the <code>netlify.app</code> address shows it.",
+   "body": []
+  },
+  {
+   "type": "step",
+   "n": "8.6",
+   "t": "Confirm the client has approved, then hand on",
+   "d": "When the account manager confirms the client has approved the site, post in the <strong>client websites</strong> space that the build is moving to pre-launch, with the <code>netlify.app</code> address and the <code>TOKENS.md</code> total.",
+   "expect": "The build is approved and somebody else could take it to launch without asking you a question. Continue in WEB-005.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "message",
+     "label": "Post in the client websites space",
+     "text": "<client> is approved by the client and moving to pre-launch (WEB-005): <netlify.app URL>. Build cost so far: <TOKENS.md total>."
+    },
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "No approval, no pre-launch",
+     "text": "WEB-005 starts only after the client has approved the site and every revision is done."
+    }
+   ],
    "id": "WEB-004.8.4"
   },
   {
    "type": "section",
-   "num": "06",
+   "num": "04",
    "label": "Exceptions and edge cases"
   },
   {
@@ -1169,115 +1265,20 @@
    "cols": 2,
    "items": [
     {
-     "t": "There is no live site, only a design",
-     "d": "This SOP does not apply. A build from a Figma design with no original to copy has a different reference and a different definition of done — see section 09. Do not substitute the design file for the live site here; phases 5 and 7 assume a page you can capture."
-    },
-    {
-     "t": "The stylesheets are minified or inlined",
-     "d": "Common on a built site. Run the saved CSS through a formatter before task 5.6 so the declarations are readable, and where styles are inlined per element, take the values from <strong>Computed</strong> in devtools instead and say so in <code>VARIABLES.md</code>."
-    },
-    {
-     "t": "The client's Supabase project does not exist yet",
-     "d": "Do phases 1 to 3, then stop at task 4.2 and ask the account manager to have the client create it. Do not create it under an HGM account to keep moving — it cannot be transferred cleanly later, and the client owns their data."
-    },
-    {
-     "t": "The template has moved on since this repository was made",
-     "d": "Read <code>UPSTREAM.md</code> in the repository; it describes how the template's changes are pulled in. Pull them before phase 7, not during it — a template update landing mid-build undoes correction work."
-    },
-    {
-     "t": "The original site changes during the build",
-     "d": "It happens on live businesses. Re-capture only the pages that changed into <code>Resources/</code>, note the date in <code>PLAN.md</code>, and tell the account manager the change was caught. An uncaptured change is found at client review and reads as a build error."
-    },
-    {
      "t": "A page in the original is deliberately not being rebuilt",
      "d": "Name it in <code>PLAN.md</code> as out of scope and say what happens to its URL instead — usually a redirect. An unlisted omission is indistinguishable from a page somebody forgot."
     }
    ]
   },
   {
-   "type": "section",
-   "num": "07",
-   "label": "Troubleshooting and escalation"
-  },
-  {
-   "type": "table",
-   "boxed": true,
-   "headers": [
-    "Symptom",
-    "Cause",
-    "What to do"
-   ],
-   "rows": [
-    [
-     "The first Netlify deploy fails",
-     "No environment variables are set yet",
-     "Expected until task 4.6. Set the variables, then trigger a new deploy."
-    ],
-    [
-     "Every listing image 404s on localhost",
-     "<code>NETLIFY_SITE_ID</code> is set in <code>.env.local</code>",
-     "Remove it from <code>.env.local</code>. It flips the site into deployed-Netlify behaviour while you are running locally. Set it on Netlify only."
-    ],
-    [
-     "The Netlify build dies at module resolution",
-     "Tracked files import files that were never committed",
-     "Run <code>git status</code>, commit everything the changed files import, and push in one commit. A partial push builds a tree that cannot resolve."
-    ],
-    [
-     "The site throws on build with no clear error",
-     "<code>NEXT_PUBLIC_SITE_URL</code> is unset",
-     "Set it to the <code>netlify.app</code> address, both locally and on Netlify."
-    ],
-    [
-     "Claude ignores the attached capture",
-     "The image is wider than about 2000 pixels",
-     "Resize the copy you attach so its longest edge is 2000 pixels or less, then attach it again."
-    ],
-    [
-     "Colours are close but not right",
-     "Tokens were taken from a capture rather than from the CSS",
-     "Rebuild <code>VARIABLES.md</code> from <code>Resources/CSS/</code> per task 5.6, then re-check the build against it."
-    ],
-    [
-     "Corrected sections keep regressing",
-     "Looping instead of correcting section by section",
-     "Stop looping. Go back to task 7.3 and name each section and each fault in one prompt."
-    ],
-    [
-     "Supabase queries return nothing, with no error",
-     "Row level security has no policy for the anon key",
-     "Check the policies in the Supabase dashboard. Do not work around it with the service role key in browser code."
-    ],
-    [
-     "The template is missing a file this SOP names",
-     "The template has changed",
-     "Follow the template's own <code>SETUP.md</code>, finish the build, then tell the Web & Content Specialist so this document is corrected."
-    ]
-   ]
-  },
-  {
-   "type": "cards",
-   "cols": 2,
-   "items": [
-    {
-     "t": "Escalate on the template or the build",
-     "d": "Leshan Patterson, who owns both template repositories, in the <strong>client websites</strong> space in Google Chat. Use it when the template itself is wrong, stale, or missing something this SOP names."
-    },
-    {
-     "t": "Escalate on scope or the deadline",
-     "d": "Gillian, Operations Manager, in Google Chat. Use it when the work found in the original site is materially larger than the Asana task assumed, before the days are spent rather than after."
-    }
-   ]
-  },
-  {
    "type": "panel",
-   "kind": "brand",
-   "t": "Say it early",
-   "text": "A build that is going to overrun is visible in phase 5, when you see how many pages and sections the original actually has. That is the cheap moment to raise it. Phase 7 is the expensive one."
+   "kind": "note",
+   "t": "If you are stuck",
+   "text": "Ask Claude first, with the error and the task number. If the template itself is wrong, stale or missing a file, tell Leshan Patterson, template owner, in the <strong>client websites</strong> space in Google Chat. If the build is going to take longer than the request assumed, tell Gillian, Operations Manager, in Google Chat in phase 5 — when you can see how big the original is — not in phase 7."
   },
   {
    "type": "section",
-   "num": "08",
+   "num": "05",
    "label": "Final checklist before you hand the build on"
   },
   {
@@ -1289,15 +1290,17 @@
     "Every colour, font and size on the build traces to a value in <code>VARIABLES.md</code>, and nothing in that file is still marked unresolved.",
     "<code>.env.local</code> is not committed, and its current contents are saved in the client's 1Password vault.",
     "Every variable on Netlify matches the one in <code>.env.local</code>, and the production deploy succeeds.",
-    "The keys still missing are listed on the Asana task with a named owner for each.",
     "A test submission from every form has appeared as a contact in the client's GoHighLevel sub-account.",
     "The HGM web team account is a member of the client's Netlify team, and the client is still its Owner.",
     "The booking flow runs from the home page search to a property page with dates carried through.",
     "Nothing in the pricing or payment path has been altered.",
     "The site is on its <code>netlify.app</code> address and no DNS record has been changed.",
     "<code>TOKENS.md</code> has a row for every session and a total.",
-    "The deploy preview has been posted in the client websites space and the comments have been worked through."
-   ]
+    "<code>.env.local</code> is saved to the client's 1Password vault, with a blank for every key still owed.",
+    "Claude's function check (7.10) and your own every-page check (7.11) are done, and nothing on either list is open.",
+    "The team, then the account manager, then the client have reviewed the site; every revision is merged and the client has approved."
+   ],
+   "prompt": "Check this project against the final checklist below. For each line, say pass or fail and give the evidence — a command output, a file path or a URL. Make no changes."
   },
   {
    "type": "cards",
@@ -1305,17 +1308,17 @@
    "items": [
     {
      "t": "Next: pre-launch readiness checks",
-     "d": "<strong><a href=\"#related\">HGM-SOP-WEB-005</a></strong> — SEO and GEO, accessibility to WCAG 2.2 AA, the Lighthouse loop, BrowserStack, legal pages, the pixels, the Stripe and webhook work, the test booking and the DNS cutover. Everything this SOP deliberately left alone."
+     "d": "<strong><a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-005\">HGM-SOP-WEB-005</a></strong> — SEO and GEO, accessibility to WCAG 2.2 AA, the Lighthouse loop, BrowserStack, legal pages, the pixels, the Stripe and webhook work, the test booking and the DNS cutover. Starts once the client has approved the site."
     },
     {
      "t": "Then: post-launch connections",
-     "d": "<strong><a href=\"#related\">HGM-SOP-WEB-003</a></strong> — Google Analytics 4, Search Console, Hotjar, the structured-data check and the ownership map at handover. Starts the day the site is live."
+     "d": "<strong><a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-003\">HGM-SOP-WEB-003</a></strong> — Google Analytics 4, Search Console, Hotjar, the structured-data check and the ownership map at handover. Starts the day the site is live."
     }
    ]
   },
   {
    "type": "section",
-   "num": "09",
+   "num": "06",
    "label": "Related documents"
   },
   {
@@ -1334,27 +1337,27 @@
     [
      "<strong>HGM-SOP-WEB-004</strong> — this document",
      "Rebuilding a live client site as a Next.js and Supabase site",
-     "From the Asana build task to a finished site on <code>netlify.app</code>"
+     "From the build request to a finished site on <code>netlify.app</code>"
     ],
     [
-     "<strong>HGM-SOP-WEB-005</strong> — pre-launch readiness checks",
+     "<strong><a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-005\">HGM-SOP-WEB-005</a></strong> — pre-launch readiness checks",
      "SEO, GEO, accessibility, Lighthouse, BrowserStack, legal pages, pixels, Stripe and webhooks, the test booking, DNS cutover",
-     "Immediately after task 8.4. In draft — ask the Web & Content Specialist for the current version"
+     "Once the client has approved the build at task 8.6"
     ],
     [
-     "<strong>HGM-SOP-WEB-003</strong> — post-launch connections",
+     "<strong><a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-003\">HGM-SOP-WEB-003</a></strong> — post-launch connections",
      "GA4, Search Console, Hotjar, structured data, the ownership map",
      "Launch week, after the DNS cutover"
     ],
     [
-     "<strong>HGM-SOP-WEB-002</strong> — Asana to live",
+     "<strong><a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a></strong> — Asana to live",
      "Machine setup, branches, pull requests, deploy previews, merging",
-     "Referenced from tasks 3.1 and 8.2. Read it first if you have never set this machine up"
+     "Referenced from tasks 3.1, 8.2 and 8.5. Read it first if you have never set this machine up"
     ],
     [
-     "<strong>HGM-SOP-WEB-001</strong> — env files in 1Password",
+     "<strong><a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a></strong> — env files in 1Password",
      "Storing, sharing and updating a client's <code>.env</code> file",
-     "Referenced from task 4.7"
+     "Referenced from tasks 4.12 and the prerequisites"
     ],
     [
      "Building a site from a Figma design",
@@ -1367,11 +1370,11 @@
    "type": "panel",
    "kind": "brand",
    "t": "The build is not finished when the site looks right",
-   "text": "A site that matches the original and has never been through the pre-launch checks is not ready for a client, let alone a domain. Task 8.4 hands it on; do not treat a merged pull request as the end of the job."
+   "text": "A site that matches the original and has never been through the pre-launch checks is not ready for a client, let alone a domain. Task 8.6 hands it on; do not treat a merged pull request as the end of the job."
   },
   {
    "type": "section",
-   "num": "10",
+   "num": "07",
    "label": "Revision history"
   },
   {
@@ -1412,6 +1415,12 @@
      "0.5",
      "Kyle Zinger",
      "Twelve image placeholders added at the tasks that still need a capture, ahead of the portal upload."
+    ],
+    [
+     "2026-10-09",
+     "0.6",
+     "Kyle Zinger",
+     "Loom review with AnhTuan. Roles, definitions, troubleshooting and the platform choice removed; VS Code only. Where every key comes from (4.6–4.10). Function checks, a changed-original check, and account manager and client review before hand-on (7.10–8.7)."
     ]
    ]
   },

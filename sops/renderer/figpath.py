@@ -2,7 +2,7 @@
 
 The master says `fig_HGM-SOP-WEB-002_f1.png` and nothing more, because project
 knowledge is flat and a master must not know about any repo layout. The repo keeps
-masters and figures in sibling folders (`reference/sop/masters/`, `reference/sop/figures/`),
+masters and figures in sibling folders (`sops/masters/`, `sops/figures/`),
 so a bare filename resolved against the master's directory finds nothing there.
 
 Search order, first hit wins:

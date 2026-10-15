@@ -44,8 +44,8 @@
   status = 301
   force = true
 
-# The public SOPs (isPublicSop in src/pages/team/sops/sops-content.tsx) open for anyone with the
-# link, but stay out of search results: they name a client, its analytics IDs and the agency's
+# Every SOP opens for anyone with the link (since 2026-10-15), but stays out of search
+# results: they name a client, its analytics IDs and the agency's
 # logins. /sop/* is the viewer route, /sops/* the HTML and PDF copies it loads.
 [[headers]]
   for = "/sop/*"

@@ -4,7 +4,7 @@
   "title": "Post-launch connections: analytics, search, behaviour tracking and the deploy that carries them",
   "lead": "How a freshly launched site gets its GA4, Search Console and Hotjar wired up, published, verified and handed over. If you remember one thing: <strong class=\"hl\">an env change is not live until the next build, and nothing is verified until you have seen the marker in the live HTML</strong>. Ridge &amp; Falls values are left in as a worked example — replace them per site.",
   "sop_id": "HGM-SOP-WEB-003",
-  "version": "0.1",
+  "version": "0.2",
   "status": "draft",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "approved_by": "Not yet approved — working draft for Brandon (approver: Operations Manager, Gillian)",
@@ -99,76 +99,42 @@
    "type": "rules",
    "k": "Always true",
    "t": "Five standing rules",
-   "d": "These hold on every post-launch session. Everything else in this document is procedure; these are not negotiable.",
+   "d": "True on every post-launch session.",
    "items": [
     {
      "t": "Prove the repo is the live site before you edit",
-     "d": "DNS, deploy commit and an HTML compare. Then confirm the local env is filled before you diagnose anything that looks like missing data."
+     "d": "Check DNS, the deploy commit and the HTML, then confirm <code>.env.local</code> is filled."
     },
     {
      "t": "Commit, push, then deploy from a clean clone via the connector",
-     "d": "A bare <code>git push</code> to <code>main</code> may never publish. The connector's <code>deploy-site</code> from a shallow clone is the only path this document trusts."
+     "d": "A bare <code>git push</code> may never publish. Deploy a shallow clone (<code>git clone --depth 1</code>, the committed files only) with the connector's <code>deploy-site</code>."
     },
     {
      "t": "An env change is not live until the next build",
-     "d": "The document head is rendered at build time. Every change to <code>GA_MEASUREMENT_ID</code>, <code>HOTJAR_SITE_ID</code> or <code>GOOGLE_SITE_VERIFICATION</code> is followed by a redeploy and a live check."
+     "d": "Redeploy after every change to <code>GA_MEASUREMENT_ID</code>, <code>HOTJAR_SITE_ID</code> or <code>GOOGLE_SITE_VERIFICATION</code>, then check the live site."
     },
     {
      "t": "Read the breadcrumb before you create anything in Google Analytics",
-     "d": "A property is created in whichever account the Admin page is showing. Move properties; never delete and recreate — recreating changes the measurement ID."
+     "d": "A property lands in whichever account Admin shows. Move it; recreating it changes its measurement ID (the <code>G-…</code> code in <code>GA_MEASUREMENT_ID</code>)."
     },
     {
      "t": "A new asset is a new filename, always",
-     "d": "Static assets are cached immutable for a year. A changed image or SVG ships under a new name, never in place."
+     "d": "Assets are cached for a year, so a changed image ships under a new name."
     }
    ]
   },
   {
    "type": "section",
    "num": "02",
-   "label": "Roles and responsibilities"
-  },
-  {
-   "type": "table",
-   "headers": [
-    "Role",
-    "Responsibility"
-   ],
-   "rows": [
-    [
-     "Developer running post-launch (Brandon, on this run)",
-     "Performs tasks 1.1 to 8.2 and fills the ownership map"
-    ],
-    [
-     "Web & Content Specialist (Kyle Zinger)",
-     "Owns this document; first escalation; holds the kyle@ Google login used on GA4 and Search Console"
-    ],
-    [
-     "Account manager for the client",
-     "Requests the GA property move, the client's privacy wording, and the Cloudflare login from the client"
-    ],
-    [
-     "Client (Ridge & Falls: Enjoy Unique Stays)",
-     "Administrator on the GA4 property, Owner in Search Console, invited to Hotjar; moves the GA property into their own account"
-    ],
-    [
-     "Operations Manager (Gillian)",
-     "Approves this document once it leaves draft"
-    ]
-   ]
-  },
-  {
-   "type": "section",
-   "num": "03",
    "label": "Prerequisites"
   },
   {
    "type": "numcards",
-   "columns": 2,
+   "columns": 1,
    "items": [
     {
      "t": "A clone of the site repo",
-     "d": "For Ridge &amp; Falls: <code>github.com/hgmwebteam/ridge-and-falls</code>, branch <code>main</code>. Set-up steps are in HGM-SOP-WEB-002, Phase 1."
+     "d": "For Ridge &amp; Falls: <code>github.com/hgmwebteam/ridge-and-falls</code>, branch <code>main</code>. Set-up steps are in <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a>, Phase 1."
     },
     {
      "t": "The Netlify connector",
@@ -176,7 +142,7 @@
     },
     {
      "t": "A filled .env.local",
-     "d": "Restored from the site's 1Password entry (HGM-SOP-WEB-001). Task 1.3 checks it is actually filled, not a copy of the template."
+     "d": "Restored from the site's 1Password entry (<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>). Task 1.3 checks it is actually filled, not a copy of the template."
     },
     {
      "t": "Google logins",
@@ -184,42 +150,14 @@
     },
     {
      "t": "The agency Hotjar login",
-     "d": "<code>hgmwebteam</code>. It holds one organisation per client; sites are added inside the client's organisation, never at the top level."
+     "d": "<code>hgmwebteam</code>. It holds one organisation per client (Hotjar's container for that client; plan limits and seats are per organisation); sites are added inside the client's organisation, never at the top level."
     },
     {
      "t": "Terminal tools",
      "d": "<code>git</code>, <code>dig</code>, <code>curl</code>, <code>npx</code>, and a real browser with no ad blocker for the Hotjar check."
     }
-   ]
-  },
-  {
-   "type": "sub",
-   "text": "Which route should you take?"
-  },
-  {
-   "type": "para",
-   "text": "Wherever a task needs the machine you will see two or three boxes. <strong>Pick one</strong> — they do the same thing. The colour of the label bar tells you which kind it is. Browser settings in GA, Search Console and Hotjar have no shortcut: those are always point and click."
-  },
-  {
-   "type": "cards",
-   "cols": 3,
-   "items": [
-    {
-     "icon": "click",
-     "t": "Point &amp; click",
-     "d": "Buttons and menus in VS Code, or view-source in the browser. No typing beyond a URL and a find."
-    },
-    {
-     "icon": "terminal",
-     "t": "Terminal / CLI",
-     "d": "Commands you type in the VS Code terminal. Fast, but it does exactly what you say — including the wrong thing."
-    },
-    {
-     "icon": "prompt",
-     "t": "Claude prompt",
-     "d": "A prompt to paste into Claude Code. It also reaches the Netlify connector, which is the only way to run <code>deploy-site</code> and <code>manage-env-vars</code>."
-    }
-   ]
+   ],
+   "collapse": true
   },
   {
    "type": "panel",
@@ -229,48 +167,7 @@
   },
   {
    "type": "section",
-   "num": "04",
-   "label": "Definitions"
-  },
-  {
-   "type": "cards",
-   "cols": 3,
-   "items": [
-    {
-     "t": "Measurement ID",
-     "d": "The <code>G-…</code> identifier of a GA4 data stream. It goes into <code>GA_MEASUREMENT_ID</code>. Deleting a property and recreating it produces a new one."
-    },
-    {
-     "t": "Env-gated block",
-     "d": "A piece of <code>app/layout.tsx</code> that renders only when its Netlify environment variable is set and passes a shape check. Unset means nothing is emitted."
-    },
-    {
-     "t": "Shallow clone",
-     "d": "<code>git clone --depth 1</code> of the committed tree only. It excludes <code>.next</code>, <code>RESOURCES/</code> and <code>.env.local</code>, which is why deploys are made from one."
-    }
-   ]
-  },
-  {
-   "type": "cards",
-   "cols": 3,
-   "items": [
-    {
-     "t": "Proxy URL",
-     "d": "The single-use URL the Netlify connector's <code>deploy-site</code> returns. One deploy per URL; request a fresh one each time."
-    },
-    {
-     "t": "Domain property vs URL-prefix property",
-     "d": "Search Console's two property types. Domain covers every protocol and subdomain but verifies only by DNS TXT record. URL-prefix covers one exact prefix and can verify by HTML tag."
-    },
-    {
-     "t": "Client organisation",
-     "d": "Hotjar's container for one client. Plan limits and team seats are per organisation, so a client's sites live inside their own."
-    }
-   ]
-  },
-  {
-   "type": "section",
-   "num": "05",
+   "num": "03",
    "label": "Procedure"
   },
   {
@@ -338,7 +235,7 @@
    "type": "step",
    "n": "1.3",
    "t": "Check .env.local is actually filled",
-   "d": "Print each key with the <strong>length</strong> of its value, never the value. On Ridge &amp; Falls the file had 30 keys and 28 were blank — a copy of the template. If keys are blank, restore the file from the host's environment variables (or the 1Password entry, HGM-SOP-WEB-001) and restart the dev server.",
+   "d": "Print each key with the <strong>length</strong> of its value, never the value. On Ridge &amp; Falls the file had 30 keys and 28 were blank — a copy of the template. If keys are blank, restore the file from the host's environment variables (or the 1Password entry, <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>) and restart the dev server.",
    "body": [
     {
      "type": "code",
@@ -539,7 +436,7 @@
    "type": "sub",
    "id": "3",
    "text": "Phase 3 — Analytics hooks in the code",
-   "d": "Once per engine. If the site already carries the three env-gated blocks, confirm them and move on."
+   "d": "Once per engine. If the site already carries the three env-gated blocks (pieces of <code>app/layout.tsx</code> that render only when their Netlify variable is set), confirm them and move on."
   },
   {
    "type": "step",
@@ -749,7 +646,7 @@
    "type": "sub",
    "id": "5",
    "text": "Phase 5 — Google Search Console",
-   "d": "Domain property if you can reach DNS; URL-prefix property with an HTML tag if you cannot."
+   "d": "A Domain property (every protocol and subdomain, verified only by a DNS TXT record) if you can reach DNS; a URL-prefix property (one exact address) with an HTML tag if you cannot."
   },
   {
    "type": "step",
@@ -1092,13 +989,13 @@
    "type": "step",
    "n": "8.2",
    "t": "Record the decisions, then publish the final state",
-   "d": "Ask the account manager to request the privacy wording from the client. Record the day's decisions in <code>CLAUDE.md</code> and the team manual's Updates. Commit, push, deploy from a shallow clone (Phase 2) and verify the live markers one last time.",
+   "d": "Ask the account manager to request the privacy wording from the client. Record the day's decisions in <code>CLAUDE.md</code> and the team manual's Updates. Commit, push, deploy from a shallow clone (Phase 2) and verify the live markers one last time. Post the ownership map in the <strong>client websites</strong> space in Google Chat: post-launch hand-offs go there.",
    "expect": "<code>CLAUDE.md</code> carries the decisions; the live HTML carries the GA ID, the Hotjar ID and the verification tag.",
    "id": "WEB-003.8.2"
   },
   {
    "type": "section",
-   "num": "06",
+   "num": "04",
    "label": "Exceptions and edge cases"
   },
   {
@@ -1158,94 +1055,14 @@
    ]
   },
   {
-   "type": "section",
-   "num": "07",
-   "label": "Troubleshooting and escalation"
-  },
-  {
-   "type": "table",
-   "headers": [
-    "Symptom",
-    "Likely cause",
-    "Fix"
-   ],
-   "rows": [
-    [
-     "Empty listings, missing photos, \"No properties match\" on a dev box",
-     "Blank <code>.env.local</code>",
-     "Task 1.3 — restore from host env vars, restart the dev server"
-    ],
-    [
-     "Pushed to <code>main</code>; nothing published after several minutes",
-     "Committer not verified by Netlify; deploy sits in review",
-     "Tasks 2.2–2.4 — deploy from a shallow clone via the connector"
-    ],
-    [
-     "Netlify returns 500 on deploy",
-     "Upload made from the repo root (~700 MB)",
-     "Task 2.2 — shallow clone first"
-    ],
-    [
-     "Env var changed but the live head is unchanged",
-     "No build since the change",
-     "Task 2.5 — redeploy, then check the marker"
-    ],
-    [
-     "GA property appeared in the wrong account",
-     "Admin breadcrumb showed another account",
-     "Task 4.2 — move it; never recreate"
-    ],
-    [
-     "Move property fails",
-     "No Administrator on the destination, or two same-name accounts",
-     "Pick by 9-digit ID; ask the client to move it, or for temporary Administrator"
-    ],
-    [
-     "\"Data collection isn't active\" banner in GA",
-     "Up to 48 hours of lag",
-     "Ignore if Realtime shows you (task 4.10)"
-    ],
-    [
-     "Google's Test your website does not see the tag",
-     "Tag loads after <code>window.load</code>",
-     "Expected; verify by view-source and Realtime instead"
-    ],
-    [
-     "Search Console keeps offering the Domain property",
-     "Normal dialog behaviour",
-     "Click try a URL prefix property instead"
-    ],
-    [
-     "GA to GSC link option missing",
-     "No single login holds both GSC ownership and GA Editor",
-     "Task 5.7 — share GSC ownership to the GA login"
-    ],
-    [
-     "Hotjar says not installed",
-     "No real browser visit yet, or an ad blocker",
-     "Task 6.4 — visit without a blocker; check the loader URL"
-    ],
-    [
-     "Rich Results Test scores every item critical on the list page",
-     "Thin duplicate node with the same <code>@id</code>",
-     "Task 7.2 — one builder per entity"
-    ],
-    [
-     "Local checkout stops working mid-test",
-     "Guesty token quota spent",
-     "Task 1.4 — stop minting; wait for the 24-hour window"
-    ]
-   ]
-  },
-  {
    "type": "panel",
-   "kind": "brand",
-   "t": "Escalation",
-   "text": "Anything not in the table: message Kyle Zinger (Web &amp; Content Specialist) in the <strong>Web Team Google Chat group</strong>. For anything that needs the client — the GA move, the Cloudflare login, the privacy wording — go through the client's account manager, not the client directly."
+   "kind": "note",
+   "t": "If you are stuck",
+   "text": "Ask Claude first, with the task number and what you see. Then Kyle Zinger (Web &amp; Content Specialist) in the <strong>Web Team</strong> Google Chat group. Anything that needs the client &mdash; the GA move, the Cloudflare login, the privacy wording &mdash; goes through the client's account manager, never the client directly."
   },
   {
    "type": "section",
-   "num": "08",
+   "num": "05",
    "label": "Final checklist before handoff"
   },
   {
@@ -1266,11 +1083,12 @@
     "Rich Results Test on list page and detail page: zero critical",
     "Ownership map filled; pending items assigned; privacy copy requested from the client",
     "<code>CLAUDE.md</code> and manual updated; committed; pushed; deployed; live markers verified"
-   ]
+   ],
+   "prompt": "Check this site's post-launch setup against the final checklist below. For each line, say pass or fail and give the evidence: a command output, a URL, or what a dashboard shows. Make no changes."
   },
   {
    "type": "section",
-   "num": "09",
+   "num": "06",
    "label": "Related documents"
   },
   {
@@ -1278,14 +1096,14 @@
    "items": [
     "<code>docs/ANALYTICS-SETUP.md</code> in the site repo — the client-facing walkthrough for GA4, Search Console and Hotjar",
     "<code>CLAUDE.md</code> decisions 28–29 — the engineering record of the same two days",
-    "HGM-SOP-WEB-001 — env files in 1Password",
-    "HGM-SOP-WEB-002 — take a website change request from Asana to live (branch, preview, merge)",
+    "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a> — env files in 1Password",
+    "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> — take a website change request from Asana to live (branch, preview, merge)",
     "<code>SOP-POST-LAUNCH-CONNECTIONS.md</code> — the source notes this draft was converted from"
    ]
   },
   {
    "type": "section",
-   "num": "10",
+   "num": "07",
    "label": "Revision history"
   },
   {
@@ -1302,6 +1120,12 @@
      "0.1",
      "Kyle Zinger",
      "Working draft converted from the Ridge & Falls launch-week notes, for Brandon. Not yet approved."
+    ],
+    [
+     "2026-10-15",
+     "0.2",
+     "Kyle Zinger",
+     "Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal."
     ]
    ]
   },

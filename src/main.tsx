@@ -40,8 +40,8 @@ import { ToolsReviewScreen } from "@/pages/team/dictionary/tools/tools-review-sc
 import { EmailPreviewScreen } from "@/pages/team/email-preview-screen";
 import { HomeScreen } from "@/pages/team/home-screen";
 import { HomeTwoScreen } from "@/pages/team/home-two-screen";
-import { LogScreen } from "@/pages/team/log-screen";
 import { LandingPagesScreen } from "@/pages/team/landing-pages-screen";
+import { LogScreen } from "@/pages/team/log-screen";
 import { LogScriptScreen } from "@/pages/team/log-script-screen";
 import { ManualScreen } from "@/pages/team/manual-screen";
 import { MockupIgScreen } from "@/pages/team/mockup-ig/mockup-ig-screen";
@@ -220,8 +220,9 @@ createRoot(document.getElementById("root")!).render(
                         <Route path="/template" element={<TemplateScreen />} />
                         <Route path="/home" element={<HomeScreen />} />
                         <Route path="/dashboard" element={<DashboardScreen />} />
-                        {/* Team-only: one SOP, read from the private `sops` bucket. Behind TeamGate + Google session. */}
+                        {/* One SOP, public: the current version, or an earlier one at /sop/:id/v0.5. Files are in public/sops/. */}
                         <Route path="/sop/:id" element={<SopViewerScreen />} />
+                        <Route path="/sop/:id/:version" element={<SopViewerScreen />} />
                         <Route path="/webteam/ai-website-setup" element={<AiWebsiteSetupScreen />} />
                         <Route path="/webteam/component-library-architecture" element={<ComponentLibraryArchitectureScreen />} />
                         <Route path="/clients/reading-your-clients" element={<ReadingYourClientsScreen />} />

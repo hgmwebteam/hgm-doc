@@ -138,16 +138,8 @@ def font_head():
     return "<style>" + "".join(faces) + "</style>"
 
 
-def draft_strip(meta):
-    """A visible draft marker on every copy that has not been approved.
-    House rule: no SOP appears in the portal without one until the Operations
-    Manager approves.  Anything other than status "approved" is a draft."""
-    st = (meta.get("status") or "draft").strip().lower()
-    if st == "approved":
-        return ""
-    label = "Draft" if st == "draft" else esc(st.replace("_", " ").capitalize())
-    return (f'<p class="draft"><b>{label}</b> · v{esc(str(meta.get("version","")))}'
-            f'<span class="dsub">Not yet approved. Follow with care and tell the owner what is wrong.</span></p>')
+# No draft marker: since 2026-10-15 there is no approval step. Every merged
+# version is published as it stands, and the portal links each earlier version.
 
 CSS = """
 :root{
@@ -308,15 +300,6 @@ a.chip .cn{font-family:'Roboto Mono',ui-monospace,monospace;font-size:10.5px;col
 /* masthead */
 .eyebrow{font-family:'Roboto Mono',ui-monospace,monospace;font-size:11px;font-weight:500;
   letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0}
-/* draft marker: shown when meta.status is not "approved"; warning tint, never gem yellow */
-.draft{display:inline-flex;align-items:center;gap:8px;margin:14px 0 0;padding:6px 12px;max-width:none;white-space:nowrap;
-  border:1px solid var(--warn-edge);background:var(--warn-bg);color:var(--warn-ink);
-  border-radius:999px;font-family:'Roboto Mono',ui-monospace,monospace;font-size:11px;
-  font-weight:500;letter-spacing:.12em;text-transform:uppercase}
-.draft b{font-weight:700}
-.draft .dsub{font-family:Inter,system-ui,sans-serif;font-size:12px;letter-spacing:0;text-transform:none;font-weight:400;margin-left:4px}
-@media(max-width:640px){.draft{white-space:normal;flex-wrap:wrap}}
-@media print{.draft{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 h1{font-size:clamp(33px,4.7vw,54px);line-height:1.07;letter-spacing:-.022em;font-weight:700;
   margin:26px 0 0;max-width:19ch;text-wrap:balance}
 .lead{font-size:20px;line-height:1.62;color:var(--ink-muted);margin:26px 0 0;max-width:60ch}
@@ -566,6 +549,27 @@ ul.ck input[type=checkbox]::after{content:"";width:8px;height:5px;border-left:2p
   border-bottom:2px solid #fff;transform:rotate(-45deg) scale(0);margin-top:-2px;transition:transform .14s}
 ul.ck input[type=checkbox]:checked::after{transform:rotate(-45deg) scale(1)}
 ul.ck li.done span{color:var(--ink-faint);text-decoration:line-through}
+.code.ckp{margin-top:16px}.code.ckp pre{display:none}
+/* collapsible prerequisites: title only until opened */
+.accs{margin:30px 0 0;border:1px solid var(--card-edge);border-radius:var(--r);background:var(--card);
+  box-shadow:var(--shadow)}
+details.acc{border-top:1px solid var(--hairline-soft)}
+details.acc:first-child{border-top:0}
+details.acc>summary{list-style:none;display:grid;grid-template-columns:30px 1fr 30px;gap:12px;
+  align-items:center;padding:16px 20px;cursor:pointer}
+details.acc>summary::-webkit-details-marker{display:none}
+details.acc .an{font-family:'Roboto Mono',ui-monospace,monospace;font-size:12px;color:var(--accent)}
+details.acc .at{font-weight:600;font-size:16px;line-height:1.4}
+details.acc>.d{color:var(--ink-muted);font-size:15px;line-height:1.7;padding:0 20px 18px 62px}
+details.acc[open]>summary .chev,details.docmeta[open]>summary .chev{transform:rotate(180deg)}
+/* document details, closed, at the end of the page */
+details.docmeta{margin:34px 0 0}
+details.docmeta>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;
+  cursor:pointer;font-family:'Roboto Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-muted);padding:14px 0;border-top:1px solid var(--hairline)}
+details.docmeta>summary::-webkit-details-marker{display:none}
+details.docmeta .spec{margin:10px 0 0}
+button.armed{color:var(--accent)!important;border-color:var(--accent)!important}
 
 /* code inline */
 code{font-family:'Roboto Mono',ui-monospace,monospace;font-size:.86em;background:var(--surface);
@@ -670,9 +674,9 @@ details.phase h3.sub{margin:0;transition:color .15s}
 .pmeta .pc{font-family:'Roboto Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.1em;
   color:var(--ink-faint);white-space:nowrap}
 details.phase.complete .pmeta .pc{color:var(--ok-ink)}
-.pmeta .chev{width:30px;height:30px;border:1px solid var(--hairline);border-radius:999px;position:relative;
+.pmeta .chev,details.acc .chev,details.docmeta .chev{width:30px;height:30px;border:1px solid var(--hairline);border-radius:999px;position:relative;
   background:var(--card);transition:transform .2s cubic-bezier(.23,1,.32,1),border-color .15s}
-.pmeta .chev::after{content:"";position:absolute;left:11px;top:9px;width:6px;height:6px;
+.pmeta .chev::after,details.acc .chev::after,details.docmeta .chev::after{content:"";position:absolute;left:11px;top:9px;width:6px;height:6px;
   border-right:1.5px solid var(--ink-muted);border-bottom:1.5px solid var(--ink-muted);transform:rotate(45deg)}
 details.phase[open]>summary .chev{transform:rotate(180deg);border-color:var(--accent)}
 details.phase>summary:hover .chev{border-color:var(--accent)}
@@ -742,7 +746,8 @@ a.jump:hover .jbtn i{transform:translateX(3px)}
 .side a.pl.complete .pt{color:var(--ink-faint);text-decoration:line-through;
   text-decoration-thickness:1px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-@media print{.top,.sidecol,.jump,.picker,.resetbar,.routebar,button.cp,button.tp{display:none}
+@media print{.top,.sidecol,.jump,.picker,.resetbar,.routebar,button.cp,button.tp,.code.ckp{display:none}
+  details.acc>.d{display:block}details.docmeta>.spec{display:grid}
   .row input,input.pchk{display:none}
   details.phase{border:0}details.phase>summary .pmeta{display:none}details.phase>.pbody{display:block}
   details.phase.complete>summary h3.sub{color:inherit;text-decoration:none}
@@ -809,17 +814,24 @@ JS = """
       var ts=[].slice.call(ph.querySelectorAll('.tstep[data-step]'));
       if(p.checked){ts.forEach(function(t){st[t.dataset.step]=1})}
       else{
-        var any=ts.some(function(t){return st[t.dataset.step]});
-        if(any&&!confirm('Clear every tick in this phase?')){p.checked=true;return}
         ts.forEach(function(t){delete st[t.dataset.step];t.classList.remove('peek')});
       }
       save();paint();
     });
   });
 
+  // Reset asks twice by changing its own label, not with confirm(): the portal
+  // shows this page in a sandboxed iframe without allow-modals, where confirm()
+  // is silently ignored and returns false, so a confirm-gated reset never ran.
   document.querySelectorAll('[data-reset]').forEach(function(r){
+    var label=r.textContent,armed=null;
     r.addEventListener('click',function(){
-      if(!confirm('Clear your progress on this SOP in this browser?'))return;
+      if(!armed){
+        r.textContent='Click again to clear';r.classList.add('armed');
+        armed=setTimeout(function(){armed=null;r.textContent=label;r.classList.remove('armed')},4000);
+        return;
+      }
+      clearTimeout(armed);armed=null;r.textContent=label;r.classList.remove('armed');
       st={};save();paint();
       document.querySelectorAll('.tstep.peek').forEach(function(t){t.classList.remove('peek')});
     });
@@ -853,9 +865,13 @@ JS = """
   }
   document.addEventListener('click',function(e){
     var a=e.target.closest('a[href^="#"]');if(!a)return;
+    // Always handled here. In the portal this page is an iframe srcdoc, whose
+    // base URL is the portal's: a fragment link the browser follows itself
+    // loads the whole portal inside the frame (the doubled header). A hash
+    // with no target on this page does nothing rather than that.
+    e.preventDefault();
     var id=a.getAttribute('href').slice(1);if(!id)return;
     var el=document.getElementById(id);if(!el)return;
-    e.preventDefault();
     openPhaseFor('#'+id);
     // let a just-opened <details> lay out before measuring the target
     requestAnimationFrame(function(){glide(el,'#'+id)});
@@ -935,7 +951,7 @@ JS = """
   document.querySelectorAll('button.cp').forEach(function(b){
     b.addEventListener('click',function(){
       var pre=b.closest('.code').querySelector('pre');
-      var txt=pre.innerText;
+      var txt=pre.innerText||pre.textContent;
       var done=function(){b.textContent='Copied';b.classList.add('ok');
         setTimeout(function(){b.textContent='Copy';b.classList.remove('ok')},1400)};
       if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -1192,6 +1208,15 @@ def render(doc, base=".", wrap=True, picker_html="", routebar_html="", jump_html
                 cs += f'<div class="card">{k}{ti}{d}</div>'
             w(f'<div class="grid{cls}">{cs}</div>')
 
+        elif t == "numcards" and b.get("collapse"):
+            cs = ""
+            for n, it in enumerate(b["items"], start=int(b.get("start", 1))):
+                d = f'<div class="d">{it.get("d","")}</div>' if it.get("d") else ""
+                cs += (f'<details class="acc"><summary><span class="an">{n}</span>'
+                       f'<span class="at">{it.get("t","")}</span>'
+                       f'<span class="chev" aria-hidden="true"></span></summary>{d}</details>')
+            w(f'<div class="accs">{cs}</div>')
+
         elif t == "numcards":
             cs = ""
             for n, it in enumerate(b["items"], start=int(b.get("start", 1))):
@@ -1281,6 +1306,12 @@ def render(doc, base=".", wrap=True, picker_html="", routebar_html="", jump_html
                 lis += (f'<li data-step="ck{i}"><input type="checkbox" '
                         f'aria-label="Checklist item {i+1}"><span>{it}</span></li>')
             w(f'<ul class="ck">{lis}</ul>')
+            if b.get("prompt"):
+                plain = [html.unescape(re.sub(r"<[^>]+>", "", it)) for it in b["items"]]
+                txt = b["prompt"].rstrip() + "\n\n" + "\n".join(f"{i+1}. {x}" for i, x in enumerate(plain))
+                w(f'<div class="code prompt ckp"><div class="bar"><span class="bl">{icon("prompt")}'
+                  f'<span>Hand this checklist to Claude &middot; copies the prompt and every line</span></span>'
+                  f'<button class="cp" type="button">Copy</button></div><pre>{esc(txt)}</pre></div>')
 
         elif t == "figure":
             src_uri = inline_image(b["path"], base)
@@ -1361,7 +1392,7 @@ def build(doc, base="."):
         return acc
     present = _kinds(doc.get("blocks", []), set())
     routebar = ""
-    if len(present) >= 2:
+    if meta.get("route_selector") and len(present) >= 2:
         btns = '<button class="rb on" type="button" data-route="all">Show all</button>'
         for pid, name, ic, kinds in PLATFORMS:
             if kinds & present:
@@ -1388,7 +1419,12 @@ def build(doc, base="."):
                 '<p class="jd">Pick the phase you need, then work through its tasks and tick '
                 'them off as you go. Your progress is saved in this browser.</p></div>'
                 '<span class="jbtn">Go to the procedure <i>&rarr;</i></span></a>')
-    tail = ('<div class="resetbar">'
+    details = ""
+    if spec:
+        details = ('<details class="docmeta"><summary>Document details'
+                   '<span class="chev" aria-hidden="true"></span></summary>'
+                   f'<dl class="spec">{spec}</dl></details>')
+    tail = (details + '<div class="resetbar">'
             '<span>Your progress is saved in this browser only.</span>'
             '<button class="rst" type="button" data-reset>Reset progress</button></div>'
             '<footer>'
@@ -1422,6 +1458,10 @@ def build(doc, base="."):
         for num, label, sid in sections)
     navrow = f'<div class="navclip"><div class="secnav" id="secnav">{chips}</div></div>' if chips else ""
     ver = f' <span class="topv">&middot; v{esc(meta["version"])}</span>' if meta.get("version") else ""
+
+    # A link to another SOP must navigate the portal, not this iframe: loaded
+    # inside the frame it draws the portal header a second time.
+    body = re.sub(r'<a (?![^>]*target=)([^>]*href="(?:https://hgmportal\.com)?/sop/)', r'<a target="_top" \1', body)
 
     return f"""<!doctype html>
 <html lang="en">
@@ -1460,10 +1500,8 @@ def build(doc, base="."):
 <section class="sct mast tone-a">
   <div class="wrap">
     <p class="eyebrow">{esc(meta.get('eyebrow',''))}</p>
-    {draft_strip(meta)}
     <h1>{esc(meta.get('title',''))}</h1>
     <p class="lead">{meta.get('lead','')}</p>
-    <dl class="spec">{spec}</dl>
     {jump}
   </div>
 </section>

@@ -4,14 +4,14 @@
     "title": "Take a website change request from Asana to live",
     "lead": "How a change request becomes a live client site without ever breaking the live site. If you remember one thing: <strong class=\"hl\">never work directly on main</strong> — main is the branch that <em>is</em> the live site. A branch is your own private copy of the site, and nothing on it reaches the live site until someone deliberately merges it.",
     "sop_id": "HGM-SOP-WEB-002",
-    "version": "1.4",
+    "version": "1.5",
     "owner": "Web & Content Specialist (Kyle Zinger)",
     "approved_by": "Operations Manager (Gillian)",
     "effective_date": "2026-09-01",
     "next_review": "2027-03-01",
     "frequency": "Every website change request",
     "duration": "~45 minutes for a small edit",
-    "status": "draft",
+    "status": "live",
     "tasks": [
       {
         "badge": "Phase 1",
@@ -70,7 +70,7 @@
       "items": [
         {
           "t": "Purpose",
-          "d": "Takes a website change request from an Asana task all the way to the live client site without ever putting the live site at risk. Every step that touches the terminal offers two or three routes, so nobody has to type a command they do not understand."
+          "d": "Takes a website change request from an Asana task all the way to the live client site without ever putting the live site at risk. Every step that touches the terminal (the panel in VS Code where you type commands) offers two or three routes, so nobody has to type a command they do not understand."
         },
         {
           "t": "In scope",
@@ -86,69 +86,29 @@
       "type": "rules",
       "k": "Always true",
       "t": "Four standing rules",
-      "d": "These four hold on every job. Everything else in this document is procedure; these are not per-request judgement calls.",
+      "d": "True on every job.",
       "items": [
         {
           "t": "Never work directly on main",
-          "d": "A branch is your own private copy of the site. Nothing on a branch can reach the live site until someone deliberately merges it. This is the single rule that makes everything else here safe to get wrong."
+          "d": "Work on a branch. Nothing on it reaches the live site until someone merges it."
         },
         {
           "t": "Never send a credential",
-          "d": "Do not paste credentials into Google Chat, email, or an Asana comment, and never add <code>.env.local</code> to the site's code repository. Point the person at the 1Password vault instead."
+          "d": "Not in Google Chat, email or Asana, and never commit <code>.env.local</code> (the site's file of keys; see <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>). Point people at 1Password."
         },
         {
           "t": "Approval is routed, not sent to one person",
-          "d": "Who signs off depends on what the change is, not who asked for it. The routing table is at task 6.1, and silence is not approval &mdash; wait for an explicit yes."
+          "d": "Who signs off depends on the change (the table at task 6.1), and silence is not a yes."
         },
         {
           "t": "Show the preview, not your laptop",
-          "d": "A <code>localhost</code> address proves nothing to anyone else. Open the Deploy Preview URL and confirm your change is really on it before you ask for sign-off."
+          "d": "Your <code>localhost</code> copy proves nothing to anyone else. Check your change on the Deploy Preview URL (Netlify's working copy of your pull request) first."
         }
       ]
     },
     {
       "type": "section",
       "num": "02",
-      "label": "Roles and responsibilities"
-    },
-    {
-      "type": "table",
-      "headers": [
-        "Role",
-        "Responsibility"
-      ],
-      "rows": [
-        [
-          "Anyone taking a website change request",
-          "Performs tasks 1.1 to 6.3"
-        ],
-        [
-          "Approver (AnhTuan, Makenna, or Gillian)",
-          "Approves the preview link at task 6.1, routed by what the change is &mdash; see the table there. Nothing merges without an explicit yes"
-        ],
-        [
-          "Developers (AnhTuan, Leshan, Brandon, Kyle)",
-          "Escalation for unrecognised changes, missing credentials, and Netlify settings (environment variables)"
-        ],
-        [
-          "Web &amp; Content Specialist (Kyle Zinger)",
-          "Owns this SOP and keeps it current"
-        ],
-        [
-          "Operations Manager (Gillian)",
-          "Approves this SOP and each revision"
-        ]
-      ]
-    },
-    {
-      "type": "panel",
-      "kind": "brand",
-      "t": "Who approves depends on the change",
-      "text": "Not on who asked for it. The routing table is at task 6.1."
-    },
-    {
-      "type": "section",
-      "num": "03",
       "label": "Prerequisites"
     },
     {
@@ -157,7 +117,7 @@
     },
     {
       "type": "numcards",
-      "columns": 2,
+      "columns": 1,
       "items": [
         {
           "t": "VS Code",
@@ -181,96 +141,10 @@
         },
         {
           "t": "No Netlify account needed",
-          "d": "Netlify already watches these repositories and builds the preview itself when a pull request is opened. You never log in to Netlify or run a deploy command."
+          "d": "Netlify already watches these repositories and builds the preview itself when a pull request (the GitHub page where a branch is reviewed and merged) is opened. You never log in to Netlify or run a deploy command."
         }
-      ]
-    },
-    {
-      "type": "sub",
-      "text": "Where are you working?"
-    },
-    {
-      "type": "para",
-      "text": "Every task that touches the machine is written up to three ways: a prompt for Claude Code, a command for the terminal, and buttons where VS Code has them. Which of those you can use depends on where you are sitting. On the portal page, <strong>pick your platform once</strong> in the selector under these cards and each task shows only the instructions that run there; where a task has nothing for your platform, it shows every route. On paper, the label bar on each box names the route &mdash; use the ones your platform can run."
-    },
-    {
-      "type": "cards",
-      "cols": 3,
-      "items": [
-        {
-          "icon": "vscode",
-          "t": "VS Code",
-          "d": "You have the site open in VS Code. You can paste prompts into the Claude Code panel, type commands in the built-in terminal, or use VS Code's own buttons and menus. All three routes show."
-        },
-        {
-          "icon": "terminal",
-          "t": "Terminal",
-          "d": "You work in a terminal window &mdash; VS Code's terminal or your computer's Terminal app. Only typed commands show. Free and fast, but it does exactly what you say &mdash; including the wrong thing."
-        },
-        {
-          "icon": "desktop",
-          "t": "Claude Desktop app",
-          "d": "You work in the Claude Desktop app's Claude Code tab. Only prompts show; each covers a whole phase, so a normal job is about four pastes. Uses Claude credits. The claude.ai website cannot run these &mdash; it cannot reach the site's code on your machine."
-        }
-      ]
-    },
-    {
-      "type": "para",
-      "text": "Here is how the three platforms compare in practice."
-    },
-    {
-      "type": "table",
-      "boxed": true,
-      "headers": [
-        "",
-        "VS Code",
-        "Terminal",
-        "Claude Desktop app"
       ],
-      "rows": [
-        [
-          "Claude credits",
-          "Only when you use a prompt",
-          "None",
-          "Uses credits"
-        ],
-        [
-          "Difficulty",
-          "Easiest &mdash; buttons where they exist, plain English otherwise",
-          "Hardest &mdash; you must know the commands",
-          "Easy &mdash; plain English"
-        ],
-        [
-          "Speed",
-          "Medium",
-          "<strong>Fastest</strong>",
-          "Medium &mdash; you wait for a reply"
-        ],
-        [
-          "Catches mistakes",
-          "<strong>Yes</strong>, on the prompt route &mdash; it checks state first and warns before anything destructive",
-          "No &mdash; runs exactly what you type",
-          "<strong>Yes</strong> &mdash; checks state first, warns before anything destructive"
-        ],
-        [
-          "Available for",
-          "Every task",
-          "Every task",
-          "Every task"
-        ],
-        [
-          "Best when",
-          "It is your first time, or you want buttons for cloning and merging",
-          "You have done it before and know what to expect",
-          "You already work in the Desktop app and want the result verified"
-        ]
-      ]
-    },
-    {
-      "type": "panel",
-      "kind": "note",
-      "t": "Where your credits actually go",
-      "text": "Tasks 3.1 and 4.1 &mdash; the <strong>planning</strong> and <strong>execution</strong> prompts &mdash; are the overwhelming majority of Claude usage on any job, because Claude has to read a lot of the codebase to do them. They are also the two steps you cannot do any other way.<br><br>By comparison, asking Claude to run <code>git pull</code> or a deploy is a rounding error. Do not skip a Claude option to save credits if that option is doing something useful &mdash; the savings are tiny and the risk is not. The one place it matters: if you are near a usage limit and need to finish a job, run the mechanical steps yourself and save your remaining budget for task 4.1."
+      "collapse": true
     },
     {
       "type": "panel",
@@ -280,84 +154,7 @@
     },
     {
       "type": "section",
-      "num": "04",
-      "label": "Definitions"
-    },
-    {
-      "type": "cards",
-      "cols": 3,
-      "items": [
-        {
-          "t": "Branch",
-          "d": "A private copy of the site's code where you make your change. Nothing on it reaches the live site until it is merged."
-        },
-        {
-          "t": "main",
-          "d": "The branch that <em>is</em> the live site. Never edited directly."
-        },
-        {
-          "t": "Deploy Preview",
-          "d": "A real, working web address running your pull request with real data &mdash; but not the live site. Netlify builds it automatically and posts the link on the pull request."
-        }
-      ]
-    },
-    {
-      "type": "cards",
-      "cols": 3,
-      "items": [
-        {
-          "t": "Pull request",
-          "d": "The GitHub page where a branch is reviewed and merged into <code>main</code>."
-        },
-        {
-          "t": ".env.local",
-          "d": "A plain text file at the project root holding the site's credentials. Never committed to git. See HGM-SOP-WEB-001."
-        },
-        {
-          "t": "Hard refresh",
-          "d": "<code>Cmd + Shift + R</code>. Forces the browser to re-fetch a page instead of serving a cached copy."
-        }
-      ]
-    },
-    {
-      "type": "cards",
-      "cols": 3,
-      "items": [
-        {
-          "t": "Repository (repo)",
-          "d": "The store of one site's code and its full history, kept on GitHub in the <code>hgmwebteam</code> organization. Cloning it puts a copy on your computer."
-        },
-        {
-          "t": "Git and commit",
-          "d": "Git tracks every change to the code. A commit is one saved set of changes on your branch. Committed is not merged &mdash; it is still only on your branch."
-        },
-        {
-          "t": "Push and merge",
-          "d": "Push uploads your branch to GitHub. Merge folds it into <code>main</code>, which is the moment it goes live. Only the approver's yes unlocks a merge."
-        }
-      ]
-    },
-    {
-      "type": "cards",
-      "cols": 3,
-      "items": [
-        {
-          "t": "Terminal (CLI)",
-          "d": "The panel in VS Code where you type commands. Open it with <strong>Terminal &rarr; New Terminal</strong>. Every terminal step here also has a point-and-click or Claude route."
-        },
-        {
-          "t": "Dev server and localhost",
-          "d": "<code>npm run dev</code> runs a private test copy of the site at <code>http://localhost:3000</code>. Only your computer can see it."
-        },
-        {
-          "t": "Environment variable",
-          "d": "A named setting the site reads while it runs, such as a booking-system key. On your computer they come from <code>.env.local</code>; on Netlify they are set in the site's settings."
-        }
-      ]
-    },
-    {
-      "type": "section",
-      "num": "05",
+      "num": "03",
       "label": "Procedure"
     },
     {
@@ -509,7 +306,7 @@
       "type": "panel",
       "kind": "warning",
       "t": "If it is not in 1Password",
-      "text": "Ask AnhTuan, Leshan, Brandon or Kyle &mdash; one of them will have it. Then, with as much warmth as you can manage, ask them to <strong>put it in 1Password</strong>, because that is where it was supposed to live all along. You are not the last person who will need it. Full procedure in HGM-SOP-WEB-001."
+      "text": "Ask AnhTuan, Leshan, Brandon or Kyle &mdash; one of them will have it. Then, with as much warmth as you can manage, ask them to <strong>put it in 1Password</strong>, because that is where it was supposed to live all along. You are not the last person who will need it. Full procedure in <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>."
     },
     {
       "type": "panel",
@@ -553,7 +350,7 @@
       "n": "2.1",
       "t": "Get onto a clean, current branch",
       "id": "WEB-002.2.1",
-      "d": "Three things happen here: confirm nothing is half-finished, get the latest code, and make a fresh branch to work on.",
+      "d": "Three things happen here: confirm nothing is half-finished, get the latest code, and make a fresh branch to work on. Git is what tracks every change to the code; a commit is one saved set of changes on your branch.",
       "body": [
         {
           "type": "code",
@@ -681,7 +478,7 @@
           "type": "panel",
           "kind": "warning",
           "t": "Two things that fool everyone",
-          "text": "<strong>Cannot see your change?</strong> Hard refresh with <code>Cmd + Shift + R</code> before assuming it failed. Browsers cache hard.<br><br><strong>Villa photos blank or green?</strong> Expected when <code>.env.local</code> is missing or incomplete. Listing photos and prices come from the booking system. Not a bug you caused &mdash; do not report it as one."
+          "text": "<strong>Cannot see your change?</strong> Hard refresh with <code>Cmd + Shift + R</code> before assuming it failed. Browsers cache hard. Still nothing? Restart the dev server (<code>npm run dev</code>) and check you are on your branch with <code>git branch --show-current</code>, in that order.<br><br><strong>Villa photos blank or green?</strong> Expected when <code>.env.local</code> is missing or incomplete. Listing photos and prices come from the booking system. Not a bug you caused &mdash; do not report it as one."
         }
       ],
       "expect": "Your change is visible at both widths and nothing beside it looks broken."
@@ -737,6 +534,12 @@
           "kind": "critical",
           "t": "The most common mistake on this whole list",
           "text": "People check the <strong>live site</strong>, see the old version, and report the change as broken &mdash; or see something unrelated and report it as fixed. The live site does not contain your work yet. Only the Deploy Preview URL does. Check the address bar every single time."
+        },
+        {
+          "type": "panel",
+          "kind": "note",
+          "t": "Works locally but not on the preview?",
+          "text": "Usually a setting (environment variable) missing in Netlify. Your computer reads <code>.env.local</code>; the preview reads Netlify's own settings. Ask a developer in the <strong>Web Team</strong> Google Chat group."
         }
       ],
       "expect": "The address bar shows <code>deploy-preview-&lt;number&gt;</code>, not the live domain."
@@ -829,14 +632,14 @@
           "type": "panel",
           "kind": "success",
           "t": "Why incognito",
-          "text": "Your normal browser may serve you a cached copy of the old page, and extensions can hide things that work fine for everyone else. Incognito is closer to what a real guest sees."
+          "text": "Your normal browser may serve you a cached copy of the old page, and extensions can hide things that work fine for everyone else. Incognito is closer to what a real guest sees. If a form or section is still blank, try a different network too: DNS filters block form and marketing tools, so it can be invisible to you and fine for everyone else."
         }
       ],
       "expect": "The change is visible to a logged-out visitor."
     },
     {
       "type": "section",
-      "num": "06",
+      "num": "04",
       "label": "Exceptions and edge cases"
     },
     {
@@ -868,48 +671,10 @@
       ]
     },
     {
-      "type": "section",
-      "num": "07",
-      "label": "Troubleshooting and escalation"
-    },
-    {
-      "type": "table",
-      "headers": [
-        "Symptom",
-        "Fix",
-        "If unresolved"
-      ],
-      "rows": [
-        [
-          "Villa photos missing or green locally",
-          "Expected. Photos and prices come from the booking system and need <code>.env.local</code>. Not a bug.",
-          "&mdash;"
-        ],
-        [
-          "A form or section looks blank on the live site",
-          "Try incognito with extensions off, and a different network. Privacy extensions and DNS filters block form and marketing tools, so a section can be invisible to you and fine for everyone else.",
-          "Developer, Web Team Google Chat"
-        ],
-        [
-          "Works locally but not on the Deploy Preview",
-          "Usually a setting (environment variable) missing in Netlify. Your computer reads <code>.env.local</code>; the preview reads Netlify's own settings instead.",
-          "Developer, Web Team Google Chat"
-        ],
-        [
-          "Claude says done but you cannot see it",
-          "Hard refresh, restart the dev server (<code>npm run dev</code>), then confirm the URL and branch with <code>git branch --show-current</code>. In that order.",
-          "Developer, Web Team Google Chat"
-        ],
-        [
-          "Changed files you do not recognise at task 2.1",
-          "Stop. Do not discard them.",
-          "Developer, before going further"
-        ]
-      ]
-    },
-    {
-      "type": "para",
-      "text": "Use the prompt below instead of guessing at a cause."
+      "type": "panel",
+      "kind": "note",
+      "t": "If you are stuck",
+      "text": "Ask Claude first, with Prompt 3 below, instead of guessing at a cause. If it is still unclear &mdash; changes you do not recognise, a missing credential, a Netlify setting &mdash; ask a developer (AnhTuan, Leshan, Brandon or Kyle) in the <strong>Web Team</strong> Google Chat group. Who approves a change is routed at task 6.1."
     },
     {
       "type": "code",
@@ -920,7 +685,7 @@
     },
     {
       "type": "section",
-      "num": "08",
+      "num": "05",
       "label": "Final checklist before you merge",
       "tone": "dark"
     },
@@ -936,24 +701,25 @@
         "The right approver has said yes, explicitly",
         "Anything unverifiable is written in the Asana comment",
         "You checked the live site in incognito after merging"
-      ]
+      ],
+      "prompt": "Check this change against the final checklist below. For each line, say pass or fail and give the evidence: a command output, a URL, or the approver's message. Make no changes."
     },
     {
       "type": "section",
-      "num": "09",
+      "num": "06",
       "label": "Related documents"
     },
     {
       "type": "bullets",
       "items": [
-        "<code>HGM-SOP-WEB-001</code> &mdash; Store, share, and update client .env files in 1Password",
+        "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a> &mdash; Store, share, and update client .env files in 1Password",
         "<code>HGM-SOP-OPS-001</code> &mdash; Produce and publish an HGM SOP",
         "Commands here are for HGM's Next.js client sites on Netlify. If a step turns out to be wrong or unclear, say so &mdash; a runbook nobody corrects stops being true."
       ]
     },
     {
       "type": "section",
-      "num": "10",
+      "num": "07",
       "label": "Revision history"
     },
     {
@@ -994,6 +760,12 @@
           "1.4",
           "Kyle Zinger",
           "Route selection reframed as a platform choice &mdash; VS Code (prompts, terminal and buttons), Terminal (commands only), Claude Desktop app (prompts only). Route cards, comparison table and portal selector updated to match; note added that the claude.ai website cannot run the prompts. No change to the procedure."
+        ],
+        [
+          "2026-10-15",
+          "1.5",
+          "Kyle Zinger",
+          "Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal. The platform cards and comparison table are gone: everyone works in VS Code, where every route runs."
         ]
       ]
     },

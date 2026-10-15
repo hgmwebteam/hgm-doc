@@ -273,8 +273,15 @@ portal's usual `ui-theme`, as the floating toggle does).
 The check and the game share `dictionary/drag-board.tsx` (drag, tap-then-tap and keyboard placing),
 and the two decks share `dictionary/flashcards.tsx`. See `docs/dictionary-tools.md`.
 
-`reference/` at the repo root is team material (design mockups, SOP screenshots,
-design-tool exports) and is **not** read by the app; only `src/` is bundled and only
+The **SOP library** (`/dashboard?dept=sops`; one SOP at `/sop/<ID>`, an earlier version at
+`/sop/<ID>/v0.5`) is `src/pages/team/sops/`. Its list is `src/data/sops.json`, written by
+`sops/tools/build-index.py` from the masters in `sops/masters/` (never by hand). Every
+SOP is public, and each version's page and PDF are files in `public/sops/{html,pdf}/<id>_v#_#.*`
+that are never deleted, since the viewer's Versions menu links them. SOPs are written, built and
+published in this repo: see `sops/CLAUDE.md`.
+
+`reference/` at the repo root is team material (design mockups, design-tool
+exports) and is **not** read by the app; only `src/` is bundled and only
 `public/` is served. See [reference/README.md](reference/README.md).
 
 ## State & key files

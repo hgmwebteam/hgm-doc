@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { Download01, FileCheck02, Lock01, Plus, SearchSm } from "@untitledui/icons";
+import { Download01, FileCheck02, Plus, SearchSm } from "@untitledui/icons";
 import { useNavigate } from "react-router";
 import sopsIndex from "@/data/sops.json";
-import { supabase } from "@/lib/supabase";
 import { cx } from "@/utils/cx";
 import { SOP_DEPARTMENTS, findSopDepartment, sopDeptTabId } from "./sop-departments";
 
@@ -16,9 +15,23 @@ import { SOP_DEPARTMENTS, findSopDepartment, sopDeptTabId } from "./sop-departme
  * wireframe holds their slots.
  *
  * `tab` is the sidebar selection: "all" or a lower-case department code.
+ *
+ * Every SOP is public and there is no approval step (since 2026-10-15): each
+ * version is published as `public/sops/{html,pdf}/<id>_v#_#.*` and stays there,
+ * so `versions` links every earlier one. `sops/tools/build-index.py` writes it.
  */
 
 export type SopStatus = "draft" | "live" | "pending_approval" | "archived";
+
+/** One row of an SOP's revision history. Versions from before the repo have no files. */
+export interface SopVersion {
+    version: string;
+    date: string | null;
+    summary: string;
+    /** Path under the site's /sops/ directory, or null when no copy exists. */
+    html: string | null;
+    pdf: string | null;
+}
 
 export interface SopIndexEntry {
     id: string;
@@ -30,20 +43,22 @@ export interface SopIndexEntry {
     owner: string;
     /** ISO date of the current version's publish. */
     updated: string;
-    /** ISO date, or null until first approval. */
+    /** ISO date, or null when the master has none. */
     next_review: string | null;
-    /** Path inside the `sops` storage bucket or the published /sops/ directory. */
+    /** The current version's files, under the site's /sops/ directory. */
     html: string;
     pdf: string;
     change_summary: string;
+    /** Every version, newest first; the first is the current one. */
+    versions: SopVersion[];
+    /** What a draft is still waiting on. Absent until the index is rebuilt. */
+    pending?: { images: number; inputs: number };
 }
 
 export const SOPS: SopIndexEntry[] = sopsIndex as SopIndexEntry[];
 
-/** Only these SOPs have been authorised for public access. */
-export const isPublicSop = (id: string) => ["HGM-SOP-WEB-003", "HGM-SOP-WEB-004", "HGM-SOP-WEB-005"].includes(id.toUpperCase());
-
-export const sopPath = (id: string) => `/sop/${id}`;
+/** `/sop/HGM-SOP-WEB-004` for the current version, `/sop/HGM-SOP-WEB-004/v0.5` for an earlier one. */
+export const sopPath = (id: string, version?: string) => (version ? `/sop/${id}/v${version}` : `/sop/${id}`);
 
 const STATUS_LABEL: Record<SopStatus, string> = {
     draft: "Draft",
@@ -59,20 +74,22 @@ const STATUS_CLASS: Record<SopStatus, string> = {
     archived: "bg-secondary text-tertiary ring-1 ring-secondary ring-inset",
 };
 
-const formatDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("en-CA", { day: "numeric", month: "short", year: "numeric" });
+export const formatSopDate = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("en-CA", { day: "numeric", month: "short", year: "numeric" });
 
-/** Public SOP PDFs are served by the site; private PDFs use short-lived signed URLs. */
-export const openSopPdf = async (entry: SopIndexEntry) => {
-    if (isPublicSop(entry.id)) {
-        window.open(`/sops/${entry.pdf}`, "_blank", "noopener");
-        return;
-    }
-    const { data, error } = await supabase.storage.from("sops").createSignedUrl(entry.pdf, 120);
-    if (error || !data?.signedUrl) {
-        window.alert("The PDF could not be opened. Sign in with your Google account and try again.");
-        return;
-    }
-    window.open(data.signedUrl, "_blank", "noopener");
+/** Every SOP PDF is a file the site serves, one per version. */
+export const sopFileUrl = (path: string) => `/sops/${path}`;
+
+export const openSopPdf = (pdf: string) => {
+    window.open(sopFileUrl(pdf), "_blank", "noopener");
+};
+
+/** "Waiting on 15 images and 34 answers", or nothing when the SOP is complete. */
+const waitingOn = ({ pending }: SopIndexEntry) => {
+    const parts = [
+        pending?.images ? `${pending.images} image${pending.images === 1 ? "" : "s"}` : "",
+        pending?.inputs ? `${pending.inputs} answer${pending.inputs === 1 ? "" : "s"}` : "",
+    ].filter(Boolean);
+    return parts.length ? `Waiting on ${parts.join(" and ")}` : "";
 };
 
 const StatusPill = ({ status }: { status: SopStatus }) => (
@@ -81,15 +98,11 @@ const StatusPill = ({ status }: { status: SopStatus }) => (
 
 const SopCard = ({ entry }: { entry: SopIndexEntry }) => {
     const navigate = useNavigate();
-    const dept = findSopDepartment(entry.dept);
     return (
         <div className="group flex flex-col gap-3 rounded-xl bg-primary p-4 shadow-sm ring-1 ring-secondary transition duration-100 ease-linear hover:ring-brand">
             <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-xs font-medium text-tertiary">{entry.id}</span>
-                <div className="flex items-center gap-1.5">
-                    {dept?.requiresApproval && <Lock01 className="size-3.5 text-quaternary" aria-label="Approval required" />}
-                    <StatusPill status={entry.status} />
-                </div>
+                <StatusPill status={entry.status} />
             </div>
             <button
                 type="button"
@@ -100,11 +113,12 @@ const SopCard = ({ entry }: { entry: SopIndexEntry }) => {
             </button>
             <div className="mt-auto flex flex-col gap-0.5 text-xs text-tertiary">
                 <span>
-                    v{entry.version} · {entry.owner} · {formatDate(entry.updated)}
+                    v{entry.version} · {entry.owner} · {formatSopDate(entry.updated)}
                 </span>
                 <span>
-                    {entry.owner_role} ({entry.owner}){entry.next_review ? ` · review ${formatDate(entry.next_review)}` : ""}
+                    {entry.owner_role} ({entry.owner}){entry.next_review ? ` · review ${formatSopDate(entry.next_review)}` : ""}
                 </span>
+                {entry.status === "draft" && waitingOn(entry) && <span className="text-warning-primary">{waitingOn(entry)}</span>}
             </div>
             <div className="flex items-center gap-2 border-t border-secondary pt-3">
                 <button
@@ -116,7 +130,7 @@ const SopCard = ({ entry }: { entry: SopIndexEntry }) => {
                 </button>
                 <button
                     type="button"
-                    onClick={() => void openSopPdf(entry)}
+                    onClick={() => openSopPdf(entry.pdf)}
                     title="Download PDF"
                     className="flex items-center gap-1.5 rounded-lg border border-secondary bg-primary px-3 py-1.5 text-sm font-semibold text-secondary transition duration-100 ease-linear hover:bg-secondary hover:text-primary"
                 >
@@ -158,7 +172,6 @@ const CoverageBars = ({ onSelect }: { onSelect: (tabId: string) => void }) => {
                     </button>
                 ))}
             </div>
-            <p className="mt-3 text-xs text-tertiary">Drafts are visible to the team but only live SOPs count as coverage.</p>
         </div>
     );
 };
@@ -186,7 +199,7 @@ export const SopsContent = ({ tab, onSelectTab }: { tab: string; onSelectTab: (t
                     <h1 className="text-md font-semibold text-primary">{selected ? selected.name : "All SOPs"}</h1>
                     <p className="text-sm text-tertiary">
                         {selected
-                            ? `${visible.length} SOP${visible.length !== 1 ? "s" : ""}${selected.requiresApproval ? " · approval required to publish" : ""}`
+                            ? `${visible.length} SOP${visible.length !== 1 ? "s" : ""}`
                             : `${SOPS.length} SOP${SOPS.length !== 1 ? "s" : ""} across ${deptsWithSops} of ${SOP_DEPARTMENTS.length} departments · ${liveCount} live`}
                     </p>
                 </div>
@@ -226,7 +239,6 @@ export const SopsContent = ({ tab, onSelectTab }: { tab: string; onSelectTab: (t
                                     <d.icon className="size-4 text-tertiary" aria-hidden="true" />
                                     <h2 className="text-sm font-semibold text-primary">{d.name}</h2>
                                     <span className="font-mono text-xs text-quaternary">{d.code}</span>
-                                    {d.requiresApproval && <Lock01 className="size-3.5 text-quaternary" aria-label="Approval required" />}
                                 </div>
                                 {rows.length === 0 ? (
                                     <div className="flex items-center gap-3 rounded-xl border border-dashed border-secondary px-4 py-5 text-sm text-tertiary">

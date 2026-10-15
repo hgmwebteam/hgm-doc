@@ -43,3 +43,7 @@ so rather than invent a location. Machine-wide shared assets are declared in
 Not declared, deliberately: no light-section-inverting classes (the whole app themes
 at once), no inspiration library, no owed-asset convention. Device bezel **sources** come from the shared
 library in `~/.claude/CLAUDE.md`. Add a row when one of these becomes true.
+
+## SOPs
+
+@sops/CLAUDE.md

@@ -202,33 +202,37 @@ const StoryView = ({
 
     return (
         <div className="relative h-full overflow-hidden bg-(--ig-canvas)">
-            {slide.kind === "video" ? (
-                <video
-                    key={slide.id}
-                    src={slide.url}
-                    muted
-                    playsInline
-                    autoPlay={!reduced}
-                    // Holding pauses; so does reduced motion, which never autoplays.
-                    ref={(el) => {
-                        if (!el) return;
-                        if (holding) el.pause();
-                        else if (!reduced) el.play().catch(() => {});
-                    }}
-                    onTimeUpdate={(e) => {
-                        const v = e.currentTarget;
-                        if (v.duration) onVideoProgress(v.currentTime / v.duration);
-                    }}
-                    onEnded={onNext}
-                    className="absolute inset-0 size-full object-contain"
-                />
-            ) : (
-                <img key={slide.id} src={slide.url} alt="" className="absolute inset-0 size-full object-contain" draggable={false} />
-            )}
+            {/* The slide is a 9:16 card the full width of the screen, hung just under the status bar, the way
+                Instagram draws a story on a tall phone: the whole slide shows, progress and header sit over
+                its top, and the room left under it holds the reply bar. (Chiara's screenshot, 2026-10-15.) */}
+            <div className="absolute left-0 aspect-9/16 w-full overflow-hidden rounded-xl" style={{ top: CHROME_TOP - 4 }}>
+                {slide.kind === "video" ? (
+                    <video
+                        key={slide.id}
+                        src={slide.url}
+                        muted
+                        playsInline
+                        autoPlay={!reduced}
+                        // Holding pauses; so does reduced motion, which never autoplays.
+                        ref={(el) => {
+                            if (!el) return;
+                            if (holding) el.pause();
+                            else if (!reduced) el.play().catch(() => {});
+                        }}
+                        onTimeUpdate={(e) => {
+                            const v = e.currentTarget;
+                            if (v.duration) onVideoProgress(v.currentTime / v.duration);
+                        }}
+                        onEnded={onNext}
+                        className="absolute inset-0 size-full object-cover"
+                    />
+                ) : (
+                    <img key={slide.id} src={slide.url} alt="" className="absolute inset-0 size-full object-cover" draggable={false} />
+                )}
 
-            {/* Legibility scrims for the chrome, like the app's own. */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-[150px] bg-linear-to-b from-(--ig-canvas)/55 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[120px] bg-linear-to-t from-(--ig-canvas)/55 to-transparent" />
+                {/* Legibility scrim for the chrome over the top of the card, like the app's own. */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[120px] bg-linear-to-b from-(--ig-canvas)/55 to-transparent" />
+            </div>
 
             <div className="relative">
                 <IgStatusBar />

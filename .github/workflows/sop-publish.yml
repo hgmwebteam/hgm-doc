@@ -1,0 +1,73 @@
+# Runs on main after every merge that touches an SOP master, figure, the
+# renderer or the build tools. Builds what the push changed (every SOP when
+# the renderer or a tool changed), PDF included, publishes each version's page
+# and PDF into public/sops/, its Markdown into sops/markdown/, rewrites
+# src/data/sops.json, and commits that to main. Netlify then deploys it.
+#
+# Publishing happens here, after the merge, so a pull request can be merged
+# the moment it opens. No secrets: every SOP is a public file on the site.
+# A commit pushed with GITHUB_TOKEN starts no further workflow runs, so this
+# cannot loop. "Run workflow" (workflow_dispatch) rebuilds and publishes every
+# SOP.
+name: SOP publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sops/masters/**"
+      - "sops/figures/**"
+      - "sops/renderer/**"
+      - "sops/tools/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sop-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # --since needs the commit before the push
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the renderer's dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libpango-1.0-0 libpangoft2-1.0-0 poppler-utils
+          pip install -q weasyprint pillow fonttools brotli
+
+      - name: Build and publish what this push changed
+        # A manual run has no "before", so build.py builds every SOP.
+        run: python3 sops/tools/build.py --since "${{ github.event.before }}" --publish
+
+      - name: Commit the published files to main
+        run: |
+          git add public/sops sops/markdown src/data/sops.json
+          if git diff --cached --quiet; then
+            echo "Nothing new to publish."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -m "SOP publish: pages, PDFs and the SOP list for ${GITHUB_SHA::7}"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Keep the outputs from this publish
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sop-published-${{ github.sha }}
+          path: sops/dist/
+          if-no-files-found: ignore
+          retention-days: 90

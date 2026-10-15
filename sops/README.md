@@ -16,12 +16,15 @@ Claude Code: reads sops/CLAUDE.md + the skills + the master → makes a branch
              → looks at every page → opens a pull request
         │
         ▼
-GitHub "SOP check" (on the pull request): rebuilds with the PDF, posts the gate
-             report as a comment, and commits the new version's page, PDF,
-             Markdown and the updated SOP list back to the pull request
+GitHub "SOP check" (on the pull request): rebuilds with the PDF and posts the
+             gate report as a comment, with the files attached
         │
         ▼
-You: read the report, open the PDF or HTML, merge
+You: read the report, open the PDF or HTML, merge (any time; nothing waits on it)
+        │
+        ▼
+GitHub "SOP publish" (on main, after the merge): builds the new version's page,
+             PDF and Markdown, updates the SOP list and commits them to main
         │
         ▼
 Netlify deploys main: hgmportal.com/sop/HGM-SOP-WEB-002 shows v1.5, and
@@ -84,7 +87,7 @@ sops/
 | `src/data/sops.json` | the SOP list the portal bundles, written by `tools/build-index.py` |
 | `src/pages/team/sops/` | the portal's SOP dashboard and viewer |
 | `.claude/skills/hgm-sop-author`, `.claude/skills/hgm-doc-render`, `.claude/commands/sop-*.md` | Claude Code only finds skills and commands there |
-| `.github/workflows/sop-check.yml` | GitHub only runs workflows from there |
+| `.github/workflows/sop-check.yml`, `sop-publish.yml` | the pull-request check, and publishing on main after the merge (GitHub only runs workflows from there) |
 
 The private `sops` storage bucket (`supabase/migrations/20260920100000_sops_bucket.sql`)
 is no longer read; it still holds the old private copies.

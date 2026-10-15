@@ -3,7 +3,8 @@
 
     python3 sops/tools/build.py                    # every SOP in sops/masters/
     python3 sops/tools/build.py HGM-SOP-WEB-002    # one SOP (ID, short ID or path)
-    python3 sops/tools/build.py --changed          # masters changed vs origin/main (all, if the renderer changed)
+    python3 sops/tools/build.py --changed          # masters changed vs origin/main, or using a changed figure (all, if the renderer or a tool changed)
+    python3 sops/tools/build.py --since <commit>   # the same, but changed since <commit> (the publish job on main)
     python3 sops/tools/build.py --no-pdf ...       # skip the PDF (no WeasyPrint needed)
     python3 sops/tools/build.py --publish ...      # also publish the outputs into the site (see below)
 
@@ -25,7 +26,8 @@ it, under its version: public/sops/html/<SOP-ID>_v#_#.html,
 public/sops/pdf/<SOP-ID>_v#_#.pdf and sops/markdown/<SOP-ID>_v#_#.md.
 Then sops/tools/build-index.py rewrites src/data/sops.json. Earlier versions'
 files are never touched: they are the portal's links to past versions. The
-"SOP build" pull-request check runs this and commits the result.
+"SOP publish" job runs this on main after every merge and commits the result;
+the "SOP check" on a pull request only builds and reports.
 
 Exit code is non-zero if any SOP fails a hard check. Warnings (open
 [NEEDS INPUT] flags, a sparse page) never fail the build.
@@ -208,11 +210,16 @@ def newest(paths):
     return sorted(p for _, p in best.values())
 
 
+# What --changed compares against: origin/main on a pull request, or the
+# commit before a push with --since (on main, origin/main is HEAD itself).
+SINCE = "origin/main..."
+
+
 def changed_files(path):
-    """Files under path that differ from origin/main, committed or not."""
+    """Files under path that differ from SINCE, committed or not."""
     rel = os.path.relpath(path, ROOT)
     try:
-        out = subprocess.run(["git", "diff", "--name-only", "origin/main...HEAD", "--", rel],
+        out = subprocess.run(["git", "diff", "--name-only", f"{SINCE}HEAD", "--", rel],
                              capture_output=True, text=True, cwd=ROOT).stdout
         out += subprocess.run(["git", "diff", "--name-only", "--", rel],
                               capture_output=True, text=True, cwd=ROOT).stdout
@@ -222,11 +229,17 @@ def changed_files(path):
 
 
 def changed_masters():
-    """Masters changed vs origin/main; every master if the renderer or a figure
-    changed, because then every current page has to be rebuilt."""
-    if changed_files(RENDERER) or changed_files(FIGURES):
-        return glob.glob(os.path.join(MASTERS, "*.json"))
-    return [p for p in changed_files(MASTERS) if p.endswith(".json")]
+    """Masters changed since SINCE, plus those using a changed figure; every
+    master if the renderer or a build tool changed."""
+    every = glob.glob(os.path.join(MASTERS, "*.json"))
+    if changed_files(RENDERER) or changed_files(os.path.dirname(__file__)):
+        return every
+    hits = {p for p in changed_files(MASTERS) if p.endswith(".json")}
+    # A changed figure rebuilds only the masters that use it.
+    figs = {os.path.basename(f) for f in changed_files(FIGURES)}
+    if figs:
+        hits |= {p for p in every if any(f in open(p, encoding="utf-8").read() for f in figs)}
+    return sorted(hits)
 
 
 def publish(sop_id, version, stem):
@@ -256,10 +269,25 @@ def resolve(arg):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    no_pdf = "--no-pdf" in sys.argv
-    do_publish = "--publish" in sys.argv
-    if "--changed" in sys.argv:
+    global SINCE
+    argv = sys.argv[1:]
+    since = None
+    if "--since" in argv:
+        i = argv.index("--since")
+        since = argv[i + 1] if i + 1 < len(argv) else ""
+        del argv[i:i + 2]
+    args = [a for a in argv if not a.startswith("--")]
+    no_pdf = "--no-pdf" in argv
+    do_publish = "--publish" in argv
+    if since is not None:
+        ok = since.strip("0") and subprocess.run(["git", "cat-file", "-e", f"{since}^{{commit}}"], cwd=ROOT).returncode == 0
+        if ok:
+            SINCE = f"{since}.."
+            targets = newest(p for p in changed_masters() if os.path.exists(p))
+        else:
+            print(f"--since {since!r} is not a commit here; building every SOP")
+            targets = newest(glob.glob(os.path.join(MASTERS, "*.json")))
+    elif "--changed" in argv:
         targets = newest(p for p in changed_masters() if os.path.exists(p))
     elif args:
         targets = [resolve(a) for a in args]

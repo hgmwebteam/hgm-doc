@@ -1,4 +1,4 @@
-import { type ChangeEvent, type DragEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle, Code02, Globe01, Link01, LinkExternal01, MessageChatCircle, Monitor01, Phone01, UploadCloud02 } from "@untitledui/icons";
 import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
@@ -166,6 +166,35 @@ const openVersion = async (v: LandingPageVersion) => {
         w.document.write("<p style='font:14px system-ui;padding:24px'>Couldn't load this version — close the tab and try again.</p>");
         w.document.close();
     }
+};
+
+/** The window width each device preview lays the page out at. */
+const PREVIEW_VIEWPORT = { desktop: 1440, mobile: 390 } as const;
+
+/**
+ * Fills its (relative) parent and gives the frame inside a window at least `viewport` wide,
+ * scaled down to fit. Without it the desktop preview handed the page the dashboard column
+ * (~930×640), so a responsive page drew its tablet layout and its height-based sections
+ * stretched to suit, which read as text blown up and never scaling down. The height grows
+ * by the same factor, so the page also gets a desktop-shaped window, not a letterbox.
+ * Measured before the frame mounts, so the page never loads at the wrong size first.
+ */
+const ViewportFrame = ({ viewport, children }: { viewport: number; children: ReactNode }) => {
+    const ref = useRef<HTMLDivElement>(null);
+    const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const ro = new ResizeObserver(([entry]) => setBox({ w: entry.contentRect.width, h: entry.contentRect.height }));
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    const scale = box && box.w > 0 && box.w < viewport ? box.w / viewport : 1;
+    return (
+        <div ref={ref} className="absolute inset-0">
+            {box && <div style={{ width: box.w / scale, height: box.h / scale, transform: `scale(${scale})`, transformOrigin: "top left" }}>{children}</div>}
+        </div>
+    );
 };
 
 const inputCls =
@@ -780,22 +809,26 @@ export const LandingPageSection = ({
                                 fetchHtml. Keyed by version id so a new version remounts the frame
                                 rather than leaving a stale document behind a changed srcDoc. */}
                             {live.url ? (
-                                <iframe
-                                    key={live.id}
-                                    title="Landing page preview"
-                                    src={live.url}
-                                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                                    referrerPolicy="no-referrer"
-                                    className="size-full border-0"
-                                />
+                                <ViewportFrame viewport={PREVIEW_VIEWPORT[device]}>
+                                    <iframe
+                                        key={live.id}
+                                        title="Landing page preview"
+                                        src={live.url}
+                                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                                        referrerPolicy="no-referrer"
+                                        className="size-full border-0"
+                                    />
+                                </ViewportFrame>
                             ) : liveHtml !== null ? (
-                                <iframe
-                                    key={live.id}
-                                    title="Landing page preview"
-                                    srcDoc={liveHtml}
-                                    sandbox="allow-same-origin"
-                                    className="size-full border-0"
-                                />
+                                <ViewportFrame viewport={PREVIEW_VIEWPORT[device]}>
+                                    <iframe
+                                        key={live.id}
+                                        title="Landing page preview"
+                                        srcDoc={liveHtml}
+                                        sandbox="allow-same-origin"
+                                        className="size-full border-0"
+                                    />
+                                </ViewportFrame>
                             ) : (
                                 <div className="flex size-full flex-col items-center justify-center gap-2 text-center">
                                     {liveErr ? (

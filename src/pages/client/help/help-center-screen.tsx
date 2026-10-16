@@ -587,7 +587,7 @@ const LEDE = "Raised here, sent to the team responsible, and visible until it cl
  * Section gap 40 on desktop, 24 at 390. Heading order: h1 the hero, h2 the two cards,
  * h2 Reference. The topics are links, not headings.
  */
-const HelpHome = ({ tickets, topics, slug }: { tickets: Ticket[]; topics: TicketTopic[]; slug: string }) => (
+const HelpHome = ({ tickets, topics, slug, guidesRow = true }: { tickets: Ticket[]; topics: TicketTopic[]; slug: string; guidesRow?: boolean }) => (
     <div className="flex flex-col gap-6 sm:gap-10">
         {/* The frame's hero promised "an owner and a date" and its lede "assigned within the
             minute"; neither is shown to a client any more (owner, 28 Sep 2026), so the words
@@ -616,7 +616,9 @@ const HelpHome = ({ tickets, topics, slug }: { tickets: Ticket[]; topics: Ticket
             </div>
         </div>
 
-        <GuidesRow slug={slug} />
+        {/* Off inside the existing-client rail (owner, 16 Oct 2026, "remove these"): the
+            rail's Guides row already leads there. The plain help centre keeps it. */}
+        {guidesRow && <GuidesRow slug={slug} />}
     </div>
 );
 
@@ -1006,7 +1008,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
             );
         }
 
-        return <HelpHome tickets={tickets} topics={topics} slug={slug} />;
+        return <HelpHome tickets={tickets} topics={topics} slug={slug} guidesRow={!rail} />;
     };
 
     // The breadcrumb is the path to here, every step a link (owner's rule, 13 Sep 2026:

@@ -12,7 +12,7 @@ import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
 import { Button } from "@/components/base/buttons/button";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
 import { type DashboardUser, type SectionId, findDashboardUser, genSharePassword, normEmail, passwordFor } from "@/pages/client/dashboard/dashboard-model";
-import { ASSIGNABLE_SECTION_GROUPS, PHASES, type SearchHit, phaseOfSection } from "@/pages/client/dashboard/dashboard-navigation";
+import { ASSIGNABLE_SECTION_GROUPS, PHASES, phaseOfSection } from "@/pages/client/dashboard/dashboard-navigation";
 import { cx } from "@/utils/cx";
 
 /**
@@ -260,9 +260,8 @@ export const DashboardAccessPanel = ({
                                 out of the one zero-cost way to change that. Said plainly instead. */}
                             {!usable && (
                                 <p className="mt-1.5 text-xs text-tertiary">
-                                    No password: they can raise and follow requests in the help centre by signing in with Google, but
-                                    cannot open a password-protected dashboard. Give them one only if the dashboard itself should be
-                                    locked.
+                                    No password: they can raise and follow requests in the help centre by signing in with Google, but cannot open a
+                                    password-protected dashboard. Give them one only if the dashboard itself should be locked.
                                 </p>
                             )}
 
@@ -433,7 +432,14 @@ export const EyeOffGlyph = () => (
  * `hits`) — never other clients, internal team pages, or admin routes. Purely local
  * filtering over already-loaded props; no network calls.
  */
-export const ClientSearchBar = ({ hits, onSelect }: { hits: SearchHit[]; onSelect: (id: SectionId) => void }) => {
+// Generic over the id: the journey rail searches sections, the existing-client rail searches routes.
+export const ClientSearchBar = <T extends string = SectionId>({
+    hits,
+    onSelect,
+}: {
+    hits: { id: T; label: string; sub?: string }[];
+    onSelect: (id: T) => void;
+}) => {
     const [query, setQuery] = useState("");
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -451,7 +457,7 @@ export const ClientSearchBar = ({ hits, onSelect }: { hits: SearchHit[]; onSelec
     const q = query.trim().toLowerCase();
     const results = q ? hits.filter((h) => h.label.toLowerCase().includes(q) || h.sub?.toLowerCase().includes(q)) : hits;
 
-    const go = (id: SectionId) => {
+    const go = (id: T) => {
         onSelect(id);
         setQuery("");
         setOpen(false);

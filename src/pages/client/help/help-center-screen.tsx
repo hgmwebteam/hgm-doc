@@ -962,8 +962,6 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 clientName={viewer?.clientName || clientName}
                 logoUrl={clientRow?.logoUrl ?? ""}
                 isStaff={isStaff}
-                email={proof.email}
-                name={viewer?.name}
                 onSignOut={() => void signOutHere()}
             />
         ) : undefined;

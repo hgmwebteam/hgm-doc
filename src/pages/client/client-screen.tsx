@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { Navigate, useParams, useSearchParams } from "react-router";
 import {
     type ChatWidgetPageData,
     type ClientPageData,
@@ -11,7 +11,8 @@ import {
 import { ChatWidgetScreen } from "@/pages/client/chat-widget-screen";
 import { ClientDashboardPage } from "@/pages/client/client-dashboard-page";
 import { AccessFormPage, type ClientOnboardingData, ClientOnboardingFormPage } from "@/pages/client/client-onboarding-form-page";
-import { type ClientStage, fetchClientStage } from "@/pages/client/dashboard/client-stage";
+import { type ClientStage, KEEP_JOURNEY_SLUGS, fetchClientStage } from "@/pages/client/dashboard/client-stage";
+import { fullDashboardSlug } from "@/pages/client/help/help-api";
 import { HelpCenterScreen } from "@/pages/client/help/help-center-screen";
 import { HostOnboardingFormPage } from "@/pages/client/host-onboarding-form-page";
 import { PixelPage } from "@/pages/client/pixel-page";
@@ -240,6 +241,16 @@ const ClientOnboardingScreen = ({ slug, access = false }: { slug: string; access
 export const ClientScreen = () => {
     const { clientSlug } = useParams<{ clientSlug: string }>();
 
+    /* /{client}-help is the help centre's short address, as the owner wanted it typed:
+       one segment, case does not matter. HelpCenterScreen reads the slug from the route and
+       fullDashboardSlug() drops the "-help", so /flohom-help serves flohom-dashboard's help
+       centre, inside the existing-client rail when that client is existing. First, so no
+       other suffix rule can claim it. Not for the two dashboards pinned to the journey
+       (owner, 16 Oct 2026: "don't build for Enjoy Unique Stays and FLOHOM"): those fall
+       through to the 404 they have today. */
+    if (clientSlug?.toLowerCase().endsWith("-help") && !KEEP_JOURNEY_SLUGS.has(fullDashboardSlug(clientSlug))) {
+        return <HelpCenterScreen view="home" />;
+    }
     if (clientSlug?.endsWith("-leadcapture")) {
         return <LeadCaptureScreen slug={clientSlug} />;
     }
@@ -319,10 +330,12 @@ const PixelScreen = ({ clientSlug }: { clientSlug?: string }) => {
                             setLoading(false);
                             return;
                         }
-                        /* Last chance before 404: treat the slug as the short form of a dashboard
-                           URL, so /north-star-resort-lodge serves /north-star-resort-lodge-dashboard.
-                           Clients get a clean link with no per-client setup. Runs last so it can only
-                           ever turn a 404 into a page — a real pixel page or template doc still wins. */
+                        /* Last chance before 404: the slug is the short form of a dashboard URL
+                           (/away2pa for /away2pa-dashboard). It used to serve the dashboard; since
+                           16 Oct 2026 it sends the visitor to the portal's front door instead (owner:
+                           "if someone tries /away2pa, take them to hgmportal.com/"). The dashboard is
+                           reached by its full address only. Still looked up, so a slug that is nothing
+                           at all stays a 404 rather than a redirect. */
                         supabase
                             .from("dashboard_pages")
                             .select("slug")
@@ -339,9 +352,7 @@ const PixelScreen = ({ clientSlug }: { clientSlug?: string }) => {
 
     if (loading) return <Spinner />;
     if (isTemplateDoc && clientSlug) return <TemplateOneScreen key={clientSlug} slug={clientSlug} isTemplate={false} />;
-    /* The full "-dashboard" slug is passed through, not the short one the visitor typed, so edits
-       still save back to the row they came from. */
-    if (dashboardSlug) return <ClientDashboardScreen key={dashboardSlug} slug={dashboardSlug} />;
+    if (dashboardSlug) return <Navigate to="/" replace />;
     if (notFound) return <NotFound />;
 
     return (

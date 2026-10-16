@@ -334,6 +334,8 @@ const HelpShell = ({
             className={rail ? "min-w-0 flex-1" : undefined}
             topBar={
                 <TopBar
+                    gem={!rail}
+                    account={!rail}
                     crumbs={crumbs}
                     right={clientName ? `${clientName}  ·  ${person}` : person}
                     initial={initialOf(person)}
@@ -955,7 +957,15 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
        onboarding client, or a dashboard with no clients row, keeps the plain help frame. */
     const rail =
         stage === "existing" ? (
-            <ExistingDashboardRail slug={slug} clientName={viewer?.clientName || clientName} logoUrl={clientRow?.logoUrl ?? ""} isStaff={isStaff} />
+            <ExistingDashboardRail
+                slug={slug}
+                clientName={viewer?.clientName || clientName}
+                logoUrl={clientRow?.logoUrl ?? ""}
+                isStaff={isStaff}
+                email={proof.email}
+                name={viewer?.name}
+                onSignOut={() => void signOutHere()}
+            />
         ) : undefined;
 
     return (

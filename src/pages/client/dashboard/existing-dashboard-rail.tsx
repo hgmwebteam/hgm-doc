@@ -20,6 +20,7 @@ import { HelpCircle, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, 
 import { useLocation, useNavigate } from "react-router";
 import { BadgeWithDot } from "@/components/base/badges/badges";
 import { SectionNavItem } from "@/pages/client/dashboard/dashboard-chrome";
+import { initialOf } from "@/pages/client/help/help-atoms";
 import { HELP_GUIDES } from "@/pages/client/help/help-center-guides";
 
 const Group = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -36,6 +37,9 @@ export const ExistingDashboardRail = ({
     clientName,
     logoUrl,
     isStaff,
+    email,
+    name,
+    onSignOut,
 }: {
     /** The full "-dashboard" slug. */
     slug: string;
@@ -43,7 +47,33 @@ export const ExistingDashboardRail = ({
     logoUrl: string;
     /** A HiddenGem Media viewer gets the way into the editable dashboard. */
     isStaff: boolean;
+    /** Who is signed in. Drawn at the foot of the rail, where the owner wanted the profile
+     *  (Loom, 16 Oct 2026), instead of in the help centre's top bar. */
+    email: string;
+    name?: string;
+    onSignOut: () => void;
 }) => {
+    const person = (name ?? "").trim() || email.split("@")[0];
+    const avatar =
+        "flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-semibold text-brand-secondary ring-1 ring-brand";
+    const account = (
+        <div className="flex items-center gap-3">
+            <span role="img" aria-label={`Account, ${person}`} className={avatar}>
+                {initialOf(person)}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-semibold text-primary">{person}</span>
+                <span className="truncate text-xs text-tertiary">{email}</span>
+            </span>
+            <button
+                type="button"
+                onClick={onSignOut}
+                className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-brand-secondary transition duration-100 ease-linear hover:bg-primary"
+            >
+                Sign out
+            </button>
+        </div>
+    );
     const navigate = useNavigate();
     const { pathname, search } = useLocation();
     const params = new URLSearchParams(search);
@@ -64,12 +94,23 @@ export const ExistingDashboardRail = ({
                         <Image01 className="size-5 text-fg-quaternary" aria-hidden="true" />
                     )}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-primary">{clientName || "Your dashboard"}</p>
                     <BadgeWithDot color="success" size="sm" type="pill-color">
                         Existing client
                     </BadgeWithDot>
                 </div>
+                {/* On a phone the rail is a strip at the top, so the person sits in the
+                    identity row; from md up they move to the foot of the column. */}
+                <button
+                    type="button"
+                    onClick={onSignOut}
+                    title={`${person}. Sign out`}
+                    aria-label={`Account, ${person}. Sign out`}
+                    className={`${avatar} md:hidden`}
+                >
+                    {initialOf(person)}
+                </button>
             </div>
 
             {/* One strip that scrolls sideways on a phone, a column on desktop. Each row keeps
@@ -115,8 +156,20 @@ export const ExistingDashboardRail = ({
 
             {/* No theme toggle here: the help centre opts out of the floating one and the
                 page follows the system (theme-provider), the same as every help route today. */}
-            <div className="mt-auto hidden items-center border-t border-secondary px-4 py-3 md:flex">
-                <span className="text-sm font-semibold text-primary">HiddenGem Media</span>
+            <div className="mt-auto hidden flex-col gap-3 border-t border-secondary px-4 py-3 md:flex">
+                {account}
+                {/* The same lockup as the journey rail's foot: the gem beside the name, a
+                    link out to hiddengem.media in a new tab so a client never loses their page. */}
+                <a
+                    href="https://hiddengem.media"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Visit HiddenGem Media"
+                    className="flex items-center gap-3 rounded-lg transition duration-100 ease-linear hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                    <img src="/hgm logo/Favicon ON LIGHT.svg" alt="" className="size-8" draggable={false} />
+                    <span className="truncate text-sm font-semibold text-primary">HiddenGem Media</span>
+                </a>
             </div>
         </aside>
     );

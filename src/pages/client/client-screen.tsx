@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { Navigate, useParams, useSearchParams } from "react-router";
 import {
     type ChatWidgetPageData,
     type ClientPageData,
@@ -330,10 +330,12 @@ const PixelScreen = ({ clientSlug }: { clientSlug?: string }) => {
                             setLoading(false);
                             return;
                         }
-                        /* Last chance before 404: treat the slug as the short form of a dashboard
-                           URL, so /north-star-resort-lodge serves /north-star-resort-lodge-dashboard.
-                           Clients get a clean link with no per-client setup. Runs last so it can only
-                           ever turn a 404 into a page — a real pixel page or template doc still wins. */
+                        /* Last chance before 404: the slug is the short form of a dashboard URL
+                           (/away2pa for /away2pa-dashboard). It used to serve the dashboard; since
+                           16 Oct 2026 it sends the visitor to the portal's front door instead (owner:
+                           "if someone tries /away2pa, take them to hgmportal.com/"). The dashboard is
+                           reached by its full address only. Still looked up, so a slug that is nothing
+                           at all stays a 404 rather than a redirect. */
                         supabase
                             .from("dashboard_pages")
                             .select("slug")
@@ -350,9 +352,7 @@ const PixelScreen = ({ clientSlug }: { clientSlug?: string }) => {
 
     if (loading) return <Spinner />;
     if (isTemplateDoc && clientSlug) return <TemplateOneScreen key={clientSlug} slug={clientSlug} isTemplate={false} />;
-    /* The full "-dashboard" slug is passed through, not the short one the visitor typed, so edits
-       still save back to the row they came from. */
-    if (dashboardSlug) return <ClientDashboardScreen key={dashboardSlug} slug={dashboardSlug} />;
+    if (dashboardSlug) return <Navigate to="/" replace />;
     if (notFound) return <NotFound />;
 
     return (

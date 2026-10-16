@@ -59,6 +59,22 @@
     --hc-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* Inside an existing client's rail (existing-dashboard-rail.tsx) the frame sits beside
+   the portal's own surfaces, so it takes the journey dashboard's look: cards drawn by their
+   border alone, no elevation, and in dark mode the portal's neutral blacks instead of the
+   file's navy page (owner, Loom 16 Oct 2026: "dark only, not blue"). The plain help centre
+   keeps the file's values. */
+.hc.hc-in-rail {
+    --hc-elevation-card: none;
+}
+.dark-mode .hc.hc-in-rail {
+    --hc-bg-page: #0a0a0a; /* the portal's bg-primary in dark */
+    --hc-bg-primary: #141414;
+    --hc-bg-primary_hover: #1f1f1f;
+    --hc-bg-secondary: #1f1f1f;
+    --hc-bg-tertiary: #2a2a2a;
+}
+
 /* Dark values */
 .dark-mode .hc {
     --hc-bg-page: #060c1d; /* bg/page */
@@ -96,23 +112,25 @@
 }
 
 /* ── Text styles ───────────────────────────────────────────────────────────
-   Tailwind utilities so they take variants (sm:hc-t-display-hero). Family, size,
-   line height in px, weight and tracking in px exactly as the style has them. */
+   Tailwind utilities so they take variants (sm:hc-t-display-hero). The names are the
+   Figma file's; the values are Untitled UI's type scale (owner, 16 Oct 2026: nothing
+   under 14px, no 13 or 15): text-sm 14/20, text-lg 18/28, display-sm 30/38,
+   display-md 36/44. */
 @utility hc-t-display-title {
-    /* display/title: Inter Semi Bold 28/32, tracking -0.5px */
+    /* display/title = Untitled display-sm: Inter Semi Bold 30/38, tracking -0.6px */
     font-family: var(--font-body);
-    font-size: 28px;
-    line-height: 32px;
+    font-size: 30px;
+    line-height: 38px;
     font-weight: 600;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.6px;
 }
 @utility hc-t-heading-section {
-    /* heading/section: Inter Semi Bold 18/24, tracking -0.2px */
+    /* heading/section = Untitled text-lg: Inter Semi Bold 18/28 */
     font-family: var(--font-body);
     font-size: 18px;
-    line-height: 24px;
+    line-height: 28px;
     font-weight: 600;
-    letter-spacing: -0.2px;
+    letter-spacing: 0px;
 }
 @utility hc-t-label-field {
     /* label/field: Inter Medium 14/20, tracking 0px */
@@ -131,44 +149,44 @@
     letter-spacing: 0px;
 }
 @utility hc-t-body-helper {
-    /* body/helper: Inter Regular 13/20, tracking 0px */
+    /* body/helper = Untitled text-sm: Inter Regular 14/20 */
     font-family: var(--font-body);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 20px;
     font-weight: 400;
     letter-spacing: 0px;
 }
 @utility hc-t-caption-meta {
-    /* caption/meta: Inter Medium 13/16, tracking 0.2px */
+    /* caption/meta = Untitled text-sm medium: Inter Medium 14/20, tracking 0.2px */
     font-family: var(--font-body);
-    font-size: 13px;
-    line-height: 16px;
+    font-size: 14px;
+    line-height: 20px;
     font-weight: 500;
     letter-spacing: 0.2px;
 }
 @utility hc-t-button-label {
-    /* button/label: Inter Semi Bold 15/20, tracking 0px */
+    /* button/label = Untitled text-sm semibold: Inter Semi Bold 14/20 */
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: 14px;
     line-height: 20px;
     font-weight: 600;
     letter-spacing: 0px;
 }
 @utility hc-t-mono-id {
-    /* mono/id: Geist Mono Regular 13/16, tracking 0px */
+    /* mono/id: Geist Mono Regular 14/20 */
     font-family: var(--hc-font-mono);
-    font-size: 13px;
-    line-height: 16px;
+    font-size: 14px;
+    line-height: 20px;
     font-weight: 400;
     letter-spacing: 0px;
 }
 @utility hc-t-display-hero {
-    /* display/hero: Inter Semi Bold 40/44, tracking -1px */
+    /* display/hero = Untitled display-md: Inter Semi Bold 36/44, tracking -0.72px */
     font-family: var(--font-body);
-    font-size: 40px;
+    font-size: 36px;
     line-height: 44px;
     font-weight: 600;
-    letter-spacing: -1px;
+    letter-spacing: -0.72px;
 }
 
 /* ── Base ────────────────────────────────────────────────────────────────────

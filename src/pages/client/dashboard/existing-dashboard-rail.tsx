@@ -9,19 +9,21 @@
  * owner cut it (Loom, 16 Oct 2026, "I don't need this section, Resources"). The full
  * dashboard still exists at `?view=full`, which is how the team reaches the editable page.
  *
- * Same surface as the journey dashboard's rail (bg-secondary, 276px, SectionNavItem rows)
- * so a client moved from Onboarding to Existing recognises the place. The portal's semantic
- * tokens, not the help centre's --hc-* ones: the rail sits outside the `hc` frame.
+ * Same surface as the journey dashboard's rail (bg-secondary, 276px, SectionNavItem rows,
+ * the search box under the identity, the gem and the theme toggle at the foot) so a client
+ * moved from Onboarding to Existing recognises the place. Nobody's name or address is shown
+ * (owner, Loom 16 Oct 2026, "whoever signed in, I don't need to see this"); Sign out is a
+ * quiet link at the foot. The portal's semantic tokens, not the help centre's --hc-* ones:
+ * the rail sits outside the `hc` frame.
  *
  * No numbers from HiddenGem AI yet: the owner will say how that data should appear before
  * anything is drawn for it (16 Oct 2026).
  */
-import { HelpCircle, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, PlusCircle } from "@untitledui-pro/icons/line";
+import { HelpCircle, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, Moon01, PlusCircle, Sun } from "@untitledui-pro/icons/line";
 import { useLocation, useNavigate } from "react-router";
-import { BadgeWithDot } from "@/components/base/badges/badges";
-import { SectionNavItem } from "@/pages/client/dashboard/dashboard-chrome";
-import { initialOf } from "@/pages/client/help/help-atoms";
+import { ClientSearchBar, SectionNavItem } from "@/pages/client/dashboard/dashboard-chrome";
 import { HELP_GUIDES } from "@/pages/client/help/help-center-guides";
+import { useTheme } from "@/providers/theme-provider";
 
 const Group = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div role="group" aria-label={label} className="flex shrink-0 flex-row gap-1 md:mt-3 md:flex-col md:first:mt-1">
@@ -37,8 +39,6 @@ export const ExistingDashboardRail = ({
     clientName,
     logoUrl,
     isStaff,
-    email,
-    name,
     onSignOut,
 }: {
     /** The full "-dashboard" slug. */
@@ -47,32 +47,19 @@ export const ExistingDashboardRail = ({
     logoUrl: string;
     /** A HiddenGem Media viewer gets the way into the editable dashboard. */
     isStaff: boolean;
-    /** Who is signed in. Drawn at the foot of the rail, where the owner wanted the profile
-     *  (Loom, 16 Oct 2026), instead of in the help centre's top bar. */
-    email: string;
-    name?: string;
     onSignOut: () => void;
 }) => {
-    const person = (name ?? "").trim() || email.split("@")[0];
-    const avatar =
-        "flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-semibold text-brand-secondary ring-1 ring-brand";
-    const account = (
-        <div className="flex items-center gap-3">
-            <span role="img" aria-label={`Account, ${person}`} className={avatar}>
-                {initialOf(person)}
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-semibold text-primary">{person}</span>
-                <span className="truncate text-xs text-tertiary">{email}</span>
-            </span>
-            <button
-                type="button"
-                onClick={onSignOut}
-                className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-brand-secondary transition duration-100 ease-linear hover:bg-primary"
-            >
-                Sign out
-            </button>
-        </div>
+    const { theme, setTheme } = useTheme();
+    const isDark = theme === "dark" || (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const toggle = (extra: string) => (
+        <button
+            type="button"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            className={`flex size-9 shrink-0 items-center justify-center rounded-full border border-secondary bg-primary text-secondary transition duration-100 ease-linear hover:bg-tertiary hover:text-primary ${extra}`}
+        >
+            {isDark ? <Sun className="size-[18px]" aria-hidden="true" /> : <Moon01 className="size-[18px]" aria-hidden="true" />}
+        </button>
     );
     const navigate = useNavigate();
     const { pathname, search } = useLocation();
@@ -83,34 +70,34 @@ export const ExistingDashboardRail = ({
     const onRequests = pathname.startsWith(`${base}/help/requests`);
     const onGuides = pathname.startsWith(`${base}/help/guides/`);
     const onHome = !raising && !onRequests && !onGuides;
+    /** Everything the menu reaches, for the search box: the rows and the four guides. */
+    const hits = [
+        { id: base, label: "Overview" },
+        { id: `${base}/help?raise=any`, label: "Raise a request" },
+        { id: `${base}/help/requests`, label: "Your requests" },
+        ...HELP_GUIDES.map((g) => ({ id: `${base}/help/guides/${g.slug}`, label: g.title, sub: "Guide" })),
+    ];
 
     return (
         <aside className="flex w-full shrink-0 flex-col border-secondary bg-secondary md:sticky md:top-0 md:h-dvh md:w-[276px] md:border-r">
-            <div className="flex items-center gap-3 px-4 pt-5 pb-3 md:pb-4">
-                <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary ring-1 ring-secondary">
+            {/* Identity: a bigger logo and the name alone. No status badge; the owner cut it
+                ("remove Existing, have the logo bigger", Loom 16 Oct 2026). */}
+            <div className="flex items-center gap-3 border-b border-secondary px-4 py-4">
+                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary ring-1 ring-secondary">
                     {logoUrl ? (
                         <img src={logoUrl} alt={`${clientName || "Client"} logo`} className="size-full object-contain p-1" draggable={false} />
                     ) : (
-                        <Image01 className="size-5 text-fg-quaternary" aria-hidden="true" />
+                        <Image01 className="size-6 text-fg-quaternary" aria-hidden="true" />
                     )}
                 </div>
-                <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-primary">{clientName || "Your dashboard"}</p>
-                    <BadgeWithDot color="success" size="sm" type="pill-color">
-                        Existing client
-                    </BadgeWithDot>
-                </div>
-                {/* On a phone the rail is a strip at the top, so the person sits in the
-                    identity row; from md up they move to the foot of the column. */}
-                <button
-                    type="button"
-                    onClick={onSignOut}
-                    title={`${person}. Sign out`}
-                    aria-label={`Account, ${person}. Sign out`}
-                    className={`${avatar} md:hidden`}
-                >
-                    {initialOf(person)}
-                </button>
+                <p className="min-w-0 flex-1 truncate text-base font-semibold text-primary">{clientName || "Your dashboard"}</p>
+                {/* On a phone the rail is a strip with no foot, so the toggle sits here. */}
+                {toggle("md:hidden")}
+            </div>
+
+            {/* Search, directly under the identity as the journey rail has it. A hit is a route. */}
+            <div className="hidden px-3 pt-3 pb-3 md:block">
+                <ClientSearchBar hits={hits} onSelect={(to) => navigate(to)} />
             </div>
 
             {/* One strip that scrolls sideways on a phone, a column on desktop. Each row keeps
@@ -156,20 +143,30 @@ export const ExistingDashboardRail = ({
 
             {/* No theme toggle here: the help centre opts out of the floating one and the
                 page follows the system (theme-provider), the same as every help route today. */}
-            <div className="mt-auto hidden flex-col gap-3 border-t border-secondary px-4 py-3 md:flex">
-                {account}
-                {/* The same lockup as the journey rail's foot: the gem beside the name, a
-                    link out to hiddengem.media in a new tab so a client never loses their page. */}
-                <a
-                    href="https://hiddengem.media"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Visit HiddenGem Media"
-                    className="flex items-center gap-3 rounded-lg transition duration-100 ease-linear hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            {/* The foot, as the journey rail draws it: the gem and the name (a link out to
+                hiddengem.media in a new tab, so a client never loses their page) and the
+                theme toggle. Sign out is the one quiet line under it. */}
+            <div className="mt-auto hidden flex-col gap-2 border-t border-secondary px-4 py-3 md:flex">
+                <div className="flex items-center gap-3">
+                    <a
+                        href="https://hiddengem.media"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Visit HiddenGem Media"
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition duration-100 ease-linear hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    >
+                        <img src="/hgm logo/Favicon ON LIGHT.svg" alt="" className="size-8" draggable={false} />
+                        <span className="truncate text-sm font-semibold text-primary">HiddenGem Media</span>
+                    </a>
+                    {toggle("")}
+                </div>
+                <button
+                    type="button"
+                    onClick={onSignOut}
+                    className="self-start rounded-md px-1 text-xs text-tertiary transition duration-100 ease-linear hover:text-primary"
                 >
-                    <img src="/hgm logo/Favicon ON LIGHT.svg" alt="" className="size-8" draggable={false} />
-                    <span className="truncate text-sm font-semibold text-primary">HiddenGem Media</span>
-                </a>
+                    Sign out
+                </button>
             </div>
         </aside>
     );

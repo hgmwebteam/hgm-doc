@@ -331,7 +331,7 @@ const HelpShell = ({
     const person = (name ?? "").trim() || email.split("@")[0];
     const frame = (
         <HelpFrame
-            className={rail ? "min-w-0 flex-1" : undefined}
+            className={rail ? "hc-in-rail min-w-0 flex-1" : undefined}
             topBar={
                 <TopBar
                     gem={!rail}
@@ -962,8 +962,6 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 clientName={viewer?.clientName || clientName}
                 logoUrl={clientRow?.logoUrl ?? ""}
                 isStaff={isStaff}
-                email={proof.email}
-                name={viewer?.name}
                 onSignOut={() => void signOutHere()}
             />
         ) : undefined;

@@ -146,7 +146,7 @@ const TEAM_TOPIC = "website";
  * Medium 12/16 with 1.2px of tracking, in fg/brand-primary, written in capitals in the
  * source (no text-transform, so the node reads as the frame's words).
  */
-const EYEBROW = "text-[12px] leading-4 font-medium tracking-[1.2px] text-(--hc-fg-brand-primary)";
+const EYEBROW = "text-sm leading-5 font-medium tracking-[1.2px] text-(--hc-fg-brand-primary)";
 
 const FormHeading = ({ eyebrow, title, lede, titleRef }: { eyebrow: string; title: string; lede?: "team" | "client"; titleRef?: Ref<HTMLHeadingElement> }) => (
     <header className="flex flex-col gap-2">

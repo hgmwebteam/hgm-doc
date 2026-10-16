@@ -180,6 +180,13 @@ export type TopBarProps = {
      * links the caller passes, and Sign out. Without this it is a plain badge.
      */
     menu?: { email: string; links?: Array<{ label: string; to: string }>; onSignOut: () => void };
+    /**
+     * False leaves the gem and the account off the bar. An existing client's dashboard
+     * (existing-dashboard-rail.tsx) draws both in its side menu, and the owner asked for
+     * neither to appear twice (Loom, 16 Oct 2026). Default true: the plain help centre.
+     */
+    gem?: boolean;
+    account?: boolean;
 };
 
 /**
@@ -197,7 +204,7 @@ export type TopBarProps = {
  * stroke to fg/brand-primary, not border/brand; in Light they differ), radius full,
  * the initial in caption/meta text/primary.
  */
-export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProps) => {
+export const TopBar = ({ crumbs, right, initial, accountName, menu, gem = true, account = true }: TopBarProps) => {
     const navRef = useRef<HTMLElement>(null);
     // The trail folds when it would not fit the bar (a phone showing "Dashboard /
     // Help Center / Requests / REQ-2418"). Level 1 keeps the first and last
@@ -317,7 +324,7 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
         // person has unfolded a trail that wraps.
         <div className="relative flex min-h-16 items-center justify-between gap-4 border-b border-(--hc-border-secondary) bg-(--hc-bg-page) px-6">
             <nav ref={navRef} aria-label="Breadcrumb" className={cx("flex min-h-6 min-w-0 flex-1 items-center gap-2 whitespace-nowrap", unfolded && "flex-wrap py-2")}>
-                {crumbs.length > 0 && crumbs[0].to ? (
+                {!gem ? null : crumbs.length > 0 && crumbs[0].to ? (
                     <Link to={crumbs[0].to} className="relative flex h-6 shrink-0 items-center gap-2 rounded-(--hc-radius-sm) after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']" aria-label={`${crumbs[0].label} (home)`}>
                         <GemIcon />
                     </Link>
@@ -347,6 +354,7 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
                     );
                 })}
             </nav>
+            {account && (
             <div className="flex shrink-0 items-center gap-2">
                 {right && <span className="hc-t-body-helper hidden whitespace-pre text-(--hc-text-secondary) sm:inline">{right}</span>}
                 {menu ? (
@@ -361,6 +369,7 @@ export const TopBar = ({ crumbs, right, initial, accountName, menu }: TopBarProp
                     </span>
                 )}
             </div>
+            )}
         </div>
     );
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import {
     type ChatWidgetPageData,
     type ClientPageData,
@@ -11,6 +11,8 @@ import {
 import { ChatWidgetScreen } from "@/pages/client/chat-widget-screen";
 import { ClientDashboardPage } from "@/pages/client/client-dashboard-page";
 import { AccessFormPage, type ClientOnboardingData, ClientOnboardingFormPage } from "@/pages/client/client-onboarding-form-page";
+import { type ClientStage, fetchClientStage } from "@/pages/client/dashboard/client-stage";
+import { HelpCenterScreen } from "@/pages/client/help/help-center-screen";
 import { HostOnboardingFormPage } from "@/pages/client/host-onboarding-form-page";
 import { PixelPage } from "@/pages/client/pixel-page";
 import { PopupPage } from "@/pages/client/popup-page";
@@ -150,22 +152,33 @@ const HostOnboardingClientScreen = ({ slug }: { slug: string }) => {
 };
 
 /* Client dashboards live at /{name}-dashboard and load from dashboard_pages.
-   The bare "/client-dashboard" slug is the master template (no DB row needed). */
+   The bare "/client-dashboard" slug is the master template (no DB row needed).
+
+   Which dashboard depends on the Client List's status (client-stage.ts): an onboarding
+   client gets the journey page below; an existing client's dashboard is their Help Centre,
+   drawn inside the existing-client rail. `?view=full` opens the journey page for anyone,
+   which is how the team's "Full dashboard" row gets there and how an AM still edits it. */
 const ClientDashboardScreen = ({ slug }: { slug: string }) => {
     const [data, setData] = useState<DashboardPageData | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [stage, setStage] = useState<ClientStage | null | undefined>(undefined);
+    const [params] = useSearchParams();
+    const wantFull = params.get("view") === "full";
 
     const isTemplate = slug === "client-dashboard";
 
     useEffect(() => {
         if (isTemplate) {
+            setStage(null);
             setLoading(false);
             return;
         }
         setLoading(true);
         setData(null);
         setNotFound(false);
+        setStage(undefined);
+        void fetchClientStage(slug).then(setStage);
         supabase
             .from("dashboard_pages")
             .select("*")
@@ -178,8 +191,9 @@ const ClientDashboardScreen = ({ slug }: { slug: string }) => {
             });
     }, [slug, isTemplate]);
 
-    if (loading) return <Spinner />;
+    if (loading || stage === undefined) return <Spinner />;
     if (notFound) return <NotFound />;
+    if (stage === "existing" && !wantFull) return <HelpCenterScreen view="home" />;
 
     return (
         <ClientDashboardPage

@@ -73,6 +73,8 @@ import {
 } from "@/pages/client/help/help-model";
 import { type Website, submitterNamePrefill } from "@/pages/client/help/request-rules";
 import { useAuthUser } from "@/hooks/use-auth-user";
+import { type ClientStage, fetchClientStage } from "@/pages/client/dashboard/client-stage";
+import { ExistingDashboardRail } from "@/pages/client/dashboard/existing-dashboard-rail";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
 import { ErrorNote, HelpRequestsScreen, HelpSpinner } from "@/pages/client/help/help-requests-screen";
 import { cx } from "@/utils/cx";
@@ -307,12 +309,33 @@ const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
  * gutters), body top 56 and a 40 rhythm on desktop; 16 gutters, top 24 and a 24 rhythm
  * on a phone.
  */
-const HelpShell = ({ slug, clientName, email, name, crumbs, children }: { slug: string; clientName: string; email: string; name?: string; crumbs: Crumb[]; children: React.ReactNode }) => {
+const HelpShell = ({
+    slug,
+    clientName,
+    email,
+    name,
+    crumbs,
+    rail,
+    children,
+}: {
+    slug: string;
+    clientName: string;
+    email: string;
+    name?: string;
+    crumbs: Crumb[];
+    /** An existing client's side menu (existing-dashboard-rail.tsx). The help frame then
+     *  fills the rest of the row; nothing inside it changes. */
+    rail?: React.ReactNode;
+    children: React.ReactNode;
+}) => {
     const person = (name ?? "").trim() || email.split("@")[0];
-    return (
+    const frame = (
         <HelpFrame
+            className={rail ? "min-w-0 flex-1" : undefined}
             topBar={
                 <TopBar
+                    gem={!rail}
+                    account={!rail}
                     crumbs={crumbs}
                     right={clientName ? `${clientName}  ·  ${person}` : person}
                     initial={initialOf(person)}
@@ -336,6 +359,16 @@ const HelpShell = ({ slug, clientName, email, name, crumbs, children }: { slug: 
                 min-[] variant before sm:, so sm:px-6 would win over it; xl: sorts after. */}
             <div className="mx-auto w-full max-w-[1040px] px-4 pt-6 pb-10 sm:px-6 sm:pt-14 sm:pb-16 xl:px-0">{children}</div>
         </HelpFrame>
+    );
+    if (!rail) return frame;
+    // The rail stacks above the frame on a phone and sits beside it from md up, the same
+    // break the journey dashboard uses. bg-secondary behind both so the rail's own
+    // background and the frame's bg/page meet without a seam at the fold.
+    return (
+        <div className="flex min-h-dvh flex-col bg-secondary md:flex-row">
+            {rail}
+            {frame}
+        </div>
     );
 };
 
@@ -669,6 +702,9 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const [callerResolved, setCallerResolved] = useState(false);
     const [gateNotice, setGateNotice] = useState("");
     const [clientRow, setClientRow] = useState<HelpClientRow | null>(null);
+    /** Which dashboard this client has (client-stage.ts). undefined until known, so the
+     *  chrome is drawn once rather than swapped under the person. */
+    const [stage, setStage] = useState<ClientStage | null | undefined>(undefined);
     const [topics, setTopics] = useState<TicketTopic[]>([]);
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [serverCounts, setServerCounts] = useState<TicketCounts | null>(null);
@@ -711,6 +747,9 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         let live = true;
         void fetchClientRow(slug).then((row) => {
             if (live) setClientRow(row);
+        });
+        void fetchClientStage(slug).then((s) => {
+            if (live) setStage(s);
         });
         return () => {
             live = false;
@@ -808,7 +847,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         if (view !== "home") setCreated(null);
     }, [view]);
 
-    if (!callerResolved) return null;
+    if (!callerResolved || stage === undefined) return null;
     if (!proof) {
         return <HelpGate clientRow={clientRow} notice={gateNotice} />;
     }
@@ -913,8 +952,24 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                     ? [...base, { label: "Raise a request" }]
                     : base;
 
+    /* An existing client's dashboard IS this help centre (client-screen.tsx sends their
+       /{slug}-dashboard here), so it is drawn inside their side menu on every help route. An
+       onboarding client, or a dashboard with no clients row, keeps the plain help frame. */
+    const rail =
+        stage === "existing" ? (
+            <ExistingDashboardRail
+                slug={slug}
+                clientName={viewer?.clientName || clientName}
+                logoUrl={clientRow?.logoUrl ?? ""}
+                isStaff={isStaff}
+                email={proof.email}
+                name={viewer?.name}
+                onSignOut={() => void signOutHere()}
+            />
+        ) : undefined;
+
     return (
-        <HelpShell slug={slug} clientName={viewer?.clientName || clientName} email={proof.email} name={viewer?.name} crumbs={crumbs}>
+        <HelpShell slug={slug} clientName={viewer?.clientName || clientName} email={proof.email} name={viewer?.name} crumbs={crumbs} rail={rail}>
             {isStaff && viewer && <StaffBanner viewer={viewer} slug={slug} />}
             {error && (
                 <div className="mb-6">

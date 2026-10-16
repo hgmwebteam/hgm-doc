@@ -955,7 +955,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
        onboarding client, or a dashboard with no clients row, keeps the plain help frame. */
     const rail =
         stage === "existing" ? (
-            <ExistingDashboardRail slug={slug} clientName={viewer?.clientName || clientName} logoUrl={clientRow?.logoUrl ?? ""} folderLink={clientRow?.folderLink ?? ""} isStaff={isStaff} />
+            <ExistingDashboardRail slug={slug} clientName={viewer?.clientName || clientName} logoUrl={clientRow?.logoUrl ?? ""} isStaff={isStaff} />
         ) : undefined;
 
     return (

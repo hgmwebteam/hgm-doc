@@ -5,9 +5,9 @@
  * are done, so the journey dashboard's eighteen steps are history to them. What they come
  * back for is the Help Centre, so their dashboard IS the help centre (help-center-screen.tsx
  * renders inside this rail when client-stage.ts says "existing") and this menu is short:
- * the help home, raising and following requests, and the reference material they still
- * look up. Those references live in the full dashboard, reached with `?view=full`, which is
- * also how the team gets to the editable page from here.
+ * the help home, raising and following requests, and the guides. No Resources group: the
+ * owner cut it (Loom, 16 Oct 2026, "I don't need this section, Resources"). The full
+ * dashboard still exists at `?view=full`, which is how the team reaches the editable page.
  *
  * Same surface as the journey dashboard's rail (bg-secondary, 276px, SectionNavItem rows)
  * so a client moved from Onboarding to Existing recognises the place. The portal's semantic
@@ -16,7 +16,7 @@
  * No numbers from HiddenGem AI yet: the owner will say how that data should appear before
  * anything is drawn for it (16 Oct 2026).
  */
-import { BookOpen01, FileCheck02, Folder, HelpCircle, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, PlusCircle } from "@untitledui-pro/icons/line";
+import { HelpCircle, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, PlusCircle } from "@untitledui-pro/icons/line";
 import { useLocation, useNavigate } from "react-router";
 import { BadgeWithDot } from "@/components/base/badges/badges";
 import { SectionNavItem } from "@/pages/client/dashboard/dashboard-chrome";
@@ -35,15 +35,12 @@ export const ExistingDashboardRail = ({
     slug,
     clientName,
     logoUrl,
-    folderLink,
     isStaff,
 }: {
     /** The full "-dashboard" slug. */
     slug: string;
     clientName: string;
     logoUrl: string;
-    /** The client's content drive (dashboard data.brand.folder_link). Empty renders the row as "Soon". */
-    folderLink: string;
     /** A HiddenGem Media viewer gets the way into the editable dashboard. */
     isStaff: boolean;
 }) => {
@@ -56,8 +53,6 @@ export const ExistingDashboardRail = ({
     const onRequests = pathname.startsWith(`${base}/help/requests`);
     const onGuides = pathname.startsWith(`${base}/help/guides/`);
     const onHome = !raising && !onRequests && !onGuides;
-    /** A section of the full dashboard, opened by its `#hash` the way the journey rail's search does. */
-    const fullSection = (id: string) => navigate({ pathname: base, search: "?view=full", hash: `#${id}` });
 
     return (
         <aside className="flex w-full shrink-0 flex-col border-secondary bg-secondary md:sticky md:top-0 md:h-dvh md:w-[276px] md:border-r">
@@ -102,27 +97,6 @@ export const ExistingDashboardRail = ({
                             current={onGuides}
                             onClick={() => navigate(`${base}/help/guides/${HELP_GUIDES[0].slug}`)}
                         />
-                    </div>
-                </Group>
-                <Group label="Resources">
-                    <div className="min-w-max md:min-w-0">
-                        <SectionNavItem
-                            icon={Folder}
-                            label="Folder of Content"
-                            current={false}
-                            disabled={!folderLink}
-                            badge={!folderLink ? <span className="ml-2 shrink-0 text-[10px] font-bold text-quaternary uppercase">Soon</span> : undefined}
-                            onClick={() => window.open(folderLink, "_blank", "noopener,noreferrer")}
-                        />
-                    </div>
-                    <div className="min-w-max md:min-w-0">
-                        <SectionNavItem icon={BookOpen01} label="Setup Guide" current={false} onClick={() => fullSection("ownerguide")} />
-                    </div>
-                    <div className="min-w-max md:min-w-0">
-                        <SectionNavItem icon={Image01} label="Brand Kit" current={false} onClick={() => fullSection("brand")} />
-                    </div>
-                    <div className="min-w-max md:min-w-0">
-                        <SectionNavItem icon={FileCheck02} label="Master Brand" current={false} onClick={() => fullSection("foundation")} />
                     </div>
                 </Group>
                 {isStaff && (

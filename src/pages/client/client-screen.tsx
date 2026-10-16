@@ -157,8 +157,7 @@ const HostOnboardingClientScreen = ({ slug }: { slug: string }) => {
    Which dashboard depends on the Client List's status (client-stage.ts): an onboarding
    client gets the journey page below; an existing client's dashboard is their Help Centre,
    drawn inside the existing-client rail. `?view=full` opens the journey page for anyone,
-   which is how the rail's Brand Kit, Master Brand and Setup Guide rows and the team's
-   "Full dashboard" row get there, and how an AM still edits it. */
+   which is how the team's "Full dashboard" row gets there and how an AM still edits it. */
 const ClientDashboardScreen = ({ slug }: { slug: string }) => {
     const [data, setData] = useState<DashboardPageData | null>(null);
     const [loading, setLoading] = useState(true);

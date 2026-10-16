@@ -714,6 +714,25 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const [refusal, setRefusal] = useState<{ reason: RefusalReason; message: string } | null>(null);
     /** Who the server said is looking. Null until the first successful read. */
     const [viewer, setViewer] = useState<Viewer | null>(null);
+    /** Staff looking at the page as the client sees it (the rail's logo flips it). Kept in
+        sessionStorage rather than the URL: the help routes rewrite their search params
+        (?raise, ?filter) and would drop a ?preview on every step. */
+    const [previewing, setPreviewing] = useState(() => {
+        try {
+            return sessionStorage.getItem("hc-preview-client") === "1";
+        } catch {
+            return false;
+        }
+    });
+    const togglePreview = () =>
+        setPreviewing((v) => {
+            try {
+                sessionStorage.setItem("hc-preview-client", v ? "0" : "1");
+            } catch {
+                /* not persisted; still applied */
+            }
+            return !v;
+        });
     // The list's filter, seeded from ?filter= so a stat row on the home can open the
     // list already narrowed ("In progress" -> open, "Completed this month" -> completed).
     // The list's filter IS the URL (?filter=open), read on every render: the four help
@@ -861,6 +880,8 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     }
 
     const isStaff = viewer?.via === "staff";
+    /** What the staff chrome keys off: nothing staff-only while previewing as the client. */
+    const showStaff = isStaff && !previewing;
 
     // Counted from the rows on screen rather than trusting the server's totals, so a
     // withdrawal cannot leave "7 requests. 2 open." disagreeing with the list under it while
@@ -912,7 +933,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                     clientName={viewer?.clientName || clientName}
                     websites={viewer?.websites ?? []}
                     submitterName={submitterNamePrefill([viewer?.name, authUser?.name], proof.email)}
-                    isStaff={isStaff}
+                    isStaff={showStaff}
                     onCancel={() => closeComposer()}
                     onCreated={(sent) => {
                         setCreated(sent);
@@ -962,13 +983,15 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 clientName={viewer?.clientName || clientName}
                 logoUrl={clientRow?.logoUrl ?? ""}
                 isStaff={isStaff}
+                previewing={previewing}
+                onTogglePreview={togglePreview}
                 onSignOut={() => void signOutHere()}
             />
         ) : undefined;
 
     return (
         <HelpShell slug={slug} clientName={viewer?.clientName || clientName} email={proof.email} name={viewer?.name} crumbs={crumbs} rail={rail}>
-            {isStaff && viewer && <StaffBanner viewer={viewer} slug={slug} />}
+            {showStaff && viewer && <StaffBanner viewer={viewer} slug={slug} />}
             {error && (
                 <div className="mb-6">
                     {/* Retry is offered for the errors that CAN change on a retry: the

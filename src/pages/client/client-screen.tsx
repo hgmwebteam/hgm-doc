@@ -287,7 +287,9 @@ const PixelScreen = ({ clientSlug }: { clientSlug?: string }) => {
     // Set when the slug isn't a pixel page but IS a template-1 document.
     const [isTemplateDoc, setIsTemplateDoc] = useState(false);
     // Set when the slug is the short form of a dashboard URL — see the lookup below.
-    const [dashboardSlug, setDashboardSlug] = useState<string | null>(null);
+    /** Where a bare short slug (/red-white-blue-views) is sent once it is known to be a
+     *  dashboard: an existing client's help centre, or the front door. */
+    const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
     // "metapixel" is the template/create route and is always valid even without a saved row.
     const isTemplate = clientSlug === "metapixel";
@@ -306,7 +308,7 @@ const PixelScreen = ({ clientSlug }: { clientSlug?: string }) => {
         setData(null);
         setNotFound(false);
         setIsTemplateDoc(false);
-        setDashboardSlug(null);
+        setRedirectTo(null);
         supabase
             .from("client_pages")
             .select("*")
@@ -331,20 +333,28 @@ const PixelScreen = ({ clientSlug }: { clientSlug?: string }) => {
                             return;
                         }
                         /* Last chance before 404: the slug is the short form of a dashboard URL
-                           (/away2pa for /away2pa-dashboard). It used to serve the dashboard; since
-                           16 Oct 2026 it sends the visitor to the portal's front door instead (owner:
-                           "if someone tries /away2pa, take them to hgmportal.com/"). The dashboard is
-                           reached by its full address only. Still looked up, so a slug that is nothing
-                           at all stays a 404 rather than a redirect. */
+                           (/red-white-blue-views for /red-white-blue-views-dashboard). It used to serve
+                           the dashboard. Since 16 Oct 2026 (owner) an existing client's short slug goes
+                           to their help centre, /red-white-blue-views-help, and everyone else's (an
+                           onboarding client, the two pinned dashboards) to the portal's front door. The
+                           dashboard itself is reached by its full address only. Still looked up, so a
+                           slug that is nothing at all stays a 404 rather than a redirect. */
                         supabase
                             .from("dashboard_pages")
                             .select("slug")
                             .eq("slug", `${clientSlug}-dashboard`)
                             .maybeSingle()
                             .then(({ data: dash }) => {
-                                if (dash) setDashboardSlug(`${clientSlug}-dashboard`);
-                                else setNotFound(true);
-                                setLoading(false);
+                                if (!dash) {
+                                    setNotFound(true);
+                                    setLoading(false);
+                                    return;
+                                }
+                                const full = `${clientSlug}-dashboard`.toLowerCase();
+                                void fetchClientStage(full).then((stage) => {
+                                    setRedirectTo(stage === "existing" && !KEEP_JOURNEY_SLUGS.has(full) ? `/${clientSlug.toLowerCase()}-help` : "/");
+                                    setLoading(false);
+                                });
                             });
                     });
             });
@@ -352,7 +362,7 @@ const PixelScreen = ({ clientSlug }: { clientSlug?: string }) => {
 
     if (loading) return <Spinner />;
     if (isTemplateDoc && clientSlug) return <TemplateOneScreen key={clientSlug} slug={clientSlug} isTemplate={false} />;
-    if (dashboardSlug) return <Navigate to="/" replace />;
+    if (redirectTo) return <Navigate to={redirectTo} replace />;
     if (notFound) return <NotFound />;
 
     return (

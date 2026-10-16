@@ -36,30 +36,33 @@
  * House style: no em or en dashes anywhere.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { ArrowNarrowLeft } from "@untitledui-pro/icons/line";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
-import { Button, Card, Chevron, type Crumb, Eyebrow, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
-import { HELP_GUIDES, HelpGuidePage, findHelpGuide } from "@/pages/client/help/help-center-guides";
-import { RequestForm, RequestSent, type SentExtras, sentExtrasFrom } from "@/pages/client/help/help-form";
-import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
+import { useAuthUser } from "@/hooks/use-auth-user";
+import { supabase } from "@/lib/supabase";
+import { type ClientStage, fetchClientStage } from "@/pages/client/dashboard/client-stage";
+import { ExistingAccessPanel } from "@/pages/client/dashboard/existing-access-panel";
+import { ExistingDashboardRail } from "@/pages/client/dashboard/existing-dashboard-rail";
 import {
     type CallerProof,
     HelpApiError,
     type HelpClientRow,
+    type RefusalReason,
+    type Viewer,
     createTicket,
+    currentCaller,
     fetchClientRow,
     fetchTickets,
     fetchTopics,
     fullDashboardSlug,
-    currentCaller,
-    useDifferentAccount,
     signOutHere,
-    type RefusalReason,
-    type Viewer,
 } from "@/pages/client/help/help-api";
+import { Button, Card, Chevron, type Crumb, Eyebrow, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
+import { HELP_GUIDES, HelpGuidePage, findHelpGuide } from "@/pages/client/help/help-center-guides";
+import { RequestForm, RequestSent, type SentExtras, sentExtrasFrom } from "@/pages/client/help/help-form";
 import {
+    type Priority,
     type RequestFilter,
     type Ticket,
     type TicketCounts,
@@ -69,15 +72,11 @@ import {
     lastCompletedLine,
     underwayLine,
     underwayTickets,
-    type Priority,
 } from "@/pages/client/help/help-model";
-import { type Website, submitterNamePrefill } from "@/pages/client/help/request-rules";
-import { useAuthUser } from "@/hooks/use-auth-user";
-import { type ClientStage, fetchClientStage } from "@/pages/client/dashboard/client-stage";
-import { ExistingAccessPanel } from "@/pages/client/dashboard/existing-access-panel";
-import { ExistingDashboardRail } from "@/pages/client/dashboard/existing-dashboard-rail";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
 import { ErrorNote, HelpRequestsScreen, HelpSpinner } from "@/pages/client/help/help-requests-screen";
+import { type Website, submitterNamePrefill } from "@/pages/client/help/request-rules";
+import { useSuppressFloatingThemeToggle } from "@/providers/theme-provider";
 import { cx } from "@/utils/cx";
 
 /* ── The gate ────────────────────────────────────────────────────────────── */
@@ -106,7 +105,6 @@ const HelpGate = ({
     /** Set when a session that was working stopped working mid-visit. */
     notice?: string;
 }) => {
-    const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     /** The emailed sign-in link: the address typed, and whether the link went out. */
     const [email, setEmail] = useState("");
@@ -118,15 +116,29 @@ const HelpGate = ({
      * "some of the people don't have Gmail"). Supabase mails a one-time link; following it
      * lands them back on this very URL signed in, where currentCaller() picks the session
      * up and the server checks the address against the dashboard's list as for anyone else.
-     * Nothing here decides access; an unlisted address gets a link and then the refusal.
+     * Strict: a link is only MAILED to an address on this dashboard's list or at
+     * hiddengem.media (owner, 16 Oct 2026). Anyone else is told so and nothing is sent. That
+     * check is a courtesy against the public row, not the gate: the server re-checks the list
+     * on every call, so a listed-looking address that is not really listed still meets the
+     * refusal after signing in.
      */
     const sendLink = async (e: React.FormEvent) => {
         e.preventDefault();
         const address = email.trim().toLowerCase();
         if (!address) return;
+        const listed = address.endsWith("@hiddengem.media") || (clientRow?.allowedEmails ?? []).includes(address);
+        if (!listed) {
+            setError(
+                "Sign-in is restricted to the addresses your HiddenGem Media team added to this dashboard. Ask your account manager to add yours, then try again.",
+            );
+            return;
+        }
         setLinkBusy(true);
         setError("");
-        const { error: otpError } = await supabase.auth.signInWithOtp({ email: address, options: { emailRedirectTo: window.location.href, shouldCreateUser: true } });
+        const { error: otpError } = await supabase.auth.signInWithOtp({
+            email: address,
+            options: { emailRedirectTo: window.location.href, shouldCreateUser: true },
+        });
         setLinkBusy(false);
         if (otpError) {
             setError("We could not send the link just then. Try again in a moment.");
@@ -135,39 +147,15 @@ const HelpGate = ({
         setLinkSent(true);
     };
 
-    /**
-     * Google, not a shared password.
-     *
-     * This panel used to ask for the email and the dashboard's share password.
-     * That password is published: the public anon key returns every
-     * dashboard_pages row and seven of them carry it in plaintext, so it
-     * established nothing about who was asking. A request history needs an
-     * identity nobody can read off a table, and the portal already signs
-     * clients in with Google for this very dashboard.
-     *
-     * redirectTo is the current URL so the client lands back on the help centre
-     * they were trying to open, which is what the owner guide screen does too.
-     */
-    const signIn = async () => {
-        setBusy(true);
-        setError("");
-        const { error: authError } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: { redirectTo: window.location.href, queryParams: { prompt: "select_account" } },
-        });
-        if (authError) {
-            setBusy(false);
-            setError("We could not start sign-in just then. Try again in a moment.");
-        }
-    };
-
+    /* No Google button (owner, 16 Oct 2026): the team is already signed in through the
+       portal and never meets this gate, and a client gets in by the emailed link alone. */
     return (
         <SignInBackdrop backgroundUrl={clientRow?.backgroundUrl || undefined}>
             <div className="w-full max-w-sm rounded-2xl bg-primary p-8 shadow-2xl ring-1 ring-secondary">
                 <img src="/hgm logo/Favicon ON LIGHT.svg" alt="HiddenGem Media" className="mx-auto size-11" draggable={false} />
                 <h1 className="mt-5 text-center text-lg font-semibold text-primary">Your requests are private</h1>
                 <p className="mt-2 text-center text-sm text-pretty text-tertiary">
-                    Sign in with the email address your HiddenGem Media team added to this dashboard.
+                    Enter the email address your HiddenGem Media team added to this dashboard and we will send you a sign-in link.
                 </p>
 
                 {notice && (
@@ -176,14 +164,32 @@ const HelpGate = ({
                     </p>
                 )}
 
-                <button
-                    type="button"
-                    onClick={signIn}
-                    disabled={busy}
-                    className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-solid_hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    {busy ? "Opening Google..." : "Sign in with Google"}
-                </button>
+                <div className="mt-6">
+                    {linkSent ? (
+                        <p className="rounded-lg bg-secondary px-3 py-2 text-center text-sm text-pretty text-secondary" role="status">
+                            Check your inbox. The sign-in link for {email.trim().toLowerCase()} opens this page signed in. It can take a minute to arrive.
+                        </p>
+                    ) : (
+                        <form onSubmit={sendLink} className="flex flex-col gap-3">
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="you@yourbusiness.com"
+                                autoComplete="email"
+                                aria-label="Email address"
+                                className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
+                            />
+                            <button
+                                type="submit"
+                                disabled={linkBusy || !email.trim()}
+                                className="flex w-full cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-secondary ring-1 ring-secondary transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {linkBusy ? "Sending…" : "Email me a sign-in link"}
+                            </button>
+                        </form>
+                    )}
+                </div>
 
                 {error && (
                     <p className="mt-3 text-center text-sm text-error-primary" role="alert">
@@ -191,40 +197,7 @@ const HelpGate = ({
                     </p>
                 )}
 
-                <div className="my-5 flex items-center gap-3" aria-hidden="true">
-                    <span className="h-px flex-1 bg-border-secondary" />
-                    <span className="text-xs font-medium text-quaternary">OR</span>
-                    <span className="h-px flex-1 bg-border-secondary" />
-                </div>
-
-                {linkSent ? (
-                    <p className="rounded-lg bg-secondary px-3 py-2 text-center text-sm text-pretty text-secondary" role="status">
-                        Check your inbox. The sign-in link for {email.trim().toLowerCase()} opens this page signed in. It can take a minute to arrive.
-                    </p>
-                ) : (
-                    <form onSubmit={sendLink} className="flex flex-col gap-3">
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="you@yourbusiness.com"
-                            autoComplete="email"
-                            aria-label="Email address"
-                            className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
-                        />
-                        <button
-                            type="submit"
-                            disabled={linkBusy || !email.trim()}
-                            className="flex w-full cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-secondary ring-1 ring-secondary transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {linkBusy ? "Sending…" : "Email me a sign-in link"}
-                        </button>
-                    </form>
-                )}
-
-                <p className="mt-5 text-center text-xs text-pretty text-quaternary">
-                    Not sure which address? Ask your account manager which one they added.
-                </p>
+                <p className="mt-5 text-center text-xs text-pretty text-quaternary">Not sure which address? Ask your account manager which one they added.</p>
             </div>
         </SignInBackdrop>
     );
@@ -269,7 +242,8 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
         setBusy(true);
         setError("");
         try {
-            await useDifferentAccount();
+            // Sign out and come back to the gate, where the right address gets a sign-in link.
+            await signOutHere();
         } catch {
             setBusy(false);
             setError("We could not start sign-in just then. Try again in a moment.");
@@ -289,8 +263,8 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
                     This address is not on the list
                 </h1>
                 <p className="mt-2 text-center text-sm text-pretty text-tertiary">
-                    You are signed in as <span className="font-medium text-secondary">{email}</span>. Your HiddenGem Media team has not added
-                    that address to {whose}, so there is nothing we can show you here.
+                    You are signed in as <span className="font-medium text-secondary">{email}</span>. Your HiddenGem Media team has not added that address to{" "}
+                    {whose}, so there is nothing we can show you here.
                 </p>
 
                 <button
@@ -299,7 +273,7 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
                     disabled={busy}
                     className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-solid px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-solid_hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                    {busy ? "Opening Google..." : "Use a different Google account"}
+                    {busy ? "Signing out..." : "Sign in with a different address"}
                 </button>
                 <p className="mt-2 text-center text-xs text-pretty text-quaternary">Choose the account your account manager added.</p>
 
@@ -337,13 +311,18 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
  * dashboards were in that state when this was written.
  */
 const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
-    <div className="mb-6 rounded-(--hc-radius-xl) border border-(--hc-border-brand) bg-(--hc-bg-brand-primary) px-[15px] py-[11px] sm:mb-10 sm:px-[19px] sm:py-[15px]" role="status">
-        <p className="hc-t-label-field text-(--hc-text-primary)">You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem Media staff.</p>
-        <p className="hc-t-body-helper mt-1 text-pretty text-(--hc-text-secondary)">
+    <div
+        className="mb-6 rounded-(--hc-radius-xl) border border-(--hc-border-brand) bg-(--hc-bg-brand-primary) px-[15px] py-[11px] sm:mb-10 sm:px-[19px] sm:py-[15px]"
+        role="status"
+    >
+        <p className="hc-t-label-field text-(--hc-text-primary)">
+            You are viewing {viewer.clientName || slug.replace(/-dashboard$/, "")}'s requests as HiddenGem Media staff.
+        </p>
+        <p className="mt-1 hc-t-body-helper text-pretty text-(--hc-text-secondary)">
             A request you raise here is recorded as raised by you, for the client, and they will see it in their list. You can withdraw the ones you raised.
         </p>
         {viewer.accessListEmpty && (
-            <p className="hc-t-body-helper mt-2 text-pretty text-(--hc-text-secondary)">
+            <p className="mt-2 hc-t-body-helper text-pretty text-(--hc-text-secondary)">
                 Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this help centre. Add them in the
                 dashboard's Access panel.
             </p>
@@ -449,7 +428,7 @@ const TopicTiles = ({ topics, slug }: { topics: TicketTopic[]; slug: string }) =
             <li key={topic.key}>
                 <Link
                     to={raiseHref(slug, topic.key)}
-                    className="hc-hover flex w-full items-center gap-3 rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-secondary) px-[15px] py-[13px] hover:bg-(--hc-bg-primary_hover) hover:border-(--hc-border-brand)"
+                    className="hc-hover flex w-full items-center gap-3 rounded-(--hc-radius-lg) border border-(--hc-border-secondary) bg-(--hc-bg-secondary) px-[15px] py-[13px] hover:border-(--hc-border-brand) hover:bg-(--hc-bg-primary_hover)"
                 >
                     <Marker />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -473,7 +452,9 @@ const raiseHref = (slug: string, topicKey: string | "any"): string => `/${slug}/
  * makes the same call: with one active category it draws no Category field (help-form.tsx).
  */
 const raiseLede = (topics: TicketTopic[]): string =>
-    topics.length > 1 ? "Select a category. Each routes directly to the team accountable for it." : "Every request routes directly to the team accountable for it.";
+    topics.length > 1
+        ? "Select a category. Each routes directly to the team accountable for it."
+        : "Every request routes directly to the team accountable for it.";
 
 /**
  * One Stat row inside Card/Open right now: bg/secondary, radius/lg, padding 12, gap 12.
@@ -488,20 +469,25 @@ const StatRow = ({ count, label, detail, tone, to }: { count: number; label: str
     // requests" and no navigation, so without this a phone would have no way from the
     // home to the list; the row looks exactly as drawn either way.
     <li>
-    <Link to={to} className="hc-hover flex w-full cursor-pointer items-center gap-3 rounded-(--hc-radius-lg) bg-(--hc-bg-secondary) p-3 hover:bg-(--hc-bg-tertiary)">
-        <span
-            className={cx(
-                "hc-t-label-field flex size-9 shrink-0 items-center justify-center rounded-(--hc-radius-md) tabular-nums sm:size-8",
-                tone === "warning" ? "bg-(--hc-utility-warning-bg) text-(--hc-utility-warning-fg)" : "bg-(--hc-utility-success-bg) text-(--hc-utility-success-fg)",
-            )}
+        <Link
+            to={to}
+            className="hc-hover flex w-full cursor-pointer items-center gap-3 rounded-(--hc-radius-lg) bg-(--hc-bg-secondary) p-3 hover:bg-(--hc-bg-tertiary)"
         >
-            {count}
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="hc-t-label-field text-(--hc-text-primary)">{label}</span>
-            <span className="hc-t-body-helper text-(--hc-text-tertiary)">{detail}</span>
-        </span>
-    </Link>
+            <span
+                className={cx(
+                    "flex size-9 shrink-0 items-center justify-center rounded-(--hc-radius-md) hc-t-label-field tabular-nums sm:size-8",
+                    tone === "warning"
+                        ? "bg-(--hc-utility-warning-bg) text-(--hc-utility-warning-fg)"
+                        : "bg-(--hc-utility-success-bg) text-(--hc-utility-success-fg)",
+                )}
+            >
+                {count}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="hc-t-label-field text-(--hc-text-primary)">{label}</span>
+                <span className="hc-t-body-helper text-(--hc-text-tertiary)">{detail}</span>
+            </span>
+        </Link>
     </li>
 );
 
@@ -522,8 +508,20 @@ const CurrentPosition = ({ tickets, slug }: { tickets: Ticket[]; slug: string })
             Current position
         </h2>
         <ul className="flex w-full flex-col gap-3 sm:gap-4">
-            <StatRow count={underwayTickets(tickets).length} label="In progress" detail={underwayLine(tickets)} tone="warning" to={`/${slug}/help/requests?filter=open`} />
-            <StatRow count={completedThisMonthTickets(tickets).length} label="Completed this month" detail={lastCompletedLine(tickets)} tone="success" to={`/${slug}/help/requests?filter=completed`} />
+            <StatRow
+                count={underwayTickets(tickets).length}
+                label="In progress"
+                detail={underwayLine(tickets)}
+                tone="warning"
+                to={`/${slug}/help/requests?filter=open`}
+            />
+            <StatRow
+                count={completedThisMonthTickets(tickets).length}
+                label="Completed this month"
+                detail={lastCompletedLine(tickets)}
+                tone="success"
+                to={`/${slug}/help/requests?filter=completed`}
+            />
         </ul>
         <div className="hidden sm:contents">
             <Button to={raiseHref(slug, "any")} fill>
@@ -534,7 +532,7 @@ const CurrentPosition = ({ tickets, slug }: { tickets: Ticket[]; slug: string })
                 notes ask for is the pseudo-element, which moves nothing. */}
             <Link
                 to={`/${slug}/help/requests`}
-                className="hc-t-body-helper relative w-full rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline"
+                className="relative w-full rounded-(--hc-radius-sm) hc-t-body-helper text-(--hc-text-brand-secondary) after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline"
             >
                 View all requests
             </Link>
@@ -558,7 +556,7 @@ const GuidesRow = ({ slug }: { slug: string }) => (
                 <li key={g.slug} className="flex">
                     <Link
                         to={`/${slug}/help/guides/${g.slug}`}
-                        className="hc-t-body-helper relative rounded-(--hc-radius-sm) text-(--hc-text-brand-secondary) underline after:absolute after:inset-x-0 after:-inset-y-3 after:content-['']"
+                        className="relative rounded-(--hc-radius-sm) hc-t-body-helper text-(--hc-text-brand-secondary) underline after:absolute after:inset-x-0 after:-inset-y-3 after:content-['']"
                     >
                         {g.title}
                     </Link>
@@ -596,9 +594,9 @@ const HelpHome = ({ tickets, topics, slug }: { tickets: Ticket[]; topics: Ticket
             say what does hold: it is tracked, routed and visible until it closes. */}
         <header className="flex flex-col gap-2">
             <Eyebrow>HELP CENTER</Eyebrow>
-            <h1 className="hc-t-display-title sm:hc-t-display-hero w-full text-(--hc-text-primary)">{HERO}</h1>
+            <h1 className="w-full hc-t-display-title text-(--hc-text-primary) sm:hc-t-display-hero">{HERO}</h1>
             <p className="hc-t-body-input text-(--hc-text-secondary) sm:hidden">{LEDE}</p>
-            <p className="hc-t-body-helper hidden max-w-[680px] text-(--hc-text-secondary) sm:block">{`${LEDE} No follow-up required.`}</p>
+            <p className="hidden max-w-[680px] hc-t-body-helper text-(--hc-text-secondary) sm:block">{`${LEDE} No follow-up required.`}</p>
         </header>
 
         <Button to={raiseHref(slug, "any")} fill className="sm:hidden">
@@ -610,7 +608,7 @@ const HelpHome = ({ tickets, topics, slug }: { tickets: Ticket[]; topics: Ticket
                 <h2 id="hc-raise" className="hc-t-heading-section text-(--hc-text-primary)">
                     Raise a request
                 </h2>
-                <p className="hc-t-body-helper hidden text-(--hc-text-tertiary) sm:block">{raiseLede(topics)}</p>
+                <p className="hidden hc-t-body-helper text-(--hc-text-tertiary) sm:block">{raiseLede(topics)}</p>
                 <TopicTiles topics={topics} slug={slug} />
             </Card>
             <div className="order-1 flex w-full sm:order-2 sm:w-auto">
@@ -660,7 +658,7 @@ const Composer = ({
         <button
             type="button"
             onClick={onCancel}
-            className="hc-t-body-helper -ml-1 inline-flex min-h-11 w-max cursor-pointer items-center gap-1.5 rounded-(--hc-radius-sm) px-1 text-(--hc-text-brand-secondary) hover:underline"
+            className="-ml-1 inline-flex min-h-11 w-max cursor-pointer items-center gap-1.5 rounded-(--hc-radius-sm) px-1 hc-t-body-helper text-(--hc-text-brand-secondary) hover:underline"
         >
             <ArrowNarrowLeft className="size-4" aria-hidden="true" />
             Back to the help centre
@@ -952,7 +950,8 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const counts = serverCounts !== null && tickets.length >= 200 ? serverCounts : countsFor(tickets);
 
     const body = () => {
-        if (showStaff && rail && editingAccess) return <ExistingAccessPanel slug={slug} clientName={viewer?.clientName || clientName} onDone={() => setEditingAccess(false)} />;
+        if (showStaff && rail && editingAccess)
+            return <ExistingAccessPanel slug={slug} clientName={viewer?.clientName || clientName} onDone={() => setEditingAccess(false)} />;
         if (loading && tickets.length === 0 && topics.length === 0) return <HelpSpinner label="Loading your requests" />;
 
         if (view === "detail") {
@@ -1025,11 +1024,20 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
               : view === "guide"
                 ? [...base, { label: findHelpGuide(guide)?.title ?? "Guide" }]
                 : created
-                  // The success card lives at the home's own URL, so the "Help Center" link
-                  // alone would change nothing; it also puts the card away. Only on the
-                  // click that navigates here: a cmd/ctrl/shift/middle click opens the
-                  // home elsewhere and must leave this tab's card alone.
-                  ? [base[0], { ...base[1], onClick: (e) => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) setCreated(null); } }, { label: "Request sent" }]
+                  ? // The success card lives at the home's own URL, so the "Help Center" link
+                    // alone would change nothing; it also puts the card away. Only on the
+                    // click that navigates here: a cmd/ctrl/shift/middle click opens the
+                    // home elsewhere and must leave this tab's card alone.
+                    [
+                        base[0],
+                        {
+                            ...base[1],
+                            onClick: (e) => {
+                                if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) setCreated(null);
+                            },
+                        },
+                        { label: "Request sent" },
+                    ]
                   : composing
                     ? [...base, { label: "Raise a request" }]
                     : base;

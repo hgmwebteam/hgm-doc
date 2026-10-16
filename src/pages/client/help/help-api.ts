@@ -28,6 +28,7 @@
  * anything.
  */
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
+import { type DashboardUser, readDashboardUsers, usersToAllowedEmails } from "@/pages/client/dashboard/dashboard-model";
 import type { Priority, Ticket, TicketCounts, TicketEvent, TicketFile, TicketTopic } from "@/pages/client/help/help-model";
 import { FILE_TYPES, type FileType, type Website, fileUploadFailed, websitesOnRow } from "@/pages/client/help/request-rules";
 import { compressImageFile } from "@/utils/compress-image";
@@ -447,15 +448,21 @@ export interface HelpClientRow {
     backgroundUrl: string;
     /** The client's logo, for the existing-client rail (existing-dashboard-rail.tsx). */
     logoUrl: string;
+    /** The dashboard's access list, lower-cased. The gate uses it to refuse to MAIL a sign-in
+     *  link to an address that is not listed (owner, 16 Oct 2026: strict sign-in). It is the
+     *  same public read as everything else here and decides nothing: the server re-checks the
+     *  list on every call. */
+    allowedEmails: string[];
 }
 
 export const fetchClientRow = async (slug: string): Promise<HelpClientRow | null> => {
     const { data, error } = await supabase.from("dashboard_pages").select("client_name, data").eq("slug", slug).maybeSingle();
     if (error || !data) return null;
-    const content = (data.data ?? {}) as { sidebar_bg_url?: string; logo_url?: string };
+    const content = (data.data ?? {}) as { sidebar_bg_url?: string; logo_url?: string; dashboard_users?: DashboardUser[]; allowed_emails?: string[] };
     return {
         clientName: String(data.client_name ?? "").trim(),
         backgroundUrl: String(content.sidebar_bg_url ?? "").trim(),
         logoUrl: String(content.logo_url ?? "").trim(),
+        allowedEmails: usersToAllowedEmails(readDashboardUsers(content)).map(normEmail),
     };
 };

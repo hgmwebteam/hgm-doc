@@ -17,7 +17,7 @@
  * calls it, and the TS2307 for that alias is type-level noise. Ignore that line.
  */
 import assert from "node:assert/strict";
-import { clientRowMatches, pickClientRow, stageOf } from "@/pages/client/dashboard/client-stage";
+import { clientRowMatches, pickClientRow, stageForSlug, stageOf } from "@/pages/client/dashboard/client-stage";
 
 // A link in any of the shapes the Edit Client dialog has been given.
 assert.equal(clientRowMatches({ name: "x", link: "/enjoy-unique-stays-dashboard" }, "enjoy-unique-stays-dashboard"), true);
@@ -51,5 +51,17 @@ const rows = [
 ];
 assert.equal(pickClientRow(rows, "testa-dashboard")?.name, "Testa");
 assert.equal(pickClientRow(rows, "nobody-dashboard"), null);
+
+// The two dashboards already in clients' hands keep the journey page whatever the row says.
+const pinned = [
+    { name: "Enjoy Unique Stays", link: "/enjoy-unique-stays-dashboard", status: "existing" },
+    { name: "FLOHOM", link: "/flohom-dashboard", status: "existing" },
+    { name: "Paradise Pointe", link: "/paradise-pointe-dashboard", status: "existing" },
+];
+assert.equal(stageForSlug(pinned, "enjoy-unique-stays-dashboard"), null);
+assert.equal(stageForSlug(pinned, "enjoy-unique-stays"), null);
+assert.equal(stageForSlug(pinned, "flohom-dashboard"), null);
+assert.equal(stageForSlug(pinned, "paradise-pointe-dashboard"), "existing");
+assert.equal(stageForSlug(pinned, "nobody-dashboard"), null);
 
 console.log("client-stage.check: ok");

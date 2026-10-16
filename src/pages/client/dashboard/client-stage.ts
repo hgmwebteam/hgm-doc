@@ -20,6 +20,19 @@ import { slugify } from "@/pages/client/dashboard/dashboard-model";
 
 export type ClientStage = "onboarding" | "existing";
 
+/**
+ * Dashboards that keep the journey page whatever their status says.
+ *
+ * These two were already sent to the client before the existing-client dashboard
+ * existed (owner, Loom 16 Oct 2026: "keep their dashboard as is, don't update anything"),
+ * so the page they were given stays the page they have. Little River Landing is a child
+ * brand of Enjoy Unique Stays and lives inside that dashboard.
+ *
+ * ponytail: a code list, same as NEW_JOURNEY_PREVIEW_SLUGS; a column on `clients` when a
+ * third client needs it.
+ */
+export const KEEP_JOURNEY_SLUGS = new Set(["enjoy-unique-stays-dashboard", "flohom-dashboard"]);
+
 export interface ClientStageRow {
     name: string;
     link?: string | null;
@@ -59,6 +72,16 @@ export const stageOf = (row: ClientStageRow | null | undefined): ClientStage | n
 
 export const pickClientRow = (rows: ClientStageRow[], slug: string): ClientStageRow | null => rows.find((r) => clientRowMatches(r, slug)) ?? null;
 
+/** The whole rule: a pinned slug is "unknown" (the page keeps what it had); otherwise the row decides. */
+export const stageForSlug = (rows: ClientStageRow[], slug: string): ClientStage | null => {
+    const short = slug
+        .trim()
+        .toLowerCase()
+        .replace(/-dashboard$/, "");
+    if (KEEP_JOURNEY_SLUGS.has(`${short}-dashboard`)) return null;
+    return stageOf(pickClientRow(rows, slug));
+};
+
 // ponytail: one cached promise per slug for the page's lifetime; the roster is ~50 rows and the
 // dashboard and the help centre both ask, so one read serves both. Reload to see a status change.
 const cache = new Map<string, Promise<ClientStage | null>>();
@@ -71,7 +94,7 @@ export const fetchClientStage = (slug: string): Promise<ClientStage | null> => {
     const p = (async () => {
         try {
             const { data, error } = await supabase.from("clients").select("name, link, status");
-            return error || !data ? null : stageOf(pickClientRow(data as ClientStageRow[], key));
+            return error || !data ? null : stageForSlug(data as ClientStageRow[], key);
         } catch {
             return null;
         }

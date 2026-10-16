@@ -74,6 +74,7 @@ import {
 import { type Website, submitterNamePrefill } from "@/pages/client/help/request-rules";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { type ClientStage, fetchClientStage } from "@/pages/client/dashboard/client-stage";
+import { ExistingAccessPanel } from "@/pages/client/dashboard/existing-access-panel";
 import { ExistingDashboardRail } from "@/pages/client/dashboard/existing-dashboard-rail";
 import { HelpRequestDetail } from "@/pages/client/help/help-request-detail";
 import { ErrorNote, HelpRequestsScreen, HelpSpinner } from "@/pages/client/help/help-requests-screen";
@@ -107,6 +108,32 @@ const HelpGate = ({
 }) => {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    /** The emailed sign-in link: the address typed, and whether the link went out. */
+    const [email, setEmail] = useState("");
+    const [linkBusy, setLinkBusy] = useState(false);
+    const [linkSent, setLinkSent] = useState(false);
+
+    /**
+     * A sign-in link by email, for the people without a Google account (owner, 16 Oct 2026:
+     * "some of the people don't have Gmail"). Supabase mails a one-time link; following it
+     * lands them back on this very URL signed in, where currentCaller() picks the session
+     * up and the server checks the address against the dashboard's list as for anyone else.
+     * Nothing here decides access; an unlisted address gets a link and then the refusal.
+     */
+    const sendLink = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const address = email.trim().toLowerCase();
+        if (!address) return;
+        setLinkBusy(true);
+        setError("");
+        const { error: otpError } = await supabase.auth.signInWithOtp({ email: address, options: { emailRedirectTo: window.location.href, shouldCreateUser: true } });
+        setLinkBusy(false);
+        if (otpError) {
+            setError("We could not send the link just then. Try again in a moment.");
+            return;
+        }
+        setLinkSent(true);
+    };
 
     /**
      * Google, not a shared password.
@@ -140,7 +167,7 @@ const HelpGate = ({
                 <img src="/hgm logo/Favicon ON LIGHT.svg" alt="HiddenGem Media" className="mx-auto size-11" draggable={false} />
                 <h1 className="mt-5 text-center text-lg font-semibold text-primary">Your requests are private</h1>
                 <p className="mt-2 text-center text-sm text-pretty text-tertiary">
-                    Sign in with the Google account your HiddenGem Media team added to this dashboard.
+                    Sign in with the email address your HiddenGem Media team added to this dashboard.
                 </p>
 
                 {notice && (
@@ -162,6 +189,37 @@ const HelpGate = ({
                     <p className="mt-3 text-center text-sm text-error-primary" role="alert">
                         {error}
                     </p>
+                )}
+
+                <div className="my-5 flex items-center gap-3" aria-hidden="true">
+                    <span className="h-px flex-1 bg-border-secondary" />
+                    <span className="text-xs font-medium text-quaternary">OR</span>
+                    <span className="h-px flex-1 bg-border-secondary" />
+                </div>
+
+                {linkSent ? (
+                    <p className="rounded-lg bg-secondary px-3 py-2 text-center text-sm text-pretty text-secondary" role="status">
+                        Check your inbox. The sign-in link for {email.trim().toLowerCase()} opens this page signed in. It can take a minute to arrive.
+                    </p>
+                ) : (
+                    <form onSubmit={sendLink} className="flex flex-col gap-3">
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@yourbusiness.com"
+                            autoComplete="email"
+                            aria-label="Email address"
+                            className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
+                        />
+                        <button
+                            type="submit"
+                            disabled={linkBusy || !email.trim()}
+                            className="flex w-full cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-secondary ring-1 ring-secondary transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {linkBusy ? "Sending…" : "Email me a sign-in link"}
+                        </button>
+                    </form>
                 )}
 
                 <p className="mt-5 text-center text-xs text-pretty text-quaternary">
@@ -724,6 +782,8 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
             return false;
         }
     });
+    /** Staff: the access panel is open in place of the help body (existing-access-panel.tsx). */
+    const [editingAccess, setEditingAccess] = useState(false);
     const togglePreview = () =>
         setPreviewing((v) => {
             try {
@@ -892,6 +952,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const counts = serverCounts !== null && tickets.length >= 200 ? serverCounts : countsFor(tickets);
 
     const body = () => {
+        if (showStaff && rail && editingAccess) return <ExistingAccessPanel slug={slug} clientName={viewer?.clientName || clientName} onDone={() => setEditingAccess(false)} />;
         if (loading && tickets.length === 0 && topics.length === 0) return <HelpSpinner label="Loading your requests" />;
 
         if (view === "detail") {
@@ -985,6 +1046,8 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
                 isStaff={isStaff}
                 previewing={previewing}
                 onTogglePreview={togglePreview}
+                editing={editingAccess}
+                onEdit={() => setEditingAccess((v) => !v)}
                 onSignOut={() => void signOutHere()}
             />
         ) : undefined;

@@ -19,7 +19,7 @@
  * No numbers from HiddenGem AI yet: the owner will say how that data should appear before
  * anything is drawn for it (16 Oct 2026).
  */
-import { HelpCircle, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, Moon01, PlusCircle, Sun } from "@untitledui-pro/icons/line";
+import { Edit05, HelpCircle, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, Moon01, PlusCircle, Sun } from "@untitledui-pro/icons/line";
 import { useLocation, useNavigate } from "react-router";
 import { ClientSearchBar, EyeGlyph, SectionNavItem } from "@/pages/client/dashboard/dashboard-chrome";
 import { HELP_GUIDES } from "@/pages/client/help/help-center-guides";
@@ -41,6 +41,8 @@ export const ExistingDashboardRail = ({
     isStaff,
     previewing = false,
     onTogglePreview,
+    editing = false,
+    onEdit,
     onSignOut,
 }: {
     /** The full "-dashboard" slug. */
@@ -53,6 +55,9 @@ export const ExistingDashboardRail = ({
      *  Toggled by clicking the client's logo or name, as on the journey rail. */
     previewing?: boolean;
     onTogglePreview?: () => void;
+    /** Staff: the access panel ("Who can open this dashboard") is open. */
+    editing?: boolean;
+    onEdit?: () => void;
     onSignOut: () => void;
 }) => {
     const { theme, setTheme } = useTheme();
@@ -167,6 +172,11 @@ export const ExistingDashboardRail = ({
                 </Group>
                 {isStaff && !previewing && (
                     <Group label="HiddenGem team">
+                        {onEdit && (
+                            <div className="min-w-max md:min-w-0">
+                                <SectionNavItem icon={Edit05} label="Edit dashboard" current={editing} onClick={onEdit} />
+                            </div>
+                        )}
                         <div className="min-w-max md:min-w-0">
                             <SectionNavItem
                                 icon={LayoutGrid01}

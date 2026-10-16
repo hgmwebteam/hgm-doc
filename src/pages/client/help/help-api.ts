@@ -44,7 +44,9 @@ import { compressImageFile } from "@/utils/compress-image";
  * normalisation happens once, here, rather than being remembered at four call sites.
  */
 export const fullDashboardSlug = (slug: string): string => {
-    const s = slug.trim().toLowerCase();
+    // `/{client}-help` is the short address of the help centre itself (owner, 16 Oct 2026:
+    // "/flohom-help, that's it"), so a trailing "-help" names the client, not a page.
+    const s = slug.trim().toLowerCase().replace(/-help$/, "");
     return s.endsWith("-dashboard") ? s : `${s}-dashboard`;
 };
 

@@ -443,14 +443,19 @@ export const prepareUploadBlob = async (file: File, picked: FileType): Promise<B
 export interface HelpClientRow {
     clientName: string;
     backgroundUrl: string;
+    /** The client's logo and content drive, for the existing-client rail (existing-dashboard-rail.tsx). */
+    logoUrl: string;
+    folderLink: string;
 }
 
 export const fetchClientRow = async (slug: string): Promise<HelpClientRow | null> => {
     const { data, error } = await supabase.from("dashboard_pages").select("client_name, data").eq("slug", slug).maybeSingle();
     if (error || !data) return null;
-    const content = (data.data ?? {}) as { sidebar_bg_url?: string };
+    const content = (data.data ?? {}) as { sidebar_bg_url?: string; logo_url?: string; brand?: { folder_link?: string } };
     return {
         clientName: String(data.client_name ?? "").trim(),
         backgroundUrl: String(content.sidebar_bg_url ?? "").trim(),
+        logoUrl: String(content.logo_url ?? "").trim(),
+        folderLink: String(content.brand?.folder_link ?? "").trim(),
     };
 };

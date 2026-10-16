@@ -331,7 +331,7 @@ const HelpShell = ({
     const person = (name ?? "").trim() || email.split("@")[0];
     const frame = (
         <HelpFrame
-            className={rail ? "min-w-0 flex-1" : undefined}
+            className={rail ? "hc-in-rail min-w-0 flex-1" : undefined}
             topBar={
                 <TopBar
                     gem={!rail}

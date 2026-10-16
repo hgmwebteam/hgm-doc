@@ -82,7 +82,7 @@ export const ExistingDashboardRail = ({
         <aside className="flex w-full shrink-0 flex-col border-secondary bg-secondary md:sticky md:top-0 md:h-dvh md:w-[276px] md:border-r">
             {/* Identity: a bigger logo and the name alone. No status badge; the owner cut it
                 ("remove Existing, have the logo bigger", Loom 16 Oct 2026). */}
-            <div className="flex items-center gap-3 px-4 pt-5 pb-3">
+            <div className="flex items-center gap-3 border-b border-secondary px-4 py-4">
                 <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary ring-1 ring-secondary">
                     {logoUrl ? (
                         <img src={logoUrl} alt={`${clientName || "Client"} logo`} className="size-full object-contain p-1" draggable={false} />
@@ -96,7 +96,7 @@ export const ExistingDashboardRail = ({
             </div>
 
             {/* Search, directly under the identity as the journey rail has it. A hit is a route. */}
-            <div className="hidden px-3 pb-3 md:block">
+            <div className="hidden px-3 pt-3 pb-3 md:block">
                 <ClientSearchBar hits={hits} onSelect={(to) => navigate(to)} />
             </div>
 

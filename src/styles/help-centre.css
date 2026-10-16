@@ -59,6 +59,22 @@
     --hc-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* Inside an existing client's rail (existing-dashboard-rail.tsx) the frame sits beside
+   the portal's own surfaces, so it takes the journey dashboard's look: cards drawn by their
+   border alone, no elevation, and in dark mode the portal's neutral blacks instead of the
+   file's navy page (owner, Loom 16 Oct 2026: "dark only, not blue"). The plain help centre
+   keeps the file's values. */
+.hc.hc-in-rail {
+    --hc-elevation-card: none;
+}
+.dark-mode .hc.hc-in-rail {
+    --hc-bg-page: #0a0a0a; /* the portal's bg-primary in dark */
+    --hc-bg-primary: #141414;
+    --hc-bg-primary_hover: #1f1f1f;
+    --hc-bg-secondary: #1f1f1f;
+    --hc-bg-tertiary: #2a2a2a;
+}
+
 /* Dark values */
 .dark-mode .hc {
     --hc-bg-page: #060c1d; /* bg/page */

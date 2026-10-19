@@ -4,7 +4,7 @@
  * WHY THIS EXISTS. Every help-centre Function calls verifyCaller, which calls
  * portalDb() with SUPABASE_SERVICE_ROLE_KEY. The value deployed today is
  * refused by the portal project (401 "Invalid API key"), so every client gets
- * "Not authorised." no matter who they are. The end-to-end proof reports it as
+ * "Not authorized." no matter who they are. The end-to-end proof reports it as
  * its first failure.
  *
  * It reads the key from Supabase and writes it to Netlify. The value is never

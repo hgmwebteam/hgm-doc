@@ -78,7 +78,7 @@ export const ExistingAccessPanel = ({ slug, clientName, onDone }: { slug: string
                         Access for {clientName || "this client"}
                     </h1>
                     <p className="mt-2 max-w-[680px] hc-t-body-helper text-(--hc-text-secondary)">
-                        People listed here can open this Help Centre. They sign in with Google on the listed address, or ask for a sign-in link sent to it, so
+                        People listed here can open this Help Center. They sign in with Google on the listed address, or ask for a sign-in link sent to it, so
                         it does not have to be a Gmail address. The password only matters for the full dashboard.
                     </p>
                 </div>

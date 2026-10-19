@@ -236,7 +236,7 @@ const SUPPORT_EMAIL = "anhtuan@hiddengem.media";
 const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: string; clientName: string; slug: string; backgroundUrl?: string }) => {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const whose = clientName ? `${clientName}'s help centre` : "this help centre";
+    const whose = clientName ? `${clientName}'s Help Center` : "this Help Center";
 
     const switchAccount = async () => {
         setBusy(true);
@@ -252,7 +252,7 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
 
     const mailto =
         `mailto:${SUPPORT_EMAIL}` +
-        `?subject=${encodeURIComponent(`Add me to ${clientName || slug}'s help centre`)}` +
+        `?subject=${encodeURIComponent(`Add me to ${clientName || slug}'s Help Center`)}` +
         `&body=${encodeURIComponent(`Please add ${email} to the access list for ${slug}.`)}`;
 
     return (
@@ -323,7 +323,7 @@ const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
         </p>
         {viewer.accessListEmpty && (
             <p className="mt-2 hc-t-body-helper text-pretty text-(--hc-text-secondary)">
-                Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this help centre. Add them in the
+                Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this Help Center. Add them in the
                 dashboard's Access panel.
             </p>
         )}

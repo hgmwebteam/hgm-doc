@@ -943,7 +943,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                     aria-required
                     autoComplete="name"
                     spellCheck={false}
-                    placeholder="Your name"
+                    placeholder={team ? "Your name" : ""}
                     value={name}
                     onChange={setName}
                     // Checked on leaving only when something is in it: an empty required

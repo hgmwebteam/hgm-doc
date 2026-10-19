@@ -213,7 +213,7 @@ export const isDashboardSlug = (slug: string): boolean =>
 export const verifyCaller = async (slug: string, accessToken: string): Promise<GateResult> => {
     if (!isDashboardSlug(slug)) return { ok: false, status: 400, error: "Bad slug." };
     if (!accessToken || accessToken.length < 20 || accessToken.length > 4096) {
-        return { ok: false, status: 401, error: "Sign in to use the help centre." };
+        return { ok: false, status: 401, error: "Sign in to use the Help Center." };
     }
 
     // Validated by the auth server, not parsed here: decoding a JWT locally
@@ -221,7 +221,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     // revoked or forged token.
     const { data: authData, error: authError } = await portalDb().auth.getUser(accessToken);
     const who = normEmail(authData?.user?.email ?? "");
-    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the help centre." };
+    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the Help Center." };
 
     const { data: row, error } = await portalDb()
         .from("dashboard_pages")
@@ -240,7 +240,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     // message for not_listed regardless, worded so it is true in all three
     // cases; the one caller who is told the precise situation is staff, who
     // can already read every slug off the team dashboard.
-    const NOT_LISTED = { ok: false as const, status: 403, error: "Not authorised.", reason: "not_listed" as const };
+    const NOT_LISTED = { ok: false as const, status: 403, error: "Not authorized.", reason: "not_listed" as const };
     if (error || !row) return NOT_LISTED;
 
     const content = (row.data ?? {}) as { client_name?: unknown };
@@ -316,12 +316,12 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
  */
 export const verifyStaff = async (accessToken: string): Promise<GateResult> => {
     if (!accessToken || accessToken.length < 20 || accessToken.length > 4096) {
-        return { ok: false, status: 401, error: "Sign in to use the help centre." };
+        return { ok: false, status: 401, error: "Sign in to use the Help Center." };
     }
     const { data: authData, error: authError } = await portalDb().auth.getUser(accessToken);
     const who = normEmail(authData?.user?.email ?? "");
-    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the help centre." };
-    if (!isStaffUser(authData?.user)) return { ok: false, status: 403, error: "Not authorised.", reason: "not_listed" };
+    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the Help Center." };
+    if (!isStaffUser(authData?.user)) return { ok: false, status: 403, error: "Not authorized.", reason: "not_listed" };
     return {
         ok: true,
         via: "staff",

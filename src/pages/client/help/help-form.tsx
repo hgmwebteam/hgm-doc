@@ -99,8 +99,8 @@ const LEDE = "Tell us what is wrong and who it affects. Jarvis turns it into an 
 const LEDE_SHORT = "Tell us what is wrong and who it affects. Jarvis turns it into an Asana task and hands it to whoever has capacity.";
 // A client reads client words: Jarvis and Asana are the team's tools, not theirs.
 const CLIENT_LEDE = "Tell us what is wrong and where. It goes straight to the team responsible, and you can follow it here.";
-const CLIENT_DESCRIPTION_HELPER = "Start with one line that says what is wrong. That line becomes the request's title; everything after it is the detail.";
-const CLIENT_TRUST_LINE = "You will get a confirmation here, and the request appears in your list straight away.";
+const CLIENT_DESCRIPTION_HELPER = "Start with one line summarizing what you need. That line becomes the request title, and you can add detail below it.";
+const CLIENT_TRUST_LINE = "You'll see a confirmation here, and your request will appear in your list right away.";
 const CLIENT_SENDING_LINE = "Sending your request. This usually takes a second or two.";
 /**
  * The client's success banner. No owner and no date (owner, 28 Sep 2026). The account manager
@@ -129,6 +129,14 @@ const PAGES_HELPER = "The pages this is about. Up to 10.";
 const NAME_HELPER = "The name of the person raising this request.";
 /** Where the notice goes, not that one is sent: the field is on before the platform can send (completion-email-mode.ts). */
 const EMAIL_HELPER = "The address for this request's completion notice.";
+// The client's form in a host's words (owner copy, 19 Oct 2026). The team's form keeps the
+// lines above. The client's name field has no helper: its label says it all.
+const CLIENT_PRIORITY_LABEL = "How urgent is this?";
+const CLIENT_PAGES_HELPER = "Which pages is this about? Add up to 10.";
+const CLIENT_ADD_PAGE = "Add another page";
+const CLIENT_NAME_LABEL = "Your name";
+const CLIENT_EMAIL_LABEL = "Email for updates";
+const CLIENT_EMAIL_HELPER = "We'll email this address when your request is complete.";
 /** The Websites group's note, by how many of the offered are ticked; its error is WEBSITES_NONE. */
 const websitesNote = (ticked: number, offered: number): string =>
     ticked === offered ? `All ${offered} are ticked. Untick any this request is not about.` : ticked === 0 ? "None ticked." : `${ticked} of ${offered} ticked.`;
@@ -837,7 +845,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                 <div className="flex flex-col gap-2 [&_[role=radio]>span:first-child]:rounded-(--hc-radius-full) [&_li>span>span]:rounded-(--hc-radius-full)">
                     <div className="flex items-baseline justify-between gap-2">
                         <span id="priority-label" className="hc-t-label-field text-(--hc-text-secondary)">
-                            Priority
+                            {team ? "Priority" : CLIENT_PRIORITY_LABEL}
                         </span>
                         <span className="hc-t-caption-meta text-(--hc-text-tertiary)">Required</span>
                     </div>
@@ -847,7 +855,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                             {PRIORITY_ERROR}
                         </p>
                     )}
-                    <PriorityLegend idPrefix={PRIORITY_MEANING_ID} />
+                    <PriorityLegend idPrefix={PRIORITY_MEANING_ID} audience={team ? "team" : "client"} />
                 </div>
 
                 <FieldUpload id="files" label="Files" requirement="Optional" attachedCount={files.length} onFiles={addFiles} error={fileError || undefined} />
@@ -920,17 +928,17 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                             {pages.length > 1 && <RemoveButton label={row.value.trim() ? `Remove ${displayUrl(row.value.trim())}` : `Remove page ${i + 1}`} onClick={() => removePage(row.id)} />}
                         </div>
                     ))}
-                    <FieldNote id="pages-note" helper={PAGES_HELPER} error={pagesError} live />
+                    <FieldNote id="pages-note" helper={team ? PAGES_HELPER : CLIENT_PAGES_HELPER} error={pagesError} live />
                     {pages.length < MAX_URLS && (
                         <Button id="add-page" variant="secondary" onClick={addPage} className="max-sm:w-full">
-                            Add another URL
+                            {team ? "Add another URL" : CLIENT_ADD_PAGE}
                         </Button>
                     )}
                 </div>
 
                 <FieldInput
                     id="submitted-by"
-                    label="Submitted by"
+                    label={team ? "Submitted by" : CLIENT_NAME_LABEL}
                     requirement="Required"
                     aria-required
                     autoComplete="name"
@@ -941,7 +949,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                     // Checked on leaving only when something is in it: an empty required
                     // field is named by the banner on sending, not the moment focus passes.
                     onBlur={() => setNameBlurred(!!name.trim())}
-                    helper={NAME_HELPER}
+                    helper={team ? NAME_HELPER : undefined}
                     error={nameError}
                     liveNote
                 />
@@ -949,7 +957,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                 {emailOpen && (
                     <FieldInput
                         id="notify-email"
-                        label="Completion email"
+                        label={team ? "Completion email" : CLIENT_EMAIL_LABEL}
                         requirement="Required"
                         aria-required
                         type="email"
@@ -960,7 +968,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                         value={notify}
                         onChange={setNotify}
                         onBlur={() => setNotifyBlurred(!!notify.trim())}
-                        helper={EMAIL_HELPER}
+                        helper={team ? EMAIL_HELPER : CLIENT_EMAIL_HELPER}
                         error={emailError}
                         liveNote
                     />

@@ -663,7 +663,7 @@ const Composer = ({
             className="-ml-1 inline-flex min-h-11 w-max cursor-pointer items-center gap-1.5 rounded-(--hc-radius-sm) px-1 hc-t-body-helper text-(--hc-text-brand-secondary) hover:underline"
         >
             <ArrowNarrowLeft className="size-4" aria-hidden="true" />
-            Back to the help centre
+            Back to the Help Center
         </button>
         <RequestForm
             mode="client"

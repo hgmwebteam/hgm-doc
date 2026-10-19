@@ -185,7 +185,7 @@ export const HelpGuidePage = ({ guide, slug }: { guide: HelpGuide; slug: string 
                     to={`/${slug}/help`}
                     className="inline-flex min-h-11 items-center rounded-(--hc-radius-sm) hc-t-body-helper text-(--hc-text-brand-secondary) underline"
                 >
-                    Back to the help centre
+                    Back to the Help Center
                 </Link>
             </div>
             {/* The other guides. The help home lists them only from 640px up (the 390

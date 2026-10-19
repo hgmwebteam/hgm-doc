@@ -1241,18 +1241,19 @@ export const FileThumbnail = ({
 /** The platform's own enum (triage.ts). Do not rename. */
 export type PriorityLevel = "low" | "medium" | "high" | "urgent";
 
-export const PRIORITY_LEVELS: ReadonlyArray<{ value: PriorityLevel; label: string; estimate: string; meaning: string }> = [
+export const PRIORITY_LEVELS: ReadonlyArray<{ value: PriorityLevel; label: string; estimate: string; meaning: string; clientMeaning: string }> = [
     // `meaning` is the legend's line under the chips: what the level means, and nothing about
     // when. Since 28 Sep 2026 no form shows a day, an hour or a turnaround (owner: "Remove the
     // days estimates from the pills"), on the team's form or the client's. `estimate` is shown on
     // neither: it is the team's due-date rule for the level (Brandon's note, 13 Sep 2026; Urgent 24
     // hours and Low 7 days from the owner, 13 and 14 Sep), stated here beside the level it belongs
     // to, and the platform's PRIORITY_ESTIMATES, which sets the Asana due dates, is held to it by
-    // ticket-due-proof. The four lines each fit one line of the 544 column.
-    { value: "low", label: "Low", estimate: "7 days", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked." },
-    { value: "medium", label: "Medium", estimate: "5 days", meaning: "Medium: Something is wrong but there is a workaround." },
-    { value: "high", label: "High", estimate: "1 day", meaning: "High: A client-facing feature is broken or a client is asking." },
-    { value: "urgent", label: "Urgent", estimate: "24 hours", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down." },
+    // ticket-due-proof. The four lines each fit one line of the 544 column. `clientMeaning` is
+    // the same line in a host's words, for the client's form (owner copy, 19 Oct 2026).
+    { value: "low", label: "Low", estimate: "7 days", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked.", clientMeaning: "Low: Cosmetic or nice-to-have. Nothing is broken." },
+    { value: "medium", label: "Medium", estimate: "5 days", meaning: "Medium: Something is wrong but there is a workaround.", clientMeaning: "Medium: Something isn't working as it should, but you can work around it." },
+    { value: "high", label: "High", estimate: "1 day", meaning: "High: A client-facing feature is broken or a client is asking.", clientMeaning: "High: An important part of your site is broken or affecting your guests." },
+    { value: "urgent", label: "Urgent", estimate: "24 hours", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down.", clientMeaning: "Urgent: Bookings, payments or your site are down." },
 ];
 
 /** The dot and the selected chip, per level: utility blue, success, warning, error. */
@@ -1358,9 +1359,10 @@ export const PriorityChipGroup = ({
  *
  * `idPrefix` gives each line the id `{idPrefix}-{level}`, so a chip can name its line with
  * aria-describedby: with no estimate in the pills (owner, 28 Sep 2026) the meaning lives only
- * here, and a screen reader should hear it on the chip too.
+ * here, and a screen reader should hear it on the chip too. `audience="client"` reads each
+ * level's `clientMeaning` instead: the host's words rather than the team's.
  */
-export const PriorityLegend = ({ className, idPrefix }: { className?: string; idPrefix?: string }) => (
+export const PriorityLegend = ({ className, idPrefix, audience = "team" }: { className?: string; idPrefix?: string; audience?: "team" | "client" }) => (
     <ul className={cx("flex flex-col gap-2", className)}>
         {PRIORITY_LEVELS.map((p) => (
             <li key={p.value} className="flex items-start gap-2">
@@ -1368,7 +1370,7 @@ export const PriorityLegend = ({ className, idPrefix }: { className?: string; id
                     <PriorityDot level={p.value} />
                 </span>
                 <span id={idPrefix ? `${idPrefix}-${p.value}` : undefined} className="hc-t-body-helper min-w-0 flex-1 text-(--hc-text-tertiary)">
-                    {p.meaning}
+                    {audience === "client" ? p.clientMeaning : p.meaning}
                 </span>
             </li>
         ))}

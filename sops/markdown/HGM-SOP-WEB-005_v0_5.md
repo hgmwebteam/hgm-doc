@@ -9,7 +9,6 @@ How a client-approved site on its `netlify.app` address becomes the client's liv
 | SOP ID | HGM-SOP-WEB-005 |
 | Version | 0.5 |
 | Owner | Web & Content Specialist (Kyle Zinger) |
-| Approved by | Operations Manager (Gillian) — pending |
 | Effective date | 2026-09-29 |
 | Next review date | 2027-03-29 |
 | Frequency / trigger | Once per site, after client approval |

@@ -9,10 +9,9 @@ How an existing client website becomes a new Next.js site built from the HGM tem
 | SOP ID | HGM-SOP-WEB-004 |
 | Version | 0.8 |
 | Owner | Web & Content Specialist (Kyle Zinger) |
-| Approved by | Operations Manager (Gillian) |
 | Effective date | 2026-09-23 |
 | Next review date | 2027-03-23 |
-| Frequency / trigger | Every new AI website build request in Asana |
+| Frequency / trigger | Every AI website build request in Asana |
 | Time to complete | 3 to 5 working days (provisional) |
 | Status | draft |
 

@@ -9,11 +9,10 @@ Every client's environment file lives in one place: a Secure Note (1Password's f
 | SOP ID | HGM-SOP-WEB-001 |
 | Version | 1.2 |
 | Owner | Web & Content Specialist (Kyle Zinger) |
-| Approved by | Operations Manager (Gillian) |
 | Effective date | 2026-09-01 |
 | Next review date | 2027-03-01 |
-| Frequency / trigger | A new project needing a .env.local file, or any change to a stored value |
-| Time to complete | ~5 minutes for Phases 1–5; 30–45 minutes for Phase 6 |
+| Frequency / trigger | A new env file, or a changed value |
+| Time to complete | ~5 min, Phases 1–5; 30–45 min, Phase 6 |
 | Status | draft |
 
 ## 01. Purpose and scope

@@ -9,11 +9,10 @@ How a freshly launched site gets its GA4, Search Console and Hotjar wired up and
 | SOP ID | HGM-SOP-WEB-003 |
 | Version | 1.0 |
 | Owner | Web & Content Specialist (Kyle Zinger) |
-| Approved by | Not yet approved — working draft for Brandon (approver: Operations Manager, Gillian) |
 | Effective date | 2026-09-11 |
 | Next review date | 2027-03-11 |
 | Frequency / trigger | Once per site, in launch week |
-| Time to complete | Spread across launch week; two working days on Ridge & Falls |
+| Time to complete | Spread across launch week |
 | Status | draft |
 
 ## 01. Purpose and scope

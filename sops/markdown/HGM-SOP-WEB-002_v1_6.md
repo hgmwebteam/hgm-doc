@@ -9,7 +9,6 @@ How a change request becomes a live client site without ever breaking the live s
 | SOP ID | HGM-SOP-WEB-002 |
 | Version | 1.6 |
 | Owner | Web & Content Specialist (Kyle Zinger) |
-| Approved by | Operations Manager (Gillian) |
 | Effective date | 2026-09-01 |
 | Next review date | 2027-03-01 |
 | Frequency / trigger | Every website change request |

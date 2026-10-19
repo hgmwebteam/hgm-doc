@@ -289,9 +289,9 @@ BLOCKS = {
 
 META_ORDER = [
     ("SOP ID", "sop_id", True), ("Version", "version", True),
-    ("Owner", "owner", False), ("Approved by", "approved_by", False),
+    ("Owner", "owner", False), ("Trigger", "frequency", False),
     ("Effective", "effective_date", True), ("Next review", "next_review", True),
-    ("Trigger", "frequency", False), ("Duration", "duration", False),
+    ("Duration", "duration", False),
 ]
 
 

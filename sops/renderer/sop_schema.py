@@ -52,8 +52,7 @@ PROC_RE = re.compile(r"^\d+(\.\d+)*$")
 
 # Fields the renderer already consumes. Anything else in meta is portal-only.
 RENDERER_META = ("eyebrow", "title", "lead", "sop_id", "version", "owner",
-                 "approved_by", "effective_date", "next_review", "frequency",
-                 "duration")
+                 "effective_date", "next_review", "frequency", "duration")
 
 PORTAL_META = ("schema_version", "slug", "dept", "number", "status",
                "updated_at", "updated_by", "source", "tasks")

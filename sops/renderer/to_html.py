@@ -1359,7 +1359,7 @@ def build(doc, base="."):
 
     spec = ""
     for label, key in [("SOP ID", "sop_id"), ("Version", "version"), ("Owner", "owner"),
-                       ("Approved by", "approved_by"), ("Effective", "effective_date"),
+                       ("Effective", "effective_date"),
                        ("Next review", "next_review"), ("Trigger", "frequency"),
                        ("Duration", "duration")]:
         if meta.get(key):

@@ -161,7 +161,8 @@ to hurry. Say what failed instead.
 ## Renderer traps worth knowing
 
 - `band.pill` is one word; `band.aside_d` a short phrase. Longer values clip.
-- Metadata cells (`approved_by`, `duration`, `frequency`) overflow at ~40 characters.
+- Metadata cells (`duration`, `frequency`) do not wrap in the PDF: keep them under 40
+  characters. There is no Approved by field (no approval step since 2026-10-15).
 - Figures wider than about 2.5:1 are illegible in print. Some figures are JPEG
   bytes with a `.png` name; the renderer reads the bytes.
 - Escaping is split: `table.headers`, `cards[].k`, `code.label` and `code.note`

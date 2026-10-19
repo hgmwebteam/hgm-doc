@@ -139,11 +139,11 @@ def gate(data, raw, pdf_log, emptiness, md_text=None, pdf_images=None):
     if shots:
         (fails if finished else warns).append(f"{shots} image placeholder(s) open")
 
-    for k in ("sop_id", "title", "version", "owner", "approved_by",
+    for k in ("sop_id", "title", "version", "owner",
               "effective_date", "next_review", "frequency", "duration"):
         if not str(meta.get(k, "")).strip():
             fails.append(f"meta.{k} is empty")
-    for k in ("approved_by", "duration", "frequency"):
+    for k in ("duration", "frequency"):
         if len(str(meta.get(k, ""))) > 40:
             warns.append(f"meta.{k} is over 40 characters and may overflow its grid cell")
 

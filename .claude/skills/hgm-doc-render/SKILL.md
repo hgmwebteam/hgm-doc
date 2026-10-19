@@ -41,7 +41,7 @@ Figure paths resolve against the directory the content JSON is in, in all three 
 { "meta": { ... }, "blocks": [ ... ] }
 ```
 
-**meta** — `eyebrow`, `title`, `lead`, `sop_id`, `version`, `owner`, `approved_by`, `effective_date`, `next_review`, `frequency`, `duration`. Meta values are escaped by the renderer, so write plain text: `&` not `&amp;`.
+**meta** — `eyebrow`, `title`, `lead`, `sop_id`, `version`, `owner`, `effective_date`, `next_review`, `frequency`, `duration`. Meta values are escaped by the renderer, so write plain text: `&` not `&amp;`.
 
 **blocks** — an ordered list, each with a `type`:
 

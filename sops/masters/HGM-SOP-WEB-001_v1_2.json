@@ -6,11 +6,10 @@
     "sop_id": "HGM-SOP-WEB-001",
     "version": "1.2",
     "owner": "Web & Content Specialist (Kyle Zinger)",
-    "approved_by": "Operations Manager (Gillian)",
     "effective_date": "2026-09-01",
     "next_review": "2027-03-01",
-    "frequency": "A new project needing a .env.local file, or any change to a stored value",
-    "duration": "~5 minutes for Phases 1–5; 30–45 minutes for Phase 6",
+    "frequency": "A new env file, or a changed value",
+    "duration": "~5 min, Phases 1–5; 30–45 min, Phase 6",
     "status": "draft",
     "tasks": [
       {

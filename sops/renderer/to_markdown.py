@@ -18,7 +18,7 @@ from picker import blocks_for_print  # noqa: E402
 
 META_ROWS = [
     ("SOP ID", "sop_id"), ("Version", "version"), ("Owner", "owner"),
-    ("Approved by", "approved_by"), ("Effective date", "effective_date"),
+    ("Effective date", "effective_date"),
     ("Next review date", "next_review"), ("Frequency / trigger", "frequency"),
     ("Time to complete", "duration"), ("Status", "status"),
 ]

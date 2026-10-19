@@ -18,7 +18,6 @@ Every HGM SOP contains these sections, in this order, numbered `01`–`10`. No s
 | SOP ID | HGM-SOP-[DEPT]-### |
 | Version | #.# |
 | Owner | Role (Current person) |
-| Approved by | Operations Manager (name) |
 | Effective date | YYYY-MM-DD |
 | Next review date | YYYY-MM-DD (default: effective date + 6 months) |
 | Frequency / trigger | e.g. "Every Monday by 10:00 a.m." or "When a new client signs" |

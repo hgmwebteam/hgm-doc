@@ -1252,8 +1252,8 @@ export const PRIORITY_LEVELS: ReadonlyArray<{ value: PriorityLevel; label: strin
     // the same line in a host's words, for the client's form (owner copy, 19 Oct 2026).
     { value: "low", label: "Low", estimate: "7 days", meaning: "Low: Cosmetic or nice-to-have. Nobody is blocked.", clientMeaning: "Low: Cosmetic or nice-to-have. Nothing is broken." },
     { value: "medium", label: "Medium", estimate: "5 days", meaning: "Medium: Something is wrong but there is a workaround.", clientMeaning: "Medium: Something isn't working as it should, but you can work around it." },
-    { value: "high", label: "High", estimate: "1 day", meaning: "High: A client-facing feature is broken or a client is asking.", clientMeaning: "High: An important part of your site is broken or affecting your guests." },
-    { value: "urgent", label: "Urgent", estimate: "24 hours", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down.", clientMeaning: "Urgent: Bookings, payments or your site are down." },
+    { value: "high", label: "High", estimate: "1 day", meaning: "High: A client-facing feature is broken or a client is asking.", clientMeaning: "High: Something guests use is broken, and there's no workaround." },
+    { value: "urgent", label: "Urgent", estimate: "24 hours", meaning: "Urgent: Revenue is stopping: bookings, payments or the site are down.", clientMeaning: "Urgent: Your site is down, or guests can't book or pay." },
 ];
 
 /** The dot and the selected chip, per level: utility blue, success, warning, error. */

@@ -50,7 +50,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Direct booking website. Put the property's name in the first line, so the request is easy to find in your list. In the description, say what the property needs: a new page, photos, the booking link, a listing to copy from. Attach screenshots, photos, PDFs or spreadsheets if you have them.",
+                    "Raise a request under Direct Booking Website. Put the property's name in the first line, so the request is easy to find in your list. In the description, say what the property needs: a new page, photos, the booking link, a listing to copy from. Attach screenshots, photos, PDFs or spreadsheets if you have them.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
@@ -83,7 +83,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "Your account manager answers it, or brings in the person who can. If the answer turns out to be a change on your website, such as a tracking tag on a page or a form that does not send, they may ask you to raise it here under Direct booking website so the web team can take it on.",
+                    "Your account manager answers it, or brings in the person who can. If the answer turns out to be a change on your website, such as a tracking tag on a page or a form that does not send, they may ask you to raise it here under Direct Booking Website so the web team can take it on.",
                 ],
             },
         ],
@@ -97,7 +97,7 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Raise a request under Direct booking website when the change is on your own site: a booking page, a booking button, dates that show as available on the site when they are not. Name the property and describe the change or the fault. Screenshots of what a guest sees are the most useful thing you can attach, alongside any PDF or spreadsheet that shows the change.",
+                    "Raise a request under Direct Booking Website when the change is on your own site: a booking page, a booking button, dates that show as available on the site when they are not. Name the property and describe the change or the fault. Screenshots of what a guest sees are the most useful thing you can attach, alongside any PDF or spreadsheet that shows the change.",
                     "For your property management system or a channel (Airbnb, Vrbo), such as a rate, a minimum stay or a listing that needs new photos, ask your account manager instead.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],

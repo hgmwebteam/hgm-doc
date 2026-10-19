@@ -4,7 +4,7 @@
   "title": "Pre-launch readiness and go-live",
   "lead": "How a client-approved site on its <code>netlify.app</code> address becomes the client's live site on their own domain — audited, keyed, paid-path-tested and cut over. If you remember one thing: <strong class=\"hl\">nothing is verified until you have seen it on the live domain</strong>, and nothing that touches money is done outside Claude Fable against a test key.",
   "sop_id": "HGM-SOP-WEB-005",
-  "version": "0.4",
+  "version": "0.5",
   "status": "draft",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "approved_by": "Operations Manager (Gillian) — pending",
@@ -169,7 +169,7 @@
     },
     {
      "t": "VS Code with Claude Code signed in",
-     "d": "Every task is done in VS Code, with Claude Code and the VS Code terminal. Claude Fable for phases 6 to 8. <strong class=\"hl\">[NEEDS INPUT: how Claude Fable is selected in Claude Code at HGM — the model picker in the prompt box, or a setting]</strong>"
+     "d": "Every task is done in VS Code, with Claude Code. Claude Fable for phases 6 to 8. <strong class=\"hl\">[NEEDS INPUT: how Claude Fable is selected in Claude Code at HGM — the model picker in the prompt box, or a setting]</strong>"
     },
     {
      "t": "The client's Netlify team",
@@ -209,15 +209,9 @@
    "n": "1.1",
    "id": "WEB-005.1.2",
    "t": "Pull main and confirm the deployed site is main",
-   "d": "Open the repository in VS Code, fetch, fast-forward, then compare the commit Netlify has deployed with <code>origin/main</code>.",
-   "expect": "<code>git status -sb</code> shows <code>main...origin/main</code> with no <code>[behind N]</code>, and the deployed commit equals <code>origin/main</code>.",
+   "d": "Open the repository in VS Code and paste the prompt. It fetches, fast-forwards, then compares the commit Netlify has deployed with <code>origin/main</code>.",
+   "expect": "Claude reports main is up to date with <code>origin/main</code>, and the deployed commit equals it.",
    "body": [
-    {
-     "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "git fetch origin && git status -sb\ngit pull --ff-only\ngit rev-parse origin/main    # compare with the commit shown on the Netlify deploy"
-    },
     {
      "type": "code",
      "kind": "prompt",
@@ -232,16 +226,9 @@
    "n": "1.2",
    "id": "WEB-005.1.3",
    "t": "Check .env.local is filled, by length",
-   "d": "Print each key with the length of its value, never the value. If the file is missing, restore it from the client's 1Password entry (<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>). Every blank is a key the client still owes — write the names down for phase 6.",
+   "d": "Have Claude list each key with the length of its value, never the value. If the file is missing, restore it from the client's 1Password entry (<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>). Every blank is a key the client still owes — write the names down for phase 6.",
    "expect": "You have the list of blank keys. Phase 6 fills them.",
    "body": [
-    {
-     "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "awk -F= '/^[A-Za-z_][A-Za-z0-9_]*=/ { print $1, length($2) }' .env.local",
-     "note": "lengths only"
-    },
     {
      "type": "code",
      "kind": "prompt",
@@ -267,9 +254,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "git checkout -b pre-launch"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Create a branch named pre-launch from an up-to-date main and\nswitch to it. Confirm which branch I'm on. Make no other\nchanges."
     }
    ]
   },
@@ -313,10 +301,10 @@
     },
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "curl -s http://localhost:3000/ | grep -o '<meta property=\"og:[a-z:]*\" content=\"[^\"]*\"'",
-     "note": "use your local port"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "With the dev server running, fetch the home page, the stays\npage and one listing page from localhost. For each, list the\n<title>, the meta description, og:title, og:description and\nog:image, and check the og:image URL loads. Tell me any that\nis missing or reads like template placeholder text."
     },
     {
      "type": "figure",
@@ -409,7 +397,7 @@
    "id": "WEB-005.3.3",
    "t": "Check keyboard navigation and alt text yourself",
    "d": "On <code>localhost</code>, put the mouse down. Tab from the top of the home page through the search widget, onto the stays page, into a listing and into the booking form. Then confirm no image on the stays page lacks an <code>alt</code> attribute.",
-   "expect": "You can reach and operate every control with the keyboard, focus is visible at every step, and the grep prints nothing.",
+   "expect": "You can reach and operate every control with the keyboard, focus is visible at every step, and Claude finds no image without an <code>alt</code> attribute.",
    "body": [
     {
      "type": "code",
@@ -419,10 +407,10 @@
     },
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "curl -s http://localhost:3000/stays | grep -o '<img[^>]*>' | grep -v 'alt='",
-     "note": "prints images with no alt"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "use your local port",
+     "text": "Fetch http://localhost:3000/stays and list every <img> that has\nno alt attribute. Make no changes."
     },
     {
      "type": "panel",
@@ -465,9 +453,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "git add -A && git commit -m \"feat: SEO, GEO and accessibility\" && git push -u origin pre-launch"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Commit everything on pre-launch with the message\n\"feat: SEO, GEO and accessibility\", push it, and give me the\nlink to open a pull request into main. Do not merge it."
     }
    ]
   },
@@ -591,21 +580,14 @@
    "id": "WEB-005.5.3",
    "t": "Make the cancellation policy identical everywhere",
    "d": "The policy appears on every listing page, on the checkout and confirmation pages and in the confirmation email. Ask for one source of truth, then merge phase 5 the way task 3.5 does.",
-   "expect": "One definition. A grep for a distinctive phrase from the policy finds it in that one file only.",
+   "expect": "One definition: Claude finds the policy's wording in that one file only.",
    "body": [
     {
      "type": "code",
      "kind": "prompt",
      "label": "Claude prompt",
-     "text": "The cancellation policy must be identical on every listing page, the checkout and confirmation pages, and in every email the site sends. Move it to one constant and render it from there everywhere. Then list every place it appears.",
+     "text": "The cancellation policy must be identical on every listing page, the checkout and confirmation pages, and in every email the site sends. Move it to one constant and render it from there everywhere. Then list every place it appears. Finally, search the code for a distinctive phrase from the policy and confirm it appears in one file only.",
      "note": "paste into Claude Code"
-    },
-    {
-     "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "grep -rl \"<a distinctive phrase from the policy>\" app lib components",
-     "note": "expect one file"
     }
    ]
   },
@@ -691,10 +673,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "curl -s https://<site-name>.netlify.app/ | grep -o \"fbq('init', '[0-9]*')\"",
-     "note": "prints the pixel ID the page carries"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "fill in the site name and pixel ID",
+     "text": "Fetch https://<site-name>.netlify.app/ and tell me the pixel ID\nin the fbq('init') call. It should be <pixel-id>."
     },
     {
      "type": "panel",
@@ -729,10 +711,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "awk -F= '/STRIPE/ { print $1, substr($2,1,8) }' .env.local",
-     "note": "prints the first eight characters only"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "first eight characters only",
+     "text": "List every STRIPE variable in .env.local with only the first\neight characters of its value, never more. Tell me whether\neach key starts with a test prefix (pk_test_ or sk_test_)."
     }
    ]
   },
@@ -897,13 +879,6 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "dig +short NS <client-domain>\ndig +short A <client-domain>\ndig +short MX <client-domain>",
-     "note": "replace <client-domain>"
-    },
-    {
-     "type": "code",
      "kind": "prompt",
      "label": "Claude prompt",
      "text": "Run dig for NS, A, MX and TXT on <client-domain>. Tell me who hosts the DNS, where the site currently points, and whether the domain carries email. Make no changes.",
@@ -993,10 +968,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "curl -sI https://<site-name>.netlify.app/<old-path> | head -3",
-     "note": "expect a 301 and a Location header"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "fill in the site name",
+     "text": "For each old address in the redirect map, request\nhttps://<site-name>.netlify.app/<old-path> without following\nredirects and tell me its status code and Location header.\nEach should be a 301 to the right page."
     }
    ]
   },
@@ -1024,13 +999,6 @@
    "d": "Repeat until the answers change. Propagation takes from minutes up to the old TTL.",
    "expect": "The A record answers with Netlify's address and <code>curl</code> returns <code>HTTP/2 200</code>.",
    "body": [
-    {
-     "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "dig +short A <client-domain>\ndig +short CNAME www.<client-domain>\ncurl -sI https://<client-domain>/ | head -1",
-     "note": "repeat every few minutes"
-    },
     {
      "type": "code",
      "kind": "prompt",
@@ -1077,10 +1045,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "dig +short MX <client-domain>\ndig +short TXT <client-domain>",
-     "note": "compare with the task 9.3 capture"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste the task 9.3 records",
+     "text": "Run dig for MX and TXT on <client-domain> and compare the\nanswers with the records I saved in task 9.3: <paste them>.\nTell me any difference. Make no changes."
     },
     {
      "type": "panel",
@@ -1110,16 +1078,9 @@
    "n": "10.1",
    "id": "WEB-005.11.1",
    "t": "Prove the repository is the live site",
-   "d": "This is <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-003\">WEB-003</a> task 1.1, run for the first time.",
-   "expect": "<code>diff</code> is silent and the deployed commit equals <code>origin/main</code>.",
+   "d": "The same check <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-003\">WEB-003</a> task 1.1 starts with, run here for the first time on the real domain.",
+   "expect": "Claude reports all three match: where DNS points, the two copies of the HTML, and the deployed commit.",
    "body": [
-    {
-     "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "dig +short NS <client-domain>; dig +short A <client-domain>\ncurl -s https://<client-domain>/ > /tmp/live.html\ncurl -s https://<site-name>.netlify.app/ > /tmp/host.html\ndiff -q /tmp/live.html /tmp/host.html\ngit fetch origin && git rev-parse origin/main",
-     "note": "replace <client-domain> and <site-name>"
-    },
     {
      "type": "code",
      "kind": "prompt",
@@ -1139,9 +1100,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Terminal",
-     "text": "curl -s https://<client-domain>/ | grep -o '<meta property=\"og:url\" content=\"[^\"]*\"'\ncurl -sI https://<client-domain>/llms.txt | head -1\ncurl -s https://<client-domain>/ | grep -c \"fbq('init'\""
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "fill in the domain",
+     "text": "On https://<client-domain>/, tell me the og:url, whether\n/llms.txt returns 200, and whether the Meta pixel's\nfbq('init') call is in the HTML. Make no changes."
     }
    ]
   },
@@ -1342,6 +1304,12 @@
      "0.4",
      "Kyle Zinger",
      "Seven screenshots from the Awayframes pre-launch and cutover added at 2.2, 4.1, 6.2, 8.3, 9.3, 9.6 and 9.10, each replacing its image placeholder."
+    ],
+    [
+     "2026-10-19",
+     "0.5",
+     "Kyle Zinger",
+     "Terminal commands removed. Tasks that already had a Claude prompt keep only the prompt; tasks 1.3, 2.2, 3.3, 3.5, 6.4, 7.1, 9.7, 9.11 and 10.2 get a new prompt in place of the command. No change to the procedure."
     ]
    ]
   },

@@ -19,7 +19,7 @@
  * No numbers from HiddenGem AI yet: the owner will say how that data should appear before
  * anything is drawn for it (16 Oct 2026).
  */
-import { Edit05, HelpCircle, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, Moon01, PlusCircle, Sun } from "@untitledui-pro/icons/line";
+import { Edit05, Image01, LayoutAlt01, LayoutGrid01, MessageQuestionCircle, Moon01, PlusCircle, Sun } from "@untitledui-pro/icons/line";
 import { useLocation, useNavigate } from "react-router";
 import { ClientSearchBar, EyeGlyph, SectionNavItem } from "@/pages/client/dashboard/dashboard-chrome";
 import { HELP_GUIDES } from "@/pages/client/help/help-center-guides";
@@ -159,14 +159,6 @@ export const ExistingDashboardRail = ({
                             label="Your requests"
                             current={onRequests}
                             onClick={() => navigate(`${base}/help/requests`)}
-                        />
-                    </div>
-                    <div className="min-w-max md:min-w-0">
-                        <SectionNavItem
-                            icon={HelpCircle}
-                            label="Guides"
-                            current={onGuides}
-                            onClick={() => navigate(`${base}/help/guides/${HELP_GUIDES[0].slug}`)}
                         />
                     </div>
                 </Group>

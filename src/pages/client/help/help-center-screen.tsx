@@ -450,11 +450,9 @@ const raiseHref = (slug: string, topicKey: string | "any"): string => `/${slug}/
  * (owner, 28 Sep 2026: "there will only be Website and pages"). Read from the active topics,
  * never a key written here, so a second category brings the frame's words back. The form
  * makes the same call: with one active category it draws no Category field (help-form.tsx).
+ * With one category there is no line at all (owner, 19 Oct 2026: the routing sentence went).
  */
-const raiseLede = (topics: TicketTopic[]): string =>
-    topics.length > 1
-        ? "Select a category. Each routes directly to the team accountable for it."
-        : "Every request routes directly to the team accountable for it.";
+const raiseLede = (topics: TicketTopic[]): string | null => (topics.length > 1 ? "Select a category." : null);
 
 /**
  * One Stat row inside Card/Open right now: bg/secondary, radius/lg, padding 12, gap 12.
@@ -608,7 +606,7 @@ const HelpHome = ({ tickets, topics, slug, guidesRow = true }: { tickets: Ticket
                 <h2 id="hc-raise" className="hc-t-heading-section text-(--hc-text-primary)">
                     Raise a request
                 </h2>
-                <p className="hidden hc-t-body-helper text-(--hc-text-tertiary) sm:block">{raiseLede(topics)}</p>
+                {raiseLede(topics) && <p className="hidden hc-t-body-helper text-(--hc-text-tertiary) sm:block">{raiseLede(topics)}</p>}
                 <TopicTiles topics={topics} slug={slug} />
             </Card>
             <div className="order-1 flex w-full sm:order-2 sm:w-auto">
@@ -616,8 +614,9 @@ const HelpHome = ({ tickets, topics, slug, guidesRow = true }: { tickets: Ticket
             </div>
         </div>
 
-        {/* Off inside the existing-client rail (owner, 16 Oct 2026, "remove these"): the
-            rail's Guides row already leads there. The plain help centre keeps it. */}
+        {/* Off inside the existing-client rail (owner, 16 Oct 2026, "remove these"). The
+            rail has no Guides row either since 19 Oct 2026; its search box still finds the
+            guides. The plain help centre keeps this row. */}
         {guidesRow && <GuidesRow slug={slug} />}
     </div>
 );

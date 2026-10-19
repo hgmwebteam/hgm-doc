@@ -4,7 +4,7 @@
     "title": "Take a website change request from Asana to live",
     "lead": "How a change request becomes a live client site without ever breaking the live site. If you remember one thing: <strong class=\"hl\">never work directly on main</strong> — main is the branch that <em>is</em> the live site. A branch is your own private copy of the site, and nothing on it reaches the live site until someone deliberately merges it.",
     "sop_id": "HGM-SOP-WEB-002",
-    "version": "1.5",
+    "version": "1.6",
     "owner": "Web & Content Specialist (Kyle Zinger)",
     "approved_by": "Operations Manager (Gillian)",
     "effective_date": "2026-09-01",
@@ -70,7 +70,7 @@
       "items": [
         {
           "t": "Purpose",
-          "d": "Takes a website change request from an Asana task all the way to the live client site without ever putting the live site at risk. Every step that touches the terminal (the panel in VS Code where you type commands) offers two or three routes, so nobody has to type a command they do not understand."
+          "d": "Takes a website change request from an Asana task all the way to the live client site without ever putting the live site at risk. Every step that needs a command is a Claude prompt, so nobody has to type a command they do not understand."
         },
         {
           "t": "In scope",
@@ -150,7 +150,7 @@
       "type": "panel",
       "kind": "success",
       "t": "Recommended default",
-      "text": "<strong>New to this?</strong> Use the Claude option everywhere. It checks things the raw commands do not, and the credit cost of the mechanical steps is negligible.<br><br><strong>Comfortable in a terminal?</strong> Run tasks 2.1, 4.2 and 6.2 yourself &mdash; they are quick and predictable. Still use the Claude option for <strong>task 5.1</strong>, because it confirms your change is actually on the Deploy Preview URL, which is the mistake people make most often."
+      "text": "Use the Claude prompt everywhere. It checks things a typed command does not, and the credit cost of the mechanical steps is negligible. <strong>Task 5.1</strong> matters most: its prompt confirms your change is actually on the Deploy Preview URL, which is the mistake people make most often."
     },
     {
       "type": "section",
@@ -261,14 +261,16 @@
     {
       "type": "step",
       "n": "1.7",
-      "t": "Run npm install",
+      "t": "Ask Claude to install the packages",
       "id": "WEB-002.1.7",
-      "d": "Open a terminal with <strong>Terminal &rarr; New Terminal</strong> (or <code>Ctrl + `</code>) and run <code>npm install</code>. It downloads the code the site depends on.",
+      "d": "Open Claude Code in VS Code and paste the prompt. It downloads the code the site depends on.",
       "body": [
         {
-          "type": "figure",
-          "path": "fig_HGM-SOP-WEB-002_f6-new-terminal.jpg",
-          "caption": "Terminal &rarr; New Terminal."
+          "type": "code",
+          "kind": "prompt",
+          "label": "Claude prompt",
+          "note": "paste into Claude Code",
+          "text": "Run npm install in this project and tell me if anything fails."
         }
       ],
       "expect": "It finishes in a minute or two. Once per site, not once per job."
@@ -320,14 +322,7 @@
     },
     {
       "type": "para",
-      "text": "Tasks 1.2 to 1.7 are the click-by-click route. Either of these does the same thing in one action."
-    },
-    {
-      "type": "code",
-      "kind": "terminal",
-      "text": "Press Cmd + Shift + P, type: Git: Clone\nPaste the same URL, choose a folder, then let VS Code open it.\nThen run: npm install",
-      "label": "Terminal / CLI",
-      "note": "command palette"
+      "text": "Tasks 1.2 to 1.7 are the click-by-click route. This prompt does the same thing in one action."
     },
     {
       "type": "code",
@@ -354,13 +349,6 @@
       "body": [
         {
           "type": "code",
-          "kind": "terminal",
-          "text": "git checkout main\ngit pull\ngit status\n\n# then, naming the branch after the job:\ngit checkout -b fix/terms-page-update",
-          "label": "Terminal / CLI",
-          "note": "type it yourself"
-        },
-        {
-          "type": "code",
           "kind": "prompt",
           "text": "I'm starting a new website change request. Please get me set up:\n\n1. Check I'm on main, that my working copy is clean, and that\n   it's in sync with origin/main. If there are uncommitted\n   changes I don't recognise, STOP and show me what they are.\n   Do not discard anything.\n2. Pull the latest main.\n3. Create a branch for this job called: fix/[short-description]\n   Use fix/ for corrections, feat/ for new features.\n4. Confirm which branch I'm on now.\n\nMake no other changes.",
           "label": "Claude prompt",
@@ -373,7 +361,7 @@
           "text": "Ask a developer before going further. That is someone's unfinished work, or your own from last time, and carrying it into a new job tangles two changes together."
         }
       ],
-      "expect": "<code>git status</code> reports nothing to commit (a &ldquo;clean tree&rdquo;), and you are on your new branch."
+      "expect": "Claude confirms your working copy has nothing to commit (a &ldquo;clean tree&rdquo;) and that you are on your new branch."
     },
     {
       "type": "step",
@@ -462,13 +450,6 @@
       "body": [
         {
           "type": "code",
-          "kind": "terminal",
-          "text": "npm run dev\n\n# then open http://localhost:3000\n# Ctrl + C stops it",
-          "label": "Terminal / CLI",
-          "note": "type it yourself"
-        },
-        {
-          "type": "code",
           "kind": "prompt",
           "text": "Start the dev server and show me the change. Screenshot the\nsection you edited at desktop width and again at 390px wide\nso I can check mobile. Tell me if anything next to it looks\nbroken. Then give me the local URL so I can click around\nmyself.",
           "label": "Claude prompt",
@@ -478,7 +459,7 @@
           "type": "panel",
           "kind": "warning",
           "t": "Two things that fool everyone",
-          "text": "<strong>Cannot see your change?</strong> Hard refresh with <code>Cmd + Shift + R</code> before assuming it failed. Browsers cache hard. Still nothing? Restart the dev server (<code>npm run dev</code>) and check you are on your branch with <code>git branch --show-current</code>, in that order.<br><br><strong>Villa photos blank or green?</strong> Expected when <code>.env.local</code> is missing or incomplete. Listing photos and prices come from the booking system. Not a bug you caused &mdash; do not report it as one."
+          "text": "<strong>Cannot see your change?</strong> Hard refresh with <code>Cmd + Shift + R</code> before assuming it failed. Browsers cache hard. Still nothing? Ask Claude to restart the dev server, then to tell you which branch you are on, in that order.<br><br><strong>Villa photos blank or green?</strong> Expected when <code>.env.local</code> is missing or incomplete. Listing photos and prices come from the booking system. Not a bug you caused &mdash; do not report it as one."
         }
       ],
       "expect": "Your change is visible at both widths and nothing beside it looks broken."
@@ -502,7 +483,7 @@
         {
           "type": "code",
           "kind": "click",
-          "text": "1.  Push the branch:\n      git push -u origin fix/terms-page-update\n\n2.  Open the repo on github.com. It offers a\n      Compare & pull request  button. Click it, then\n      Create pull request.\n\n3.  Wait for the Deploy Preview check, then open the URL.\n\nDo NOT merge yet. The pull request stays open until 6.2.",
+          "text": "1.  Push the branch: in VS Code's Source Control view,\n      click  Publish Branch.\n\n2.  Open the repo on github.com. It offers a\n      Compare & pull request  button. Click it, then\n      Create pull request.\n\n3.  Wait for the Deploy Preview check, then open the URL.\n\nDo NOT merge yet. The pull request stays open until 6.2.",
           "label": "Point & click",
           "note": "GitHub, after one push"
         },
@@ -606,13 +587,6 @@
       "body": [
         {
           "type": "code",
-          "kind": "click",
-          "text": "git checkout main\ngit pull",
-          "label": "Point & click, then terminal",
-          "note": "after merging on GitHub"
-        },
-        {
-          "type": "code",
           "kind": "prompt",
           "text": "The approver said yes. Help me finish:\n\n1. Confirm my branch is still in sync, and that nothing new\n   has landed on main that would conflict.\n2. Give me the pull request URL for this branch so I can\n   merge it on GitHub.\n\nAfter I tell you the merge is done:\n\n3. Switch me back to main and pull the latest.\n4. Fetch the live site and confirm my change is actually\n   there now.",
           "label": "Claude prompt",
@@ -648,7 +622,7 @@
       "items": [
         {
           "t": "Sites with extra checks",
-          "d": "Some repositories also define <code>npm run lint</code> and <code>npm run typecheck</code>. Run those too where they exist, in addition to the two checks in Prompt 2."
+          "d": "Some repositories also define <code>npm run lint</code> and <code>npm run typecheck</code>. Ask Claude to run those too where they exist, in addition to the two checks in Prompt 2."
         },
         {
           "t": "The credential is missing",
@@ -662,11 +636,11 @@
       "items": [
         {
           "t": "You need to undo everything",
-          "d": "Not yet saved to git (committed): <code>git checkout .</code> throws away your edits. Committed but not merged: leave the branch behind with <code>git checkout main</code>. Nothing on a branch can affect the live site."
+          "d": "Not yet saved to git (committed): ask Claude to throw away your uncommitted edits. Committed but not merged: ask Claude to switch you back to <code>main</code> and leave the branch behind. Nothing on a branch can affect the live site."
         },
         {
           "t": "Near a usage limit",
-          "d": "Run the mechanical tasks (2.1, 4.2, 6.2) yourself and save the remaining budget for task 4.1, which cannot be done another way."
+          "d": "Save the remaining budget for task 4.1, which cannot be done another way. The prompts in 2.1, 4.2 and 6.2 are mechanical and cost little."
         }
       ]
     },
@@ -766,6 +740,12 @@
           "1.5",
           "Kyle Zinger",
           "Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal. The platform cards and comparison table are gone: everyone works in VS Code, where every route runs."
+        ],
+        [
+          "2026-10-19",
+          "1.6",
+          "Kyle Zinger",
+          "Terminal commands removed: every task that needs a command is now a Claude prompt. Task 1.7 installs the packages with a prompt instead of the terminal; the undo, extra-checks and usage-limit notes say what to ask Claude. No change to the procedure."
         ]
       ]
     },

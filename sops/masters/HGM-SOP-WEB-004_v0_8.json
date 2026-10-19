@@ -4,7 +4,7 @@
   "title": "Rebuild a live client site as a Next.js and Supabase site",
   "lead": "How an existing client website becomes a new Next.js site built from the HGM template, matched section by section against the original. If you remember one thing: <strong class=\"hl\">the live site is the reference, not your memory</strong> — every section is judged against a saved capture of the original, never against what looks about right on screen.",
   "sop_id": "HGM-SOP-WEB-004",
-  "version": "0.7",
+  "version": "0.8",
   "status": "draft",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "approved_by": "Operations Manager (Gillian)",
@@ -157,7 +157,7 @@
     },
     {
      "t": "VS Code with Claude Code signed in",
-     "d": "Every task in this SOP is done in VS Code, with Claude Code and the VS Code terminal. Node and npm installed — <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> task 1.1 lists the four tools."
+     "d": "Every task in this SOP is done in VS Code with Claude Code. Node and npm installed — <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> task 1.1 lists the four tools."
     },
     {
      "t": "The URL of the live site",
@@ -280,7 +280,7 @@
    "type": "step",
    "n": "2.1",
    "t": "Sign in to the client's Netlify account and add HGM to it",
-   "d": "Sign in to Netlify with the client's credentials from their record on <strong>hgmportal.com</strong>. Go to <strong>Team settings</strong> → <strong>Members</strong>, invite the HGM web team Google account — the shared address on the same portal record — and give it the <strong>Developer</strong> role.",
+   "d": "Sign in to Netlify with the client's credentials from their record on <strong>hgmportal.com</strong>. Go to <strong>Team settings</strong> → <strong>Members</strong>, invite <code>hgmwebteam@gmail.com</code> (the HGM web team account) and give it the <strong>Developer</strong> role. Every new client Netlify, Supabase and Resend account gets this invite (tasks 2.1, 4.2 and 4.7), so the team's automations connect with nothing else to set up.",
    "expect": "The HGM web team account can reach the team, create projects, set environment variables and deploy, without being able to change billing or delete the team.",
    "body": [
     {
@@ -363,9 +363,10 @@
     },
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Or clone from the terminal",
-     "text": "git clone https://github.com/hgmwebteam/<client-name>.git\ncd <client-name>"
+     "kind": "prompt",
+     "label": "Or ask Claude to clone it",
+     "note": "fill in the client name",
+     "text": "Clone https://github.com/hgmwebteam/<client-name>.git into\nthis folder and open it. Tell me if anything fails."
     }
    ],
    "id": "WEB-004.3.1"
@@ -374,14 +375,15 @@
    "type": "step",
    "n": "3.2",
    "t": "Install the packages",
-   "d": "Open a terminal in the project folder and run <code>npm install</code>.",
-   "expect": "The command finishes without an error and a <code>node_modules</code> folder appears. It takes a few minutes the first time.",
+   "d": "Paste the prompt into Claude Code.",
+   "expect": "Claude reports it finished without an error, and a <code>node_modules</code> folder appears. It takes a few minutes the first time.",
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "In the project folder",
-     "text": "npm install"
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Run npm install in this project and tell me if anything fails."
     }
    ],
    "id": "WEB-004.3.2"
@@ -416,9 +418,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "Create and commit the file",
-     "text": "printf '# Token spend\\n\\n| Date | Session | Approx. tokens | Cost (CAD) |\\n|---|---|---|---|\\n' > TOKENS.md\ngit add TOKENS.md && git commit -m \"chore: start token spend log\""
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Create TOKENS.md in the repository root with the heading\n\"# Token spend\" and an empty table with the columns Date,\nSession, Approx. tokens and Cost (CAD). Commit it with the\nmessage \"chore: start token spend log\"."
     }
    ],
    "id": "WEB-004.3.4"
@@ -454,15 +457,15 @@
   {
    "type": "step",
    "n": "4.2",
-   "t": "Get into the client's Supabase project and add yourself to it",
-   "d": "Sign in to Supabase with the client's credentials from 1Password, open their project, then invite your own HGM account as a member under <strong>Project settings</strong> → <strong>Members</strong>.",
-   "expect": "You can reach the project signed in as yourself, and you stop using the client's login from this point on.",
+   "t": "Get into the client's Supabase project and add the web team to it",
+   "d": "Sign in to Supabase with the client's credentials from 1Password, open their project, then invite <code>hgmwebteam@gmail.com</code> as a member under <strong>Project settings</strong> → <strong>Members</strong>.",
+   "expect": "You can reach the project signed in as <code>hgmwebteam@gmail.com</code>, and you stop using the client's login from this point on.",
    "body": [
     {
      "type": "panel",
      "kind": "warning",
      "t": "The client owns this project",
-     "text": "The Supabase project is created in the client's own account, not HGM's. Adding yourself as a member is what keeps the audit trail honest and survives a password change on their side."
+     "text": "The Supabase project is created in the client's own account, not HGM's. Adding the web team account as a member is what lets the team's automations connect, and it survives a password change on their side."
     },
     {
      "type": "panel",
@@ -546,7 +549,7 @@
    "n": "4.7",
    "id": "WEB-004.4.9",
    "t": "Get the Resend API key",
-   "d": "<strong class=\"hl\">[NEEDS INPUT: Q13 — whether Resend is the client's account or HGM's, and where the key is created]</strong>",
+   "d": "The Resend account is the client's. Invite <code>hgmwebteam@gmail.com</code> to it as a team member, then create the API key. <strong class=\"hl\">[NEEDS INPUT: Q13, where the client's Resend login is kept]</strong>",
    "expect": "A Resend API key in <code>.env.local</code> under <strong class=\"hl\">[NEEDS INPUT: the variable name in ENV.template]</strong>.",
    "body": [
     {
@@ -688,9 +691,10 @@
    "body": [
     {
      "type": "code",
-     "kind": "terminal",
-     "label": "One page, from the terminal",
-     "text": "curl -sL \"https://<live-site>/<page>\" -o \"Resources/Page HTML/<Page>.html\""
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "fill in the live site's address",
+     "text": "Save the HTML of every page in <live-site>'s sitemap into\n\"Resources/Page HTML/\", one file per page, named for the\npage: Home.html, Listings.html, Checkout.html and so on.\nFollow redirects. Make no other changes."
     }
    ],
    "id": "WEB-004.5.2"
@@ -1430,6 +1434,12 @@
      "0.7",
      "Kyle Zinger",
      "Three screenshots added: the Resend API keys screen (4.7), the GoHighLevel Location ID (4.9) and Netlify's Add a variable (4.11). Two image placeholders filled; the GoHighLevel scopes picture is still to come."
+    ],
+    [
+     "2026-10-19",
+     "0.8",
+     "Kyle Zinger",
+     "Terminal commands replaced with Claude prompts (tasks 3.1, 3.2, 3.4 and 5.2). hgmwebteam@gmail.com is invited to every new client Netlify (2.1), Supabase (4.2) and Resend (4.7) account, so the team's automations connect with nothing else to set up; Supabase no longer adds your own account. Resend is the client's account."
     ]
    ]
   },

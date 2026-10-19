@@ -1,0 +1,722 @@
+{
+ "meta": {
+  "eyebrow": "Working draft · standard operating procedure · WEB",
+  "title": "Post-launch connections: analytics, search, behaviour tracking and the deploy that carries them",
+  "lead": "How a freshly launched site gets its GA4, Search Console and Hotjar wired up and verified, almost all of it through Claude prompts. If you remember one thing: <strong class=\"hl\">an env change is not live until the next build, and nothing is verified until you have seen it in the live HTML</strong>.",
+  "sop_id": "HGM-SOP-WEB-003",
+  "version": "1.0",
+  "status": "draft",
+  "owner": "Web & Content Specialist (Kyle Zinger)",
+  "approved_by": "Not yet approved — working draft for Brandon (approver: Operations Manager, Gillian)",
+  "effective_date": "2026-09-11",
+  "next_review": "2027-03-11",
+  "frequency": "Once per site, in launch week",
+  "duration": "Spread across launch week; two working days on Ridge & Falls",
+  "tasks": [
+   {
+    "badge": "Phase 1",
+    "label": "Get the live site and your branch",
+    "hint": "Tasks 1.1–1.3 · start of every post-launch session",
+    "proc": "1"
+   },
+   {
+    "badge": "Phase 2",
+    "label": "Check the analytics code",
+    "hint": "Tasks 2.1–2.2 · one prompt, once per site",
+    "proc": "2"
+   },
+   {
+    "badge": "Phase 3",
+    "label": "Google Analytics 4",
+    "hint": "Tasks 3.1–3.8 · find or create, tag, settings, verify",
+    "proc": "3"
+   },
+   {
+    "badge": "Phase 4",
+    "label": "Google Search Console",
+    "hint": "Tasks 4.1–4.6 · verify, sitemap, indexing, owner, GA link",
+    "proc": "4"
+   },
+   {
+    "badge": "Phase 5",
+    "label": "Hotjar",
+    "hint": "Tasks 5.1–5.6 · check, install, privacy, invite",
+    "proc": "5"
+   },
+   {
+    "badge": "Phase 6",
+    "label": "Structured data check",
+    "hint": "Task 6.1 · one prompt checks and fixes",
+    "proc": "6"
+   }
+  ],
+  "source": {
+   "kind": "manual",
+   "note": "Converted from SOP-POST-LAUNCH-CONNECTIONS.md, captured on the Ridge & Falls launch, 2026-09-10 to 2026-09-11"
+  },
+  "schema_version": 2,
+  "dept": "WEB",
+  "number": 3,
+  "slug": "post-launch-connections-analytics-search-behaviour-tracking-and-the-deploy-that-carries-them"
+ },
+ "blocks": [
+  {
+   "type": "section",
+   "num": "01",
+   "label": "Purpose and scope"
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "t": "Purpose",
+     "d": "Gets a newly launched site reporting to Google Analytics 4, verified in Google Search Console and recording in Hotjar, with each change published and checked on the live site."
+    },
+    {
+     "t": "In scope",
+     "d": "Netlify-hosted Next.js sites built from the HGM template, once the domain is live. <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-005\">HGM-SOP-WEB-005</a> hands the site over here."
+    },
+    {
+     "t": "Out of scope",
+     "d": "The launch itself (DNS cutover, go-live), the client-facing analytics walkthrough in <code>docs/ANALYTICS-SETUP.md</code>, and paid media tags beyond the Meta Pixel block already in the codebase."
+    }
+   ]
+  },
+  {
+   "type": "rules",
+   "k": "Always true",
+   "t": "Five standing rules",
+   "d": "True on every post-launch session.",
+   "items": [
+    {
+     "t": "Start from the live main, on your own branch",
+     "d": "Task 1.1 proves main is what's live and makes your branch. Nothing is changed on main directly."
+    },
+    {
+     "t": "An env change is not live until the next build",
+     "d": "Redeploy after every change to <code>GA_MEASUREMENT_ID</code>, <code>HOTJAR_SITE_ID</code> or <code>GOOGLE_SITE_VERIFICATION</code>, then check the live HTML."
+    },
+    {
+     "t": "Analytics variables go in Netlify's Production context only",
+     "d": "Never in <code>.env.local</code>, so dev and preview traffic stays out of the client's reports."
+    },
+    {
+     "t": "One web team login for everything Google",
+     "d": "Create Analytics and Search Console as <code>hgmwebteam@gmail.com</code>, so one login holds both and task 4.6 works first time."
+    },
+    {
+     "t": "Never print or paste an env value",
+     "d": "Check lengths, not contents. A value pasted into a chat, an Asana comment or a prompt is a key that has to be rotated."
+    }
+   ]
+  },
+  {
+   "type": "section",
+   "num": "02",
+   "label": "Prerequisites"
+  },
+  {
+   "type": "numcards",
+   "columns": 1,
+   "items": [
+    {
+     "t": "VS Code or the Claude desktop app, with Claude Code signed in",
+     "d": "Every task runs from a Claude prompt. First time on this computer? <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> Phase 1 installs the tools."
+    },
+    {
+     "t": "The Netlify connector",
+     "d": "Connected in Claude, with access to the client's Netlify team. Claude uses it to check what's live, set environment variables and redeploy."
+    },
+    {
+     "t": "The site's .env.local entry in 1Password",
+     "d": "Task 1.2 copies it in (<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>)."
+    },
+    {
+     "t": "The web team login",
+     "d": "<code>hgmwebteam@gmail.com</code>, for Google Analytics and Search Console, and invited to the client's Netlify, Supabase and Resend accounts (task 1.3)."
+    },
+    {
+     "t": "The agency Hotjar login",
+     "d": "<code>hgmwebteam</code>. It holds one organisation per client (Hotjar's container for that client; plan limits and seats are per organisation); sites are added inside the client's organisation, never at the top level."
+    }
+   ],
+   "collapse": true
+  },
+  {
+   "type": "section",
+   "num": "03",
+   "label": "Procedure"
+  },
+  {
+   "type": "sub",
+   "id": "1",
+   "text": "Phase 1 &mdash; Get the live site and your branch",
+   "d": "Start of every post-launch session. One prompt gets the latest code, proves it is what's live and makes your branch."
+  },
+  {
+   "type": "step",
+   "n": "1.1",
+   "t": "Open the site and make your branch",
+   "d": "Open the site's folder in VS Code (an empty folder if this computer has never had the site), or start Claude Code in the Claude desktop app, then paste the prompt. Your branch is your own copy of the code to work on, named <code>post-launch</code>.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "fill in the three angle-bracket values",
+     "text": "I'm starting post-launch connections (HGM-SOP-WEB-003) for\n<client>, live at https://<domain>. Get me set up:\n\n1. If this folder isn't the site's repository, clone\n   https://github.com/hgmwebteam/<site-name>.git and open it.\n2. Switch to main and pull the latest. If there are changes\n   here I don't recognise, stop and show me. Discard nothing.\n3. Prove main is what's live: check <domain> points at this\n   site's Netlify project, and that the latest production\n   deploy was built from origin/main's commit. If the Netlify\n   connector can't see the site, stop and tell me to do\n   task 1.3 first.\n4. Create a branch named post-launch from main and switch\n   to it.\n\nTell me plainly if anything doesn't match. Make no other\nchanges."
+    }
+   ],
+   "id": "WEB-003.1.5"
+  },
+  {
+   "type": "step",
+   "n": "1.2",
+   "t": "Add the .env.local file, then have Claude check it",
+   "d": "Copy the site's <code>.env.local</code> entry from 1Password into a file named <code>.env.local</code> in the project folder (<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a>), then paste the prompt. A file copied from the template looks like a broken site: empty listings, missing photos. If keys are blank, the 1Password entry needs updating (WEB-001 Phase 2).",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "lengths only, never values",
+     "text": "Check .env.local: list every key with the LENGTH of its value.\nNever print a value. Tell me which keys are blank. Do not\nfetch or write any secret yourself."
+    }
+   ],
+   "id": "WEB-003.1.3"
+  },
+  {
+   "type": "step",
+   "n": "1.3",
+   "t": "Check the web team is on the client's Netlify, Supabase and Resend",
+   "d": "Sign in to each as <code>hgmwebteam@gmail.com</code> and confirm the client's Netlify team, Supabase project and Resend account are listed. If one is missing, invite <code>hgmwebteam@gmail.com</code> to it the way <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-004\">HGM-SOP-WEB-004</a> tasks 2.1, 4.2 and 4.7 do. The team's automations connect through this account, with nothing else to set up.",
+   "id": "WEB-003.1.6"
+  },
+  {
+   "type": "sub",
+   "id": "2",
+   "text": "Phase 2 &mdash; Check the analytics code is in place",
+   "d": "Once per site. One prompt reads the code; you act only if it changed something."
+  },
+  {
+   "type": "step",
+   "n": "2.1",
+   "t": "Ask Claude to check the analytics code",
+   "d": "The site's page head carries three blocks, each switched on by a Netlify variable and silent while it is unset. The prompt confirms they are there, adds any that is missing, and confirms there is no GA4 purchase event: bookings are reported to Meta from the server, so a browser purchase event would count every booking twice.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste as it is",
+     "text": "Check this site's analytics code and tell me what you find\nbefore you change anything. Change code only on this branch.\n\n1. app/layout.tsx must have three blocks, modelled on the\n   Meta Pixel block. Each reads a server-side variable (no\n   NEXT_PUBLIC_ prefix), checks the value's shape, and\n   renders nothing while the variable is unset:\n   - GA_MEASUREMENT_ID (G-...): gtag.js plus gtag('config'),\n     strategy lazyOnload\n   - HOTJAR_SITE_ID (digits): the Hotjar snippet (hjsv 6),\n     strategy lazyOnload\n   - GOOGLE_SITE_VERIFICATION (a token): the\n     google-site-verification meta tag, through Next's\n     metadata.verification.google\n2. All three names must be in .env.example and in the docs'\n   environment list.\n3. There must be NO GA4 purchase event. Bookings reach Meta\n   from the server, so one would double count.\n\nIf anything is missing, add it on the Meta Pixel pattern,\ncommit it on this branch and tell me what you changed. If\neverything is there, say so and change nothing."
+    }
+   ],
+   "id": "WEB-003.3.3"
+  },
+  {
+   "type": "step",
+   "n": "2.2",
+   "t": "If Claude changed code, take it live before Phase 3",
+   "d": "If Claude changed nothing in 2.1, go to Phase 3. Otherwise the variables in Phases 3 to 5 do nothing until this code is live, so paste the prompt. It opens a pull request (a request to merge your branch into main), which you merge on GitHub the way <a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> Phase 6 does, then checks the live site was rebuilt from it. Task 6.1 comes back here if it changes code too.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Take my branch live:\n\n1. Push this branch and give me the link to open a pull\n   request into main. Do not merge it yourself.\n2. When I tell you it's merged, switch to main, pull, and use\n   the Netlify connector to confirm the latest production\n   deploy was built from the merge commit.\n3. If production did not rebuild, deploy main with the\n   Netlify connector from a clean copy of main's committed\n   files only. Never upload this folder: it holds .env.local\n   and build files, and Netlify returns errors.\n4. Fetch https://<domain>/ and confirm the change is live.\n\nThen put me on a new post-launch branch made from main."
+    }
+   ],
+   "id": "WEB-003.2.6"
+  },
+  {
+   "type": "sub",
+   "id": "3",
+   "text": "Phase 3 &mdash; Google Analytics 4",
+   "d": "Signed in as <code>hgmwebteam@gmail.com</code> throughout. Use the client's own account if they have one; create one for them if they don't."
+  },
+  {
+   "type": "step",
+   "n": "3.1",
+   "t": "Find the client's Google Analytics, or create an account for them",
+   "d": "Ask the account manager whether the client already has Google Analytics, and paste the prompt to look for it in the code. <strong>If they have an account</strong>, send the message below, then use their property for this domain (or create one inside their account) and go to 3.3. <strong>If not</strong>, open <strong>Admin → Create → Account</strong>, name it after the client, then add a property named after the site with a web data stream for the apex domain (the address with no <code>www</code>).",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Check whether <client> already uses Google Analytics. Search\nResources/Page HTML (the old site's pages from WEB-004, if\nthis folder has them) and the live https://<domain>/ for a\nGA4 ID (G-...), an old Universal Analytics ID (UA-...) or a\nTag Manager container (GTM-...). Tell me each ID you find and\nwhere. Make no changes."
+    },
+    {
+     "type": "code",
+     "kind": "message",
+     "label": "Message for the account manager",
+     "text": "<client> already has Google Analytics. Please ask them to add\nhgmwebteam@gmail.com as an Administrator under Admin → Account\naccess management, so we can connect their new site."
+    },
+    {
+     "type": "panel",
+     "kind": "warning",
+     "t": "Creating a property in the client's account",
+     "text": "Read the account name at the top of <strong>Admin</strong> first. A property lands in whichever account is showing, and the web team login sees every client's. Move a misplaced property; recreating it changes its measurement ID."
+    }
+   ],
+   "id": "WEB-003.4.11"
+  },
+  {
+   "type": "step",
+   "n": "3.2",
+   "t": "Add the client as Administrator",
+   "d": "Only if you created the account in 3.1. <strong>Admin → Account access management → Add users</strong>, enter the client's Google login from the account manager, role <strong>Administrator</strong>.",
+   "id": "WEB-003.4.2"
+  },
+  {
+   "type": "step",
+   "n": "3.3",
+   "t": "Set GA_MEASUREMENT_ID and redeploy",
+   "d": "Copy the measurement ID (the <code>G-…</code> code) from <strong>Admin → Data streams</strong> → your stream, then paste the prompt with it.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "fill in the G- ID and the domain",
+     "text": "Using the Netlify connector, set GA_MEASUREMENT_ID to <G-ID>\nin this site's Production context only (never .env.local),\nthen redeploy production from main. Never deploy by uploading\nthis folder: it holds .env.local and build files, and Netlify\nreturns errors.\n\nWhen the deploy is live, fetch https://<domain>/ and confirm\n<G-ID> is in both the gtag/js script URL and the\ngtag('config') call. Retry every 30 seconds for up to\n3 minutes before you call it a failure."
+    }
+   ],
+   "id": "WEB-003.4.3"
+  },
+  {
+   "type": "step",
+   "n": "3.4",
+   "t": "Turn on page views for browser history events",
+   "d": "<strong>Admin → Data streams → </strong>your stream<strong> → Enhanced measurement → </strong>gear icon<strong> → Page views → Show advanced settings → Page changes based on browser history events</strong>: <strong>ON</strong>. The site fires one page view per full load and relies on this setting for client-side navigations.",
+   "id": "WEB-003.4.4",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f1-ga-history-events.jpg",
+     "caption": "Enhanced measurement → Page views → Show advanced settings: tick Page changes based on browser history events, then Save."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "3.5",
+   "t": "Set data retention to 14 months",
+   "d": "<strong>Admin → Data collection and modification → Data retention → Event data retention</strong>: <strong>14 months</strong>. The default is 2.",
+   "id": "WEB-003.4.5",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f2-ga-retention.jpg",
+     "caption": "Admin → Data retention: Event data set to 14 months, then Save."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "3.6",
+   "t": "Set the property time zone and currency",
+   "d": "<strong>Admin → Property details</strong>. Time zone = the site's, from <code>BRAND.timezone</code> in the codebase. Currency <strong>USD</strong>.",
+   "id": "WEB-003.4.6",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f3-ga-time-zone.jpg",
+     "caption": "Admin → Property details: choose the site's time zone (still unset here) and US Dollar."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "3.7",
+   "t": "Define internal traffic and set the filter to Active",
+   "d": "<strong>Admin → Data streams →</strong> your stream <strong>→ Configure tag settings → Define internal traffic</strong>: add the office and home IPs. Then <strong>Admin → Data filters → Internal Traffic</strong> and set its state to <strong>Active</strong>. It ships in Testing, which does nothing to reports.",
+   "id": "WEB-003.4.7"
+  },
+  {
+   "type": "step",
+   "n": "3.8",
+   "t": "Verify in Realtime with a real visit",
+   "d": "Open the live site in a browser, then <strong>Reports → Realtime</strong>. You should appear as an active user within a minute.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "note",
+     "t": "Two things that look like failure and are not",
+     "text": "The \"Data collection isn't active\" banner can take 48 hours to clear: ignore it if Realtime works. Google's <strong>Test your website</strong> button may not see the tag, because it loads after <code>window.load</code>."
+    }
+   ],
+   "id": "WEB-003.4.10"
+  },
+  {
+   "type": "sub",
+   "id": "4",
+   "text": "Phase 4 &mdash; Google Search Console",
+   "d": "Signed in as <code>hgmwebteam@gmail.com</code>, the same login as Phase 3. A URL-prefix property (one exact address) verified with an HTML tag."
+  },
+  {
+   "type": "step",
+   "n": "4.1",
+   "t": "Add a URL-prefix property and copy the HTML tag token",
+   "d": "<strong>Add property → URL prefix</strong>, enter <code>https://&lt;domain&gt;</code> (the apex; www and http redirect to it). If the Domain dialog opens, click <strong>try a URL prefix property instead</strong>. Under the verification methods choose <strong>HTML tag</strong> and copy the <code>content</code> value only, not the whole tag.",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f4-gsc-property-types.jpg",
+     "caption": "The property list: a URL-prefix property shows as its full address (<code>https://…</code>); a Domain property says so underneath."
+    }
+   ],
+   "id": "WEB-003.5.2"
+  },
+  {
+   "type": "step",
+   "n": "4.2",
+   "t": "Set GOOGLE_SITE_VERIFICATION, redeploy, then click Verify",
+   "d": "Paste the prompt with the token. When Claude confirms the tag is live, go back to Search Console and click <strong>Verify</strong>.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "fill in the token and the domain",
+     "text": "Using the Netlify connector, set GOOGLE_SITE_VERIFICATION to\n<TOKEN> in this site's Production context only (never\n.env.local), then redeploy production from main. Never\ndeploy by uploading this folder: it holds .env.local and\nbuild files, and Netlify returns errors.\n\nWhen the deploy is live, fetch https://<domain>/ and confirm\nthe google-site-verification meta tag's content equals\n<TOKEN>. Retry every 30 seconds for up to 3 minutes before\nyou call it a failure."
+    }
+   ],
+   "id": "WEB-003.5.3"
+  },
+  {
+   "type": "step",
+   "n": "4.3",
+   "t": "Submit the sitemap",
+   "d": "<strong>Sitemaps → Add a new sitemap</strong>: <code>sitemap.xml</code>, then <strong>Submit</strong>. Pages set to noindex are left out of it on purpose.",
+   "id": "WEB-003.5.4",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f5-gsc-sitemap.jpg",
+     "caption": "Sitemaps → Add a new sitemap: type sitemap.xml and Submit. The submitted sitemap should read Success."
+    }
+   ]
+  },
+  {
+   "type": "step",
+   "n": "4.4",
+   "t": "Request indexing for the main pages",
+   "d": "Request indexing for at least the pages below, and every other page too if you want. Paste the prompt for their full addresses, then for each one: <strong>URL Inspection</strong> → paste it → <strong>Request indexing</strong>. The daily quota is small: if Search Console says you have reached it, request the rest the next day.",
+   "body": [
+    {
+     "type": "bullets",
+     "items": [
+      "The home page: <code>https://&lt;domain&gt;/</code>",
+      "The stays page: <code>https://&lt;domain&gt;/stays</code>",
+      "Every listing page, for example <code>https://&lt;domain&gt;/listing1</code>, <code>https://&lt;domain&gt;/listing2</code> and so on"
+     ]
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Read https://<domain>/sitemap.xml and list, one per line, the\nfull address of the home page, the stays page and every\nlisting page, then every other page. Make no changes."
+    },
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f6-gsc-request-indexing.jpg",
+     "caption": "URL inspection's result card: Request indexing is on the right."
+    }
+   ],
+   "id": "WEB-003.5.5"
+  },
+  {
+   "type": "step",
+   "n": "4.5",
+   "t": "Add the client as Owner",
+   "d": "<strong>Settings → Users and permissions → Add user</strong>, enter the client's Google login, permission <strong>Owner</strong>.",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f7-gsc-add-owner.jpg",
+     "caption": "Settings → Users and permissions: Add user, then choose Owner. Emails hidden here."
+    }
+   ],
+   "id": "WEB-003.5.6"
+  },
+  {
+   "type": "step",
+   "n": "4.6",
+   "t": "Link Google Analytics to Search Console",
+   "d": "In Google Analytics: <strong>Admin → Product links → Search Console links → Link</strong>, choose the property you verified in 4.2, then <strong>Next</strong>. The link needs a login that owns the Search Console property and is Editor or above in Analytics; <code>hgmwebteam@gmail.com</code> is both.",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f8-ga-search-console-link.jpg",
+     "caption": "GA Admin → Product links → Search Console links → Link: choose the verified property, then Next."
+    }
+   ],
+   "id": "WEB-003.5.7"
+  },
+  {
+   "type": "sub",
+   "id": "5",
+   "text": "Phase 5 &mdash; Hotjar",
+   "d": "Check first, then the client's organisation, install, privacy settings before the first recording, and a real browser visit to verify."
+  },
+  {
+   "type": "step",
+   "n": "5.1",
+   "t": "Check whether the client already runs Hotjar",
+   "d": "So you never create a second Hotjar site for one that already has one. Get the client's other websites from the account manager, then paste the prompt.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Check whether <client> already uses Hotjar. Fetch the home\npage of each of these sites and look for an hjid:\n<domain-1>, <domain-2>, <domain-3>.\nAlso search Resources/Page HTML (the old site's pages, if\nthis folder has them) and any Google Tag Manager container\nyou can see. Report each hjid you find and where. Make no\nchanges."
+    }
+   ],
+   "id": "WEB-003.6.2"
+  },
+  {
+   "type": "step",
+   "n": "5.2",
+   "t": "Open the client's organisation in Hotjar",
+   "d": "Log in as <code>hgmwebteam</code>. Switch to the client's organisation. If none exists, choose <strong>Add as a New Client Organization</strong> and name it after the <strong>client</strong>, not the site: plan limits and team seats are per organisation.",
+   "id": "WEB-003.6.1"
+  },
+  {
+   "type": "step",
+   "n": "5.3",
+   "t": "Add the site, then set HOTJAR_SITE_ID and redeploy",
+   "d": "Inside the client's organisation, add the site for the apex domain and copy its numeric Site ID, then paste the prompt with it.",
+   "body": [
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f9-hotjar-new-site.jpg",
+     "caption": "Hotjar → Sites &amp; Organizations → New site: choose the client's organisation first, never the top level."
+    },
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-003_f10-hotjar-site-id.jpg",
+     "caption": "Once the site is added, its Site ID is at the top right of the install page. That number is HOTJAR_SITE_ID."
+    },
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "fill in the Site ID and the domain",
+     "text": "Using the Netlify connector, set HOTJAR_SITE_ID to <SITE-ID>\nin this site's Production context only (never .env.local),\nthen redeploy production from main. Never deploy by uploading\nthis folder: it holds .env.local and build files, and Netlify\nreturns errors.\n\nWhen the deploy is live, fetch https://<domain>/ and confirm\nthe Hotjar snippet carries <SITE-ID>. Then fetch\nhttps://static.hotjar.com/c/hotjar-<SITE-ID>.js?sv=6 and\nconfirm it returns 200 and names site_id <SITE-ID>."
+    }
+   ],
+   "id": "WEB-003.6.3"
+  },
+  {
+   "type": "step",
+   "n": "5.4",
+   "t": "Visit the site in a real browser",
+   "d": "Open the live site in a browser with no ad blocker (Brave and uBlock hide Hotjar) and click through two pages. Hotjar marks a site installed only after its script runs in a real browser; Claude's fetch does not count.",
+   "id": "WEB-003.6.4"
+  },
+  {
+   "type": "step",
+   "n": "5.5",
+   "t": "Fix the privacy settings before the first recording",
+   "d": "In the site's settings: turn <strong>keystroke capture off</strong> (it was on by default on Ridge &amp; Falls). Add URL exclusions for paths containing <code>/admin</code>, <code>/manual</code>, <code>/checkout</code> and <code>/confirmation</code>. Add the office IPs to <strong>IP blocking</strong>.",
+   "body": [
+    {
+     "type": "panel",
+     "kind": "critical",
+     "t": "The confirmation page prints guest name and email as text",
+     "text": "Without the exclusion, a session recording captures personal data. Set the exclusions before any real traffic is recorded."
+    }
+   ],
+   "id": "WEB-003.6.5"
+  },
+  {
+   "type": "step",
+   "n": "5.6",
+   "t": "Invite the client",
+   "d": "<strong>Team → Invite</strong>, and enter the client's login.",
+   "id": "WEB-003.6.6"
+  },
+  {
+   "type": "sub",
+   "id": "6",
+   "text": "Phase 6 &mdash; Structured data check",
+   "d": "Once, after Phases 3 to 5. One prompt checks the stays page and a listing page, and fixes the code if it needs it."
+  },
+  {
+   "type": "step",
+   "n": "6.1",
+   "t": "Ask Claude to check the structured data",
+   "d": "Structured data is the hidden description of each page that search and answer engines read. Paste the prompt, then test the two addresses it gives you in Google's <strong>Rich Results Test</strong> (<code>search.google.com/test/rich-results</code>). If Claude changed code, take it live the way task 2.2 does, then test again.",
+   "body": [
+    {
+     "type": "code",
+     "kind": "prompt",
+     "label": "Claude prompt",
+     "note": "paste into Claude Code",
+     "text": "Check the structured data (JSON-LD) on https://<domain>/stays\nand one listing page.\n\n1. Fetch both pages and pull out every JSON-LD block.\n2. Look for one @id emitted twice with different content,\n   such as a thin copy of each rental in the stays page's\n   ItemList. Google merges the two and reports critical\n   issues on every listing.\n3. Check each entity against Google's documentation for its\n   type, fetched now, not remembered: every required\n   property, and the recommended ones where the data is real.\n\nIf you find a problem, fix it on this branch with one builder\nfunction per entity (for example vacationRentalJsonLd in\nlib/seo.ts), used by every page that mentions it. Leave out\nanything you would have to invent, such as review dates or\nbed types. Commit it and tell me what changed.\n\nFinish by giving me both addresses to test in Google's Rich\nResults Test. The aim is zero critical issues on each."
+    }
+   ],
+   "id": "WEB-003.7.3"
+  },
+  {
+   "type": "section",
+   "num": "04",
+   "label": "Exceptions and edge cases"
+  },
+  {
+   "type": "sub",
+   "text": "A client change request arrives during launch week"
+  },
+  {
+   "type": "para",
+   "text": "The pattern, in order. Every example shipped on Ridge &amp; Falls followed it."
+  },
+  {
+   "type": "rows",
+   "items": [
+    {
+     "t": "Locate the code from the screenshot or chat request",
+     "d": "If the screenshot shows something \"missing\" on a dev box, check the data feed before the code: see task 1.2.",
+     "id": "WEB-003.10.1"
+    },
+    {
+     "t": "Edit, then run the checks",
+     "d": "Ask Claude to run <code>tsc</code>, <code>vitest</code> and <code>verify:brand</code>.",
+     "id": "WEB-003.10.2"
+    },
+    {
+     "t": "Render through the real stylesheet for a one-look check",
+     "d": "Use the Playwright harness so you are looking at the actual output, not a guess.",
+     "id": "WEB-003.10.3"
+    },
+    {
+     "t": "Record the decision",
+     "d": "In <code>CLAUDE.md</code> and the team manual's Updates.",
+     "id": "WEB-003.10.4"
+    },
+    {
+     "t": "Commit, take it live, check it",
+     "d": "Task 2.2 takes the branch live and confirms the change is on the live site.",
+     "id": "WEB-003.10.5"
+    }
+   ]
+  },
+  {
+   "type": "cards",
+   "cols": 3,
+   "items": [
+    {
+     "t": "A changed asset is a new filename",
+     "d": "Static assets are cached immutable for a year. Ship <code>wordmark-light-compact.svg</code>, <code>collection-*.webp</code>, <code>local-favorites-mclemore-resort-v3.webp</code> — never overwrite in place."
+    },
+    {
+     "t": "Keep the client's swatches even when contrast fails",
+     "d": "Document the contrast ratio at the declaration and tell the client the passing alternative. Do not silently change their colour."
+    },
+    {
+     "t": "Blur is often the sizes hint, not the file",
+     "d": "The Local Favorites portrait crop was blurry because of the <code>srcset</code> <code>sizes</code> hint, not the images. Check the hint before regenerating assets."
+    }
+   ]
+  },
+  {
+   "type": "panel",
+   "kind": "note",
+   "t": "If you are stuck",
+   "text": "Ask Claude first, with the task number and what you see. Then Kyle Zinger (Web &amp; Content Specialist) in the <strong>Web Team</strong> Google Chat group. Anything that needs the client &mdash; access to their Google Analytics, a missing invite &mdash; goes through the client's account manager, never the client directly."
+  },
+  {
+   "type": "section",
+   "num": "05",
+   "label": "Final checklist before handoff"
+  },
+  {
+   "type": "checklist",
+   "items": [
+    "Main confirmed as what's live; <code>post-launch</code> branch made from it; <code>.env.local</code> filled (lengths checked, not values)",
+    "<code>hgmwebteam@gmail.com</code> is a member of the client's Netlify, Supabase and Resend accounts",
+    "Analytics blocks present in <code>app/layout.tsx</code>, names documented, no purchase event; any code change merged and live",
+    "GA4: the client's own account used, or a new one created for them with the client as Administrator",
+    "<code>GA_MEASUREMENT_ID</code> set in Production → redeployed → tag in the live HTML → Realtime shows a visit",
+    "History events on; retention 14 months; time zone and currency set; internal traffic filter Active",
+    "Search Console URL-prefix property verified with the HTML tag; sitemap submitted",
+    "Home page, stays page and every listing page requested for indexing",
+    "Client added as Search Console Owner; Google Analytics linked to Search Console",
+    "Hotjar site inside the client's organisation; <code>HOTJAR_SITE_ID</code> set → redeployed → installed after a real browser visit",
+    "Hotjar keystrokes off, private pages excluded, office IPs blocked, client invited",
+    "Structured data on the stays page and a listing page: zero critical issues in the Rich Results Test"
+   ],
+   "prompt": "Check this site's post-launch setup against the final checklist below. For each line, say pass or fail and give the evidence: what you fetched, a URL, or what a dashboard shows. Make no changes."
+  },
+  {
+   "type": "section",
+   "num": "06",
+   "label": "Related documents"
+  },
+  {
+   "type": "bullets",
+   "items": [
+    "<code>docs/ANALYTICS-SETUP.md</code> in the site repo — the client-facing walkthrough for GA4, Search Console and Hotjar",
+    "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a> — env files in 1Password",
+    "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> — take a website change request from Asana to live (branch, preview, merge)",
+    "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-004\">HGM-SOP-WEB-004</a> — the build, where the web team is invited to the client's Netlify, Supabase and Resend",
+    "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-005\">HGM-SOP-WEB-005</a> — pre-launch and the cutover, which hands the site to this SOP",
+    "<code>SOP-POST-LAUNCH-CONNECTIONS.md</code> — the Ridge &amp; Falls notes the first draft was converted from"
+   ]
+  },
+  {
+   "type": "section",
+   "num": "07",
+   "label": "Revision history"
+  },
+  {
+   "type": "table",
+   "headers": [
+    "Date",
+    "Version",
+    "Author",
+    "Change summary"
+   ],
+   "rows": [
+    [
+     "2026-09-11",
+     "0.1",
+     "Kyle Zinger",
+     "Working draft converted from the Ridge & Falls launch-week notes, for Brandon. Not yet approved."
+    ],
+    [
+     "2026-10-15",
+     "0.2",
+     "Kyle Zinger",
+     "Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal."
+    ],
+    [
+     "2026-10-15",
+     "0.3",
+     "Kyle Zinger",
+     "Ten screenshots from the Awayframes launch added to tasks 4.4–6.3 (Google Analytics, Search Console, Hotjar), cropped and ringed."
+    ],
+    [
+     "2026-10-19",
+     "1.0",
+     "Kyle Zinger",
+     "Simplified around Claude prompts. Phase 1 gets main, proves it is live, makes a branch and checks .env.local, and checks the web team is on the client's Netlify, Supabase and Resend. The shallow-clone deploy phase is gone: code goes live through a merge, variables through one connector prompt. GA4 starts by finding the client's account or creating one for them, with no property move. Terminal commands, most expected results, Google Signals, the booking event, the DNS property choice and the ownership map removed. Indexing lists the pages to request. The analytics code check and the structured data check are one prompt each."
+    ]
+   ]
+  },
+  {
+   "type": "band",
+   "pill": "Remember",
+   "quote": "\"Prove you are looking at the live site before you change it. Then remember that nothing you set is live until the next build, and nothing is verified until you have seen it in the live HTML.\"",
+   "aside_t": "Questions?",
+   "aside_d": "Kyle — Web Team Google Chat group"
+  }
+ ]
+}

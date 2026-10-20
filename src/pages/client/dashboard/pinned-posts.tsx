@@ -897,7 +897,7 @@ export const PinnedPostsSection = ({
             <p className="mt-3 max-w-2xl text-md text-tertiary">
                 Three posts pinned to the top of your Instagram grid, so every guest who lands on your profile meets them first: follow to win a stay, sign up
                 for the discount, book direct. Tap through each one below.
-                {canReview && " Anything you'd change? Leave a note under the post — your account manager reads it."}
+                {canReview && " Anything you'd change? Leave a note under the post — your Account Manager reads it."}
             </p>
 
             {/* ── Team settings: the Canva source and the handle on the phone ── */}

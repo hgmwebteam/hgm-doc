@@ -88,6 +88,21 @@ import { type CompletionEmailMode, completionEmailMode } from "../../src/pages/c
  * all of it: the team's success card polls ticket-detail for the assignee, and the team's list
  * reads its own columns.
  *
+ * ── AWAITING REVIEW (owner, 20 Oct 2026) ────────────────────────────────────
+ * When the web team ticks a request's Asana task done, the platform now sets the ticket to
+ * `in_review` instead of `completed`, and the client is told nothing until their account
+ * manager presses Approve on the request page (ticket-approve.mts). A client never sees the
+ * stage: clientView() hands them `in_progress` in its place, and ticket-list puts every row
+ * it returns through clientView() for the same reason, so the client's list, counts, pill and
+ * request page all read "In progress". Staff get the row as it is. The enum value is applied
+ * by hand in the SQL editor (HGM Reporting) BEFORE this deploy, because ticket-list's open
+ * count filters on it; safe to run twice:
+ *
+ *   alter type public.ticket_status add value if not exists 'in_review' after 'in_progress';
+ *
+ * Read-back (expect in_review between in_progress and completed):
+ *   select enum_range(null::public.ticket_status);
+ *
  * House style: no em or en dashes anywhere.
  */
 
@@ -113,11 +128,15 @@ export const CLIENT_HIDDEN_COLUMNS = ["promised_date", "assignee_name", "assigne
 /** Events a client's timeline never receives: routing's internals, the assignee, the promised date. */
 export const CLIENT_HIDDEN_EVENTS = ["route_failed", "assigned", "promised_date_set"] as const;
 
-/** A row as a caller may see it: unchanged for staff, without CLIENT_HIDDEN_COLUMNS for a client. */
+/**
+ * A row as a caller may see it: unchanged for staff; for a client, without CLIENT_HIDDEN_COLUMNS
+ * and with the review stage read as in progress (AWAITING REVIEW above).
+ */
 export const clientView = <T extends Record<string, unknown>>(row: T, via: "allowlist" | "staff"): T => {
     if (via === "staff") return row;
     const out: Record<string, unknown> = { ...row };
     for (const col of CLIENT_HIDDEN_COLUMNS) delete out[col];
+    if (out.status === "in_review") out.status = "in_progress";
     return out as T;
 };
 

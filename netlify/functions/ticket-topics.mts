@@ -54,7 +54,7 @@ export default async (req: Request) => {
         // ours, it is the same on every call, and "try again" is the wrong advice for it.
         if (err instanceof ConfigError) {
             console.error("[ticket-topics] not configured", err.message);
-            return jsonError(500, "The Help Center is not configured. Ask your account manager to tell the web team.");
+            return jsonError(500, "The Help Center is not configured. Ask your Account Manager to tell the web team.");
         }
         console.error("[ticket-topics] unexpected failure", err instanceof Error ? err.message : String(err));
         return jsonError(500, "Something went wrong at our end.");

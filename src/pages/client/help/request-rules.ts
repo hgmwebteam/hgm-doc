@@ -83,8 +83,8 @@ export const fileCountError = (name: string): string => `Up to 10 files. Remove 
 export const TOO_MANY_FILES = "Up to 10 files on one request. Remove one.";
 export const fileUploadFailed = (name: string): string => `${displayName(name)} did not upload. Add it again to retry.`;
 /** The one sentence for "the file store is not there": a missing ledger table, a missing bucket. */
-export const FILES_UNAVAILABLE = "Files cannot be attached right now. Send the request without them and send the files to your account manager.";
-export const DAILY_FILES_REACHED = "That is more files than a day allows. Send the rest to your account manager.";
+export const FILES_UNAVAILABLE = "Files cannot be attached right now. Send the request without them and send the files to your Account Manager.";
+export const DAILY_FILES_REACHED = "That is more files than a day allows. Send the rest to your Account Manager.";
 
 /** A name as it may appear in a sentence: invisible characters gone, at most 80 characters. */
 const displayName = (name: string): string => Array.from(stripInvisible(String(name)).replace(/\s+/g, " ").trim()).slice(0, 80).join("") || "That file";

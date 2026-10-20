@@ -2,6 +2,7 @@
  * Self-check for the words a list row says about a request's websites (Enjoy Unique Stays,
  * 29 Sep 2026): websitesShort, and the suffix the meta lines gain. The case that matters most
  * is the one every other client is: a request with no websites keeps its line byte for byte.
+ * Since 20 Oct 2026 also the awaiting-review rules and the line staff read after Approve.
  * Run it:
  *   node --experimental-strip-types src/pages/client/help/help-model.check.ts
  *
@@ -10,7 +11,7 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { type Ticket, requestMetaLine, websitesShort, websitesSuffix } from "./help-model.ts";
+import { STATUS_META, type Ticket, approvalLine, canAsk, canWithdraw, isOpen, requestMetaLine, timelineSteps, underwayTickets, websitesShort, websitesSuffix } from "./help-model.ts";
 import type { StoredWebsites, Website } from "./request-rules.ts";
 
 const SIX: Website[] = [
@@ -50,7 +51,28 @@ const fromJsonb = JSON.parse(`{"chosen": [{"url": "https://staysaluda.com/", "na
 assert.equal(websitesSuffix({ ...base, websites: fromJsonb }), `${DOT}Stay Saluda`);
 assert.equal(websitesSuffix(base), "");
 
-/* 3. House style. */
+/* 3. Awaiting review (owner, 20 Oct 2026): staff only, still open, never withdrawable, Completed not ticked. */
+const review: Ticket = { ...base, status: "in_review" };
+assert.equal(STATUS_META.in_review.label, "Awaiting review");
+assert.ok(isOpen(review), "open: the client has not been told it is done");
+assert.ok(canAsk(review), "a question still reaches the team");
+assert.ok(!canWithdraw(review), "the work is done: ticket-withdraw refuses it");
+assert.ok(canWithdraw({ ...base, status: "in_progress" }), "in progress still withdrawable");
+assert.deepEqual(underwayTickets([review, base]), [review], "counted as underway, received is not");
+assert.deepEqual(
+    timelineSteps(review, []).map((s) => [s.key, s.state]),
+    [["received", "done"], ["in_progress", "now"], ["completed", "todo"]],
+    "Completed is ticked only once approved",
+);
+
+/* 4. The line after Approve: the client's name, then the email outcome from the platform's answer. */
+assert.equal(approvalLine("Paradise Pointe", { already: false, email: "sent" }), "Approved. Paradise Pointe now sees it completed. The completion email went out.");
+assert.equal(approvalLine("Paradise Pointe", { already: false, email: "failed" }), "Approved. Paradise Pointe now sees it completed. The completion email could not be sent, so let them know yourself.");
+assert.equal(approvalLine("Paradise Pointe", { already: false, email: "not_applicable" }), "Approved. Paradise Pointe now sees it completed. No completion email was asked for on this request.");
+assert.equal(approvalLine("  ", { already: false, email: null }), "Approved. The client now sees it completed.", "no name, no email word: nothing invented");
+assert.equal(approvalLine("FLOHOM", { already: true, email: "sent" }), "It was already approved. FLOHOM sees it completed.", "a second press");
+
+/* 5. House style. */
 const dashes = new RegExp(`[${String.fromCharCode(0x2013)}${String.fromCharCode(0x2014)}]`);
 for (const f of ["./help-model.ts", "./help-model.check.ts"]) assert.ok(!dashes.test(readFileSync(new URL(f, import.meta.url), "utf8")), `no en or em dash in ${f}`);
 

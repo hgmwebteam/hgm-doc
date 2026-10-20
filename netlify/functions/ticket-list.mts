@@ -1,5 +1,5 @@
 import { ConfigError, jsonError, readJson, reportingDb, accessTokenFrom, verifyCaller, recordAccess, viewerOf } from "../lib/reporting.mts";
-import { readDownLadder, withWebsites } from "../lib/ticket-columns.mts";
+import { clientView, readDownLadder, withWebsites } from "../lib/ticket-columns.mts";
 
 /**
  * Every request one client has raised, newest first.
@@ -32,8 +32,10 @@ const LIST_COLUMNS = "id, reference, topic, title, status, created_at, property,
 const LIST_LADDER = [withWebsites(LIST_COLUMNS), LIST_COLUMNS] as const;
 
 /** Matches OPEN_STATUSES in src/pages/client/help/help-model.ts. Two copies, because one is
- *  a Postgres filter and the other is a browser predicate; they must be changed together. */
-const OPEN_STATUSES = ["received", "assigned", "in_progress"];
+ *  a Postgres filter and the other is a browser predicate; they must be changed together.
+ *  in_review is open for everyone: a client reads it as in progress (clientView), and staff
+ *  count it as theirs until the AM approves it (owner, 20 Oct 2026). */
+const OPEN_STATUSES = ["received", "assigned", "in_progress", "in_review"];
 
 /** A client with more requests than this needs paging, not a bigger number here. The counts
  *  below are computed by the database rather than from these rows, so the summary line stays
@@ -76,7 +78,8 @@ export default async (req: Request) => {
         }
 
         // The list is dynamic (the ladder), so the client cannot type the rows: they are the columns above.
-        const tickets = (data ?? []) as unknown as Array<{ status: string }>;
+        // Through clientView like every other answer, so a client's row never says in_review.
+        const tickets = ((data ?? []) as unknown as Array<Record<string, unknown> & { status: string }>).map((t) => clientView(t, gate.via));
 
         return Response.json({
             viewer: viewerOf(gate),
@@ -92,7 +95,7 @@ export default async (req: Request) => {
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-list] not configured", err.message);
-            return jsonError(500, "The Help Center is not configured. Ask your account manager to tell the web team.");
+            return jsonError(500, "The Help Center is not configured. Ask your Account Manager to tell the web team.");
         }
         console.error("[ticket-list] unexpected failure", err instanceof Error ? err.message : String(err));
         return jsonError(500, "Something went wrong at our end.");

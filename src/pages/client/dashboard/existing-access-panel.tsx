@@ -13,7 +13,7 @@
  * rest of the dashboard the way a whole-row write could.
  *
  * The password the panel generates matters for the full dashboard only. The Help Centre
- * signs people in with Google or an emailed sign-in link to the listed address
+ * signs people in with an emailed sign-in link to the listed address, or a password they set
  * (help-center-screen.tsx, HelpGate), so the note above the panel says so.
  */
 import { useEffect, useState } from "react";

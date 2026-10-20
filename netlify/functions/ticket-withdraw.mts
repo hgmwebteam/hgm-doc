@@ -28,9 +28,10 @@ import { CLIENT_COLUMN_LADDER, clientView, readDownLadder } from "../lib/ticket-
  */
 
 
-/** Matches OPEN_STATUSES in src/pages/client/help/help-model.ts, where canWithdraw() shows or
- *  hides the button. That copy decides what a client is offered; this one decides what
- *  happens, and they must be changed together. */
+/** Matches canWithdraw() in src/pages/client/help/help-model.ts, which shows or hides the
+ *  button. That copy decides what a client is offered; this one decides what happens, and they
+ *  must be changed together. in_review is left out on purpose (owner, 20 Oct 2026): the work is
+ *  done and waits for the account manager's approval, and the record must not say otherwise. */
 const OPEN_STATUSES = ["received", "assigned", "in_progress"];
 
 const REFERENCE = /^REQ-\d{1,12}$/;
@@ -77,9 +78,12 @@ export default async (req: Request) => {
         const current = ticket as unknown as { id: string; status: string; submitted_by: string | null };
 
         if ((current.submitted_by ?? "").toLowerCase() !== gate.caller.email) {
-            return jsonError(403, "Only the person who raised a request can withdraw it. Ask them, or speak to your account manager.");
+            return jsonError(403, "Only the person who raised a request can withdraw it. Ask them, or speak to your Account Manager.");
         }
         if (current.status === "withdrawn") return jsonError(422, "That request has already been withdrawn.");
+        // A client reads in_review as in progress, so the link is on their page; the sentence
+        // does not tell them the work is done before their account manager has approved it.
+        if (current.status === "in_review") return jsonError(422, "That request is too far along to withdraw now. If it is no longer needed, tell your Account Manager.");
         if (!OPEN_STATUSES.includes(current.status)) return jsonError(422, "That request is already finished, so there is nothing to withdraw.");
 
         const now = new Date().toISOString();
@@ -119,7 +123,7 @@ export default async (req: Request) => {
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-withdraw] not configured", err.message);
-            return jsonError(500, "The Help Center is not configured. Ask your account manager to tell the web team.");
+            return jsonError(500, "The Help Center is not configured. Ask your Account Manager to tell the web team.");
         }
         console.error("[ticket-withdraw] unexpected failure", err instanceof Error ? err.message : String(err));
         return jsonError(500, "Something went wrong at our end.");

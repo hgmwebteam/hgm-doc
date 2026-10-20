@@ -96,6 +96,8 @@ const PILL_TONE: Record<TicketStatus, PillTone> = {
     received: "with-the-team",
     assigned: "with-the-team",
     in_progress: "in-progress",
+    // Staff only (a client's list never carries it): waiting on the AM's Approve.
+    in_review: "in-progress",
     completed: "done",
     withdrawn: "withdrawn",
 };

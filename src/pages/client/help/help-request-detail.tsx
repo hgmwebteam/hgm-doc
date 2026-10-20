@@ -37,6 +37,15 @@
  * frame pins, and ten addresses do not fit a cell. They render only when there is something
  * in them, so a request with none of them looks exactly as the frame draws it.
  *
+ * ── AWAITING REVIEW (owner, 20 Oct 2026) ────────────────────────────────────
+ * When the web team ticks the Asana task done, the platform sets the request to in_review and
+ * messages the account manager a link to this page. A client never receives that status (the
+ * functions send them in_progress), so only staff ever see "Awaiting review" here, and with it
+ * the Approve card under the status block: the team has finished, the client has not been
+ * told, and Approve (ticket-approve.mts) has the platform complete it and send the completion
+ * email. What came of it is said in a banner over the page, from the answer, because the
+ * reload that follows takes the card away. Hidden while staff preview the page as the client.
+ *
  * ── TIMES ───────────────────────────────────────────────────────────────────
  * Stamps are shown in the client's own time zone, as the browser renders them, with a
  * 24-hour clock: "8 September, 16:12".
@@ -45,8 +54,8 @@
  */
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { type CallerProof, HelpApiError, askForUpdate, fetchTicket, withdrawTicket } from "@/pages/client/help/help-api";
-import { Button, Card, ErrorIcon, Eyebrow, FieldTextarea, MonoRef, type PillTone, SpinnerIcon, StatusPill, formatFileSize } from "@/pages/client/help/help-atoms";
+import { type CallerProof, HelpApiError, approveTicket, askForUpdate, fetchTicket, withdrawTicket } from "@/pages/client/help/help-api";
+import { Banner, Button, Card, ErrorIcon, Eyebrow, FieldTextarea, MonoRef, type PillTone, SpinnerIcon, StatusPill, formatFileSize } from "@/pages/client/help/help-atoms";
 import {
     STATUS_META,
     type StepState,
@@ -56,6 +65,7 @@ import {
     type TicketStatus,
     type TicketTopic,
     actorName,
+    approvalLine,
     canAsk,
     canWithdraw,
     displayUrl,
@@ -82,6 +92,8 @@ const PILL_TONE: Record<TicketStatus, PillTone> = {
     received: "with-the-team",
     assigned: "with-the-team",
     in_progress: "in-progress",
+    // Staff only: the warning tint, as the timeline marks what is waiting on somebody.
+    in_review: "in-progress",
     completed: "done",
     withdrawn: "withdrawn",
 };
@@ -170,8 +182,8 @@ const StatusBlock = ({ ticket }: { ticket: Ticket }) => {
         closed = true;
     } else if (canWithdraw(ticket)) {
         line = ticket.completion_email_set
-            ? `${am || "Your account manager"} will confirm on completion, and the address on this request is where its completion notice goes. No action is required from you.`
-            : `${am || "Your account manager"} will confirm on completion. No action is required from you.`;
+            ? `${am || "Your Account Manager"} will confirm on completion, and the address on this request is where its completion notice goes. No action is required from you.`
+            : `${am || "Your Account Manager"} will confirm on completion. No action is required from you.`;
     }
     if (!headline) return null;
 
@@ -562,6 +574,49 @@ const AskBlock = ({ ticket, proof, onAsked }: { ticket: Ticket; proof: CallerPro
     );
 };
 
+/* ── Approving (staff) ───────────────────────────────────────────────────── */
+
+/**
+ * The account manager's approval (owner, 20 Oct 2026; AWAITING REVIEW in the header). The
+ * frame draws no such card, so it is the withdraw confirm's shape: a flat card, a label/field
+ * line, a helper sentence and one primary button, full width at 390. The sentence says what
+ * Approve will do and promises a completion email only when one was asked for. A refusal is
+ * the server's own sentence, in the error text under it.
+ */
+const ApproveBlock = ({ ticket, proof, onApproved }: { ticket: Ticket; proof: CallerProof; onApproved: (line: string) => void }) => {
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const client = (ticket.client_name ?? "").trim() || "The client";
+
+    const approve = async () => {
+        setBusy(true);
+        setError("");
+        try {
+            onApproved(approvalLine(client, await approveTicket(proof, ticket.reference)));
+        } catch (e) {
+            setError(e instanceof HelpApiError ? e.message : "We could not approve that just then. Try again in a moment: approving twice is safe.");
+        }
+        setBusy(false);
+    };
+
+    return (
+        <Card as="section" flat className="flex flex-col gap-3">
+            <h2 className="hc-t-label-field text-(--hc-text-primary)">The team has finished this request</h2>
+            <p className={cx("max-w-[60ch]", HELPER_TERTIARY)}>
+                {`${client} has not been told yet and still sees it in progress. Check the work, then approve it to mark it completed${ticket.completion_email_set ? " and send their completion email" : ""}.`}
+            </p>
+            {error && (
+                <p className="hc-t-body-helper text-(--hc-text-error-primary)" role="alert">
+                    {error}
+                </p>
+            )}
+            <Button loading={busy} className={cx("max-sm:w-full", !busy && "cursor-pointer")} onClick={approve}>
+                {busy ? "Approving" : "Approve"}
+            </Button>
+        </Card>
+    );
+};
+
 /* ── Withdrawing ─────────────────────────────────────────────────────────── */
 
 /**
@@ -660,13 +715,16 @@ export const HelpRequestDetail = ({
     reference,
     slug,
     topics,
+    staff = false,
     onTicketChanged,
 }: {
     proof: CallerProof;
     reference: string;
     slug: string;
     topics: TicketTopic[];
-    /** Lets the shell refresh its list and counts after a withdrawal. */
+    /** Staff, not previewing as the client: shows the Approve card on a request awaiting review. */
+    staff?: boolean;
+    /** Lets the shell refresh its list and counts after a withdrawal or an approval. */
     onTicketChanged: () => void;
 }) => {
     const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -677,6 +735,8 @@ export const HelpRequestDetail = ({
     const [missing, setMissing] = useState(false);
     // What a screen reader hears after a withdrawal, and where focus goes: the title.
     const [announce, setAnnounce] = useState("");
+    // What came of Approve, kept here because the reload after it removes the card.
+    const [approved, setApproved] = useState("");
     const titleRef = useRef<HTMLHeadingElement>(null);
 
     const load = useCallback(async () => {
@@ -746,6 +806,11 @@ export const HelpRequestDetail = ({
     return shell(
         <>
             {error && <ErrorNote message={error} onRetry={() => void load()} />}
+            {approved && (
+                <Banner kind="success" title={`${ticket.reference} approved`}>
+                    {approved}
+                </Banner>
+            )}
 
             {/* The frame's "Request" card (118:41): bg/primary, 1px border/secondary,
                 radius/xl, the card shadow, 24 padding, 24 between blocks. At 390 the card
@@ -765,6 +830,17 @@ export const HelpRequestDetail = ({
                 </header>
 
                 <StatusBlock ticket={ticket} />
+                {staff && ticket.status === "in_review" && (
+                    <ApproveBlock
+                        ticket={ticket}
+                        proof={proof}
+                        onApproved={(line) => {
+                            setApproved(line);
+                            void load().then(() => titleRef.current?.focus());
+                            onTicketChanged();
+                        }}
+                    />
+                )}
                 <FactRow ticket={ticket} />
                 <RequestLinks websites={storedWebsitesOf(ticket.websites)} urls={Array.isArray(ticket.urls) ? ticket.urls : []} files={files} />
                 <Timeline ticket={ticket} events={events} files={files} />

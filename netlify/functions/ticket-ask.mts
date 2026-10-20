@@ -142,7 +142,7 @@ export default async (req: Request) => {
         if (eventErr || !event) {
             if (eventErr && /invalid input value for enum/i.test(eventErr.message)) {
                 console.error("[ticket-ask] client_question is not on ticket_event_kind yet, run the alter type in this file's header", reference);
-                return jsonError(503, "Asking for an update is not switched on yet. Email your Account Manager and they will let you know.");
+                return jsonError(503, "Asking for an update is not switched on yet. Email your account manager and they will let you know.");
             }
             console.error("[ticket-ask] event insert failed", eventErr?.message, reference);
             return jsonError(500, "We could not send your question. Nothing was sent - try again in a moment.");
@@ -154,7 +154,7 @@ export default async (req: Request) => {
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-ask] not configured", err.message);
-            return jsonError(500, "The Help Center is not configured. Ask your Account Manager to tell the web team.");
+            return jsonError(500, "The Help Center is not configured. Ask your account manager to tell the web team.");
         }
         console.error("[ticket-ask] unexpected failure", err instanceof Error ? err.message : String(err));
         return jsonError(500, "Something went wrong at our end.");

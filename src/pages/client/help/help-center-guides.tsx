@@ -57,14 +57,14 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "The request is turned into one task on the web team's board, and the team takes it on. Once that has happened, the request shows as Assigned, with your Account Manager's name on it.",
-                    "If the request cannot be routed at that moment, it stays at Received and your Account Manager is asked to pick it up by hand. Nothing is lost.",
+                    "The request is turned into one task on the web team's board, and the team takes it on. Once that has happened, the request shows as Assigned, with your account manager's name on it.",
+                    "If the request cannot be routed at that moment, it stays at Received and your account manager is asked to pick it up by hand. Nothing is lost.",
                 ],
             },
             {
                 heading: "When it is done",
                 paragraphs: [
-                    `The request moves to Completed when the task is closed, and your Account Manager confirms the finished property with you.${EMAIL_TOO} The request stays on your list afterwards for your records.`,
+                    `The request moves to Completed when the task is closed, and your account manager confirms the finished property with you.${EMAIL_TOO} The request stays on your list afterwards for your records.`,
                 ],
             },
         ],
@@ -77,13 +77,13 @@ export const HELP_GUIDES: HelpGuide[] = [
             {
                 heading: "What you do",
                 paragraphs: [
-                    "Ask your Account Manager: questions about reporting go to them directly rather than through a request. Say which report or dashboard you mean and what you are asking for: a number that looks wrong, a metric you want added, a walkthrough of the month. A screenshot of the figure you are looking at helps.",
+                    "Ask your account manager: questions about reporting go to them directly rather than through a request. Say which report or dashboard you mean and what you are asking for: a number that looks wrong, a metric you want added, a walkthrough of the month. A screenshot of the figure you are looking at helps.",
                 ],
             },
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "Your Account Manager answers it, or brings in the person who can. If the answer turns out to be a change on your website, such as a tracking tag on a page or a form that does not send, they may ask you to raise it here under Direct Booking Website so the web team can take it on.",
+                    "Your account manager answers it, or brings in the person who can. If the answer turns out to be a change on your website, such as a tracking tag on a page or a form that does not send, they may ask you to raise it here under Direct Booking Website so the web team can take it on.",
                 ],
             },
         ],
@@ -98,20 +98,20 @@ export const HELP_GUIDES: HelpGuide[] = [
                 heading: "What you do",
                 paragraphs: [
                     "Raise a request under Direct Booking Website when the change is on your own site: a booking page, a booking button, dates that show as available on the site when they are not. Name the property and describe the change or the fault. Screenshots of what a guest sees are the most useful thing you can attach, alongside any PDF or spreadsheet that shows the change.",
-                    "For your property management system or a channel (Airbnb, Vrbo), such as a rate, a minimum stay or a listing that needs new photos, ask your Account Manager instead.",
+                    "For your property management system or a channel (Airbnb, Vrbo), such as a rate, a minimum stay or a listing that needs new photos, ask your account manager instead.",
                     "You get a reference straight away, and the request appears on your list as Received.",
                 ],
             },
             {
                 heading: "What happens next",
                 paragraphs: [
-                    "A website change goes straight to the web team, and the request shows as Assigned once the team has taken it on. Your Account Manager looks after the property system and channel changes with you directly.",
+                    "A website change goes straight to the web team, and the request shows as Assigned once the team has taken it on. Your account manager looks after the property system and channel changes with you directly.",
                 ],
             },
             {
                 heading: "When it is done",
                 paragraphs: [
-                    `The request moves to Completed when the task is closed, and your Account Manager confirms the change with you.${EMAIL_TOO} If you no longer need it before then, you can withdraw the request from its page and the task is closed.`,
+                    `The request moves to Completed when the task is closed, and your account manager confirms the change with you.${EMAIL_TOO} If you no longer need it before then, you can withdraw the request from its page and the task is closed.`,
                 ],
             },
         ],
@@ -126,7 +126,7 @@ export const HELP_GUIDES: HelpGuide[] = [
                 heading: "Where a request goes",
                 paragraphs: [
                     "Requests are for your website and its pages, and each goes straight to the web team: one task on their board, given to whoever on the team has the lightest load.",
-                    "Questions about your reporting, your property system or your channels go to your Account Manager directly rather than through a request.",
+                    "Questions about your reporting, your property system or your channels go to your account manager directly rather than through a request.",
                 ],
             },
             {
@@ -136,9 +136,9 @@ export const HELP_GUIDES: HelpGuide[] = [
                 ],
             },
             {
-                heading: "Your Account Manager",
+                heading: "Your account manager",
                 paragraphs: [
-                    `Your Account Manager's name appears on each request once the team has it. They are asked to step in whenever a request cannot be routed automatically, and they are told the moment a task is closed so they can confirm completion with you.${EMAIL_TOO}`,
+                    `Your account manager's name appears on each request once the team has it. They are asked to step in whenever a request cannot be routed automatically, and they are told the moment a task is closed so they can confirm completion with you.${EMAIL_TOO}`,
                 ],
             },
         ],

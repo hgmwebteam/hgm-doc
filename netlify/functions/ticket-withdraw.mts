@@ -78,12 +78,12 @@ export default async (req: Request) => {
         const current = ticket as unknown as { id: string; status: string; submitted_by: string | null };
 
         if ((current.submitted_by ?? "").toLowerCase() !== gate.caller.email) {
-            return jsonError(403, "Only the person who raised a request can withdraw it. Ask them, or speak to your Account Manager.");
+            return jsonError(403, "Only the person who raised a request can withdraw it. Ask them, or speak to your account manager.");
         }
         if (current.status === "withdrawn") return jsonError(422, "That request has already been withdrawn.");
         // A client reads in_review as in progress, so the link is on their page; the sentence
         // does not tell them the work is done before their account manager has approved it.
-        if (current.status === "in_review") return jsonError(422, "That request is too far along to withdraw now. If it is no longer needed, tell your Account Manager.");
+        if (current.status === "in_review") return jsonError(422, "That request is too far along to withdraw now. If it is no longer needed, tell your account manager.");
         if (!OPEN_STATUSES.includes(current.status)) return jsonError(422, "That request is already finished, so there is nothing to withdraw.");
 
         const now = new Date().toISOString();
@@ -123,7 +123,7 @@ export default async (req: Request) => {
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-withdraw] not configured", err.message);
-            return jsonError(500, "The Help Center is not configured. Ask your Account Manager to tell the web team.");
+            return jsonError(500, "The Help Center is not configured. Ask your account manager to tell the web team.");
         }
         console.error("[ticket-withdraw] unexpected failure", err instanceof Error ? err.message : String(err));
         return jsonError(500, "Something went wrong at our end.");

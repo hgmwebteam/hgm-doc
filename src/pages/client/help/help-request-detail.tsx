@@ -182,8 +182,8 @@ const StatusBlock = ({ ticket }: { ticket: Ticket }) => {
         closed = true;
     } else if (canWithdraw(ticket)) {
         line = ticket.completion_email_set
-            ? `${am || "Your Account Manager"} will confirm on completion, and the address on this request is where its completion notice goes. No action is required from you.`
-            : `${am || "Your Account Manager"} will confirm on completion. No action is required from you.`;
+            ? `${am || "Your account manager"} will confirm on completion, and the address on this request is where its completion notice goes. No action is required from you.`
+            : `${am || "Your account manager"} will confirm on completion. No action is required from you.`;
     }
     if (!headline) return null;
 

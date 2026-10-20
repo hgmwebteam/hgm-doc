@@ -173,7 +173,7 @@ export default async (req: Request) => {
             .eq("slug", slug)
             .eq("status", "pending");
         if ((count ?? 0) >= MAX_PENDING)
-            return Response.json({ error: "Too many pending suggestions — ask your Account Manager to review them first." }, { status: 400 });
+            return Response.json({ error: "Too many pending suggestions — ask your account manager to review them first." }, { status: 400 });
 
         // Re-suggesting a field replaces the caller's own pending suggestion for it.
         const { error: delErr } = await supabaseAdmin

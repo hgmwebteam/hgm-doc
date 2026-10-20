@@ -4911,7 +4911,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                             <p className="mt-3 text-md text-tertiary">
                                                                 Everything you share here is what we build your deliverables from, so it's worth taking the time
                                                                 to get it complete and correct. It's also what your emails and AI tools read from.
-                                                                {!isTeam && " Spot something off? Suggest an edit and your Account Manager will review it."}
+                                                                {!isTeam && " Spot something off? Suggest an edit and your account manager will review it."}
                                                             </p>
 
                                                             {/* Team-only: pending suggestions whose row was deleted since — no field exists
@@ -5023,8 +5023,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 </p>
                                                                                 <p className="mt-1 text-sm text-tertiary">
                                                                                     {suggestMode
-                                                                                        ? "Change as many fields as you like, then press Send at the bottom of the screen. Your Account Manager reviews every suggestion before it's saved."
-                                                                                        : "Type your changes straight into this document and your Account Manager will review them."}
+                                                                                        ? "Change as many fields as you like, then press Send at the bottom of the screen. Your account manager reviews every suggestion before it's saved."
+                                                                                        : "Type your changes straight into this document and your account manager will review them."}
                                                                                 </p>
                                                                             </div>
                                                                         </div>
@@ -6347,7 +6347,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                     {sendState === "sent" ? (
                                                                         <p className="flex items-center gap-1.5 text-sm font-medium text-success-primary">
                                                                             <Check className="size-4 shrink-0" aria-hidden="true" />
-                                                                            Sent! Your Account Manager will review your suggestions.
+                                                                            Sent! Your account manager will review your suggestions.
                                                                         </p>
                                                                     ) : (
                                                                         <>

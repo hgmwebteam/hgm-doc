@@ -126,8 +126,8 @@ assert.equal(fileTypeError("x.html"), "x.html is not a file the team can open. U
 assert.equal(fileSizeError("big.pdf"), "big.pdf is over 25 MB.");
 assert.equal(fileCountError("eleven.png"), "Up to 10 files. Remove one to add eleven.png.");
 assert.ok(!fileTypeError("\u202Egnp.exe").includes("\u202E"));
-assert.equal(FILES_UNAVAILABLE, "Files cannot be attached right now. Send the request without them and send the files to your Account Manager.");
-assert.equal(DAILY_FILES_REACHED, "That is more files than a day allows. Send the rest to your Account Manager.");
+assert.equal(FILES_UNAVAILABLE, "Files cannot be attached right now. Send the request without them and send the files to your account manager.");
+assert.equal(DAILY_FILES_REACHED, "That is more files than a day allows. Send the rest to your account manager.");
 
 /* 7. Pages. */
 const url = (s: string) => {

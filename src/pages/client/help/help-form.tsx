@@ -108,7 +108,7 @@ const CLIENT_SENDING_LINE = "Sending your request. This usually takes a second o
  * completion notice, which is true before the platform can send one (it never says an email
  * was or will be sent). The address is the one the SERVER stored, never what was typed.
  */
-const CLIENT_SUCCESS_BODY = "It is on its way to the team responsible, and you can follow it on its page. Your Account Manager will confirm when it is done.";
+const CLIENT_SUCCESS_BODY = "It is on its way to the team responsible, and you can follow it on its page. Your account manager will confirm when it is done.";
 const clientSuccessBody = (completionEmail: string | null | undefined): string =>
     completionEmail ? `${CLIENT_SUCCESS_BODY.slice(0, -1)}, and ${completionEmail} is the address for its completion notice.` : CLIENT_SUCCESS_BODY;
 const TITLE_TOO_LONG = "Keep the first line under 140 characters; the rest can go on the next line.";
@@ -123,7 +123,7 @@ const TRUST_LINE = "You will get a confirmation here, and the task appears in As
 const SENDING_LINE = "Sending your ticket. This usually takes a second or two.";
 const SUCCESS_BODY = "It is creating the Asana task now and will assign it to whoever on the team has capacity. You will see it in Asana within a minute or two, and nothing needs chasing.";
 const ASANA_PENDING = "Creating task and assigning…";
-const ASANA_UNROUTED = "Needs a person. Your Account Manager has been asked.";
+const ASANA_UNROUTED = "Needs a person. Your account manager has been asked.";
 const WAITING_FOR_FILES = "Waiting for your files to finish uploading.";
 const PAGES_HELPER = "The pages this is about. Up to 10.";
 const NAME_HELPER = "The name of the person raising this request.";
@@ -1087,7 +1087,7 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
             if (Date.now() - started < 120_000) timer = setTimeout(() => void tick(), 4000);
             // Two minutes without an owner: stop pretending the task is being made this
             // second. The account manager is the person who resolves it either way.
-            else setAsana((current) => (current === ASANA_PENDING ? "Your Account Manager will confirm the owner." : current));
+            else setAsana((current) => (current === ASANA_PENDING ? "Your account manager will confirm the owner." : current));
         };
         timer = setTimeout(() => void tick(), 4000);
         return () => {

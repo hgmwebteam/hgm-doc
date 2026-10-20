@@ -126,7 +126,7 @@ const HelpGate = ({
         if (!address) return null;
         if (address.endsWith("@hiddengem.media") || (clientRow?.allowedEmails ?? []).includes(address)) return address;
         setError(
-            "Sign-in is restricted to the addresses your HiddenGem Media team added to this dashboard. Ask your account manager to add yours, then try again.",
+            "Sign-in is restricted to the addresses your HiddenGem Media team added to this dashboard. Ask your Account Manager to add yours, then try again.",
         );
         return null;
     };
@@ -212,7 +212,7 @@ const HelpGate = ({
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@yourbusiness.com"
+                                placeholder="Your Email"
                                 autoComplete={usingPassword ? "username" : "email"}
                                 aria-label="Email address"
                                 className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
@@ -255,7 +255,7 @@ const HelpGate = ({
                     </p>
                 )}
 
-                <p className="mt-5 text-center text-xs text-pretty text-quaternary">Not sure which address? Ask your account manager which one they added.</p>
+                <p className="mt-5 text-center text-xs text-pretty text-quaternary">Not sure which address? Ask your Account Manager which one they added.</p>
             </div>
         </SignInBackdrop>
     );
@@ -408,13 +408,13 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
                 >
                     {busy ? "Signing out..." : "Sign in with a different address"}
                 </button>
-                <p className="mt-2 text-center text-xs text-pretty text-quaternary">Choose the account your account manager added.</p>
+                <p className="mt-2 text-center text-xs text-pretty text-quaternary">Choose the account your Account Manager added.</p>
 
                 <a
                     href={mailto}
                     className="mt-4 flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-center text-sm font-medium text-secondary ring-1 ring-secondary transition hover:bg-secondary"
                 >
-                    Ask my account manager to add this address
+                    Ask my Account Manager to add this address
                 </a>
 
                 {error && (

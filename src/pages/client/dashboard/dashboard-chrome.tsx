@@ -77,7 +77,7 @@ export const DashboardAccessGate = ({
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@yourbusiness.com"
+                        placeholder="Your Email"
                         autoComplete="username"
                         autoFocus
                         className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"

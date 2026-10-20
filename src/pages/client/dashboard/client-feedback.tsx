@@ -135,7 +135,7 @@ export const ClientFeedbackBox = ({
                     <Check className="mt-0.5 size-4 shrink-0 text-success-primary" />
                     <div>
                         <p className="text-sm font-medium text-primary">Thanks — we have your feedback.</p>
-                        <p className="mt-0.5 text-sm text-tertiary">Your account manager reads this and will come back to you.</p>
+                        <p className="mt-0.5 text-sm text-tertiary">Your Account Manager reads this and will come back to you.</p>
                     </div>
                 </div>
 
@@ -237,7 +237,7 @@ export const ClientFeedbackBox = ({
             {/* Status sits under the button rather than beside it — at rail width a sentence
                 next to the button wrapped to three lines. */}
             {state === "error" && <p className="mt-2.5 text-sm text-error-primary">{error}</p>}
-            {!editing && !resolved && <p className="mt-2.5 text-xs text-quaternary">Only your account manager sees this.</p>}
+            {!editing && !resolved && <p className="mt-2.5 text-xs text-quaternary">Only your Account Manager sees this.</p>}
         </div>
     );
 };

@@ -132,7 +132,7 @@ const EMAIL_HELPER = "The address for this request's completion notice.";
 // The client's form in a host's words (owner copy, 19 Oct 2026). The team's form keeps the
 // lines above. The client's name field has no helper: its label says it all.
 const CLIENT_PRIORITY_LABEL = "How urgent is this?";
-const CLIENT_PAGES_HELPER = "Which page is this about (if applicable)? You can add up to 10.";
+const CLIENT_PAGES_HELPER = "Which page is this about? You can add up to 10.";
 const CLIENT_ADD_PAGE = "Add another page";
 const CLIENT_NAME_LABEL = "Your name";
 const CLIENT_EMAIL_LABEL = "Email for updates";

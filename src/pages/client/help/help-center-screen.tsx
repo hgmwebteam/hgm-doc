@@ -261,6 +261,21 @@ const HelpGate = ({
     );
 };
 
+/**
+ * An emailed sign-in link that cannot sign anyone in still comes back to this page, with the
+ * reason in the address (`#error_code=otp_expired`: the link was used once already, or is too
+ * old). Gillian clicked one link twice on 20 Oct 2026 and the second click showed the plain
+ * gate with no word of why. supabase-js leaves that fragment in place when it fails, so it is
+ * read once, as the gate's first notice. Every link works once only; a new one is the fix.
+ */
+const linkFailureNotice = (): string => {
+    const code = new URLSearchParams(window.location.hash.slice(1)).get("error_code");
+    if (!code) return "";
+    return code === "otp_expired"
+        ? "That sign-in link was already used or has expired. Enter your email and we will send you a new one."
+        : "That sign-in link did not work. Enter your email and we will send you a new one.";
+};
+
 /* ── Set a password ──────────────────────────────────────────────────────── */
 
 const MIN_PASSWORD = 8;
@@ -891,7 +906,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
 
     const [proof, setProof] = useState<CallerProof | null>(null);
     const [callerResolved, setCallerResolved] = useState(false);
-    const [gateNotice, setGateNotice] = useState("");
+    const [gateNotice, setGateNotice] = useState(linkFailureNotice);
     const [clientRow, setClientRow] = useState<HelpClientRow | null>(null);
     /** Which dashboard this client has (client-stage.ts). undefined until known, so the
      *  chrome is drawn once rather than swapped under the person. */

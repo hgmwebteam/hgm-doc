@@ -259,8 +259,8 @@ export const DashboardAccessPanel = ({
                                 out of the one zero-cost way to change that. Said plainly instead. */}
                             {!usable && (
                                 <p className="mt-1.5 text-xs text-tertiary">
-                                    Optional. Without a password, this person can use the Website Request Center but can&rsquo;t open the full dashboard. Add a
-                                    password only if they should see the full dashboard.
+                                    Optional. Without a password, this person can use the Help Center but can&rsquo;t open the full dashboard. Add a password
+                                    only if they should see the full dashboard.
                                 </p>
                             )}
 

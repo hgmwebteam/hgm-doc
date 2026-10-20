@@ -127,6 +127,8 @@ export const JOURNEY_STEPS: {
     /** A how-to guide, offered beside the step's own action for clients who get stuck. */
     helpHref?: string;
     helpLabel?: string;
+    /** A short line under the step's buttons, until the step is done: the fallback for a client the guide doesn't get through. */
+    helpNote?: string;
     /**
      * What the CLIENT reads while `hrefFrom` has no URL on their row yet. Per-step because
      * the generic line can't tell them what to do instead — that depends on the step.
@@ -184,6 +186,7 @@ export const JOURNEY_STEPS: {
         hrefLabel: "Open chat",
         helpHref: GOOGLE_CHAT_GUIDE,
         helpLabel: "Need help joining?",
+        helpNote: "Having trouble joining? We can set it up together on your Kick-off Call.",
         pendingNote: "Your Account Manager will add the link shortly — please continue to the next step and fill in the Onboarding Form.",
     },
     {

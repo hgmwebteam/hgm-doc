@@ -4000,6 +4000,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                     </Button>
                                                                                 ))}
                                                                         </div>
+                                                                        {step.helpNote && !step.done && (
+                                                                            <p className="mt-2 text-xs text-pretty text-tertiary">{step.helpNote}</p>
+                                                                        )}
                                                                     </div>
                                                                 </li>
                                                             );

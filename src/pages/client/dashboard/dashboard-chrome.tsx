@@ -195,7 +195,8 @@ export const DashboardAccessPanel = ({
                 same size as its own description and read as another line of body copy. */}
             <h2 className="text-lg font-semibold text-primary">Who has access</h2>
             <p className="mt-1 text-sm text-pretty text-tertiary">
-                Anyone with a @hiddengem.media address always has access. Add each person who should have access, and choose which section they see first.
+                Anyone with a @hiddengem.media address always has access. Add each person at the client who should have access, and choose which sections of the
+                full dashboard they can see.
             </p>
 
             <div className="mt-4 flex flex-col gap-3">
@@ -259,8 +260,7 @@ export const DashboardAccessPanel = ({
                                 out of the one zero-cost way to change that. Said plainly instead. */}
                             {!usable && (
                                 <p className="mt-1.5 text-xs text-tertiary">
-                                    Optional. Without a password, this person can use the Help Center but can&rsquo;t open the full dashboard. Add a password
-                                    only if they should see the full dashboard.
+                                    Optional. This password opens the full dashboard. Without one, this person can still use the Help Center.
                                 </p>
                             )}
 
@@ -333,8 +333,8 @@ export const DashboardAccessPanel = ({
             <div className="mt-4 border-t border-secondary pt-4">
                 <p className="text-sm font-medium text-secondary">Shared password</p>
                 <p className="mt-1 text-xs text-pretty text-tertiary">
-                    Used for anyone who doesn&rsquo;t have their own password. Older dashboards rely on this, so only clear it once everyone listed has their
-                    own.
+                    Opens the full dashboard for anyone above without their own password. Older dashboards rely on this, so only clear it once everyone listed
+                    has their own.
                 </p>
                 <div className="mt-2 flex items-center gap-2">
                     <input
@@ -353,16 +353,15 @@ export const DashboardAccessPanel = ({
                 {!armed && (
                     <p className="mt-2 text-xs text-warning-primary">
                         {named.length === 0
-                            ? "The full dashboard isn’t password protected yet. Add a person and give them a password to lock it."
-                            : "The full dashboard isn’t password protected yet. Add a password for at least one person to lock it."}
+                            ? "The full dashboard isn’t locked yet, so anyone with the link can open it. Add a person and give them a password to lock it."
+                            : "The full dashboard isn’t locked yet, so anyone with the link can open it. Add a password for at least one person to lock it."}
                     </p>
                 )}
-                {armed && (
-                    <p className="mt-2 text-xs text-success-primary">Locked. Only the people above can open this dashboard, each with their own password.</p>
-                )}
+                {armed && <p className="mt-2 text-xs text-success-primary">Locked. Only the people above can open the full dashboard.</p>}
                 {armed && stranded > 0 && (
                     <p className="mt-1 text-xs text-warning-primary">
-                        {stranded === 1 ? "One person has" : `${stranded} people have`} no password and can&apos;t get in.
+                        {stranded === 1 ? "One person has" : `${stranded} people have`} no password, so {stranded === 1 ? "they" : "those people"} can&apos;t
+                        open the full dashboard. They can still use the Help Center.
                     </p>
                 )}
             </div>

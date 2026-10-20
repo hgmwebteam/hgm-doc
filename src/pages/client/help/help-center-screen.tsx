@@ -192,7 +192,7 @@ const HelpGate = ({
                 <p className="mt-2 text-center text-sm text-pretty text-tertiary">
                     {usingPassword
                         ? "Enter the email address your HiddenGem Media team added to this dashboard and the password you set."
-                        : "Enter the email address your HiddenGem Media team added to this dashboard and we will send you a sign-in link."}
+                        : "Enter the email address your HiddenGem Media team added to this dashboard. We will send you a sign-in link, or you can use the password you set."}
                 </p>
 
                 {notice && (

@@ -98,7 +98,7 @@ import { cx } from "@/utils/cx";
 const LEDE = "Tell us what is wrong and who it affects. Jarvis turns it into an Asana task and hands it to whoever on the team has capacity, so nothing needs chasing.";
 const LEDE_SHORT = "Tell us what is wrong and who it affects. Jarvis turns it into an Asana task and hands it to whoever has capacity.";
 // A client reads client words: Jarvis and Asana are the team's tools, not theirs.
-const CLIENT_LEDE = "Tell us what is wrong and where. It goes straight to the team responsible, and you can follow it here.";
+const CLIENT_LEDE = "Tell us what you need. It goes straight to our team, and you can follow it here.";
 const CLIENT_DESCRIPTION_HELPER = "Start with one line summarizing what you need. That line becomes the request title, and you can add detail below it.";
 const CLIENT_TRUST_LINE = "You'll see a confirmation here, and your request will appear in your list right away.";
 const CLIENT_SENDING_LINE = "Sending your request. This usually takes a second or two.";
@@ -891,7 +891,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                     aria-required
                     value={text}
                     onChange={(v) => setText(v.slice(0, MAX_DETAIL + MAX_TITLE))}
-                    placeholder="What is happening, and where?"
+                    placeholder="What do you need and where?"
                     helper={team ? DESCRIPTION_HELPER : CLIENT_DESCRIPTION_HELPER}
                     error={touched && descriptionMissing ? DESCRIPTION_ERROR : titleTooLong ? TITLE_TOO_LONG : undefined}
                 />

@@ -369,7 +369,7 @@ const SUPPORT_EMAIL = "anhtuan@hiddengem.media";
 const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: string; clientName: string; slug: string; backgroundUrl?: string }) => {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const whose = clientName ? `${clientName}'s Help Center` : "this Help Center";
+    const whose = clientName ? `${clientName}'s Website Request Center` : "this Website Request Center";
 
     const switchAccount = async () => {
         setBusy(true);
@@ -385,7 +385,7 @@ const RefusedPanel = ({ email, clientName, slug, backgroundUrl }: { email: strin
 
     const mailto =
         `mailto:${SUPPORT_EMAIL}` +
-        `?subject=${encodeURIComponent(`Add me to ${clientName || slug}'s Help Center`)}` +
+        `?subject=${encodeURIComponent(`Add me to ${clientName || slug}'s Website Request Center`)}` +
         `&body=${encodeURIComponent(`Please add ${email} to the access list for ${slug}.`)}`;
 
     return (
@@ -456,7 +456,7 @@ const StaffBanner = ({ viewer, slug }: { viewer: Viewer; slug: string }) => (
         </p>
         {viewer.accessListEmpty && (
             <p className="mt-2 hc-t-body-helper text-pretty text-(--hc-text-secondary)">
-                Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this Help Center. Add them in the
+                Nobody at {viewer.clientName || "this client"} is on this dashboard's access list yet, so they cannot open this Website Request Center. Add them in the
                 dashboard's Access panel.
             </p>
         )}
@@ -725,7 +725,7 @@ const HelpHome = ({ tickets, topics, slug, guidesRow = true }: { tickets: Ticket
             minute"; neither is shown to a client any more (owner, 28 Sep 2026), so the words
             say what does hold: it is tracked, routed and visible until it closes. */}
         <header className="flex flex-col gap-2">
-            <Eyebrow>HELP CENTER</Eyebrow>
+            <Eyebrow>WEBSITE REQUEST CENTER</Eyebrow>
             <h1 className="w-full hc-t-display-title text-(--hc-text-primary) sm:hc-t-display-hero">{HERO}</h1>
             <p className="hc-t-body-input text-(--hc-text-secondary) sm:hidden">{LEDE}</p>
             <p className="hidden max-w-[680px] hc-t-body-helper text-(--hc-text-secondary) sm:block">{`${LEDE} No follow-up required.`}</p>
@@ -796,7 +796,7 @@ const Composer = ({
             className="-ml-1 inline-flex min-h-11 w-max cursor-pointer items-center gap-1.5 rounded-(--hc-radius-sm) px-1 hc-t-body-helper text-(--hc-text-brand-secondary) hover:underline"
         >
             <ArrowNarrowLeft className="size-4" aria-hidden="true" />
-            Back to the Help Center
+            Back to the Website Request Center
         </button>
         <RequestForm
             mode="client"
@@ -1150,7 +1150,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     // help home; the rest is the screen.
     const base: Crumb[] = [
         { label: "Dashboard", to: `/${slug}` },
-        { label: "Help Center", to: `/${slug}/help` },
+        { label: "Website Request Center", to: `/${slug}/help` },
     ];
     const crumbs: Crumb[] =
         view === "detail"
@@ -1160,7 +1160,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
               : view === "guide"
                 ? [...base, { label: findHelpGuide(guide)?.title ?? "Guide" }]
                 : created
-                  ? // The success card lives at the home's own URL, so the "Help Center" link
+                  ? // The success card lives at the home's own URL, so the "Website Request Center" link
                     // alone would change nothing; it also puts the card away. Only on the
                     // click that navigates here: a cmd/ctrl/shift/middle click opens the
                     // home elsewhere and must leave this tab's card alone.

@@ -213,7 +213,7 @@ export const isDashboardSlug = (slug: string): boolean =>
 export const verifyCaller = async (slug: string, accessToken: string): Promise<GateResult> => {
     if (!isDashboardSlug(slug)) return { ok: false, status: 400, error: "Bad slug." };
     if (!accessToken || accessToken.length < 20 || accessToken.length > 4096) {
-        return { ok: false, status: 401, error: "Sign in to use the Help Center." };
+        return { ok: false, status: 401, error: "Sign in to use the Website Request Center." };
     }
 
     // Validated by the auth server, not parsed here: decoding a JWT locally
@@ -221,7 +221,7 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
     // revoked or forged token.
     const { data: authData, error: authError } = await portalDb().auth.getUser(accessToken);
     const who = normEmail(authData?.user?.email ?? "");
-    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the Help Center." };
+    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the Website Request Center." };
 
     const { data: row, error } = await portalDb()
         .from("dashboard_pages")
@@ -316,11 +316,11 @@ export const verifyCaller = async (slug: string, accessToken: string): Promise<G
  */
 export const verifyStaff = async (accessToken: string): Promise<GateResult> => {
     if (!accessToken || accessToken.length < 20 || accessToken.length > 4096) {
-        return { ok: false, status: 401, error: "Sign in to use the Help Center." };
+        return { ok: false, status: 401, error: "Sign in to use the Website Request Center." };
     }
     const { data: authData, error: authError } = await portalDb().auth.getUser(accessToken);
     const who = normEmail(authData?.user?.email ?? "");
-    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the Help Center." };
+    if (authError || !who) return { ok: false, status: 401, error: "Sign in to use the Website Request Center." };
     if (!isStaffUser(authData?.user)) return { ok: false, status: 403, error: "Not authorized.", reason: "not_listed" };
     return {
         ok: true,

@@ -150,7 +150,7 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token ?? "";
     if (!token) {
-        throw new HelpApiError(401, "Your session has expired. Sign in again to use the Help Center.");
+        throw new HelpApiError(401, "Your session has expired. Sign in again to use the Website Request Center.");
     }
 
     let res: Response;
@@ -171,7 +171,7 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
     if (!res.ok) {
         const fromServer = typeof payload?.error === "string" ? payload.error.trim() : "";
         const reason = payload?.reason === "not_listed" ? payload.reason : undefined;
-        if (res.status === 401) throw new HelpApiError(401, "Your session has expired. Sign in again to use the Help Center.");
+        if (res.status === 401) throw new HelpApiError(401, "Your session has expired. Sign in again to use the Website Request Center.");
         if ([400, 403, 409, 422, 429, 502, 503, 504].includes(res.status) && fromServer) throw new HelpApiError(res.status, fromServer, reason);
         if (res.status === 413) throw new HelpApiError(413, "Those files are too large to send together. Remove one and try again.");
         throw new HelpApiError(res.status, "Something went wrong at our end. Nothing was lost - try again in a moment.");

@@ -27,7 +27,14 @@ import { type StoredWebsites, storedWebsitesOf } from "./request-rules.ts";
    OpenAPI definition rather than transcribed from the design document). Kept in step
    with them deliberately: these names are the wire format of the portal functions. */
 
-export type TicketStatus = "received" | "assigned" | "in_progress" | "completed" | "withdrawn";
+/**
+ * `in_review` is the account manager's approval stage (owner, 20 Oct 2026): the web team has
+ * ticked the Asana task done, and the request waits for the AM to press Approve on its page
+ * (ticket-approve.mts) before it is completed and the client is emailed. Only staff ever
+ * receive it. Every answer a client gets reads it as `in_progress` (ticket-columns.mts,
+ * clientView), so nothing on a client's screen has to know it exists.
+ */
+export type TicketStatus = "received" | "assigned" | "in_progress" | "in_review" | "completed" | "withdrawn";
 
 export type TicketEventKind =
     | "received"
@@ -171,7 +178,8 @@ export interface TicketCounts {
    screen without a label. `tone` picks the pill styling in the screens; the colours
    themselves live there, because this file stays free of Tailwind. */
 
-export const OPEN_STATUSES: TicketStatus[] = ["received", "assigned", "in_progress"];
+/** Awaiting review is open: the client has not been told it is done, and staff count it as still theirs. */
+export const OPEN_STATUSES: TicketStatus[] = ["received", "assigned", "in_progress", "in_review"];
 
 export const isOpen = (t: Ticket): boolean => OPEN_STATUSES.includes(t.status);
 
@@ -179,6 +187,8 @@ export const STATUS_META: Record<TicketStatus, { label: string; tone: "neutral" 
     received: { label: "Received", tone: "neutral" },
     assigned: { label: "Assigned", tone: "brand" },
     in_progress: { label: "In progress", tone: "brand" },
+    // Staff only (see TicketStatus): the work is done and waits for the AM's Approve.
+    in_review: { label: "Awaiting review", tone: "brand" },
     completed: { label: "Completed", tone: "success" },
     // Muted rather than an error red. Withdrawing is a normal thing a client may do and
     // the row stays on their list forever; colouring it like a failure would read as a
@@ -328,10 +338,47 @@ export const completedThisMonth = (tickets: Ticket[]): number => {
 
 export const inProgressCount = (tickets: Ticket[]): number => tickets.filter((t) => t.status === "in_progress").length;
 
-/** A ticket can only be withdrawn while it is still open. Closed rows are never deleted. */
-export const canWithdraw = (t: Ticket): boolean => isOpen(t);
+/**
+ * A ticket can only be withdrawn while it is still open, and not once the work is done and
+ * waiting for the AM's approval (ticket-withdraw.mts refuses that too). Closed rows are never
+ * deleted.
+ */
+export const canWithdraw = (t: Ticket): boolean => isOpen(t) && t.status !== "in_review";
 /** A question goes to the team while the work is still theirs; a finished request takes a new one. */
 export const canAsk = (t: Ticket): boolean => isOpen(t);
+
+/* ── Approving (staff) ───────────────────────────────────────────────────── */
+
+/** The platform's word on the client's completion email, passed through by ticket-approve.mts. */
+export type ApprovalEmail = "sent" | "queued" | "retrying" | "failed" | "not_sent" | "not_applicable";
+
+/** What ticket-approve answers when the approval went through. `email` is null when the platform said nothing we know. */
+export interface ApprovalResult {
+    approved: true;
+    already: boolean;
+    email: ApprovalEmail | null;
+}
+
+const APPROVAL_EMAIL_LINE: Record<ApprovalEmail, string> = {
+    sent: "The completion email went out.",
+    queued: "The completion email is queued and goes out shortly.",
+    retrying: "The completion email did not go on the first try and is being retried.",
+    failed: "The completion email could not be sent, so let them know yourself.",
+    not_sent: "No completion email went out.",
+    not_applicable: "No completion email was asked for on this request.",
+};
+
+/**
+ * The line staff read after pressing Approve (owner, 20 Oct 2026): "Approved. Paradise Pointe
+ * now sees it completed." then what happened to the completion email, from the platform's own
+ * answer, never assumed. A second press reads as already approved.
+ */
+export const approvalLine = (clientName: string, result: Pick<ApprovalResult, "already" | "email">): string => {
+    const who = clientName.trim() || "The client";
+    if (result.already) return `It was already approved. ${who} sees it completed.`;
+    const email = result.email ? APPROVAL_EMAIL_LINE[result.email] : "";
+    return `Approved. ${who} now sees it completed.${email ? ` ${email}` : ""}`;
+};
 
 /* ── Small shared helpers ────────────────────────────────────────────────── */
 
@@ -360,11 +407,12 @@ export const initialOf = (name: string): string => (name.trim()[0] ?? "?").toUpp
 // home screen
 
 /**
- * The "In progress" count on the help home: requests the team has taken on (assigned or in
- * progress). Received is left out, so the count agrees with the pills on the list, where a
- * received request reads "Received".
+ * The "In progress" count on the help home: requests the team has taken on (assigned, in
+ * progress, or done and awaiting the AM's review, which a client reads as in progress anyway).
+ * Received is left out, so the count agrees with the pills on the list, where a received
+ * request reads "Received".
  */
-export const underwayTickets = (tickets: Ticket[]): Ticket[] => tickets.filter((t) => t.status === "assigned" || t.status === "in_progress");
+export const underwayTickets = (tickets: Ticket[]): Ticket[] => tickets.filter((t) => t.status === "assigned" || t.status === "in_progress" || t.status === "in_review");
 
 /** The "In progress" stat's second line. A state, never a date and never a name. */
 export const underwayLine = (tickets: Ticket[]): string => (underwayTickets(tickets).length ? "With the team now" : "Nothing in progress right now");
@@ -530,7 +578,8 @@ export const timelineSteps = (ticket: Ticket, events: TicketEvent[], files: Tick
     const started = eventAt(events, "in_progress");
     const completed = eventAt(events, "completed");
     const withdrawn = eventAt(events, "withdrawn");
-    const rank: Record<TicketStatus, number> = { received: 0, assigned: 1, in_progress: 2, completed: 3, withdrawn: -1 };
+    // Awaiting review ranks with in progress: Completed is ticked only once the AM approves.
+    const rank: Record<TicketStatus, number> = { received: 0, assigned: 1, in_progress: 2, in_review: 2, completed: 3, withdrawn: -1 };
     const reached = rank[ticket.status];
     const open = ticket.status !== "completed" && ticket.status !== "withdrawn";
 

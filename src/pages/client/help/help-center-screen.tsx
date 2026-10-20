@@ -1091,7 +1091,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
         if (loading && tickets.length === 0 && topics.length === 0) return <HelpSpinner label="Loading your requests" />;
 
         if (view === "detail") {
-            return <HelpRequestDetail proof={proof} reference={reference} slug={slug} topics={topics} onTicketChanged={() => void load(proof)} />;
+            return <HelpRequestDetail proof={proof} reference={reference} slug={slug} topics={topics} staff={showStaff} onTicketChanged={() => void load(proof)} />;
         }
 
         if (view === "list") {

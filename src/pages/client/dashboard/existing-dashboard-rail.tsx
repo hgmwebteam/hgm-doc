@@ -55,7 +55,7 @@ export const ExistingDashboardRail = ({
      *  Toggled by clicking the client's logo or name, as on the journey rail. */
     previewing?: boolean;
     onTogglePreview?: () => void;
-    /** Staff: the access panel ("Who can open this dashboard") is open. */
+    /** Staff: the access panel ("Who has access") is open. */
     editing?: boolean;
     onEdit?: () => void;
     onSignOut: () => void;

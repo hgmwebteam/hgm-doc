@@ -139,7 +139,7 @@ const summariseAccess = (u: DashboardUser) => {
 };
 
 /**
- * "Who can open this dashboard" — the team's access panel, top of Overview in edit mode.
+ * "Who has access" — the team's access panel, top of Overview in edit mode.
  *
  * One card per person: the address they sign in with, the password that goes with it, and
  * which sections they land on. Per person rather than per dashboard because a bookkeeper
@@ -193,10 +193,9 @@ export const DashboardAccessPanel = ({
         <div className="mt-8 rounded-xl bg-secondary p-5 ring-1 ring-secondary">
             {/* Sized to match "Your journey" further down Overview — at text-sm it was the
                 same size as its own description and read as another line of body copy. */}
-            <h2 className="text-lg font-semibold text-primary">Who can open this dashboard</h2>
+            <h2 className="text-lg font-semibold text-primary">Who has access</h2>
             <p className="mt-1 text-sm text-pretty text-tertiary">
-                Anyone at @hiddengem.media always has access. Add each person who should see this dashboard — they sign in with their own email and password,
-                and you choose which sections each one lands on.
+                Anyone with a @hiddengem.media address always has access. Add each person who should have access, and choose which section they see first.
             </p>
 
             <div className="mt-4 flex flex-col gap-3">
@@ -260,8 +259,8 @@ export const DashboardAccessPanel = ({
                                 out of the one zero-cost way to change that. Said plainly instead. */}
                             {!usable && (
                                 <p className="mt-1.5 text-xs text-tertiary">
-                                    No password: they can raise and follow requests in the help centre by signing in with Google, but cannot open a
-                                    password-protected dashboard. Give them one only if the dashboard itself should be locked.
+                                    Optional. Without a password, this person can use the Help Center but can&rsquo;t open the full dashboard. Add a password
+                                    only if they should see the full dashboard.
                                 </p>
                             )}
 
@@ -334,8 +333,8 @@ export const DashboardAccessPanel = ({
             <div className="mt-4 border-t border-secondary pt-4">
                 <p className="text-sm font-medium text-secondary">Shared password</p>
                 <p className="mt-1 text-xs text-pretty text-tertiary">
-                    The fallback for anyone above who has no password of their own. Dashboards created before per-person passwords rely on it, so clearing it is
-                    only safe once everyone listed has their own.
+                    Used for anyone who doesn&rsquo;t have their own password. Older dashboards rely on this, so only clear it once everyone listed has their
+                    own.
                 </p>
                 <div className="mt-2 flex items-center gap-2">
                     <input
@@ -353,7 +352,9 @@ export const DashboardAccessPanel = ({
                 {/* Say which half is missing rather than leaving an AM wondering why nothing is locked. */}
                 {!armed && (
                     <p className="mt-2 text-xs text-warning-primary">
-                        {named.length === 0 ? "Not locked yet — add a person." : "Not locked yet — give at least one person a password."}
+                        {named.length === 0
+                            ? "The full dashboard isn’t password protected yet. Add a person and give them a password to lock it."
+                            : "The full dashboard isn’t password protected yet. Add a password for at least one person to lock it."}
                     </p>
                 )}
                 {armed && (

@@ -1,5 +1,5 @@
 /**
- * "Who can open this dashboard", for an EXISTING client's dashboard.
+ * "Who has access", for an EXISTING client's dashboard.
  *
  * The journey dashboard shows DashboardAccessPanel inside its edit mode. An existing
  * client's dashboard is the Help Centre, which has no edit mode, so the same panel is
@@ -78,8 +78,9 @@ export const ExistingAccessPanel = ({ slug, clientName, onDone }: { slug: string
                         Access for {clientName || "this client"}
                     </h1>
                     <p className="mt-2 max-w-[680px] hc-t-body-helper text-(--hc-text-secondary)">
-                        People listed here can open this Help Center. They sign in with Google on the listed address, or ask for a sign-in link sent to it, so
-                        it does not have to be a Gmail address. The password only matters for the full dashboard.
+                        People listed here can open this client&rsquo;s Help Center to raise and follow requests. They sign in with Google on the listed
+                        address, or request a sign-in link by email, so it doesn&rsquo;t need to be a Gmail address. A password is only needed to open the full
+                        dashboard.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">

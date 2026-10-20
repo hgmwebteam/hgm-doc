@@ -3502,7 +3502,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                     </div>
                                                 )}
 
-                                                {/* ── Who can open this dashboard (team, edit mode) ──
+                                                {/* ── Who has access (team, edit mode) ──
                                                     Access is per person: each address carries its own password and its own
                                                     set of sections. Without a way to fill this in, turning on the sign-in
                                                     gate would lock every client out, so it lives right at the top of

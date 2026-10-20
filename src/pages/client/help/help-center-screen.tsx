@@ -56,9 +56,10 @@ import {
     fetchTickets,
     fetchTopics,
     fullDashboardSlug,
+    setOwnPassword,
     signOutHere,
 } from "@/pages/client/help/help-api";
-import { Button, Card, Chevron, type Crumb, Eyebrow, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
+import { Button, Card, Chevron, type Crumb, Eyebrow, FieldInput, HelpFrame, Marker, TopBar, initialOf } from "@/pages/client/help/help-atoms";
 import { HELP_GUIDES, HelpGuidePage, findHelpGuide } from "@/pages/client/help/help-center-guides";
 import { RequestForm, RequestSent, type SentExtras, sentExtrasFrom } from "@/pages/client/help/help-form";
 import {
@@ -110,29 +111,38 @@ const HelpGate = ({
     const [email, setEmail] = useState("");
     const [linkBusy, setLinkBusy] = useState(false);
     const [linkSent, setLinkSent] = useState(false);
+    /** "password" once they choose Use a password: the same address plus the one they set. */
+    const [mode, setMode] = useState<"link" | "password">("link");
+    const [password, setPassword] = useState("");
+
+    /**
+     * The typed address when it is on this dashboard's list or at hiddengem.media (owner,
+     * 16 Oct 2026); otherwise null, with the error saying why. A courtesy against the public
+     * row, not the gate: the server re-checks the list on every call, so a listed-looking
+     * address that is not really listed still meets the refusal after signing in.
+     */
+    const listedAddress = (): string | null => {
+        const address = email.trim().toLowerCase();
+        if (!address) return null;
+        if (address.endsWith("@hiddengem.media") || (clientRow?.allowedEmails ?? []).includes(address)) return address;
+        setError(
+            "Sign-in is restricted to the addresses your HiddenGem Media team added to this dashboard. Ask your account manager to add yours, then try again.",
+        );
+        return null;
+    };
 
     /**
      * A sign-in link by email, for the people without a Google account (owner, 16 Oct 2026:
      * "some of the people don't have Gmail"). Supabase mails a one-time link; following it
      * lands them back on this very URL signed in, where currentCaller() picks the session
      * up and the server checks the address against the dashboard's list as for anyone else.
-     * Strict: a link is only MAILED to an address on this dashboard's list or at
-     * hiddengem.media (owner, 16 Oct 2026). Anyone else is told so and nothing is sent. That
-     * check is a courtesy against the public row, not the gate: the server re-checks the list
-     * on every call, so a listed-looking address that is not really listed still meets the
-     * refusal after signing in.
+     * Strict: a link is only MAILED to a listed address. Anyone else is told so and nothing
+     * is sent.
      */
     const sendLink = async (e: React.FormEvent) => {
         e.preventDefault();
-        const address = email.trim().toLowerCase();
+        const address = listedAddress();
         if (!address) return;
-        const listed = address.endsWith("@hiddengem.media") || (clientRow?.allowedEmails ?? []).includes(address);
-        if (!listed) {
-            setError(
-                "Sign-in is restricted to the addresses your HiddenGem Media team added to this dashboard. Ask your account manager to add yours, then try again.",
-            );
-            return;
-        }
         setLinkBusy(true);
         setError("");
         const { error: otpError } = await supabase.auth.signInWithOtp({
@@ -147,15 +157,42 @@ const HelpGate = ({
         setLinkSent(true);
     };
 
+    /**
+     * The password a client set for themselves after an earlier link sign-in (PasswordPanel),
+     * so clearing cookies does not mean waiting for another link (owner, 20 Oct 2026). Success
+     * needs nothing here: onAuthStateChange in HelpCenterScreen picks the session up and the
+     * server checks the address against the list exactly as it does after a link.
+     */
+    const signIn = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const address = listedAddress();
+        if (!address || !password) return;
+        setLinkBusy(true);
+        setError("");
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: address, password });
+        if (!signInError) return;
+        setLinkBusy(false);
+        setError(
+            signInError.code === "invalid_credentials"
+                ? "That email and password do not match. If you have not set a password yet, use the emailed link."
+                : "We could not sign you in just then. Try again in a moment.",
+        );
+    };
+
+    const usingPassword = mode === "password";
+
     /* No Google button (owner, 16 Oct 2026): the team is already signed in through the
-       portal and never meets this gate, and a client gets in by the emailed link alone. */
+       portal and never meets this gate. A client gets in by the emailed link, or by a
+       password they set themselves once signed in. */
     return (
         <SignInBackdrop backgroundUrl={clientRow?.backgroundUrl || undefined}>
             <div className="w-full max-w-sm rounded-2xl bg-primary p-8 shadow-2xl ring-1 ring-secondary">
                 <img src="/hgm logo/Favicon ON LIGHT.svg" alt="HiddenGem Media" className="mx-auto size-11" draggable={false} />
                 <h1 className="mt-5 text-center text-lg font-semibold text-primary">Your requests are private</h1>
                 <p className="mt-2 text-center text-sm text-pretty text-tertiary">
-                    Enter the email address your HiddenGem Media team added to this dashboard and we will send you a sign-in link.
+                    {usingPassword
+                        ? "Enter the email address your HiddenGem Media team added to this dashboard and the password you set."
+                        : "Enter the email address your HiddenGem Media team added to this dashboard and we will send you a sign-in link."}
                 </p>
 
                 {notice && (
@@ -170,22 +207,43 @@ const HelpGate = ({
                             Check your inbox. The sign-in link for {email.trim().toLowerCase()} opens this page signed in. It can take a minute to arrive.
                         </p>
                     ) : (
-                        <form onSubmit={sendLink} className="flex flex-col gap-3">
+                        <form onSubmit={usingPassword ? signIn : sendLink} className="flex flex-col gap-3">
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="you@yourbusiness.com"
-                                autoComplete="email"
+                                autoComplete={usingPassword ? "username" : "email"}
                                 aria-label="Email address"
                                 className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
                             />
+                            {usingPassword && (
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Your password"
+                                    autoComplete="current-password"
+                                    aria-label="Password"
+                                    className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm text-primary ring-1 ring-secondary outline-none focus:ring-brand"
+                                />
+                            )}
                             <button
                                 type="submit"
-                                disabled={linkBusy || !email.trim()}
+                                disabled={linkBusy || !email.trim() || (usingPassword && !password)}
                                 className="flex w-full cursor-pointer items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-secondary ring-1 ring-secondary transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {linkBusy ? "Sending…" : "Email me a sign-in link"}
+                                {usingPassword ? (linkBusy ? "Signing in…" : "Sign in") : linkBusy ? "Sending…" : "Email me a sign-in link"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMode(usingPassword ? "link" : "password");
+                                    setError("");
+                                }}
+                                className="cursor-pointer self-center rounded-md px-1 text-sm text-tertiary transition duration-100 ease-linear hover:text-primary"
+                            >
+                                {usingPassword ? "Email me a sign-in link instead" : "Use a password instead"}
                             </button>
                         </form>
                     )}
@@ -200,6 +258,81 @@ const HelpGate = ({
                 <p className="mt-5 text-center text-xs text-pretty text-quaternary">Not sure which address? Ask your account manager which one they added.</p>
             </div>
         </SignInBackdrop>
+    );
+};
+
+/* ── Set a password ──────────────────────────────────────────────────────── */
+
+const MIN_PASSWORD = 8;
+
+/**
+ * The signed-in person sets their own password, so the gate's "Use a password instead"
+ * gets them in after cleared cookies or on another device (owner, 20 Oct 2026). Nobody at
+ * HiddenGem Media sets or sends one. It changes nothing the server checks: a password
+ * proves the address exactly as the emailed link does, and the list still decides.
+ *
+ * Opened at /{slug}/help?password=set, from the account menu or the rail's foot: a URL,
+ * like ?raise, so Back closes it.
+ */
+const PasswordPanel = ({ email, slug }: { email: string; slug: string }) => {
+    const [password, setPassword] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const [saved, setSaved] = useState(false);
+    const tooShort = password.length < MIN_PASSWORD;
+
+    const save = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (tooShort || busy) return;
+        setBusy(true);
+        setError("");
+        const problem = await setOwnPassword(password);
+        setBusy(false);
+        if (problem) setError(problem);
+        else setSaved(true);
+    };
+
+    return (
+        <Card as="section" className="mx-auto w-full max-w-[560px]">
+            <Eyebrow>YOUR ACCOUNT</Eyebrow>
+            <h1 className="mt-1 hc-t-display-title text-(--hc-text-primary)">Set a password</h1>
+            {saved ? (
+                <>
+                    <p className="mt-2 hc-t-body-helper text-pretty text-(--hc-text-secondary)" role="status">
+                        Saved. Next time, choose Use a password instead on the sign-in screen and enter {email} with this password.
+                    </p>
+                    <Button to={`/${slug}/help`} className="mt-6">
+                        Back to Help home
+                    </Button>
+                </>
+            ) : (
+                <form onSubmit={save} className="mt-2 flex flex-col gap-6">
+                    <p className="hc-t-body-helper text-pretty text-(--hc-text-secondary)">
+                        Sign in with {email} and this password next time, instead of waiting for a link. If you forget it, the emailed link still works.
+                    </p>
+                    {/* For password managers: the account this password belongs to. */}
+                    <input type="email" value={email} autoComplete="username" readOnly hidden />
+                    <FieldInput
+                        label="New password"
+                        type="password"
+                        autoComplete="new-password"
+                        value={password}
+                        onChange={setPassword}
+                        placeholder={`At least ${MIN_PASSWORD} characters`}
+                        error={error}
+                        liveNote
+                    />
+                    <div className="flex flex-wrap gap-3">
+                        <Button type="submit" loading={busy} disabled={tooShort}>
+                            Save password
+                        </Button>
+                        <Button variant="secondary" to={`/${slug}/help`}>
+                            Cancel
+                        </Button>
+                    </div>
+                </form>
+            )}
+        </Card>
     );
 };
 
@@ -385,6 +518,7 @@ const HelpShell = ({
                             // The Reference guides are listed on the home from 640px up only;
                             // on a phone this is the way in.
                             { label: "Guides", to: `/${slug}/help/guides/${HELP_GUIDES[0].slug}` },
+                            { label: "Set a password", to: `/${slug}/help?password=set` },
                         ],
                         onSignOut: () => void signOutHere(),
                     }}
@@ -953,6 +1087,7 @@ export const HelpCenterScreen = ({ view }: { view: HelpView }) => {
     const body = () => {
         if (showStaff && rail && editingAccess)
             return <ExistingAccessPanel slug={slug} clientName={viewer?.clientName || clientName} onDone={() => setEditingAccess(false)} />;
+        if (filterParams.get("password") === "set") return <PasswordPanel email={proof.email} slug={slug} />;
         if (loading && tickets.length === 0 && topics.length === 0) return <HelpSpinner label="Loading your requests" />;
 
         if (view === "detail") {

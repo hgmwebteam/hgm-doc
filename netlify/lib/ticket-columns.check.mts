@@ -39,6 +39,9 @@ for (let i = 1; i < CLIENT_COLUMN_LADDER.length; i++) {
 }
 assert.ok(!(CLIENT_HIDDEN_COLUMNS as readonly string[]).includes("websites"), "a client may see which of their websites a request is for");
 assert.deepEqual(clientView({ id: "t", websites: { offered: 6, chosen: [] }, assignee_name: "Kyle" }, "allowlist"), { id: "t", websites: { offered: 6, chosen: [] } }, "clientView keeps websites and still drops the assignee");
+assert.equal(clientView({ id: "t", status: "in_review" }, "allowlist").status, "in_progress", "a client reads the review stage as in progress");
+assert.equal(clientView({ id: "t", status: "in_review" }, "staff").status, "in_review", "staff see the review stage");
+assert.equal(clientView({ id: "t", status: "completed" }, "allowlist").status, "completed", "every other status passes as it is");
 
 /* 2. The ladder stops at the first success. */
 {

@@ -32,7 +32,9 @@ import { cleanQuestion } from "../../src/pages/client/help/request-rules.ts";
  *   -> { event: { id, kind, body, actor_email, actor_name, created_at } }
  */
 
-const OPEN_STATUSES = ["received", "assigned", "in_progress"];
+/** in_review too (owner, 20 Oct 2026): a client reads it as in progress, so asking after it is
+ *  the natural thing to do, and the question reaches the account manager, who holds the Approve. */
+const OPEN_STATUSES = ["received", "assigned", "in_progress", "in_review"];
 const REFERENCE = /^REQ-\d{1,12}$/;
 const EVENT_COLUMNS = "id, kind, body, actor_email, actor_name, created_at";
 const SITE = "https://hgmportal.com";

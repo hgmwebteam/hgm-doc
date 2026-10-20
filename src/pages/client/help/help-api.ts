@@ -29,7 +29,7 @@
  */
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
 import { type DashboardUser, readDashboardUsers, usersToAllowedEmails } from "@/pages/client/dashboard/dashboard-model";
-import type { Priority, Ticket, TicketCounts, TicketEvent, TicketFile, TicketTopic } from "@/pages/client/help/help-model";
+import type { ApprovalResult, Priority, Ticket, TicketCounts, TicketEvent, TicketFile, TicketTopic } from "@/pages/client/help/help-model";
 import { FILE_TYPES, type FileType, type Website, fileUploadFailed, websitesOnRow } from "@/pages/client/help/request-rules";
 import { compressImageFile } from "@/utils/compress-image";
 
@@ -132,12 +132,14 @@ const FUNCTIONS_BASE = "/.netlify/functions";
 /**
  * POSTs JSON to one portal function and returns its parsed body.
  *
- * Messages for 400, 403, 422, 429 and 503 are passed through from the server verbatim (each
- * is a sentence written for the person: a file the team cannot open, the day's file limit,
- * files that cannot be attached right now), and a 403 also carries a reason code the screen
- * keys its next action on (a sentence alone cannot tell "not on the list" from "may read,
- * may not act"). Everything else gets one plain line, because a raw 500 body is noise to a
- * client and can carry internals.
+ * Messages for 400, 403, 409, 422, 429, 502, 503 and 504 are passed through from the server
+ * verbatim (each is a sentence written for the person: a file the team cannot open, the day's
+ * file limit, files that cannot be attached right now, and since 20 Oct 2026 what Approve
+ * could not do, which only ticket-approve answers with 409, 502 or 504; a 502 or 504 that
+ * Netlify itself sends carries no sentence and still gets the plain line below), and a 403
+ * also carries a reason code the screen keys its next action on (a sentence alone cannot tell
+ * "not on the list" from "may read, may not act"). Everything else gets one plain line,
+ * because a raw 500 body is noise to a client and can carry internals.
  */
 const callFunction = async <T>(name: string, body: Record<string, unknown>): Promise<T> => {
     // The session token is read at CALL TIME, never stored by this module. Supabase
@@ -170,7 +172,7 @@ const callFunction = async <T>(name: string, body: Record<string, unknown>): Pro
         const fromServer = typeof payload?.error === "string" ? payload.error.trim() : "";
         const reason = payload?.reason === "not_listed" ? payload.reason : undefined;
         if (res.status === 401) throw new HelpApiError(401, "Your session has expired. Sign in again to use the Help Center.");
-        if ([400, 403, 422, 429, 503].includes(res.status) && fromServer) throw new HelpApiError(res.status, fromServer, reason);
+        if ([400, 403, 409, 422, 429, 502, 503, 504].includes(res.status) && fromServer) throw new HelpApiError(res.status, fromServer, reason);
         if (res.status === 413) throw new HelpApiError(413, "Those files are too large to send together. Remove one and try again.");
         throw new HelpApiError(res.status, "Something went wrong at our end. Nothing was lost - try again in a moment.");
     }
@@ -234,6 +236,14 @@ export const setOwnPassword = async (password: string): Promise<string> => {
 /** Closes a request and marks it withdrawn. The row is never deleted. */
 export const withdrawTicket = (proof: CallerProof, reference: string): Promise<{ ticket: Ticket }> =>
     callFunction("ticket-withdraw", { slug: proof.slug, reference, confirm: true });
+
+/**
+ * Staff approve a request the web team has finished (status in_review), so the platform
+ * completes it and sends the client their completion email (owner, 20 Oct 2026). The server
+ * refuses anyone who is not staff; every refusal comes back as a sentence for the button.
+ */
+export const approveTicket = (proof: CallerProof, reference: string): Promise<ApprovalResult> =>
+    callFunction("ticket-approve", { slug: proof.slug, reference });
 
 /**
  * A question on an open request. Stored on its timeline as a client_question event and emailed

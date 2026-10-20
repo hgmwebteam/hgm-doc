@@ -111,17 +111,20 @@ const LIST_FILTERS: { key: ListFilter; label: string }[] = [
     { key: "all", label: "All" },
     { key: "open", label: "Open" },
     { key: "in_progress", label: "In progress" },
+    // Done by the web team, waiting for the AM's Approve on the request page (owner, 20 Oct 2026).
+    { key: "in_review", label: "Awaiting review" },
     { key: "completed", label: "Completed" },
     { key: "withdrawn", label: "Withdrawn" },
 ];
-const OPEN: TicketStatus[] = ["received", "assigned", "in_progress"];
-const matches = (t: Ticket, f: ListFilter) => (f === "all" ? true : f === "open" ? OPEN.includes(t.status) : t.status === f);
+/** Open is help-model's isOpen, one copy for every list, so awaiting review counts as open here too. */
+const matches = (t: Ticket, f: ListFilter) => (f === "all" ? true : f === "open" ? isOpen(t) : t.status === f);
 
 /** Status/Pill, per status: the label carries the state, the tone reinforces it. */
 const PILL: Record<TicketStatus, { label: string; tone: PillTone }> = {
     received: { label: "Received", tone: "with-the-team" },
     assigned: { label: "Assigned", tone: "with-the-team" },
     in_progress: { label: "In progress", tone: "in-progress" },
+    in_review: { label: "Awaiting review", tone: "in-progress" },
     completed: { label: "Completed", tone: "done" },
     withdrawn: { label: "Withdrawn", tone: "withdrawn" },
 };
@@ -193,7 +196,7 @@ export const TeamTicketsScreen = () => {
         return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
     }, [tickets]);
     const shown = tickets.filter((t) => matches(t, filter) && (!client || t.client_slug === client));
-    const openCount = tickets.filter((t) => OPEN.includes(t.status)).length;
+    const openCount = tickets.filter(isOpen).length;
 
     if (authLoading) return null;
     if (!isTeam) return <TeamGate />;

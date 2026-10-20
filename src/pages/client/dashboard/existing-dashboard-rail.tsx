@@ -200,13 +200,23 @@ export const ExistingDashboardRail = ({
                     </a>
                     {toggle("")}
                 </div>
-                <button
-                    type="button"
-                    onClick={onSignOut}
-                    className="self-start rounded-md px-1 text-xs text-tertiary transition duration-100 ease-linear hover:text-primary"
-                >
-                    Sign out
-                </button>
+                <div className="flex items-center gap-3">
+                    {/* The client's own password (help-center-screen.tsx, PasswordPanel). */}
+                    <button
+                        type="button"
+                        onClick={() => navigate(`${base}/help?password=set`)}
+                        className="rounded-md px-1 text-xs text-tertiary transition duration-100 ease-linear hover:text-primary"
+                    >
+                        Set a password
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onSignOut}
+                        className="rounded-md px-1 text-xs text-tertiary transition duration-100 ease-linear hover:text-primary"
+                    >
+                        Sign out
+                    </button>
+                </div>
             </div>
         </aside>
     );

@@ -216,6 +216,21 @@ export const signOutHere = async (): Promise<void> => {
     window.location.assign(window.location.pathname);
 };
 
+/**
+ * The signed-in person's own password, so a later visit (another device, or after clearing
+ * cookies) can sign in at once instead of waiting for a link (owner, 20 Oct 2026). Nobody at
+ * HiddenGem Media sets or sends one, and the emailed link keeps working, which is the way
+ * back from a forgotten password. Resolves to "" when saved, or the sentence to show.
+ */
+export const setOwnPassword = async (password: string): Promise<string> => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (!error) return "";
+    if (error.code === "weak_password") return error.message || "Choose a longer password.";
+    if (error.code === "same_password") return "That is already your password.";
+    if (error.code === "reauthentication_needed") return "For your security, sign out, sign in again with an emailed link, then set your password.";
+    return "We could not save your password just then. Try again in a moment.";
+};
+
 /** Closes a request and marks it withdrawn. The row is never deleted. */
 export const withdrawTicket = (proof: CallerProof, reference: string): Promise<{ ticket: Ticket }> =>
     callFunction("ticket-withdraw", { slug: proof.slug, reference, confirm: true });

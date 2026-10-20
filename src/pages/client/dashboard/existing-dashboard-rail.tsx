@@ -149,7 +149,7 @@ export const ExistingDashboardRail = ({
                 <div className="min-w-max shrink-0 md:min-w-0 md:first:mt-1">
                     <SectionNavItem icon={LayoutAlt01} label="Overview" current={onHome} onClick={() => navigate(base)} />
                 </div>
-                <Group label="Website Request Center">
+                <Group label="Help Center">
                     <div className="min-w-max md:min-w-0">
                         <SectionNavItem icon={PlusCircle} label="Raise a request" current={raising} onClick={() => navigate(`${base}/help?raise=any`)} />
                     </div>

@@ -159,7 +159,7 @@ export const HelpGuidePage = ({ guide, slug }: { guide: HelpGuide; slug: string 
     return (
         <article className="mx-auto flex w-full max-w-[680px] flex-col gap-6 sm:gap-10">
             <header className="flex flex-col gap-2">
-                <Eyebrow>WEBSITE REQUEST CENTER</Eyebrow>
+                <Eyebrow>HELP CENTER</Eyebrow>
                 <h1 className="hc-t-display-title text-(--hc-text-primary)">{guide.title}</h1>
                 <p className="hc-t-body-input text-(--hc-text-secondary)">{guide.lede}</p>
             </header>
@@ -185,7 +185,7 @@ export const HelpGuidePage = ({ guide, slug }: { guide: HelpGuide; slug: string 
                     to={`/${slug}/help`}
                     className="inline-flex min-h-11 items-center rounded-(--hc-radius-sm) hc-t-body-helper text-(--hc-text-brand-secondary) underline"
                 >
-                    Back to the Website Request Center
+                    Back to the Help Center
                 </Link>
             </div>
             {/* The other guides. The help home lists them only from 640px up (the 390

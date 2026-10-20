@@ -762,7 +762,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
 
     return (
         <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "WEBSITE REQUEST CENTER"} title={team ? "Report a ticket" : "Raise a request"} lede={team ? "team" : "client"} titleRef={formTitleRef} />
+            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "HELP CENTER"} title={team ? "Report a ticket" : "Raise a request"} lede={team ? "team" : "client"} titleRef={formTitleRef} />
 
             {banner && (
                 <div ref={bannerRef} tabIndex={-1}>
@@ -1100,7 +1100,7 @@ export const RequestSent = ({ reference, title, clientName, priority, team, prim
 
     return (
         <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "WEBSITE REQUEST CENTER"} title={team ? "Ticket sent" : "Request sent"} titleRef={sentTitleRef} />
+            <FormHeading eyebrow={team ? "REPORTING SYSTEM" : "HELP CENTER"} title={team ? "Ticket sent" : "Request sent"} titleRef={sentTitleRef} />
             <Banner kind="success" title={team ? "Jarvis has it" : "The team has it"}>
                 {team ? SUCCESS_BODY : clientSuccessBody(completionEmail)}
             </Banner>

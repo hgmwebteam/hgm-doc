@@ -638,7 +638,7 @@ export const NAV_GROUPS: {
             // A link, not a section: the client help centre at /{slug}/help, where a request
             // becomes a ticket with a named owner. Last row in the menu on purpose - it is
             // what a client reaches for when something is wrong with anything above it.
-            { id: "help", label: "Website Request Center", icon: HelpCircle },
+            { id: "help", label: "Help Center", icon: HelpCircle },
         ],
     },
 ];

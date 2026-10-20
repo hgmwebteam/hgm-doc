@@ -644,7 +644,7 @@ export default async (req: Request) => {
     } catch (err) {
         if (err instanceof ConfigError) {
             console.error("[ticket-create] not configured", err.message);
-            return jsonError(500, "The Website Request Center is not configured. Ask your account manager to tell the web team.");
+            return jsonError(500, "The Help Center is not configured. Ask your account manager to tell the web team.");
         }
         console.error("[ticket-create] unexpected failure", err instanceof Error ? err.message : String(err));
         return jsonError(500, "Something went wrong at our end.");

@@ -642,13 +642,25 @@ export const Chevron = ({ className }: { className?: string }) => <span aria-hid
 
 /* ── Fields ──────────────────────────────────────────────────────────────── */
 
+/**
+ * "Required" or "Optional" on the right of a field's label, in caption/meta text/tertiary.
+ * "Required" carries a red star (owner, 20 Oct 2026). The word already says it, so the
+ * star is hidden from screen readers.
+ */
+export const RequirementTag = ({ requirement }: { requirement: "Required" | "Optional" }) => (
+    <span className="hc-t-caption-meta text-(--hc-text-tertiary)">
+        {requirement}
+        {requirement === "Required" && <span aria-hidden="true" className="ml-0.5 text-(--hc-text-error-primary)">*</span>}
+    </span>
+);
+
 /** The label row every field starts with: the label in label/field text/secondary, "Required" or "Optional" in caption/meta text/tertiary on the right, baseline-aligned. */
 export const LabelRow = ({ htmlFor, id, label, requirement }: { htmlFor: string; id?: string; label: string; requirement?: "Required" | "Optional" }) => (
     <div className="flex items-baseline justify-between gap-2">
         <label id={id} htmlFor={htmlFor} className="hc-t-label-field text-(--hc-text-secondary)">
             {label}
         </label>
-        {requirement && <span className="hc-t-caption-meta text-(--hc-text-tertiary)">{requirement}</span>}
+        {requirement && <RequirementTag requirement={requirement} />}
     </div>
 );
 
@@ -812,7 +824,7 @@ export const FieldCheckboxGroup = ({ name, idPrefix, label, requirement, options
                 <span id={`${name}-label`} className="hc-t-label-field text-(--hc-text-secondary)">
                     {label}
                 </span>
-                {requirement && <span className="hc-t-caption-meta text-(--hc-text-tertiary)">{requirement}</span>}
+                {requirement && <RequirementTag requirement={requirement} />}
             </span>
         </legend>
         <div className="@container flex flex-col gap-2">

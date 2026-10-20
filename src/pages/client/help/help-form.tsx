@@ -65,7 +65,7 @@ import { type ComponentProps, type FormEvent, type KeyboardEvent, type Ref, useC
 import { Link } from "react-router";
 import { COMPLETION_EMAIL_MODE } from "@/pages/client/help/completion-email-mode";
 import { type ClientOption, HelpApiError, MAX_DETAIL, MAX_TITLE, type NewTicketInput, fetchTicket, prepareUploadBlob, requestUploadUrls, uploadTicketFile } from "@/pages/client/help/help-api";
-import { Banner, Button, FieldCheckboxGroup, FieldInput, FieldNote, FieldSelect, FieldTextarea, FieldUpload, FileThumbnail, LabelRow, MonoRef, PRIORITY_LEVELS, PriorityChip, PriorityDot, PriorityLegend, type PriorityLevel, RemoveButton, TextInput, formatFileSize } from "@/pages/client/help/help-atoms";
+import { Banner, Button, FieldCheckboxGroup, FieldInput, FieldNote, FieldSelect, FieldTextarea, FieldUpload, FileThumbnail, LabelRow, MonoRef, PRIORITY_LEVELS, PriorityChip, PriorityDot, PriorityLegend, type PriorityLevel, RemoveButton, RequirementTag, TextInput, formatFileSize } from "@/pages/client/help/help-atoms";
 import { type Priority, type Ticket, type TicketFile, type TicketTopic, displayUrl, isTeamAddress } from "@/pages/client/help/help-model";
 import {
     EMAIL_MISSING,
@@ -847,7 +847,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
                         <span id="priority-label" className="hc-t-label-field text-(--hc-text-secondary)">
                             {team ? "Priority" : CLIENT_PRIORITY_LABEL}
                         </span>
-                        <span className="hc-t-caption-meta text-(--hc-text-tertiary)">Required</span>
+                        <RequirementTag requirement="Required" />
                     </div>
                     <PriorityChips value={priority} onChange={setPriority} labelledBy="priority-label" describedBy={touched && priorityMissing ? "priority-error" : undefined} />
                     {touched && priorityMissing && (

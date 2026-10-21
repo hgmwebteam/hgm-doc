@@ -4,7 +4,7 @@
  *
  * No backend of its own. It reads the staff-only ticket-list-all function through
  * fetchAllTickets, the same read the standalone list at /team/tickets uses, following
- * next_before page by page (200 a page) up to MAX_ROWS, then filters on the client. The
+ * next_before page by page (200 a page) up to MAX_ROWS (open-requests-badge.tsx), then filters on the client. The
  * server decides who may read: a team-password unlock has no Google session, so the
  * function answers 401 and the screen asks for the hiddengem.media Google account.
  *
@@ -36,7 +36,7 @@ import { BadgeWithButton } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
-import { HelpApiError, fetchAllTickets, fetchTopics, useDifferentAccount } from "@/pages/client/help/help-api";
+import { HelpApiError, fetchTopics, useDifferentAccount } from "@/pages/client/help/help-api";
 import { PRIORITIES, type Priority, type Ticket, type TicketTopic, formatRaisedDay, isOpen, todayIsoDay, topicLabel } from "@/pages/client/help/help-model";
 import {
     type Filters,
@@ -55,12 +55,10 @@ import {
     requestHref,
     sortTickets,
 } from "@/pages/team/client-requests/client-requests-model";
+import { loadAllRequests, setOpenCountsFrom } from "@/pages/team/client-requests/open-requests-badge";
 import { PriorityBadge, StatusBadge } from "@/pages/team/client-requests/request-badges";
 import { RequestPanel } from "@/pages/team/client-requests/request-panel";
 import { cx } from "@/utils/cx";
-
-/** Ten pages. Past this the header says how many are shown; /team/tickets pages through the rest. */
-const MAX_ROWS = 2000;
 
 const ALL = "all";
 const PRIORITY_ITEMS = [{ id: ALL, label: "All priorities" }, ...PRIORITIES.map((p) => ({ id: p.key, label: p.label }))];
@@ -74,21 +72,6 @@ const METRIC_CARDS: { key: keyof Metrics; label: string }[] = [
 
 type Load = { kind: "loading" } | { kind: "error"; error: unknown } | { kind: "ready"; rows: Ticket[]; total: number; capped: boolean };
 
-/** Every page, newest first, until the server says there are no more or MAX_ROWS is reached. */
-const loadAll = async (): Promise<{ rows: Ticket[]; total: number; capped: boolean }> => {
-    const rows: Ticket[] = [];
-    let total = 0;
-    let before: string | null = null;
-    do {
-        const page = await fetchAllTickets({ before });
-        // The first page's count is every request; later pages count only what is older.
-        if (!rows.length) total = page.total;
-        rows.push(...page.tickets);
-        before = page.next_before;
-    } while (before && rows.length < MAX_ROWS);
-    return { rows, total, capped: !!before };
-};
-
 const plural = (n: number, one: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : `${one}s`}`;
 
 export const ClientRequestsContent = () => {
@@ -101,7 +84,7 @@ export const ClientRequestsContent = () => {
     useEffect(() => {
         let cancelled = false;
         setLoad({ kind: "loading" });
-        loadAll().then(
+        loadAllRequests().then(
             (r) => !cancelled && setLoad({ kind: "ready", ...r }),
             (error) => !cancelled && setLoad({ kind: "error", error }),
         );
@@ -111,6 +94,12 @@ export const ClientRequestsContent = () => {
     }, [attempt]);
 
     const rows = load.kind === "ready" ? load.rows : [];
+
+    // The side menu's open-requests badge (phase 3) counts what this screen holds, so an
+    // Approve here moves it with the metric cards.
+    useEffect(() => {
+        if (load.kind === "ready") setOpenCountsFrom(load.rows);
+    }, [load]);
 
     // The open request (phase 2). Opening pushes, marked in history state, so Back closes it.
     const [params, setParams] = useSearchParams();

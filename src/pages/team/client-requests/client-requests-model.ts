@@ -149,6 +149,10 @@ export const approvedPatch = (fresh: Pick<Ticket, "status" | "completed_at"> | n
         ? { status: fresh.status, completed_at: fresh.completed_at ?? (fresh.status === "completed" ? nowIso : null) }
         : { status: "completed", completed_at: nowIso };
 
+/** The side menu badge's spoken words (phase 3, owner, 21 Oct 2026): "3 open requests, 1 awaiting review". */
+export const openBadgeLabel = (open: number, inReview: number): string =>
+    `${open} open ${open === 1 ? "request" : "requests"}${inReview ? `, ${inReview} awaiting review` : ""}`;
+
 /** The Client select's options: each client on the loaded rows once, by name. */
 export const clientOptions = (tickets: Ticket[]): { id: string; label: string }[] => {
     const seen = new Map<string, string>();

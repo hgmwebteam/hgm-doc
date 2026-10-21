@@ -16,6 +16,7 @@ import {
     hasFilters,
     isOverdue,
     metricsOf,
+    openBadgeLabel,
     requestHref,
     sortTickets,
 } from "./client-requests-model.ts";
@@ -109,5 +110,9 @@ assert.deepEqual(
     { status: "completed", completed_at: "2026-10-21T15:59:00Z" },
     "the fresh stamp wins",
 );
+
+/* 7. The side menu badge's words. */
+assert.equal(openBadgeLabel(3, 1), "3 open requests, 1 awaiting review");
+assert.equal(openBadgeLabel(1, 0), "1 open request");
 
 console.log("client-requests-model: all checks pass");

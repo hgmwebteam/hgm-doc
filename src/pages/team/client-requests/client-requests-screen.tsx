@@ -14,33 +14,30 @@
  * buttons rather than adding the metrics component, which brings recharts and a trend
  * indicator this page has no data for. Rules (overdue, this month, filters, sort) live in
  * client-requests-model.ts with a self-check beside it. No em or en dashes in the copy.
+ *
+ * Phase 2 (owner, 21 Oct 2026): a plain click on a row opens the request in a slide-out
+ * (request-panel.tsx) instead of leaving the page. The open request is ?request=REQ-nnnn in
+ * the URL, pushed with a marker in history state so closing the panel is a Back; a panel
+ * opened from a pasted link closes by dropping the parameter instead. Rows stay links to the
+ * full request page: React Aria hands a plain click to the router, and the RouterProvider
+ * around the table turns that into opening the panel, while Cmd/Ctrl-click still opens the
+ * page in a new tab (openLink). The phone's cards are real anchors that do the same.
  */
 import { type ReactNode, useEffect, useState } from "react";
 import { AlertCircle, Inbox01, LogIn01, Plus, RefreshCw01, SearchLg } from "@untitledui/icons";
 import type { SortDescriptor } from "react-aria-components";
-import { ToggleButton as AriaToggleButton } from "react-aria-components";
-import { Link } from "react-router";
+import { RouterProvider as AriaRouterProvider, ToggleButton as AriaToggleButton } from "react-aria-components";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
 import { Table, TableCard } from "@/components/application/table/table";
 import { TabList, Tabs } from "@/components/application/tabs/tabs";
-import { Badge, BadgeWithButton, BadgeWithDot } from "@/components/base/badges/badges";
+import { BadgeWithButton } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
 import { HelpApiError, fetchAllTickets, fetchTopics, useDifferentAccount } from "@/pages/client/help/help-api";
-import {
-    PRIORITIES,
-    type Priority,
-    STATUS_META,
-    type Ticket,
-    type TicketStatus,
-    type TicketTopic,
-    formatRaisedDay,
-    isOpen,
-    todayIsoDay,
-    topicLabel,
-} from "@/pages/client/help/help-model";
+import { PRIORITIES, type Priority, type Ticket, type TicketTopic, formatRaisedDay, isOpen, todayIsoDay, topicLabel } from "@/pages/client/help/help-model";
 import {
     type Filters,
     METRIC_FILTERS,
@@ -58,23 +55,12 @@ import {
     requestHref,
     sortTickets,
 } from "@/pages/team/client-requests/client-requests-model";
+import { PriorityBadge, StatusBadge } from "@/pages/team/client-requests/request-badges";
+import { RequestPanel } from "@/pages/team/client-requests/request-panel";
 import { cx } from "@/utils/cx";
 
 /** Ten pages. Past this the header says how many are shown; /team/tickets pages through the rest. */
 const MAX_ROWS = 2000;
-
-/** Status badge colours (owner, 21 Oct 2026); the words are help-model's STATUS_META. */
-const STATUS_COLOR: Record<TicketStatus, "gray" | "brand" | "warning" | "success"> = {
-    received: "gray",
-    assigned: "gray",
-    in_progress: "brand",
-    in_review: "warning",
-    completed: "success",
-    withdrawn: "gray",
-};
-
-/** The priority tints the request form's chips use (help-model PRIORITIES): blue, green, yellow, red. */
-const PRIORITY_COLOR: Record<Priority, "brand" | "success" | "warning" | "error"> = { low: "brand", medium: "success", high: "warning", urgent: "error" };
 
 const ALL = "all";
 const PRIORITY_ITEMS = [{ id: ALL, label: "All priorities" }, ...PRIORITIES.map((p) => ({ id: p.key, label: p.label }))];
@@ -125,6 +111,36 @@ export const ClientRequestsContent = () => {
     }, [attempt]);
 
     const rows = load.kind === "ready" ? load.rows : [];
+
+    // The open request (phase 2). Opening pushes, marked in history state, so Back closes it.
+    const [params, setParams] = useSearchParams();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const openRef = params.get("request");
+    const openRequest = (reference: string) =>
+        setParams(
+            (p) => {
+                const next = new URLSearchParams(p);
+                next.set("request", reference);
+                return next;
+            },
+            { state: { requestPanel: true } },
+        );
+    const closeRequest = () => {
+        if ((location.state as { requestPanel?: boolean } | null)?.requestPanel) navigate(-1);
+        else
+            setParams(
+                (p) => {
+                    const next = new URLSearchParams(p);
+                    next.delete("request");
+                    return next;
+                },
+                { replace: true },
+            );
+    };
+    /** Approve in the panel: the row and the metric cards move without a reload. */
+    const patchRow = (id: string, patch: Partial<Ticket>) =>
+        setLoad((l) => (l.kind === "ready" ? { ...l, rows: l.rows.map((t) => (t.id === id ? { ...t, ...patch } : t)) } : l));
 
     // Category labels come from the database. The endpoint wants a slug only to prove who is
     // asking, so any loaded client's will do, as on /team/tickets; until it answers, the key
@@ -280,11 +296,11 @@ export const ClientRequestsContent = () => {
                                 ) : (
                                     <>
                                         <div className="max-md:hidden">
-                                            <RequestsTable rows={shown} topics={topics} today={today} sort={sort} onSortChange={setSort} />
+                                            <RequestsTable rows={shown} topics={topics} today={today} sort={sort} onSortChange={setSort} onOpen={openRequest} />
                                         </div>
                                         <ul className="divide-y divide-secondary md:hidden">
                                             {shown.map((t) => (
-                                                <RequestCard key={t.id} t={t} topics={topics} today={today} />
+                                                <RequestCard key={t.id} t={t} topics={topics} today={today} onOpen={openRequest} />
                                             ))}
                                         </ul>
                                     </>
@@ -294,6 +310,16 @@ export const ClientRequestsContent = () => {
                     )}
                 </div>
             </div>
+
+            <RequestPanel
+                reference={load.kind === "error" ? null : openRef}
+                row={rows.find((t) => t.reference === openRef)}
+                rowsReady={load.kind === "ready"}
+                topics={topics}
+                today={today}
+                onClose={closeRequest}
+                onRowChanged={patchRow}
+            />
         </div>
     );
 };
@@ -321,23 +347,6 @@ const MetricCard = ({ label, value, alert, active, onPress }: { label: string; v
     </AriaToggleButton>
 );
 
-const StatusBadge = ({ status }: { status: TicketStatus }) => (
-    <Badge type="pill-color" size="sm" color={STATUS_COLOR[status]} className="whitespace-nowrap">
-        {STATUS_META[status].label}
-    </Badge>
-);
-
-const PriorityBadge = ({ priority }: { priority: Priority | null | undefined }) => {
-    const meta = PRIORITIES.find((p) => p.key === priority);
-    return meta ? (
-        <BadgeWithDot type="modern" size="sm" color={PRIORITY_COLOR[meta.key]}>
-            {meta.label}
-        </BadgeWithDot>
-    ) : (
-        <span className="text-sm text-quaternary">Not set</span>
-    );
-};
-
 const NeededBy = ({ t, today, prefix = "" }: { t: Ticket; today: string; prefix?: string }) =>
     t.needed_by ? (
         <span className={cx("whitespace-nowrap", isOverdue(t, today) && "font-medium text-error-primary")}>
@@ -352,9 +361,10 @@ const NeededBy = ({ t, today, prefix = "" }: { t: Ticket; today: string; prefix?
 const assigneeOf = (t: Ticket) => (t.assignee_name ?? "").trim();
 
 /**
- * The table, md and up. Each row is a React Aria link row: a click goes through the app's
- * router, and Cmd/Ctrl-click or Enter with a modifier opens the request in a new tab, which
- * React Aria does for link rows in every browser (openLink).
+ * The table, md and up. Each row is a React Aria link row to the full request page. A plain
+ * click or Enter goes to the router, which here is the RouterProvider below: it opens the
+ * panel instead (the row's routerOptions carry its reference). Cmd/Ctrl-click never reaches
+ * a router; React Aria opens the page in a new tab (openLink), in every browser.
  */
 const RequestsTable = ({
     rows,
@@ -362,68 +372,77 @@ const RequestsTable = ({
     today,
     sort,
     onSortChange,
+    onOpen,
 }: {
     rows: Ticket[];
     topics: TicketTopic[];
     today: string;
     sort: SortDescriptor;
     onSortChange: (s: SortDescriptor) => void;
+    onOpen: (reference: string) => void;
 }) => (
-    // Cells padded 12 rather than the kit's 20/24, so all eight columns fit the 1280 dashboard
-    // with its side menu open; the outer edges keep 20.
-    <Table
-        aria-label="Client requests"
-        size="sm"
-        sortDescriptor={sort}
-        onSortChange={onSortChange}
-        className="[&_td]:px-3 [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th]:px-3 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5"
-    >
-        <Table.Header>
-            <Table.Head id="reference" label="Reference" />
-            <Table.Head id="request" label="Request" isRowHeader className="w-full" />
-            <Table.Head id="client" label="Client" />
-            <Table.Head id="priority" label="Priority" />
-            <Table.Head id="status" label="Status" />
-            <Table.Head id="created_at" label="Raised" allowsSorting />
-            <Table.Head id="needed_by" label="Needed by" allowsSorting />
-            <Table.Head id="assignee" label="Assigned to" />
-        </Table.Header>
-        {/* React Aria caches a row by its item, so cells that read anything else must name it here. */}
-        <Table.Body items={rows} dependencies={[topics, today]}>
-            {(t) => (
-                <Table.Row id={t.id} href={requestHref(t)} className="cursor-pointer">
-                    <Table.Cell className="font-mono text-xs whitespace-nowrap text-secondary">{t.reference}</Table.Cell>
-                    <Table.Cell>
-                        <div className="flex max-w-96 min-w-36 flex-col">
-                            <span className="line-clamp-2 font-medium text-primary" title={t.title}>
-                                {t.title}
-                            </span>
-                            <span className="text-tertiary">{topicLabel(topics, t.topic)}</span>
-                        </div>
-                    </Table.Cell>
-                    <Table.Cell className="text-secondary">{clientNameOf(t)}</Table.Cell>
-                    <Table.Cell>
-                        <PriorityBadge priority={t.priority} />
-                    </Table.Cell>
-                    <Table.Cell>
-                        <StatusBadge status={t.status} />
-                    </Table.Cell>
-                    <Table.Cell className="whitespace-nowrap">{formatRaisedDay(t.created_at)}</Table.Cell>
-                    <Table.Cell>
-                        <NeededBy t={t} today={today} />
-                    </Table.Cell>
-                    <Table.Cell>{assigneeOf(t) || <span className="text-quaternary">Not assigned</span>}</Table.Cell>
-                </Table.Row>
-            )}
-        </Table.Body>
-    </Table>
+    <AriaRouterProvider navigate={(_href, options) => onOpen(String((options?.state as { request?: string } | undefined)?.request ?? ""))}>
+        {/* Cells padded 12 rather than the kit's 20/24, so all eight columns fit the 1280 dashboard
+    with its side menu open; the outer edges keep 20. */}
+        <Table
+            aria-label="Client requests"
+            size="sm"
+            sortDescriptor={sort}
+            onSortChange={onSortChange}
+            className="[&_td]:px-3 [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th]:px-3 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5"
+        >
+            <Table.Header>
+                <Table.Head id="reference" label="Reference" />
+                <Table.Head id="request" label="Request" isRowHeader className="w-full" />
+                <Table.Head id="client" label="Client" />
+                <Table.Head id="priority" label="Priority" />
+                <Table.Head id="status" label="Status" />
+                <Table.Head id="created_at" label="Raised" allowsSorting />
+                <Table.Head id="needed_by" label="Needed by" allowsSorting />
+                <Table.Head id="assignee" label="Assigned to" />
+            </Table.Header>
+            {/* React Aria caches a row by its item, so cells that read anything else must name it here. */}
+            <Table.Body items={rows} dependencies={[topics, today]}>
+                {(t) => (
+                    <Table.Row id={t.id} href={requestHref(t)} routerOptions={{ state: { request: t.reference } }} className="cursor-pointer">
+                        <Table.Cell className="font-mono text-xs whitespace-nowrap text-secondary">{t.reference}</Table.Cell>
+                        <Table.Cell>
+                            <div className="flex max-w-96 min-w-36 flex-col">
+                                <span className="line-clamp-2 font-medium text-primary" title={t.title}>
+                                    {t.title}
+                                </span>
+                                <span className="text-tertiary">{topicLabel(topics, t.topic)}</span>
+                            </div>
+                        </Table.Cell>
+                        <Table.Cell className="text-secondary">{clientNameOf(t)}</Table.Cell>
+                        <Table.Cell>
+                            <PriorityBadge priority={t.priority} />
+                        </Table.Cell>
+                        <Table.Cell>
+                            <StatusBadge status={t.status} />
+                        </Table.Cell>
+                        <Table.Cell className="whitespace-nowrap">{formatRaisedDay(t.created_at)}</Table.Cell>
+                        <Table.Cell>
+                            <NeededBy t={t} today={today} />
+                        </Table.Cell>
+                        <Table.Cell>{assigneeOf(t) || <span className="text-quaternary">Not assigned</span>}</Table.Cell>
+                    </Table.Row>
+                )}
+            </Table.Body>
+        </Table>
+    </AriaRouterProvider>
 );
 
-/** Below md: one card per request, the whole card a real link. */
-const RequestCard = ({ t, topics, today }: { t: Ticket; topics: TicketTopic[]; today: string }) => (
+/** Below md: one card per request, the whole card a real link; a plain tap opens the panel (a full-screen sheet here). */
+const RequestCard = ({ t, topics, today, onOpen }: { t: Ticket; topics: TicketTopic[]; today: string; onOpen: (reference: string) => void }) => (
     <li>
         <Link
             to={requestHref(t)}
+            onClick={(e) => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                onOpen(t.reference);
+            }}
             className="flex flex-col gap-2.5 px-4 py-4 outline-focus-ring transition duration-100 ease-linear hover:bg-primary_hover focus-visible:outline-2 focus-visible:-outline-offset-2"
         >
             <div className="flex items-start justify-between gap-3">

@@ -7,7 +7,18 @@
  */
 import assert from "node:assert/strict";
 import type { Ticket } from "../../client/help/help-model.ts";
-import { NO_FILTERS, applyFilters, clientOptions, hasFilters, isOverdue, metricsOf, requestHref, sortTickets } from "./client-requests-model.ts";
+import {
+    NO_FILTERS,
+    applyFilters,
+    approvedPatch,
+    clientOptions,
+    eventLabel,
+    hasFilters,
+    isOverdue,
+    metricsOf,
+    requestHref,
+    sortTickets,
+} from "./client-requests-model.ts";
 
 const TODAY = "2026-10-21";
 const NOW = new Date(2026, 9, 21, 12);
@@ -81,5 +92,22 @@ assert.deepEqual(clientOptions(rows), [
     { id: "stay-saluda-dashboard", label: "Stay Saluda" },
 ]);
 assert.equal(requestHref(rows[3]), "/stay-saluda/help/requests/REQ-4");
+
+/* 6. The panel: event headings, and what a row becomes after Approve. */
+assert.equal(eventLabel("team_update"), "Team update");
+assert.equal(eventLabel("route_failed"), "Could not be routed");
+assert.equal(eventLabel("asana_synced"), "Asana synced", "an unknown kind reads as words");
+const STAMP = "2026-10-21T16:00:00.000Z";
+assert.deepEqual(approvedPatch(null, STAMP), { status: "completed", completed_at: STAMP }, "no fresh read: completed now");
+assert.deepEqual(
+    approvedPatch({ status: "in_review", completed_at: null }, STAMP),
+    { status: "completed", completed_at: STAMP },
+    "the platform has not written yet",
+);
+assert.deepEqual(
+    approvedPatch({ status: "completed", completed_at: "2026-10-21T15:59:00Z" }, STAMP),
+    { status: "completed", completed_at: "2026-10-21T15:59:00Z" },
+    "the fresh stamp wins",
+);
 
 console.log("client-requests-model: all checks pass");

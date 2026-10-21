@@ -18,6 +18,7 @@ import {
     Grid01,
     Home02,
     Image01,
+    Inbox01,
     LayoutAlt01,
     List,
     Lock01,
@@ -63,6 +64,7 @@ import { ACCOUNT_MANAGERS, MARKETING_ASSISTANTS, OWNER_EMAIL, WEB_TEAM } from "@
 // own "+ New Page" wizard produces, so it uses the same function that wizard does.
 import { slugify as dashboardSlugify, genSharePassword, newDashboardRow } from "@/pages/client/dashboard/dashboard-model";
 import { AssetCollectionContent } from "@/pages/team/asset-collection/asset-collection-screen";
+import { ClientRequestsContent } from "@/pages/team/client-requests/client-requests-screen";
 import { LandingPageDirectoryContent } from "@/pages/team/landing-page-directory/landing-page-directory";
 import { SOP_DEPARTMENTS, sopDeptTabId } from "@/pages/team/sops/sop-departments";
 import { SopsContent } from "@/pages/team/sops/sops-content";
@@ -307,7 +309,14 @@ const DEPARTMENTS: Department[] = [
         // Client Websites: each AI website's own /admin, in a new tab. Each site signs in with
         // its own admin password; the site's cookie keeps you in after that (7 days on most).
         extraGroups: [
-            { label: "Client Input", tabs: [{ id: "owner-guides", label: "Owner Guides", icon: BookOpen01 }] },
+            // Client Requests: every client's help-centre requests in one table (owner, 21 Oct 2026).
+            {
+                label: "Client Input",
+                tabs: [
+                    { id: "owner-guides", label: "Owner Guides", icon: BookOpen01 },
+                    { id: "client-requests", label: "Client Requests", icon: Inbox01 },
+                ],
+            },
             {
                 label: "Client Websites",
                 tabs: [
@@ -4055,6 +4064,8 @@ const DashboardLayout = () => {
                             <SopsContent tab={activeSection} onSelectTab={selectTab} />
                         ) : activeSection === "owner-guides" ? (
                             <OwnerGuidesContent editing={editing} isOwner={isOwner} />
+                        ) : dept.id === "website" && activeSection === "client-requests" ? (
+                            <ClientRequestsContent />
                         ) : dept.id === "website" && activeSection === "asset-collection" ? (
                             <AssetCollectionContent />
                         ) : dept.id === "website" && (activeSection === "landing-page" || activeSection === "landing-page-prompts") ? (

@@ -14,6 +14,7 @@ import {
     Edit01,
     FilePlus02,
     FolderClosed,
+    Globe01,
     Grid01,
     Home02,
     Image01,
@@ -218,7 +219,8 @@ interface DeptTab {
     id: string;
     label: string;
     icon: typeof Share07;
-    /** Set ⇒ the row is a link to its own page rather than a card grid inside this one. */
+    /** Set ⇒ the row is a link to its own page rather than a card grid inside this one.
+        An http(s) URL opens in a new tab (selectTab). */
     to?: string;
 }
 
@@ -302,7 +304,25 @@ const DEPARTMENTS: Department[] = [
         sectionLabel: "Workflow",
         kind: "cards",
         tabs: [{ id: "overview", label: "Overview", icon: LayoutAlt01 }],
-        extraGroups: [{ label: "Client Input", tabs: [{ id: "owner-guides", label: "Owner Guides", icon: BookOpen01 }] }],
+        // Client Websites: each AI website's own /admin, in a new tab. Each site signs in with
+        // its own admin password; the site's cookie keeps you in after that (7 days on most).
+        extraGroups: [
+            { label: "Client Input", tabs: [{ id: "owner-guides", label: "Owner Guides", icon: BookOpen01 }] },
+            {
+                label: "Client Websites",
+                tabs: [
+                    { id: "site-cohost", label: "The CoHost Company", icon: Globe01, to: "https://thecohostcompany.com/admin" },
+                    { id: "site-flohom", label: "Flohom", icon: Globe01, to: "https://flohom.com/admin" },
+                    { id: "site-inspired-retreats", label: "Inspired Retreats", icon: Globe01, to: "https://stayinspiredretreats.com/admin" },
+                    { id: "site-little-river", label: "Little River Landing", icon: Globe01, to: "https://staylittleriver.com/admin" },
+                    { id: "site-paradise-pointe", label: "Paradise Pointe", icon: Globe01, to: "https://stayparadisepointe.com/admin" },
+                    { id: "site-stay-on-30a", label: "Stay on 30a", icon: Globe01, to: "https://stayon30a.com/admin" },
+                    { id: "site-stay-saluda", label: "Stay Saluda", icon: Globe01, to: "https://staysaluda.com/admin" },
+                    { id: "site-taberg-falls", label: "Taberg Falls", icon: Globe01, to: "https://tabergfalls.com/admin" },
+                    { id: "site-treetop", label: "Treetop Escapes", icon: Globe01, to: "https://staytreetopescapes.com/admin" },
+                ],
+            },
+        ],
         // Landing Page sits under Workflow as a section of its own, with its own tab list so
         // landing-page work doesn't pile into the website workflow tabs. Its Directory and Prompt
         // Library rows are the two pages of the Landing Page Directory tool
@@ -3966,7 +3986,8 @@ const DashboardLayout = () => {
      *  empty (Clients). */
     const selectTab = (id: string) => {
         const t = [...tabs, ...sections.flatMap((s) => s.tabs), ...(dept.extraGroups?.flatMap((g) => g.tabs) ?? [])].find((x) => x.id === id);
-        if (t?.to) navigate(t.to);
+        if (t?.to?.startsWith("http")) window.open(t.to, "_blank", "noopener,noreferrer");
+        else if (t?.to) navigate(t.to);
         else setActiveSection(id);
     };
 

@@ -241,11 +241,24 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
     </section>
 );
 
-const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
-    <>
-        <dt className="text-tertiary">{label}</dt>
-        <dd className="min-w-0 break-words text-primary">{children}</dd>
-    </>
+/**
+ * The facts in labelled groups, each one drawn like a filled, read-only Untitled UI input (sm):
+ * label above, value in the bordered box (owner's Loom, 21 Oct 2026: one long list was hard to
+ * scan). Still a description list, so it reads as facts and adds no tab stops.
+ */
+const Facts = ({ title, children }: { title: string; children: ReactNode }) => (
+    <Section title={title}>
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</dl>
+    </Section>
+);
+
+const Fact = ({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) => (
+    <div className={cx("flex min-w-0 flex-col gap-1.5", wide && "sm:col-span-2")}>
+        <dt className="text-sm font-medium text-secondary">{label}</dt>
+        <dd className="flex min-h-9 min-w-0 flex-col items-start justify-center rounded-lg bg-primary px-3 py-2 text-sm break-words text-primary shadow-xs ring-1 ring-primary ring-inset">
+            {children}
+        </dd>
+    </div>
 );
 
 const Muted = ({ children }: { children: ReactNode }) => <span className="text-quaternary">{children}</span>;
@@ -283,12 +296,16 @@ const Ready = ({
                 </div>
             )}
 
-            <dl className="grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm">
+            <Facts title="Details">
                 <Fact label="Client">{clientNameOf(t) || <Muted>Not given</Muted>}</Fact>
                 <Fact label="Category">{topicLabel(topics, t.topic)}</Fact>
                 <Fact label="Priority">
                     <PriorityBadge priority={t.priority} />
                 </Fact>
+                {(t.property ?? "").trim() && <Fact label="Property">{t.property}</Fact>}
+            </Facts>
+
+            <Facts title="Dates">
                 <Fact label="Raised">{formatStampWithTime(t.created_at)}</Fact>
                 <Fact label="Needed by">
                     {t.needed_by ? (
@@ -301,14 +318,16 @@ const Ready = ({
                     )}
                 </Fact>
                 {t.promised_date && <Fact label="Promised">{formatDueDay(t.promised_date)}</Fact>}
+            </Facts>
+
+            <Facts title="People">
                 <Fact label="Assigned to">{(t.assignee_name ?? "").trim() || <Muted>Not assigned</Muted>}</Fact>
                 <Fact label="Account manager">{amName(t) || <Muted>None</Muted>}</Fact>
-                <Fact label="Submitted by">
+                <Fact label="Submitted by" wide>
                     {by || <Muted>Not given</Muted>}
-                    {t.submitted_by && <span className="block text-tertiary">{t.submitted_by}</span>}
+                    {t.submitted_by && <span className="text-tertiary">{t.submitted_by}</span>}
                 </Fact>
-                {(t.property ?? "").trim() && <Fact label="Property">{t.property}</Fact>}
-            </dl>
+            </Facts>
 
             <Section title="Request">
                 {(t.detail ?? "").trim() ? (

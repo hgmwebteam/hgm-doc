@@ -3927,8 +3927,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                 ))}
                                                                             {/* Walkthrough for a step people get stuck on, beside the action
                                                                                 itself rather than behind the Help menu — a client who can't
-                                                                                work out how to join won't go looking for it elsewhere. */}
-                                                                            {step.helpHref && !step.done && (
+                                                                                work out how to join won't go looking for it elsewhere. Hidden while
+                                                                                a link the step waits on is still missing: there's nothing to join yet. */}
+                                                                            {step.helpHref && !step.done && !(step.hrefFrom && !step.href) && (
                                                                                 <Button
                                                                                     size="sm"
                                                                                     color="link-color"
@@ -4000,7 +4001,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                                                     </Button>
                                                                                 ))}
                                                                         </div>
-                                                                        {step.helpNote && !step.done && (
+                                                                        {step.helpNote && !step.done && !(step.hrefFrom && !step.href) && (
                                                                             <p className="mt-2 text-xs text-pretty text-tertiary">{step.helpNote}</p>
                                                                         )}
                                                                     </div>

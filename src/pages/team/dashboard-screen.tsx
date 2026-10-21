@@ -651,8 +651,9 @@ const Sidebar = ({
                 {onCollapse && <NavCollapseButton onClick={onCollapse} />}
             </div>
 
-            {/* Nav */}
-            <nav className="flex-1 px-3 py-4">
+            {/* Nav. Scrolls on its own: the aside clips overflow, and the Web Team menu (Client
+                Websites plus Workflow) is taller than a laptop screen. */}
+            <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
                 {/* Extra static groups (e.g. "Client Input") rendered above the main
                 section, each separated by a divider. */}
                 {department.extraGroups?.map((group) => (

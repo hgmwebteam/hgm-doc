@@ -21,6 +21,7 @@ import {
     HelpCircle,
     Image01,
     LinkExternal01,
+    Menu01,
     MessageChatCircle,
     Moon01,
     Palette,
@@ -1708,6 +1709,11 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
     const [dragging, setDragging] = useState(false);
     const railRef = useRef<HTMLElement>(null);
+    /* Below md the menu stacks above the content, and at its full height it left the content
+       0px tall: a client on a phone could tap "Onboarding Form" and never see it. So on a phone
+       the menu folds behind a Menu button in the identity row, and picking a row folds it again.
+       Ignored from md up, where the menu is always beside the content. */
+    const [menuOpen, setMenuOpen] = useState(false);
 
     // Read after mount only, never during render, and tolerate a blocked/empty store.
     useEffect(() => {
@@ -1768,6 +1774,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
 
     /** Nav rows are section switches, bar the two link rows: Folder of Content and Help Centre. */
     const openNavItem = (id: SectionId) => {
+        setMenuOpen(false);
         if (id === "contentfolder") {
             const url = content.brand.folder_link.trim();
             if (url) window.open(url, "_blank", "noopener,noreferrer");
@@ -2834,6 +2841,8 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                 // The rail sits on its own background, one step off the content — the
                                 // hairline then separates two surfaces rather than splitting one.
                                 "relative flex w-full shrink-0 flex-col overflow-visible border-secondary bg-secondary md:h-full md:w-[var(--rail)] md:border-r",
+                                // Open on a phone, the menu takes the screen and its nav scrolls.
+                                menuOpen && "max-md:min-h-0 max-md:flex-1",
                                 // Never transition width during a drag — it lags the pointer.
                                 !dragging && "md:transition-[width] md:duration-100 md:ease-linear",
                             )}
@@ -2943,10 +2952,20 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                         {content.status}
                                     </BadgeWithDot>
                                 </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setMenuOpen((o) => !o)}
+                                    aria-expanded={menuOpen}
+                                    aria-controls="dashboard-menu"
+                                    className="ml-auto flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-secondary ring-1 ring-secondary transition duration-100 ease-linear hover:bg-primary hover:text-primary md:hidden"
+                                >
+                                    {menuOpen ? <XClose className="size-5" aria-hidden="true" /> : <Menu01 className="size-5" aria-hidden="true" />}
+                                    {menuOpen ? "Close" : "Menu"}
+                                </button>
                             </div>
 
                             {/* Dashboard search — client-scoped, directly under the identity block */}
-                            <div className="px-3 pt-3">
+                            <div className={cx("px-3 pt-3", !menuOpen && "max-md:hidden")}>
                                 {/* openNavItem, not setActiveSection: two rows in the menu are links
                                     rather than sections (Folder of Content, Help Centre) and have no
                                     body to switch to. Selecting one here used to set activeSection to
@@ -2959,19 +2978,19 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                             {/* Overview — pinned above the groups as the client's main dashboard. Never
                                 hideable and never "Soon": it's the landing view, so a client always has
                                 somewhere to arrive and somewhere to get back to. */}
-                            <div className="p-3 pb-0 md:pb-0">
+                            <div id="dashboard-menu" className={cx("p-3 pb-0 md:pb-0", !menuOpen && "max-md:hidden")}>
                                 <SectionNavItem
                                     icon={OVERVIEW_ITEM.icon}
                                     label={OVERVIEW_ITEM.label}
                                     current={activeSection === "overview"}
-                                    onClick={() => setActiveSection("overview")}
+                                    onClick={() => openNavItem("overview")}
                                 />
                             </div>
 
                             {/* Funnel groups — Foundation → Top → Middle → Bottom, the same mental model
                     Dustin walks every client through on the onboarding call. */}
                             <motion.nav
-                                className="flex-1 overflow-y-auto p-3 md:overflow-y-auto"
+                                className={cx("flex-1 overflow-y-auto p-3 md:overflow-y-auto", !menuOpen && "max-md:hidden")}
                                 initial="hidden"
                                 animate="show"
                                 variants={{ show: { transition: { staggerChildren: 0.04 } } }}
@@ -3185,7 +3204,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                             {/* Footer — website link + appearance + background upload. Wrapped so the
                     custom side-menu background (below) starts exactly at its top edge,
                     whatever this block's height ends up being, instead of a fixed guess. */}
-                            <div className="relative isolate flex flex-col">
+                            <div className={cx("relative isolate flex flex-col", !menuOpen && "max-md:hidden")}>
                                 {/* Custom side-menu background — optional, uploaded in edit mode below.
                         The current solid color stays the default everywhere above the footer;
                         the image only shows behind the footer itself. */}
@@ -3366,7 +3385,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                             resolve against <body>, escape the overflow clip, and stretch the
                             document, so the window itself scrolls and the whole h-dvh shell
                             (side menu included) slides off the top of the viewport. */}
-                        <div className="relative min-w-0 flex-1 overflow-y-auto">
+                        <div className={cx("relative min-w-0 flex-1 overflow-y-auto", menuOpen && "max-md:hidden")}>
                             {/* Fluid body — the card fills the canvas. Combined with the grey canvas's
                 own p-2 (8px), md:px-6 (24px) yields a 32px gap to the side menu and the
                 right edge; zero vertical padding keeps the card's top/bottom flush with

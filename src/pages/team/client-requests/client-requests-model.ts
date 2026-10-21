@@ -120,6 +120,39 @@ export const sortTickets = (tickets: Ticket[], column: SortColumn, direction: "a
     });
 };
 
+/**
+ * A history entry's heading in the request panel (phase 2, owner, 21 Oct 2026). Staff read
+ * every event kind, the routing ones a client never sees included; a kind added later reads
+ * as its own words rather than a key.
+ */
+const EVENT_LABELS: Record<string, string> = {
+    received: "Received",
+    assigned: "Assigned",
+    in_progress: "In progress",
+    in_review: "Awaiting review",
+    team_update: "Team update",
+    client_question: "Client asked",
+    promised_date_set: "Due date set",
+    route_failed: "Could not be routed",
+    completed: "Completed",
+    withdrawn: "Withdrawn",
+};
+
+export const eventLabel = (kind: string): string => {
+    const words = kind.replace(/[-_]+/g, " ").trim();
+    return EVENT_LABELS[kind] ?? (words ? words.charAt(0).toUpperCase() + words.slice(1) : "Update");
+};
+
+/** The patch a list row takes after Approve: the fresh read when it moved on, else completed now (the platform said yes). */
+export const approvedPatch = (fresh: Pick<Ticket, "status" | "completed_at"> | null, nowIso: string): Pick<Ticket, "status" | "completed_at"> =>
+    fresh && fresh.status !== "in_review"
+        ? { status: fresh.status, completed_at: fresh.completed_at ?? (fresh.status === "completed" ? nowIso : null) }
+        : { status: "completed", completed_at: nowIso };
+
+/** The side menu badge's spoken words (phase 3, owner, 21 Oct 2026): "3 open requests, 1 awaiting review". */
+export const openBadgeLabel = (open: number, inReview: number): string =>
+    `${open} open ${open === 1 ? "request" : "requests"}${inReview ? `, ${inReview} awaiting review` : ""}`;
+
 /** The Client select's options: each client on the loaded rows once, by name. */
 export const clientOptions = (tickets: Ticket[]): { id: string; label: string }[] => {
     const seen = new Map<string, string>();

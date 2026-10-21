@@ -65,6 +65,7 @@ import { ACCOUNT_MANAGERS, MARKETING_ASSISTANTS, OWNER_EMAIL, WEB_TEAM } from "@
 import { slugify as dashboardSlugify, genSharePassword, newDashboardRow } from "@/pages/client/dashboard/dashboard-model";
 import { AssetCollectionContent } from "@/pages/team/asset-collection/asset-collection-screen";
 import { ClientRequestsContent } from "@/pages/team/client-requests/client-requests-screen";
+import { OpenRequestsBadge } from "@/pages/team/client-requests/open-requests-badge";
 import { LandingPageDirectoryContent } from "@/pages/team/landing-page-directory/landing-page-directory";
 import { SOP_DEPARTMENTS, sopDeptTabId } from "@/pages/team/sops/sop-departments";
 import { SopsContent } from "@/pages/team/sops/sops-content";
@@ -224,6 +225,9 @@ interface DeptTab {
     /** Set ⇒ the row is a link to its own page rather than a card grid inside this one.
         An http(s) URL opens in a new tab (selectTab). */
     to?: string;
+    /** Drawn at the row's end, e.g. Client Requests' open count. A component so it reads
+        its own data and draws nothing when it has nothing to say (owner, 21 Oct 2026). */
+    badge?: () => ReactNode;
 }
 
 /** A card section rendered below the department's main one, with its own tab list. */
@@ -314,7 +318,7 @@ const DEPARTMENTS: Department[] = [
                 label: "Client Input",
                 tabs: [
                     { id: "owner-guides", label: "Owner Guides", icon: BookOpen01 },
-                    { id: "client-requests", label: "Client Requests", icon: Inbox01 },
+                    { id: "client-requests", label: "Client Requests", icon: Inbox01, badge: OpenRequestsBadge },
                 ],
             },
             {
@@ -485,6 +489,7 @@ const NavRow = ({
         >
             <item.icon className="size-4 shrink-0" aria-hidden="true" />
             <span className="truncate">{item.label}</span>
+            {item.badge && <item.badge />}
         </button>
         {editing && isCustom && (
             <button

@@ -581,9 +581,10 @@ const AskBlock = ({ ticket, proof, onAsked }: { ticket: Ticket; proof: CallerPro
  * frame draws no such card, so it is the withdraw confirm's shape: a flat card, a label/field
  * line, a helper sentence and one primary button, full width at 390. The sentence says what
  * Approve will do and promises a completion email only when one was asked for. A refusal is
- * the server's own sentence, in the error text under it.
+ * the server's own sentence, in the error text under it. Exported for the team dashboard's
+ * request panel (Client Requests, owner, 21 Oct 2026), which renders it inside an .hc scope.
  */
-const ApproveBlock = ({ ticket, proof, onApproved }: { ticket: Ticket; proof: CallerProof; onApproved: (line: string) => void }) => {
+export const ApproveBlock = ({ ticket, proof, onApproved }: { ticket: Ticket; proof: CallerProof; onApproved: (line: string) => void }) => {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const client = (ticket.client_name ?? "").trim() || "The client";

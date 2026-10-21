@@ -80,6 +80,7 @@ import { BrandPreview } from "@/pages/client/dashboard/brand-kit-preview";
 import { ShadeScales } from "@/pages/client/dashboard/brand-kit-shades";
 import { type FontRole, TypeScale, TypographyCards, hasThirdHeadingFont } from "@/pages/client/dashboard/brand-kit-typography";
 import { readableTextOn, rgbString, wcagLabel } from "@/pages/client/dashboard/color-scale";
+import { loadAccessSecrets, saveAccessSecrets } from "@/pages/client/dashboard/dashboard-access";
 import {
     ClientSearchBar,
     DashboardAccessGate,
@@ -93,6 +94,7 @@ import {
     editInput,
 } from "@/pages/client/dashboard/dashboard-chrome";
 import {
+    type AccessSecrets,
     type BrandColor,
     DEFAULT_CLIENT_VISIBLE,
     DEFAULT_FOUNDATION,
@@ -122,18 +124,22 @@ import {
     filled,
     findDashboardUser,
     handleFromProfileUrl,
+    isGateArmed,
     isTemplatePalette,
     isUntouchedBrandKit,
     mergeContent,
     mergeFoundationDraft,
     normEmail,
-    passwordFor,
     readDashboardUsers,
+    secretsFromUsers,
     sectionsForViewer,
     slugify,
     statusColor,
+    stripAccessSecrets,
     uid,
     usersToAllowedEmails,
+    withPasswords,
+    withoutPasswords,
 } from "@/pages/client/dashboard/dashboard-model";
 import {
     JOURNEY_BAR,
@@ -351,19 +357,45 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
      * This is a staged rollout, not the finished state. Once every dashboard has a list,
      * the check becomes unconditional and the read-gating RLS policy lands with it.
      */
-    const sharePassword = (content.share_password ?? "").trim();
+    /**
+     * The passwords, for the team's access panel only. They are not on `content` (the row is
+     * anon-readable; see dashboard-model.ts, "Where the passwords live"), so they are read
+     * from dashboard_access_secrets once a @hiddengem.media session exists, and held here,
+     * beside the row rather than in it. Null until read; `accessSecretsFailed` when the read
+     * failed, in which case the panel is not offered at all — saving a set that never loaded
+     * would wipe the real one.
+     */
+    const [accessSecrets, setAccessSecrets] = useState<AccessSecrets | null>(null);
+    const [accessSecretsFailed, setAccessSecretsFailed] = useState(false);
+    useEffect(() => {
+        if (!slug || isTemplate || !signedInAsTeam) return;
+        let live = true;
+        void loadAccessSecrets(slug, content).then((s) => {
+            if (!live) return;
+            setAccessSecrets(s);
+            setAccessSecretsFailed(!s);
+        });
+        return () => {
+            live = false;
+        };
+        // Seeded from the row as first loaded: only a row the new code never saved still
+        // carries plaintext, and re-reading on every edit would throw away unsaved changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [slug, isTemplate, signedInAsTeam]);
+    /** The list as the access panel edits it: the row's people with their passwords put back. */
+    const panelUsers = useMemo(() => (accessSecrets ? withPasswords(dashboardUsers, accessSecrets) : dashboardUsers), [dashboardUsers, accessSecrets]);
     /**
      * Armed as soon as ONE listed person has a password they can get in with — their own,
-     * or the shared one as a fallback.
+     * or the shared one as a fallback (isGateArmed says why not "every person").
      *
-     * Deliberately not "every person has one". A second address added without a password
-     * would then silently re-open the whole dashboard to the internet, which is far worse
-     * than that one person having to ask for their password. The access panel flags anyone
-     * stranded in red instead. For a row written before per-person passwords existed the
-     * two rules agree exactly: everyone falls back to the shared one, so it arms on the
-     * same condition it always did.
+     * The team works it out from the passwords it holds. A client can't see any password, so
+     * they read `gate_armed`, which every Save writes beside the list; a row no Save has
+     * touched since the move has no flag yet but still carries its plaintext, so the old rule
+     * runs on that.
      */
-    const gateArmed = dashboardUsers.some((u) => u.email.trim() && passwordFor(u, sharePassword));
+    const gateArmed = accessSecrets
+        ? isGateArmed(panelUsers, accessSecrets.sharePassword)
+        : (content.gate_armed ?? isGateArmed(dashboardUsers, content.share_password ?? ""));
 
     // Unlock survives navigation within the tab, not a new one — same lifetime as the
     // owner-guide share gate (sessionStorage, keyed per slug). Stored as JSON carrying
@@ -418,8 +450,13 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
     /** Single writer for the access list. `allowed_emails` is written alongside as a derived
      *  mirror: the Netlify suggestion function and the read-gating RLS policy to come both
      *  read that flatter key, so the two must never be allowed to drift. */
-    const updateDashboardUsers = (next: DashboardUser[]) => setContent((c) => ({ ...c, dashboard_users: next, allowed_emails: usersToAllowedEmails(next) }));
-    const updateSharePassword = (next: string) => setContent((c) => ({ ...c, share_password: next }));
+    const updateDashboardUsers = (next: DashboardUser[]) => {
+        // The panel hands back passwords too: they go to accessSecrets, the rest to the row.
+        const bare = withoutPasswords(next);
+        setContent((c) => ({ ...c, dashboard_users: bare, allowed_emails: usersToAllowedEmails(bare) }));
+        setAccessSecrets((s) => s && secretsFromUsers(next, s.sharePassword));
+    };
+    const updateSharePassword = (next: string) => setAccessSecrets((s) => s && { ...s, sharePassword: next });
 
     // Side-menu logo + background uploads — click-to-upload in edit mode, compressed to WebP.
     const logoFileRef = useRef<HTMLInputElement>(null);
@@ -1928,9 +1965,17 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             // guard uses. Captured BEFORE the upsert, because the baseline is replaced below.
             const before = savedRowRef.current === null ? null : (JSON.parse(savedRowRef.current) as Partial<DashboardContent> | null);
 
+            // Passwords first, to their own team-only table, and never onto the public row.
+            // Only when they loaded: a set that never arrived must not be saved over the real one.
+            if (accessSecrets && !(await saveAccessSecrets(slug, accessSecrets))) {
+                overwriteArmedRef.current = false;
+                setSaveState("error");
+                return;
+            }
+            const saved = stripAccessSecrets(content, gateArmed);
             const { error } = await supabase
                 .from("dashboard_pages")
-                .upsert({ slug, client_name: clientName.trim(), client_website: clientWebsite.trim(), data: content }, { onConflict: "slug" });
+                .upsert({ slug, client_name: clientName.trim(), client_website: clientWebsite.trim(), data: saved }, { onConflict: "slug" });
             overwriteArmedRef.current = false;
             if (error) {
                 console.error("[client dashboard save] Supabase error:", error);
@@ -1945,9 +1990,9 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             // never fatal: the dashboard is already saved, and an audit line that failed to
             // write must not read to the AM as a save that failed. Writes nothing when the
             // diff is empty, so re-locking an untouched page leaves no trace.
-            void recordDashboardSave({ slug, clientName: clientName.trim(), before, after: content });
+            void recordDashboardSave({ slug, clientName: clientName.trim(), before, after: saved });
             // Same never-fatal rule: the CRM sheet's onboarding columns follow what this save changed.
-            void syncCrmSheet(slug, before, content);
+            void syncCrmSheet(slug, before, saved);
             // Accepted suggestions become "accepted" in the DB only now, after the values
             // they carry are really saved. On error they simply stay pending — re-accepting
             // applies the same value again, so nothing is lost either way.
@@ -2790,8 +2835,7 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
             </main>
         );
     }
-    if (!hasAccess)
-        return <DashboardAccessGate users={dashboardUsers} sharePassword={sharePassword} onUnlock={unlockDashboard} backgroundUrl={content.login_bg_url} />;
+    if (!hasAccess) return <DashboardAccessGate slug={slug ?? ""} onUnlock={unlockDashboard} backgroundUrl={content.login_bg_url} />;
 
     return (
         <>
@@ -3509,13 +3553,29 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                                                     Overview where an AM can't miss it. */}
                                                 {isTeam && !isLocked && !isTemplate && (
                                                     <>
-                                                        <DashboardAccessPanel
-                                                            users={dashboardUsers}
-                                                            sharePassword={sharePassword}
-                                                            defaultSections={content.client_visible ?? DEFAULT_CLIENT_VISIBLE}
-                                                            onChangeUsers={updateDashboardUsers}
-                                                            onChangeSharePassword={updateSharePassword}
-                                                        />
+                                                        {accessSecrets ? (
+                                                            <DashboardAccessPanel
+                                                                users={panelUsers}
+                                                                sharePassword={accessSecrets.sharePassword}
+                                                                defaultSections={content.client_visible ?? DEFAULT_CLIENT_VISIBLE}
+                                                                onChangeUsers={updateDashboardUsers}
+                                                                onChangeSharePassword={updateSharePassword}
+                                                            />
+                                                        ) : (
+                                                            <div className="mt-8 rounded-xl bg-secondary p-5 ring-1 ring-secondary">
+                                                                <h2 className="text-lg font-semibold text-primary">Who has access</h2>
+                                                                <p
+                                                                    className={cx(
+                                                                        "mt-1 text-sm text-pretty",
+                                                                        accessSecretsFailed ? "text-error-primary" : "text-tertiary",
+                                                                    )}
+                                                                >
+                                                                    {accessSecretsFailed
+                                                                        ? "Couldn't load this dashboard's passwords, so access can't be edited right now. Reload the page and try again. The rest of the dashboard saves as normal."
+                                                                        : "Loading who has access…"}
+                                                                </p>
+                                                            </div>
+                                                        )}
 
                                                         <div className="mt-4 rounded-xl bg-secondary p-5 ring-1 ring-secondary">
                                                             <div>

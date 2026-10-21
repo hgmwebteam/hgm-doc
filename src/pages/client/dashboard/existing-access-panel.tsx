@@ -9,8 +9,10 @@
  * will be able to get in".
  *
  * Saving writes ONLY the access keys (dashboard_users, its allowed_emails mirror, and
- * share_password) over a fresh read of the row, so an AM editing here can never erase the
- * rest of the dashboard the way a whole-row write could.
+ * gate_armed) over a fresh read of the row, so an AM editing here can never erase the
+ * rest of the dashboard the way a whole-row write could. The passwords go to the team-only
+ * dashboard_access_secrets table, never onto the row (see dashboard-model.ts, "Where the
+ * passwords live").
  *
  * The password the panel generates matters for the full dashboard only. The Help Centre
  * signs people in with an emailed sign-in link to the listed address, or a password they set
@@ -19,10 +21,18 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { type DashboardContent, supabase } from "@/lib/supabase";
+import { loadAccessSecrets, saveAccessSecrets } from "@/pages/client/dashboard/dashboard-access";
 import { DashboardAccessPanel } from "@/pages/client/dashboard/dashboard-chrome";
-import { DEFAULT_CLIENT_VISIBLE, type DashboardUser, readDashboardUsers, usersToAllowedEmails } from "@/pages/client/dashboard/dashboard-model";
-
-type AccessKeys = Pick<DashboardContent, "dashboard_users" | "allowed_emails" | "share_password">;
+import {
+    DEFAULT_CLIENT_VISIBLE,
+    type DashboardUser,
+    isGateArmed,
+    readDashboardUsers,
+    secretsFromUsers,
+    stripAccessSecrets,
+    usersToAllowedEmails,
+    withPasswords,
+} from "@/pages/client/dashboard/dashboard-model";
 
 export const ExistingAccessPanel = ({ slug, clientName, onDone }: { slug: string; clientName: string; onDone: () => void }) => {
     const [users, setUsers] = useState<DashboardUser[] | null>(null);
@@ -45,9 +55,18 @@ export const ExistingAccessPanel = ({ slug, clientName, onDone }: { slug: string
                     return;
                 }
                 const content = (data.data ?? {}) as Partial<DashboardContent>;
-                setUsers(readDashboardUsers(content));
-                setSharePassword((content.share_password ?? "").trim());
-                setDefaultSections(content.client_visible ?? [...DEFAULT_CLIENT_VISIBLE]);
+                // No list until the passwords are in hand: saving a set that never loaded
+                // would wipe the real one and lock the client out.
+                void loadAccessSecrets(slug, content).then((secrets) => {
+                    if (!live) return;
+                    if (!secrets) {
+                        setLoadError("Could not load this dashboard's passwords. Reload and try again.");
+                        return;
+                    }
+                    setUsers(withPasswords(readDashboardUsers(content), secrets));
+                    setSharePassword(secrets.sharePassword);
+                    setDefaultSections(content.client_visible ?? [...DEFAULT_CLIENT_VISIBLE]);
+                });
             });
         return () => {
             live = false;
@@ -63,8 +82,14 @@ export const ExistingAccessPanel = ({ slug, clientName, onDone }: { slug: string
             setState("error");
             return;
         }
-        const access: AccessKeys = { dashboard_users: users, allowed_emails: usersToAllowedEmails(users), share_password: sharePassword };
-        const next = { ...((row.data ?? {}) as Partial<DashboardContent>), ...access };
+        if (!(await saveAccessSecrets(slug, secretsFromUsers(users, sharePassword)))) {
+            setState("error");
+            return;
+        }
+        const next = stripAccessSecrets(
+            { ...((row.data ?? {}) as Partial<DashboardContent>), dashboard_users: users, allowed_emails: usersToAllowedEmails(users) },
+            isGateArmed(users, sharePassword),
+        );
         const { error } = await supabase.from("dashboard_pages").update({ data: next }).eq("slug", slug);
         setState(error ? "error" : "saved");
     };

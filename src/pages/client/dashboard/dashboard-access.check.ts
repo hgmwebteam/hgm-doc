@@ -26,10 +26,16 @@ import {
     type DashboardUser,
     findDashboardUser,
     genSharePassword,
+    isGateArmed,
     passwordFor,
     readDashboardUsers,
+    secretsFromContent,
+    secretsFromUsers,
     sectionsForViewer,
+    stripAccessSecrets,
+    toSecretsRow,
     usersToAllowedEmails,
+    withPasswords,
 } from "./dashboard-model";
 
 /* 1. A row written before per-person access upgrades on read, and every address on it
@@ -112,6 +118,52 @@ import {
     const pw = genSharePassword();
     assert.match(pw, /^[ABCDEFGHJKMNPQRSTUVWXYZ]{3}-[ABCDEFGHJKMNPQRSTUVWXYZ]{3}-HGMS$/, "ABC-DEF-HGMS, no I/L/O");
     assert.ok(new Set(Array.from({ length: 50 }, genSharePassword)).size > 40, "generated passwords are not all the same");
+}
+
+/* 9. The passwords move off the anon-readable row (21 Oct 2026). A Save may carry the list
+       and gate_armed, and nothing anyone could sign in with. */
+{
+    const content = {
+        dashboard_users: [{ email: "Owner@Example.com", password: "Resort01!", sections: null }, { email: "guest@example.com" }],
+        allowed_emails: ["Owner@Example.com", "guest@example.com"],
+        share_password: "ABC-DEF-HGMS",
+        client_visible: ["foundation"],
+    };
+    const saved = stripAccessSecrets(content, true);
+    assert.ok(!Object.hasOwn(saved, "share_password"), "no shared password on the row");
+    assert.ok(!JSON.stringify(saved).includes("Resort01!") && !JSON.stringify(saved).includes("ABC-DEF-HGMS"), "no password anywhere on the row");
+    assert.deepEqual(saved.dashboard_users, [{ email: "Owner@Example.com", sections: null }, { email: "guest@example.com" }], "the list itself survives");
+    assert.equal(saved.gate_armed, true);
+    assert.deepEqual(saved.client_visible, ["foundation"], "everything else is untouched");
+    assert.ok(!("dashboard_users" in stripAccessSecrets({ allowed_emails: ["a@example.com"], share_password: "x" }, true)), "a legacy row gains no list");
+
+    // The plaintext a legacy row still carries becomes the secrets, keyed by normalized email.
+    const secrets = secretsFromContent(content);
+    assert.deepEqual(toSecretsRow(secrets), { share_password: "ABC-DEF-HGMS", passwords: { "owner@example.com": "Resort01!" } });
+    // And comes back for the panel by address, whatever the case it was typed in.
+    const panel = withPasswords(saved.dashboard_users ?? [], secrets);
+    assert.equal(panel[0].password, "Resort01!");
+    assert.equal(passwordFor(panel[1], secrets.sharePassword), "ABC-DEF-HGMS", "a person without one still falls back");
+    assert.ok(isGateArmed(panel, secrets.sharePassword));
+}
+
+/* 10. The panel round trip: typing must not lose characters, and storage is trimmed. */
+{
+    const typing = secretsFromUsers(
+        [
+            { email: "a@example.com", password: "two words " },
+            { email: "", password: "UNFINISHED" },
+        ],
+        " SHARED ",
+    );
+    assert.equal(typing.passwords["a@example.com"], "two words ", "kept as typed while editing, so the next keystroke can follow the space");
+    assert.deepEqual(
+        toSecretsRow(typing),
+        { share_password: "SHARED", passwords: { "a@example.com": "two words" } },
+        "trimmed, and a row with no email dropped, on save",
+    );
+    assert.equal(isGateArmed([{ email: "a@example.com" }], ""), false, "no password anywhere: not armed");
+    assert.equal(isGateArmed([{ email: "", password: "X" }], ""), false, "an unfinished row with no email does not arm it");
 }
 
 console.log("dashboard-access.check.ts — all assertions passed");

@@ -39,8 +39,8 @@ import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { HelpMenu } from "@/components/application/help-menu";
 import { AppShell, CollapsedTopBar, HeaderAvatar, IconRail, NavCollapseButton, useNavCollapsed } from "@/components/application/icon-rail";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
-import { Select } from "@/components/base/select/select";
 import { Avatar } from "@/components/base/avatar/avatar";
+import { Select } from "@/components/base/select/select";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { useEditShortcuts } from "@/hooks/use-edit-shortcuts";
 import {
@@ -2691,7 +2691,12 @@ const ClientModal = ({
         setPageError("");
         // The template row with the first person (and the password generated above as their
         // own) on its access list: dashboard-model.ts newDashboardRow says what goes in it.
-        const { error: insErr } = await supabase.from("dashboard_pages").insert(newDashboardRow({ name, email: pageEmail, password: pagePassword }));
+        // The password goes to dashboard_access_secrets, never onto the anon-readable row. The
+        // row goes first: its INSERT is what detects a taken address, and writing the password
+        // before it would overwrite that existing client's.
+        const { row, secrets } = newDashboardRow({ name, email: pageEmail, password: pagePassword });
+        const { error: insErr } = await supabase.from("dashboard_pages").insert(row);
+        const { error: secErr } = insErr ? { error: null } : await supabase.from("dashboard_access_secrets").upsert(secrets, { onConflict: "slug" });
         setPageBusy(false);
         if (insErr) {
             // 23505 = unique violation (slug taken); 42501 = RLS denied — dashboard_pages
@@ -2706,6 +2711,12 @@ const ClientModal = ({
             return;
         }
         setLink(`/${base}-dashboard`);
+        // The dashboard exists, but until its password is saved the client can't sign in. The
+        // form stays open, because closing it would also hide the message.
+        if (secErr) {
+            setPageError("Dashboard created, but its password didn't save. Open it and set one under Who has access before sending the link.");
+            return;
+        }
         setCreatingPage(false);
     };
 

@@ -69,6 +69,71 @@ export const usersToAllowedEmails = (users: DashboardUser[]): string[] => users.
  *  Empty means they have no way in — the panel flags that rather than failing silently. */
 export const passwordFor = (user: DashboardUser, sharePassword: string): string => (user.password ?? "").trim() || sharePassword.trim();
 
+/* ── Where the passwords live ────────────────────────────────────────────────
+   Not on the dashboard row any more. dashboard_pages is readable with the public anon
+   key, so a password stored there was a password published. They live in
+   dashboard_access_secrets (team-only RLS), the sign-in card asks the dashboard-unlock
+   Netlify function, and the row keeps only the list plus `gate_armed`, the one fact the
+   browser needs before anyone has signed in. See 20261021120000_dashboard_access_secrets.sql.
+
+   In the team's editor the passwords are held beside `content`, never inside it, so a
+   live row arriving mid-edit (use-dashboard-live) can't take them with it, and a Save
+   can't put them back on the public row. */
+
+export type AccessSecrets = {
+    /** The dashboard's fallback password; '' for none. */
+    sharePassword: string;
+    /** normEmail(address) → that person's own password. */
+    passwords: Record<string, string>;
+};
+
+/** The editor's list (passwords included) keyed the way it is stored. Blank passwords are left
+ *  out, so they fall back to the shared one exactly as an empty field always did. Values stay
+ *  as typed, so a space mid-password survives the keystroke; toSecretsRow trims on the way out. */
+export const secretsFromUsers = (users: DashboardUser[], sharePassword: string): AccessSecrets => ({
+    sharePassword,
+    passwords: Object.fromEntries(users.filter((u) => (u.password ?? "").trim()).map((u) => [normEmail(u.email), u.password ?? ""])),
+});
+
+/** A row's plaintext, as it was stored before the move — read to seed a dashboard whose
+ *  secrets have not been copied yet. Empty for a row that has already been stripped. */
+export const secretsFromContent = (content: { dashboard_users?: DashboardUser[]; allowed_emails?: string[]; share_password?: string }): AccessSecrets =>
+    secretsFromUsers(readDashboardUsers(content), content.share_password ?? "");
+
+/** AccessSecrets in dashboard_access_secrets' column names, trimmed (the sign-in check trims
+ *  what is typed, so a stored edge space could never be matched). A blank email is dropped:
+ *  it is a row the AM has not finished, and nobody can sign in as it. */
+export const toSecretsRow = (s: AccessSecrets) => ({
+    share_password: s.sharePassword.trim(),
+    passwords: Object.fromEntries(Object.entries(s.passwords).flatMap(([email, pw]) => (email && pw.trim() ? [[email, pw.trim()]] : []))),
+});
+
+/** The list the access panel edits: the row's people with their passwords put back. */
+export const withPasswords = (users: DashboardUser[], secrets: AccessSecrets): DashboardUser[] =>
+    users.map((u) => ({ ...u, password: secrets.passwords[normEmail(u.email)] ?? "" }));
+
+export const withoutPasswords = (users: DashboardUser[]): DashboardUser[] => users.map(({ password: _pw, ...u }) => u);
+
+/** Armed once ONE listed person has a password that gets them in — their own, or the shared
+ *  one as a fallback. Not "every person": a second address added without one would otherwise
+ *  silently re-open the whole dashboard. */
+export const isGateArmed = (users: DashboardUser[], sharePassword: string): boolean => users.some((u) => !!u.email.trim() && !!passwordFor(u, sharePassword));
+
+/** What a Save may put on the public row: no `share_password`, no per-person password, and
+ *  `gate_armed` written beside the list so the sign-in card knows to appear. A legacy row with
+ *  no `dashboard_users` key keeps not having one. */
+export const stripAccessSecrets = <T extends { dashboard_users?: DashboardUser[]; share_password?: string; gate_armed?: boolean }>(
+    content: T,
+    gateArmed: boolean,
+): Omit<T, "share_password" | "gate_armed"> & { gate_armed: boolean } => {
+    const { share_password: _sp, ...rest } = content;
+    return {
+        ...rest,
+        ...(content.dashboard_users ? { dashboard_users: withoutPasswords(content.dashboard_users) } : {}),
+        gate_armed: gateArmed,
+    } as Omit<T, "share_password" | "gate_armed"> & { gate_armed: boolean };
+};
+
 export const findDashboardUser = (users: DashboardUser[], email: string): DashboardUser | null =>
     users.find((u) => normEmail(u.email) === normEmail(email)) ?? null;
 
@@ -416,21 +481,30 @@ export const createDefaultContent = (base: string): DashboardContent => ({
  * `sections: null` puts that person on the dashboard-wide default, which an AM narrows per
  * person later in the dashboard's access panel. `allowed_emails` is the derived mirror the
  * Netlify suggestion function reads, written here too so a brand-new row never has the two
- * out of step. `share_password` stays the fallback for anyone added later without a password
- * of their own. No `websites`: a list of brand websites is set on purpose, never by a template.
+ * out of step. No `websites`: a list of brand websites is set on purpose, never by a template.
+ *
+ * The password is NOT on the row (it is anon-readable): it comes back as `secrets`, for
+ * dashboard_access_secrets — the person's own password and, as before, the same value as the
+ * shared fallback for anyone added later without one.
  */
 export const newDashboardRow = ({ name, email, password }: { name: string; email: string; password: string }) => {
     const who = email.trim();
+    const pw = password.trim();
+    const slug = `${slugify(name)}-dashboard`;
+    const users: DashboardUser[] = who ? [{ email: who, password: pw, sections: null }] : [];
     return {
-        slug: `${slugify(name)}-dashboard`,
-        client_name: name.trim(),
-        client_website: "",
-        data: {
-            ...createDefaultContent(slugify(name)),
-            dashboard_users: who ? [{ email: who, password: password.trim(), sections: null }] : [],
-            allowed_emails: who ? [who] : [],
-            share_password: password.trim(),
+        row: {
+            slug,
+            client_name: name.trim(),
+            client_website: "",
+            data: {
+                ...createDefaultContent(slugify(name)),
+                dashboard_users: withoutPasswords(users),
+                allowed_emails: who ? [who] : [],
+                gate_armed: isGateArmed(users, pw),
+            },
         },
+        secrets: { slug, ...toSecretsRow(secretsFromUsers(users, pw)) },
     };
 };
 

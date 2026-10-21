@@ -367,19 +367,20 @@ export interface DashboardContent {
      */
     dashboard_users?: { email: string; password?: string; sections?: string[] | null }[];
     /**
-     * Shared password the client types alongside their email to open this dashboard.
-     *
-     * Now the FALLBACK: a person with their own password uses theirs, and this covers
-     * everyone who hasn't been given one. Clearing it is safe only once every listed
-     * person has a password of their own.
-     *
-     * Same mechanism as owner_guides.share_password, which is already in production: the
-     * value is compared in the browser, so it gates the UI rather than the data. Anyone who
-     * can reach the row with the public anon key can also read this password. It stops a
-     * shared link being forwarded around; it does not make the row private. That still needs
-     * the read-gating RLS policy.
+     * LEGACY, read-only. The shared fallback password used to live here (and each person's
+     * own in `dashboard_users[].password`), in plaintext on an anon-readable row. Both now
+     * live in the team-only dashboard_access_secrets table and every Save strips them from
+     * here; 20261021120100_dashboard_access_strip.sql removes what is left. Still typed so
+     * a row that has not been stripped yet can seed its secrets (secretsFromContent).
      */
     share_password?: string;
+    /**
+     * Whether the sign-in card shows: true once one listed person has a password that gets
+     * them in (isGateArmed). Written on every Save beside the list, because the browser can
+     * no longer see the passwords it used to work this out from. Absent on a row no Save
+     * has touched since the move; the page then falls back to the legacy plaintext.
+     */
+    gate_armed?: boolean;
     /**
      * Background behind this client's sign-in card — an image or video URL. Empty falls back
      * to the shared leaf-shadow loop, so a client never lands on a bare page.

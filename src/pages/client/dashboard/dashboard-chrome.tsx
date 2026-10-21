@@ -11,7 +11,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
 import { Button } from "@/components/base/buttons/button";
 import { Checkbox } from "@/components/base/checkbox/checkbox";
-import { type DashboardUser, type SectionId, findDashboardUser, genSharePassword, normEmail, passwordFor } from "@/pages/client/dashboard/dashboard-model";
+import { requestDashboardUnlock } from "@/pages/client/dashboard/dashboard-access";
+import { type DashboardUser, type SectionId, genSharePassword, normEmail, passwordFor } from "@/pages/client/dashboard/dashboard-model";
 import { ASSIGNABLE_SECTION_GROUPS, PHASES, phaseOfSection } from "@/pages/client/dashboard/dashboard-navigation";
 import { cx } from "@/utils/cx";
 
@@ -27,16 +28,14 @@ import { cx } from "@/utils/cx";
  * whose dashboard it is.
  */
 export const DashboardAccessGate = ({
-    users,
-    sharePassword,
+    slug,
     onUnlock,
     backgroundUrl,
 }: {
-    /** Everyone this dashboard is shared with. The typed email picks the row; that row's
-     *  own password is what must match, so the address is no longer interchangeable. */
-    users: DashboardUser[];
-    /** Fallback password, used by anyone without one of their own. */
-    sharePassword: string;
+    /** The dashboard being opened. The typed email picks the person on its list and that
+     *  person's own password must match (else the shared one) — checked by the
+     *  dashboard-unlock function, because the browser no longer holds any password. */
+    slug: string;
     /** Receives the (normalized) email that cleared the gate — the client's identity
      *  for the suggestion feature and for which sections they see, since to Supabase
      *  they are just `anon`. */
@@ -48,17 +47,22 @@ export const DashboardAccessGate = ({
     const [password, setPassword] = useState("");
     const [showPw, setShowPw] = useState(false);
     const [error, setError] = useState("");
+    const [checking, setChecking] = useState(false);
 
-    const submit = (e: React.FormEvent) => {
+    const submit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const match = findDashboardUser(users, email);
-        const expected = match ? passwordFor(match, sharePassword) : "";
-        // One message for either failure. Saying "that email isn't on the list" would let
-        // someone probe which addresses a dashboard is shared with. `expected` is checked
-        // for emptiness too: a person with no password of their own on a dashboard with no
-        // shared one must not be let in by typing nothing.
-        if (!match || !expected || password !== expected) {
-            setError("That email and password don't match this dashboard.");
+        if (checking) return;
+        setChecking(true);
+        const result = await requestDashboardUnlock(slug, email, password);
+        setChecking(false);
+        // One message for a wrong email or a wrong password. Saying "that email isn't on the
+        // list" would let someone probe which addresses a dashboard is shared with.
+        if (result === "no") {
+            setError("That email and password don't match this dashboard. Passwords are case-sensitive.");
+            return;
+        }
+        if (result === "error") {
+            setError("We couldn't check your details just now. Try again in a moment.");
             return;
         }
         setError("");
@@ -67,7 +71,7 @@ export const DashboardAccessGate = ({
 
     return (
         <SignInBackdrop backgroundUrl={backgroundUrl}>
-            <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-primary p-8 shadow-2xl ring-1 ring-secondary">
+            <form onSubmit={(e) => void submit(e)} className="w-full max-w-sm rounded-2xl bg-primary p-8 shadow-2xl ring-1 ring-secondary">
                 <img src="/hgm logo/Favicon ON LIGHT.svg" alt="HiddenGem Media" className="mx-auto size-11" draggable={false} />
                 <h1 className="mt-5 text-center text-lg font-semibold text-primary">This dashboard is private</h1>
                 <p className="mt-2 text-center text-sm text-pretty text-tertiary">Enter the email and password your HiddenGem team shared with you.</p>
@@ -108,8 +112,8 @@ export const DashboardAccessGate = ({
                     </p>
                 )}
 
-                <Button size="md" type="submit" className="mt-5 w-full" isDisabled={!email.trim() || !password}>
-                    Open my dashboard
+                <Button size="md" type="submit" className="mt-5 w-full" isDisabled={!email.trim() || !password || checking}>
+                    {checking ? "Checking…" : "Open my dashboard"}
                 </Button>
                 <p className="mt-4 text-center text-xs text-quaternary">Lost your details? Reply to your HiddenGem email and we'll resend them.</p>
             </form>

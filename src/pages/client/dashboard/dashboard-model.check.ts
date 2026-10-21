@@ -153,7 +153,7 @@ console.log("mergeFoundationDraft: all checks passed");
 
 /* newDashboardRow: the Clients page's "Create dashboard", as one function. */
 {
-    const row = newDashboardRow({ name: "Enjoy Unique Stays", email: "", password: " ABC-DEF-HGMS " });
+    const { row, secrets } = newDashboardRow({ name: "Enjoy Unique Stays", email: "", password: " ABC-DEF-HGMS " });
     assert.equal(row.slug, "enjoy-unique-stays-dashboard");
     assert.equal(row.client_name, "Enjoy Unique Stays");
     assert.equal(row.client_website, "");
@@ -163,8 +163,10 @@ console.log("mergeFoundationDraft: all checks passed");
     assert.deepEqual(row.data.revenue, { currency: "USD", months: [] }, "no sample figures on a new client, the umbrella's least of all");
     assert.deepEqual(row.data.dashboard_users, [], "no email: nobody on the list");
     assert.deepEqual(row.data.allowed_emails, []);
-    assert.equal(row.data.share_password, "ABC-DEF-HGMS");
-    const { dashboard_users: _u, allowed_emails: _a, share_password: _p, ...template } = row.data;
+    assert.ok(!("share_password" in row.data), "no password on the anon-readable row");
+    assert.deepEqual(secrets, { slug: "enjoy-unique-stays-dashboard", share_password: "ABC-DEF-HGMS", passwords: {} }, "it goes to dashboard_access_secrets");
+    assert.equal(row.data.gate_armed, false, "nobody listed: the page stays open");
+    const { dashboard_users: _u, allowed_emails: _a, gate_armed: _p, ...template } = row.data;
     void _u;
     void _a;
     void _p;
@@ -173,14 +175,16 @@ console.log("mergeFoundationDraft: all checks passed");
     assert.deepEqual(withoutIds(template), withoutIds(createDefaultContent("enjoy-unique-stays")), "otherwise exactly the template under the client's base");
 }
 {
-    const row = newDashboardRow({ name: "  FLOHOM ", email: " fred@example.com ", password: "ABC-DEF-HGMS" });
+    const { row, secrets } = newDashboardRow({ name: "  FLOHOM ", email: " fred@example.com ", password: "ABC-DEF-HGMS" });
     assert.equal(row.slug, "flohom-dashboard");
     assert.equal(row.client_name, "FLOHOM");
     assert.deepEqual(
         row.data.dashboard_users,
-        [{ email: "fred@example.com", password: "ABC-DEF-HGMS", sections: null }],
-        "one email: one person, on the dashboard default",
+        [{ email: "fred@example.com", sections: null }],
+        "one email: one person, on the dashboard default, with no password on the row",
     );
+    assert.deepEqual(secrets.passwords, { "fred@example.com": "ABC-DEF-HGMS" }, "their own password, stored apart");
+    assert.equal(row.data.gate_armed, true, "and the page locks from day one");
     assert.deepEqual(row.data.allowed_emails, ["fred@example.com"], "and the mirror in step");
 }
 

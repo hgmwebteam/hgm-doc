@@ -174,7 +174,7 @@ const HelpGate = ({
         setLinkBusy(false);
         setError(
             signInError.code === "invalid_credentials"
-                ? "That email and password do not match. If you have not set a password yet, use the emailed link."
+                ? "That password did not work. If you have never signed in here, no password exists yet: use the emailed link, then set one. The password from your account manager opens the full dashboard, not this page."
                 : "We could not sign you in just then. Try again in a moment.",
         );
     };

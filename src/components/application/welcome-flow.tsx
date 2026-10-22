@@ -989,23 +989,6 @@ export const WelcomeFlowSection = ({
         setPenPop(null);
     };
 
-    /** Finished and pasted HTML is laid out for 600px: its live hero and overlapping photos
-     *  are absolute-positioned and only turn into flat images when the email is baked. Drawn
-     *  natively at 390 they broke (Alicia, 22 Oct: giant code pill, photos off the edge), so
-     *  the mobile frame shows the 600px email scaled down, as the email designer's own phone
-     *  view does (TemplatePreview, scale(390/600)). The scale follows the frame's real width,
-     *  so a phone narrower than 390 still fits it. */
-    const frameH = isLocked ? 640 : 780;
-    const mobileBoxRef = useRef<HTMLDivElement | null>(null);
-    const [mobileScale, setMobileScale] = useState(390 / 600);
-    useEffect(() => {
-        const el = mobileBoxRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(([e]) => e.contentRect.width && setMobileScale(e.contentRect.width / 600));
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, [custom, hasContent]);
-
     const restoreScroll = () => {
         if (isLocked) return;
         setTimeout(() => {
@@ -1384,21 +1367,15 @@ export const WelcomeFlowSection = ({
                                                     <p className="text-sm font-semibold text-[#181d27]">{subject || "No subject line yet"}</p>
                                                     {previewText && <p className="mt-0.5 text-sm text-[#535862]">{previewText}</p>}
                                                 </div>
-                                                <div ref={custom && d.id === "mobile" ? mobileBoxRef : undefined} className="overflow-hidden" style={{ height: frameH }}>
-                                                    <iframe
-                                                        ref={d.id === "mobile" ? mobileRef : desktopRef}
-                                                        title={`${stepLabel(tab)} — ${d.label} preview`}
-                                                        srcDoc={previewHtml ?? ""}
-                                                        sandbox={isLocked || custom ? "" : "allow-scripts"}
-                                                        onLoad={restoreScroll}
-                                                        className={cx("block bg-white", !(custom && d.id === "mobile") && "w-full")}
-                                                        style={
-                                                            custom && d.id === "mobile"
-                                                                ? { width: 600, height: frameH / mobileScale, border: "0", transform: `scale(${mobileScale})`, transformOrigin: "top left" }
-                                                                : { height: frameH, border: "0" }
-                                                        }
-                                                    />
-                                                </div>
+                                                <iframe
+                                                    ref={d.id === "mobile" ? mobileRef : desktopRef}
+                                                    title={`${stepLabel(tab)} — ${d.label} preview`}
+                                                    srcDoc={previewHtml ?? ""}
+                                                    sandbox={isLocked || custom ? "" : "allow-scripts"}
+                                                    onLoad={restoreScroll}
+                                                    className="block w-full bg-white"
+                                                    style={{ height: isLocked ? 640 : 780, border: "0" }}
+                                                />
                                             </div>
                                         </figure>
                                     ))}

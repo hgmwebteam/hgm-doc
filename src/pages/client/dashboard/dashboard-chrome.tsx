@@ -340,7 +340,7 @@ export const DashboardAccessPanel = ({
                     <input
                         type="text"
                         value={sharePassword}
-                        placeholder="Set a password"
+                        placeholder="Full dashboard password (optional)"
                         aria-label="Shared password"
                         onChange={(e) => onChangeSharePassword(e.target.value)}
                         className={panelInput("font-mono")}

@@ -299,6 +299,13 @@ Editable page content persists to **Supabase** — the single source of truth. T
 
 **Client:** `src/lib/supabase.ts` — uses anon/publishable key (never `service_role`/secret in client code). When adding any `insert`/`update`/`delete`, ensure RLS policies cover BOTH `anon` and `authenticated` roles.
 
+**New tables need explicit grants.** Since 2026-10-30 Supabase no longer grants `anon`,
+`authenticated` or `service_role` on new `public` tables, so a table without a `GRANT` is
+"permission denied" to the app and to every Netlify function. Write the grants in the same
+migration that creates the table, for each role that reaches it, `service_role` included (it
+bypasses RLS, not grants). The house idiom is `REVOKE ALL` from `anon` and `authenticated`,
+then grant back exactly what the policies allow (see `20260917120000_dashboard_updates.sql`).
+
 **`sop_pages` helpers:** for owner guides, templates and the project-log pages, use `src/lib/db-sync.ts` rather than calling `supabase.from("sop_pages")` directly, so the table name and error handling stay in one place:
 
 - `readSopPage(slug)` — returns the row; **throws** when it's missing (callers rely on that to fall back to seed content or a master template)

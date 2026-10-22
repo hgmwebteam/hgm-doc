@@ -186,6 +186,7 @@ import {
     overviewSectionNumber,
 } from "@/pages/client/dashboard/overview-doc";
 import { PinnedPostsSection, type PinnedProfileInputs, isPinnedKey } from "@/pages/client/dashboard/pinned-posts";
+import { ReportPageProblem } from "@/pages/client/dashboard/report-page-problem";
 import { revealCheck } from "@/pages/client/dashboard/reveal-check";
 import { RevealConfirmDialog } from "@/pages/client/dashboard/reveal-confirm-dialog";
 import { stayPageLinks } from "@/pages/client/dashboard/stay-pages";
@@ -7715,6 +7716,16 @@ export const ClientDashboardPage = ({ slug, initialClientName = "", initialClien
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Team only: report a problem on the open page as a Client Request (report-page-problem.tsx). The link
+                carries the section as #id, which this page opens on load. */}
+            {isTeam && !isTemplate && slug && (
+                <ReportPageProblem
+                    slug={slug}
+                    pageLabel={SECTIONS.find((s) => s.id === activeSection)?.label ?? "this page"}
+                    pageUrl={`${window.location.origin}${window.location.pathname}${activeSection === "overview" ? "" : `#${activeSection}`}`}
+                />
             )}
 
             {(() => {

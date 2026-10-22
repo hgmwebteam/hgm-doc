@@ -386,6 +386,8 @@ export interface RequestFormProps {
     slug?: string;
     /** Addresses already in the Pages field when the form opens: the dashboard's report button passes the page it was pressed on. */
     initialPages?: string[];
+    /** What the Email for updates field starts with, when the caller knows better than the rule below: the dashboard's report button passes the reporting team member's own address, so the completion notice comes back to them. */
+    initialNotifyEmail?: string;
 }
 
 /**
@@ -401,7 +403,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** A stable empty list, so a missing prop does not make a new array (and a new key) every render. */
 const NO_WEBSITES: Website[] = [];
 
-export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, websites = NO_WEBSITES, submitterName, email, viewerIsStaff, onSubmit, onCreated, onClientChange, slug, focusFirstField, initialPages }: RequestFormProps) => {
+export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, websites = NO_WEBSITES, submitterName, email, viewerIsStaff, onSubmit, onCreated, onClientChange, slug, focusFirstField, initialPages, initialNotifyEmail }: RequestFormProps) => {
     const team = mode === "team";
     const emailOpen = completionEmailOpen(COMPLETION_EMAIL_MODE, team || !!viewerIsStaff);
     // One active category: no field to choose it in, and the request goes under it.
@@ -445,7 +447,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     const [pagesBlurred, setPagesBlurred] = useState<ReadonlySet<number>>(() => new Set());
     // A client's own address is the default most would choose: the email is about their
     // own request. Never a staff member's, and never the composer's display string.
-    const [notify, setNotify] = useState(() => (!team && isEmailShape(email.trim()) && !isTeamAddress(email) ? email.trim().toLowerCase() : ""));
+    const [notify, setNotify] = useState(() => initialNotifyEmail ?? (!team && isEmailShape(email.trim()) && !isTeamAddress(email) ? email.trim().toLowerCase() : ""));
     const [notifyBlurred, setNotifyBlurred] = useState(false);
     const [busy, setBusy] = useState(false);
     const [waitingForFiles, setWaitingForFiles] = useState(false);

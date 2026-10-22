@@ -1334,7 +1334,7 @@
   {
    "type": "section",
    "num": "06",
-   "label": "Related documents"
+   "label": "Related SOPs"
   },
   {
    "type": "para",
@@ -1344,7 +1344,7 @@
    "type": "table",
    "boxed": true,
    "headers": [
-    "Document",
+    "SOP",
     "Covers",
     "When"
    ],
@@ -1435,25 +1435,25 @@
      "2026-10-09",
      "0.6",
      "Kyle Zinger",
-     "Loom review with AnhTuan. Roles, definitions, troubleshooting and the platform choice removed; VS Code only. Where every key comes from (4.6–4.10). Function checks, a changed-original check, and account manager and client review before hand-on (7.10–8.7)."
+     "Loom review with AnhTuan: VS Code only, where every key comes from (4.6–4.10), function checks, and account manager and client review before hand-on."
     ],
     [
      "2026-10-15",
      "0.7",
      "Kyle Zinger",
-     "Three screenshots added: the Resend API keys screen (4.7), the GoHighLevel Location ID (4.9) and Netlify's Add a variable (4.11). Two image placeholders filled; the GoHighLevel scopes picture is still to come."
+     "Three screenshots added: Resend API keys (4.7), the GoHighLevel Location ID (4.9) and Netlify's Add a variable (4.11)."
     ],
     [
      "2026-10-19",
      "0.8",
      "Kyle Zinger",
-     "Terminal commands replaced with Claude prompts (tasks 3.1, 3.2, 3.4 and 5.2). hgmwebteam@gmail.com is invited to every new client Netlify (2.1), Supabase (4.2) and Resend (4.7) account, so the team's automations connect with nothing else to set up; Supabase no longer adds your own account. Resend is the client's account."
+     "Terminal commands replaced with Claude prompts. hgmwebteam@gmail.com is invited to every client's Netlify, Supabase and Resend account."
     ],
     [
      "2026-10-22",
      "0.9",
      "Kyle Zinger",
-     "Task 4.9 now gives the GoHighLevel route: Location ID into GHL_LOCATION_ID, then a private integration with only the View Contacts and Edit Contacts scopes, its token into GHL_PIT. Three screenshots added; the scopes picture is no longer owed."
+     "Task 4.9 gives the GoHighLevel route: Location ID into GHL_LOCATION_ID, a private integration with two contacts scopes, its token into GHL_PIT."
     ]
    ]
   },

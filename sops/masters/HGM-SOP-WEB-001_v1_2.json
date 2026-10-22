@@ -737,15 +737,12 @@
     {
       "type": "section",
       "num": "06",
-      "label": "Related documents"
+      "label": "Related SOPs"
     },
     {
       "type": "bullets",
       "items": [
-        "<code>HGM-SOP-OPS-001</code> &mdash; Produce and publish an HGM SOP",
-        "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> &mdash; Take a website change request from Asana to live",
-        "1Password item links and <strong>Copy Private Link</strong> &mdash; https://support.1password.com/item-links/",
-        "1Password item categories and Secure Notes &mdash; https://support.1password.com/item-categories/"
+        "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> &mdash; Take a website change request from Asana to live"
       ]
     },
     {
@@ -772,13 +769,13 @@
           "2026-09-01",
           "1.1",
           "Kyle Zinger",
-          "Rebuilt to the current house style. Purpose and scope merged; the four standing rules moved into a rules block; the flat 6.1&ndash;6.6 procedure restructured into six phases of numbered tasks; a final checklist added for the access-removal flow. No change to the process itself. The four screenshots remain uncaptured."
+          "Rebuilt to the house style: one purpose card, a rules block, six phases of numbered tasks and a final checklist for removing access. No process change."
         ],
         [
           "2026-10-15",
           "1.2",
           "Kyle Zinger",
-          "Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal."
+          "Loom review layout (house style v1.9): roles, definitions and troubleshooting removed, an If you are stuck note added, and links to other SOPs open in the portal."
         ]
       ]
     },

@@ -88,7 +88,7 @@ A `checklist` block: everything that must be true before the point of no return 
 
 Only for procedures that have a point of no return. Where there isn't one, write "Not applicable — no irreversible step."
 
-## 09. Related documents
+## 09. Related SOPs
 
 Other SOPs, templates, folders, or dashboards connected to this task, with their IDs or exact locations.
 

@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from icons import icon  # noqa: E402  (same directory)
 from figpath import find_figure  # noqa: E402
 from picker import procedure_index, picker_span, manual_picker_present, PICKER_H, PICKER_D  # noqa: E402
+from brand_assets import LOGO_LIGHT_B64  # noqa: E402
 
 # The three ways a reader can do a machine task. A code block whose kind is
 # one of these is a *route*; the route bar lets the reader show only theirs.
@@ -45,6 +46,58 @@ PLATFORMS = [
     ("desktop",  "Claude Desktop app", "desktop",  {"prompt"}),
 ]
 ROUTE_KINDS = {"click", "terminal", "prompt"}
+
+# The chip row fits one line on a desktop, so each section gets a short name
+# there. The section's own heading keeps its full label.
+NAV_LABELS = (("purpose", "Purpose"), ("prerequisite", "Prerequisites"),
+              ("procedure", "Procedure"), ("exception", "Exceptions"),
+              ("final checklist", "Final checklist"), ("related", "Related SOPs"),
+              ("revision", "Versions"))
+
+
+def nav_label(label):
+    low = label.lower()
+    return next((short for key, short in NAV_LABELS if low.startswith(key)), label)
+
+
+# The wordmark in the top bar. Its lettering takes currentColor so it follows
+# the theme; the gem keeps its own colour. Below 620px only the gem shows.
+_WORDMARK = base64.b64decode(LOGO_LIGHT_B64).decode()
+
+
+def logo_html():
+    word = (_WORDMARK.replace('fill="#0A0D12"', 'fill="currentColor"')
+            .replace("<svg ", '<svg class="word" aria-hidden="true" focusable="false" ', 1))
+    gem = "".join(re.findall(r'<path [^>]*fill="#FFD602"[^>]*></path>', _WORDMARK))
+    return ('<span class="brand" role="img" aria-label="Hidden Gem Media">' + word +
+            f'<svg class="gem" viewBox="0 0 24 22" aria-hidden="true" focusable="false">{gem}</svg></span>')
+
+
+# Every published version's page, so the revision history links the versions
+# that have one. Outside this repo the folder is absent and nothing is linked.
+PUBLISHED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "public", "sops", "html")
+
+
+def published_versions(sop_id):
+    try:
+        names = os.listdir(PUBLISHED)
+    except OSError:
+        return set()
+    pat = re.compile(re.escape(sop_id) + r"_v(\d+)_(\d+)\.html$")
+    return {f"{m.group(1)}.{m.group(2)}" for m in map(pat.match, names) if m}
+
+
+def version_cell(v, sop_id, current, have):
+    """A revision-history version: a link to that version's page, this page's own
+    version (still true on an old page, which is never rebuilt), or plain text
+    where no copy was ever published."""
+    v = html.unescape(re.sub(r"<[^>]+>", "", v)).strip()
+    if v == current:
+        return f'<span class="ver this">v{esc(v)}</span><span class="vtag">This version</span>'
+    if v in have:
+        return (f'<a class="ver" href="https://hgmportal.com/sop/{esc(sop_id)}/v{esc(v)}" '
+                f'aria-label="Open version {esc(v)}">v{esc(v)}</a>')
+    return f'<span class="ver none" title="No published copy">v{esc(v)}</span>'
 
 # ─────────────────────────────────────────────────────────────── helpers
 
@@ -258,6 +311,13 @@ svg.ic{width:1.15em;height:1.15em;flex:0 0 auto;display:block}
   grid-template-columns:1fr auto 1fr;align-items:center;gap:18px}
 .topl{display:flex;align-items:center;gap:14px;min-width:0;justify-self:start}
 .topr{display:flex;align-items:center;gap:14px;min-width:0;justify-self:end}
+.brand{display:inline-flex;align-items:center;color:var(--ink);flex:0 0 auto}
+.brand svg{display:block;height:15px;width:auto}
+.brand .gem{display:none;height:18px}
+.topsep{width:1px;height:18px;background:var(--hairline);flex:0 0 auto}
+/* A phone has room for the gem, the id and the two buttons. The long task
+   count overlapped the id there; each phase still shows its own count. */
+@media (max-width:620px){.brand .word{display:none}.brand .gem{display:block}#count{display:none}}
 .topid{font-family:'Roboto Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--accent);white-space:nowrap}
 .topid .topv{color:var(--ink-faint);letter-spacing:.1em}
@@ -281,10 +341,10 @@ button.toprst:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* The chip row scrolls inside a clip that is exactly the content width, so a
    chip never shows in the page margin. Shown only below the wide breakpoint;
    the side menu replaces it above. */
-.navclip{max-width:var(--measure);margin:0 auto;padding:0 var(--pad);min-width:0}
+.navclip{max-width:var(--measure);margin:0 auto;padding:0 var(--pad);min-width:0;container-type:inline-size}
 .secnav{display:flex;gap:6px;overflow-x:auto;padding:0 0 10px;margin:0;scrollbar-width:none}
 .secnav::-webkit-scrollbar{display:none}
-a.chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;padding:7px 13px;
+a.chip{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:7px 13px;
   border:1px solid var(--hairline);border-radius:999px;background:var(--ground-b);
   font-size:13.5px;color:var(--ink-muted);text-decoration:none;white-space:nowrap;
   transition:border-color .15s ease,color .15s ease,background-color .15s ease}
@@ -294,6 +354,12 @@ a.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-we
 a.chip.on .cn{color:rgba(255,255,255,.72)}
 a.chip .cn{font-family:'Roboto Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-faint)}
 .secnav{padding-top:2px}
+/* Seven short names fill one line. The row's own width decides, not the
+   screen's: from 1100px the side menu takes some of it. Narrower rows tighten
+   the chips, then drop their numbers; only a phone still scrolls. */
+@container (max-width:900px){a.chip{padding:6px 10px;font-size:13px;gap:6px}}
+@container (max-width:820px){a.chip .cn{display:none}}
+@container (max-width:680px){.secnav{gap:4px}a.chip{padding:5px 8px;font-size:12.5px}}
 .prog{height:2px;background:transparent}
 .prog i{display:block;height:2px;width:0;background:var(--accent);transition:width .12s linear}
 
@@ -527,6 +593,18 @@ td{padding:17px 20px;border-bottom:1px solid var(--hairline-soft);vertical-align
   line-height:1.65;color:var(--ink-muted);font-size:15px}
 td:first-child{color:var(--ink);font-weight:500;font-size:15.5px}
 tr:last-child td{border-bottom:0}
+/* revision history: the version is the link to that version's own page,
+   lettered like the version in the top bar */
+.tw.rev td:nth-child(-n+3){white-space:nowrap}
+.ver{font-family:'Roboto Mono',ui-monospace,monospace;font-size:12px;font-weight:500;letter-spacing:.1em;
+  text-transform:uppercase;white-space:nowrap;display:inline-block;padding:2px 0}
+a.ver{color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 10px;
+  margin-left:-10px;text-decoration:none;transition:background-color .14s}
+a.ver:hover{background:color-mix(in srgb,var(--accent) 24%,transparent)}
+a.ver:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ver.this{color:var(--ink)}
+.ver.none{color:var(--ink-faint)}
+.vtag{display:block;font-size:12px;color:var(--ink-faint);margin-top:2px}
 
 /* figures */
 figure{margin:22px 0 0}
@@ -571,18 +649,29 @@ details.docmeta>summary::-webkit-details-marker{display:none}
 details.docmeta .spec{margin:10px 0 0}
 button.armed{color:var(--accent)!important;border-color:var(--accent)!important}
 
+/* links in the body: the heading blue in both themes, never the browser's
+   visited purple. The underline keeps a link findable without its colour. */
+.sct a:not([class]){color:var(--accent);text-decoration:underline;text-underline-offset:3px;
+  text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  transition:text-decoration-color .14s}
+.sct a:not([class]):hover{text-decoration-color:currentColor}
+.sct a:not([class]):focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.band a:not([class]){color:var(--deep-accent)}
+td a:not([class]){white-space:nowrap}
+
 /* code inline */
 code{font-family:'Roboto Mono',ui-monospace,monospace;font-size:.86em;background:var(--surface);
   border:1px solid var(--hairline);border-radius:var(--r-ctl);padding:2px 6px}
 
 /* band */
-.band{background:var(--deep);border-radius:var(--r-band);padding:46px 42px;margin:0;
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:32px;align-items:end}
+.band{background:var(--deep);border-radius:var(--r-band);padding:46px 42px;margin:0;text-align:center}
 .band .pill{display:inline-block;font-family:'Roboto Mono',ui-monospace,monospace;font-size:10px;
   letter-spacing:.16em;text-transform:uppercase;color:var(--on-deep-muted);background:var(--on-deep-edge);
   border-radius:999px;padding:6px 12px}
 .band .q{color:var(--on-deep);font-size:clamp(20px,2.5vw,27px);line-height:1.34;font-weight:500;
   margin:20px 0 0;text-wrap:balance;max-width:none}
+.band .by{display:flex;flex-direction:column;align-items:center;margin:28px 0 0}
+.band .by::before{content:"";width:32px;height:1px;background:var(--on-deep-edge);margin:0 0 16px}
 .band .at{color:var(--on-deep);font-weight:600;font-size:16px;margin:0}
 .band .ad{color:var(--on-deep-muted);font-size:15px;margin:5px 0 0}
 footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:26px 0 0;
@@ -1055,6 +1144,9 @@ def render(doc, base=".", wrap=True, picker_html="", routebar_html="", jump_html
     open_sec = False
     open_phase = False
     open_pwrap = False
+    cur_label = ""
+    meta = doc.get("meta", {})
+    have = None   # published versions, read once if there is a revision table
 
     def close_phase():
         nonlocal open_phase
@@ -1124,6 +1216,7 @@ def render(doc, base=".", wrap=True, picker_html="", routebar_html="", jump_html
             num = f'<span class="num">{esc(b["num"])}</span>' if b.get("num") else ""
             sid = f'sec-{slug(b.get("num") or b["label"])}'
             sections.append((b.get("num", ""), b["label"], sid))
+            cur_label = b["label"]
             if wrap:
                 # The jump card closes section 01: a reader who knows the
                 # background goes straight to the procedure from here.
@@ -1295,9 +1388,17 @@ def render(doc, base=".", wrap=True, picker_html="", routebar_html="", jump_html
 
         elif t == "table":
             th = "".join(f"<th>{esc(h)}</th>" for h in b["headers"])
+            rows = b["rows"]
+            rev = ("revision" in cur_label.lower() and len(b["headers"]) > 1
+                   and b["headers"][1].strip().lower() == "version")
+            if rev:
+                if have is None:
+                    have = published_versions(meta.get("sop_id", ""))
+                rows = [[version_cell(c, meta.get("sop_id", ""), str(meta.get("version", "")), have)
+                         if i == 1 else c for i, c in enumerate(r)] for r in rows]
             tr = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>"
-                         for r in b["rows"])
-            w(f'<div class="tw"><table><thead><tr>{th}</tr></thead>'
+                         for r in rows)
+            w(f'<div class="tw{" rev" if rev else ""}"><table><thead><tr>{th}</tr></thead>'
               f"<tbody>{tr}</tbody></table></div>")
 
         elif t == "checklist":
@@ -1330,9 +1431,10 @@ def render(doc, base=".", wrap=True, picker_html="", routebar_html="", jump_html
             q = f'<p class="q">{b["quote"]}</p>' if b.get("quote") else ""
             a = ""
             if b.get("aside_t") or b.get("aside_d"):
-                a = (f'<div><p class="at">{b.get("aside_t","")}</p>'
-                     f'<p class="ad">{b.get("aside_d","")}</p></div>')
-            w(f'<div class="band" style="margin-top:34px"><div>{pill}{q}</div>{a}</div>')
+                at = f'<p class="at">{b["aside_t"]}</p>' if b.get("aside_t") else ""
+                ad = f'<p class="ad">{b["aside_d"]}</p>' if b.get("aside_d") else ""
+                a = f'<div class="by">{at}{ad}</div>'
+            w(f'<div class="band" style="margin-top:34px">{pill}{q}{a}</div>')
 
     # The progress line and the footer close the last section rather than
     # opening one of their own. A separate band gave them their own ground and
@@ -1454,7 +1556,7 @@ def build(doc, base="."):
 
     chips = "".join(
         f'<a class="chip" href="#{sid}" data-sec="{sid}">'
-        f'<span class="cn">{esc(num)}</span>{esc(label)}</a>'
+        f'<span class="cn">{esc(num)}</span>{esc(nav_label(label))}</a>'
         for num, label, sid in sections)
     navrow = f'<div class="navclip"><div class="secnav" id="secnav">{chips}</div></div>' if chips else ""
     ver = f' <span class="topv">&middot; v{esc(meta["version"])}</span>' if meta.get("version") else ""
@@ -1481,7 +1583,7 @@ def build(doc, base="."):
 <body data-sop-id="{esc(meta.get('sop_id','sop'))}" data-proc-sec="{proc_sid}">
 <div class="top">
   <div class="topin">
-    <div class="topl"><span class="topid">{esc(meta.get('sop_id',''))}{ver}</span></div>
+    <div class="topl">{logo_html()}<span class="topsep" aria-hidden="true"></span><span class="topid">{esc(meta.get('sop_id',''))}{ver}</span></div>
     <span class="topnow" id="now"></span>
     <div class="topr">
     <span class="topid" id="count" data-count-long></span>

@@ -115,9 +115,6 @@ const SopCard = ({ entry }: { entry: SopIndexEntry }) => {
                 <span>
                     v{entry.version} · {entry.owner} · {formatSopDate(entry.updated)}
                 </span>
-                <span>
-                    {entry.owner_role} ({entry.owner}){entry.next_review ? ` · review ${formatSopDate(entry.next_review)}` : ""}
-                </span>
                 {entry.status === "draft" && waitingOn(entry) && <span className="text-warning-primary">{waitingOn(entry)}</span>}
             </div>
             <div className="flex items-center gap-2 border-t border-secondary pt-3">

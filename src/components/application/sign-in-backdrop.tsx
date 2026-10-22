@@ -33,8 +33,16 @@ export const SignInBackdrop = ({
     className?: string;
 }) => {
     const bg = (backgroundUrl ?? "").trim() || LOGIN_BG_VIDEO;
-    const bgIsVideo = /\.(webm|mp4|mov)(\?|$)/i.test(bg);
+    // Edge 119–121 on Windows crash the whole tab ("This page is having a problem") when this
+    // screen is refreshed or left while its video plays — reproduced on BrowserStack on 9 Oct 2026,
+    // client gate and TeamGate alike, never without the video. Those versions get the still
+    // instead. 116–124 because only 115 and 125 were confirmed clean either side.
+    const videoCrashesHere = typeof navigator !== "undefined" && /\bEdg\/(11[6-9]|12[0-4])\./.test(navigator.userAgent);
+    const bgIsVideo = /\.(webm|mp4|mov)(\?|$)/i.test(bg) && !videoCrashesHere;
     const isDefault = bg === LOGIN_BG_VIDEO;
+    // A client's own background video has no still to fall back to, so those visitors get the
+    // plain backdrop colour; the shared loop falls back to its poster.
+    const stillOnly = videoCrashesHere && isDefault ? LOGIN_BG_POSTER : undefined;
 
     /* The `autoplay` attribute alone isn't reliable: Chrome refuses it in a tab that loads in the
        background, and some setups block it outright, which leaves the video parked on its poster.
@@ -78,6 +86,8 @@ export const SignInBackdrop = ({
                             <img src={LOGIN_BG_POSTER} alt="" className="absolute inset-0 hidden size-full object-cover motion-reduce:block" draggable={false} />
                         )}
                     </>
+                ) : videoCrashesHere ? (
+                    stillOnly && <img src={stillOnly} alt="" className="size-full object-cover" draggable={false} />
                 ) : (
                     <img src={bg} alt="" className="size-full object-cover" draggable={false} />
                 )}

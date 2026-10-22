@@ -661,7 +661,13 @@ export const WelcomeFlowSection = ({
      *  the fallback for rows that predate it (in practice it is always 1). Read-only
      *  here: her pipeline owns those rows, so fixes happen there, not in this editor.
      *  Matched by client name (case-insensitive) because her table has no dashboard
-     *  slug. Rows arrive oldest-first so a regenerated email replaces the earlier one. */
+     *  slug — and by the slug as a name pattern too, since renaming the dashboard used to
+     *  cut the link (Gooseberry, 2026-10-22). Rows arrive oldest-first so a regenerated
+     *  email replaces the earlier one.
+     *
+     *  Shown from `preview_html`, the automation's latest save. `rendered_html` is only
+     *  rewritten when the email is baked for GoHighLevel, so it lags every edit made
+     *  after that (Alicia's E5 copy, 2026-10-22); it stays the fallback. */
     const [dbEmails, setDbEmails] = useState<Record<number, { html: string; subject: string; preview: string }>>({});
     /** The Update button's state — the pull is also run once on mount, silently. */
     const [pullState, setPullState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -679,10 +685,14 @@ export const WelcomeFlowSection = ({
                 setPullState("loading");
                 setPullNote("");
             }
+            // "gooseberry-lodges-dashboard" → gooseberry%lodges, which also spans "&" and
+            // punctuation ("red%white%blue%views"). Quoted so commas in a name can't split the filter.
+            const quote = (v: string) => `"${v.replace(/["\\]/g, "\\$&")}"`;
+            const fromSlug = slug?.replace(/-dashboard$/, "").replace(/-/g, "%");
             const { data, error } = await supabase
                 .from("email_wf_emails")
-                .select("position, week, subject_line, preview_text, rendered_html")
-                .ilike("client_name", name)
+                .select("position, week, subject_line, preview_text, preview_html, rendered_html")
+                .or([name, fromSlug].filter(Boolean).map((v) => `client_name.ilike.${quote(v!)}`).join(","))
                 .order("updated_at", { ascending: true });
 
             if (error) {
@@ -696,8 +706,9 @@ export const WelcomeFlowSection = ({
             const next: Record<number, { html: string; subject: string; preview: string }> = {};
             for (const r of data ?? []) {
                 const slot = Number(r.week ?? r.position) - 1;
-                if (slot >= 0 && slot < FLOW_STEPS.length && r.rendered_html) {
-                    next[slot] = { html: r.rendered_html, subject: r.subject_line ?? "", preview: r.preview_text ?? "" };
+                const html = r.preview_html || r.rendered_html;
+                if (slot >= 0 && slot < FLOW_STEPS.length && html) {
+                    next[slot] = { html, subject: r.subject_line ?? "", preview: r.preview_text ?? "" };
                 }
             }
             const found = Object.keys(next).length;
@@ -719,7 +730,7 @@ export const WelcomeFlowSection = ({
                           (pasted.length ? ` ${pasted.join(", ")} still show your pasted HTML — remove it there to use the table's version.` : ""),
             );
         },
-        [clientName, isTemplate],
+        [clientName, slug, isTemplate],
     );
 
     useEffect(() => {

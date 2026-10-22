@@ -110,6 +110,8 @@ export const ReportPageProblem = ({ slug, pageLabel, pageUrl }: { slug: string; 
                                         email={`${load.proof.email} (HiddenGem Media)`}
                                         viewerIsStaff
                                         initialPages={[pageUrl]}
+                                        // The completion notice goes back to whoever reported it (owner's Loom, 22 Oct 2026: the field was required and empty).
+                                        initialNotifyEmail={load.proof.email.trim().toLowerCase()}
                                         focusFirstField
                                         onSubmit={async (input) => {
                                             const res = await createTicket(load.proof, input);

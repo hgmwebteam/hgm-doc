@@ -384,6 +384,8 @@ export interface RequestFormProps {
     focusFirstField?: boolean;
     /** The client's own slug, when mode is client. */
     slug?: string;
+    /** Addresses already in the Pages field when the form opens: the dashboard's report button passes the page it was pressed on. */
+    initialPages?: string[];
 }
 
 /**
@@ -399,7 +401,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** A stable empty list, so a missing prop does not make a new array (and a new key) every render. */
 const NO_WEBSITES: Website[] = [];
 
-export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, websites = NO_WEBSITES, submitterName, email, viewerIsStaff, onSubmit, onCreated, onClientChange, slug, focusFirstField }: RequestFormProps) => {
+export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName, websites = NO_WEBSITES, submitterName, email, viewerIsStaff, onSubmit, onCreated, onClientChange, slug, focusFirstField, initialPages }: RequestFormProps) => {
     const team = mode === "team";
     const emailOpen = completionEmailOpen(COMPLETION_EMAIL_MODE, team || !!viewerIsStaff);
     // One active category: no field to choose it in, and the request goes under it.
@@ -439,7 +441,7 @@ export const RequestForm = ({ mode, clients = [], topics, fixedTopic, clientName
     const [text, setText] = useState("");
     const [files, setFiles] = useState<Attachment[]>([]);
     const [fileError, setFileError] = useState("");
-    const [pages, setPages] = useState<PageRow[]>(() => [{ id: nextPageId++, value: "" }]);
+    const [pages, setPages] = useState<PageRow[]>(() => (initialPages?.length ? initialPages : [""]).map((value) => ({ id: nextPageId++, value })));
     const [pagesBlurred, setPagesBlurred] = useState<ReadonlySet<number>>(() => new Set());
     // A client's own address is the default most would choose: the email is about their
     // own request. Never a staff member's, and never the composer's display string.

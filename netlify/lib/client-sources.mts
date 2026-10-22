@@ -229,8 +229,14 @@ export const blankIfPlaceholder = (v: unknown): string => {
    — independently — did a full modern desktop-Chrome string (it's the default Puppeteer/
    headless-Chrome UA, so a bot-management rule blocks it on sight). A bare "Mozilla/5.0"
    isn't a signature anything bothers to blocklist, and it loaded the same site every time in
-   testing. It also can't go stale the way a hardcoded Chrome version number would. */
+   testing. It also can't go stale the way a hardcoded Chrome version number would.
+
+   It is not enough on its own, though. arcaroatan.com's Cloudflare blocks exactly the bare
+   string ("Sorry, you have been blocked", HTTP 403, from a home connection too) and lets the
+   old self-identifying one through: the mirror image of gooseberrylodges.com. No one string
+   gets past both, so a 401/403 is retried once under UA_RETRY before it counts as refused. */
 const UA = "Mozilla/5.0";
+const UA_RETRY = "Mozilla/5.0 (compatible; HiddenGemBrandKit/1.0; +https://hgmportal.com)";
 export const PAGE_CAP = 1_500_000; // bytes of HTML/CSS we will read
 /* One page read on its own gets a bigger allowance than a page read as part of a crawl. A
    Wix or Squarespace listing page ships its whole editor payload inline and routinely lands
@@ -293,10 +299,18 @@ export type GrabResult =
     | { ok: false; reason: "no-answer" };
 
 export async function grabResult(url: string, cap: number, timeoutMs = FETCH_MS): Promise<GrabResult> {
+    const first = await grabAs(url, cap, timeoutMs, UA);
+    // Only a refusal is worth a second name. A 404 is a wrong link, and a timeout or a
+    // 429 would only spend the caller's budget twice. Pinned by client-sources.check.mts.
+    if (first.ok || first.reason !== "refused" || (first.status !== 401 && first.status !== 403)) return first;
+    return grabAs(url, cap, timeoutMs, UA_RETRY);
+}
+
+async function grabAs(url: string, cap: number, timeoutMs: number, ua: string): Promise<GrabResult> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-        const res = await fetch(url, { signal: ctrl.signal, redirect: "follow", headers: { "user-agent": UA } });
+        const res = await fetch(url, { signal: ctrl.signal, redirect: "follow", headers: { "user-agent": ua } });
         if (!res.ok) return { ok: false, reason: "refused", status: res.status };
         const declared = Number(res.headers.get("content-length") ?? 0);
         if (declared > cap) return { ok: false, reason: "too-big" };
@@ -495,9 +509,15 @@ async function readThroughReader(url: URL, cap: number, timeoutMs = 8000): Promi
             signal: ctrl.signal,
             headers: { accept: "text/plain", ...(key ? { authorization: `Bearer ${key}` } : {}) },
         });
-        if (!res.ok) return "";
+        // Logged because the AM only ever sees "didn't work either": when the reader failed
+        // for arcaroatan.com there was no way to tell a rate limit from a timeout.
+        if (!res.ok) {
+            console.warn("[client-sources] reader answered", res.status, key ? "with key" : "without key", url.href);
+            return "";
+        }
         return (await res.text()).slice(0, cap).trim();
-    } catch {
+    } catch (err) {
+        console.warn("[client-sources] reader failed", err instanceof Error ? err.message : String(err), url.href);
         return "";
     } finally {
         clearTimeout(timer);

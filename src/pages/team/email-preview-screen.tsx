@@ -55,7 +55,7 @@ export function EmailPreviewScreen() {
         const [finished, flows] = await Promise.all([
             supabase
                 .from("email_wf_emails")
-                .select("client_name, position, week, subject_line, preview_text, rendered_html")
+                .select("client_name, position, week, subject_line, preview_text, preview_html, rendered_html")
                 .order("updated_at", { ascending: true }),
             supabase.from("welcome_flows").select("slug, client_name, data"),
         ]);
@@ -71,14 +71,16 @@ export function EmailPreviewScreen() {
         for (const row of finished.data ?? []) {
             // Pooja's `week` is the step (1–9); `position` only for rows that predate it.
             const slot = Number(row.week ?? row.position) - 1;
-            if (!row.rendered_html || slot < 0 || slot >= SLOT_COUNT) continue;
+            // The automation's latest save; rendered_html lags until the email is re-baked.
+            const html = row.preview_html || row.rendered_html;
+            if (!html || slot < 0 || slot >= SLOT_COUNT) continue;
             list.push({
                 client: (row.client_name ?? "").trim() || "Unnamed client",
                 slot,
                 source: "finished",
                 subject: row.subject_line ?? "",
                 preview: row.preview_text ?? "",
-                html: row.rendered_html,
+                html,
             });
         }
 

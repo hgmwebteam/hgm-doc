@@ -481,11 +481,9 @@ directly.
 - [ ] Anything unverifiable is written in the Asana comment
 - [ ] You checked the live site in incognito after merging
 
-## 06. Related documents
+## 06. Related SOPs
 
 - HGM-SOP-WEB-001 — Store, share, and update client .env files in 1Password
-- `HGM-SOP-OPS-001` — Produce and publish an HGM SOP
-- Commands here are for HGM's Next.js client sites on Netlify. If a step turns out to be wrong or unclear, say so — a runbook nobody corrects stops being true.
 
 ## 07. Revision history
 
@@ -493,11 +491,11 @@ directly.
 |---|---|---|---|
 | 2026-09-01 | 1.0 | Kyle Zinger | Initial release. Converted from the Website Edit Runbook; approval routing added and the preview step changed from a manual Netlify CLI deploy to the automatic pull-request Deploy Preview. |
 | 2026-09-11 | 1.1 | Kyle Zinger | Hand-built task picker removed; the renderers now draw it from meta.tasks. No change to the procedure. |
-| 2026-09-11 | 1.2 | Kyle Zinger | Plain-language sweep of task titles and instructions; six terms added to Definitions (repository, git and commit, push and merge, terminal, dev server, environment variable). No change to the procedure. |
-| 2026-09-12 | 1.3 | Kyle Zinger | Route cards reframed by place of work (Claude Code in VS Code, Terminal in VS Code, Buttons and menus in VS Code) and reordered to match; comparison table columns reordered the same way. Portal page: skip-ahead card moved under the SOP details grid, side menu enlarged and its height bug fixed, section chip row restored in the header on every width, eased in-page scrolling, phase tools as pill buttons with Reset progress alongside. No change to the procedure. |
-| 2026-09-12 | 1.4 | Kyle Zinger | Route selection reframed as a platform choice — VS Code (prompts, terminal and buttons), Terminal (commands only), Claude Desktop app (prompts only). Route cards, comparison table and portal selector updated to match; note added that the claude.ai website cannot run the prompts. No change to the procedure. |
-| 2026-10-15 | 1.5 | Kyle Zinger | Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal. The platform cards and comparison table are gone: everyone works in VS Code, where every route runs. |
-| 2026-10-19 | 1.6 | Kyle Zinger | Terminal commands removed: every task that needs a command is now a Claude prompt. Task 1.7 installs the packages with a prompt instead of the terminal; the undo, extra-checks and usage-limit notes say what to ask Claude. No change to the procedure. |
+| 2026-09-11 | 1.2 | Kyle Zinger | Plain-language sweep of task titles and instructions; six terms added to Definitions. No change to the procedure. |
+| 2026-09-12 | 1.3 | Kyle Zinger | Route cards reframed by where you work, plus portal page fixes to the side menu, section chips, scrolling and phase tools. No change to the procedure. |
+| 2026-09-12 | 1.4 | Kyle Zinger | The route choice became a platform choice: VS Code, Terminal or the Claude Desktop app. No change to the procedure. |
+| 2026-10-15 | 1.5 | Kyle Zinger | Loom review layout (house style v1.9): roles, definitions, troubleshooting and the platform cards removed. Everyone works in VS Code. |
+| 2026-10-19 | 1.6 | Kyle Zinger | Every terminal command replaced with a Claude prompt. No change to the procedure. |
 
 ---
 

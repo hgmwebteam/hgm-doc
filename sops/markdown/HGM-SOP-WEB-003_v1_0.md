@@ -13,7 +13,7 @@ How a freshly launched site gets its GA4, Search Console and Hotjar wired up and
 | Next review date | 2027-03-11 |
 | Frequency / trigger | Once per site, in launch week |
 | Time to complete | Spread across launch week |
-| Status | draft |
+| Status | live |
 
 ## 01. Purpose and scope
 
@@ -439,23 +439,21 @@ Task 2.2 takes the branch live and confirms the change is on the live site.
 - [ ] Hotjar keystrokes off, private pages excluded, office IPs blocked, client invited
 - [ ] Structured data on the stays page and a listing page: zero critical issues in the Rich Results Test
 
-## 06. Related documents
+## 06. Related SOPs
 
-- `docs/ANALYTICS-SETUP.md` in the site repo — the client-facing walkthrough for GA4, Search Console and Hotjar
 - HGM-SOP-WEB-001 — env files in 1Password
 - HGM-SOP-WEB-002 — take a website change request from Asana to live (branch, preview, merge)
 - HGM-SOP-WEB-004 — the build, where the web team is invited to the client's Netlify, Supabase and Resend
 - HGM-SOP-WEB-005 — pre-launch and the cutover, which hands the site to this SOP
-- `SOP-POST-LAUNCH-CONNECTIONS.md` — the Ridge & Falls notes the first draft was converted from
 
 ## 07. Revision history
 
 | Date | Version | Author | Change summary |
 |---|---|---|---|
 | 2026-09-11 | 0.1 | Kyle Zinger | Working draft converted from the Ridge & Falls launch-week notes, for Brandon. Not yet approved. |
-| 2026-10-15 | 0.2 | Kyle Zinger | Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal. |
+| 2026-10-15 | 0.2 | Kyle Zinger | Loom review layout (house style v1.9): roles, definitions and troubleshooting removed, an If you are stuck note added, and links to other SOPs open in the portal. |
 | 2026-10-15 | 0.3 | Kyle Zinger | Ten screenshots from the Awayframes launch added to tasks 4.4–6.3 (Google Analytics, Search Console, Hotjar), cropped and ringed. |
-| 2026-10-19 | 1.0 | Kyle Zinger | Simplified around Claude prompts. Phase 1 gets main, proves it is live, makes a branch and checks .env.local, and checks the web team is on the client's Netlify, Supabase and Resend. The shallow-clone deploy phase is gone: code goes live through a merge, variables through one connector prompt. GA4 starts by finding the client's account or creating one for them, with no property move. Terminal commands, most expected results, Google Signals, the booking event, the DNS property choice and the ownership map removed. Indexing lists the pages to request. The analytics code check and the structured data check are one prompt each. |
+| 2026-10-19 | 1.0 | Kyle Zinger | Rebuilt around Claude prompts. Code goes live through a merge, GA4 starts from the client's own account, and terminal commands, Google Signals and the ownership map are gone. |
 
 ---
 

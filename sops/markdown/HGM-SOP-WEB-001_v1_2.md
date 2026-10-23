@@ -286,20 +286,17 @@ Phase 6 is the one flow here with a point of no return: until every credential i
 - [ ] Each affected site still runs locally with the new values
 - [ ] Completion is posted in the Web Team Google Chat group, naming each project
 
-## 06. Related documents
+## 06. Related SOPs
 
-- `HGM-SOP-OPS-001` — Produce and publish an HGM SOP
 - HGM-SOP-WEB-002 — Take a website change request from Asana to live
-- 1Password item links and **Copy Private Link** — https://support.1password.com/item-links/
-- 1Password item categories and Secure Notes — https://support.1password.com/item-categories/
 
 ## 07. Revision history
 
 | Date | Version | Author | Change summary |
 |---|---|---|---|
 | 2026-08-11 | 1.0 | Kyle Zinger | Initial release |
-| 2026-09-01 | 1.1 | Kyle Zinger | Rebuilt to the current house style. Purpose and scope merged; the four standing rules moved into a rules block; the flat 6.1–6.6 procedure restructured into six phases of numbered tasks; a final checklist added for the access-removal flow. No change to the process itself. The four screenshots remain uncaptured. |
-| 2026-10-15 | 1.2 | Kyle Zinger | Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal. |
+| 2026-09-01 | 1.1 | Kyle Zinger | Rebuilt to the house style: one purpose card, a rules block, six phases of numbered tasks and a final checklist for removing access. No process change. |
+| 2026-10-15 | 1.2 | Kyle Zinger | Loom review layout (house style v1.9): roles, definitions and troubleshooting removed, an If you are stuck note added, and links to other SOPs open in the portal. |
 
 ---
 

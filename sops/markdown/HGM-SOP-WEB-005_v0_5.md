@@ -696,18 +696,17 @@ Do not start task 9.8 until every line is true.
 
 **Before this: the build** — **HGM-SOP-WEB-004** — the site this SOP starts from, approved by the client at its task 8.6.
 
-## 06. Related documents
+## 06. Related SOPs
 
 This SOP is the last of three before launch. It starts where the client approves the build and stops where post-launch begins.
 
-| Document | Covers | When |
+| SOP | Covers | When |
 |---|---|---|
 | **HGM-SOP-WEB-004** — rebuild a live client site | The build, the reviews and the client's approval | Before this document; its task 8.6 starts this one |
 | **HGM-SOP-WEB-005** — this document | Audits, keys, money path, test booking, DNS cutover | Between the client's approval and the live domain |
 | **HGM-SOP-WEB-003** — post-launch connections | GA4, Search Console, Hotjar, structured data, the ownership map | The day the site is live, from task 10.4 |
 | **HGM-SOP-WEB-002** — Asana to live | Branches, pull requests, deploy previews, merging | Referenced from tasks 1.3, 3.5 and 8.6 |
 | **HGM-SOP-WEB-001** — env files in 1Password | Storing and updating the client's `.env` file | Referenced from tasks 1.2 and 6.5 |
-| The promo-code campaign links document | Coupons and campaign links in the money path | **[NEEDS INPUT: to be folded into tasks 7.3 and 7.4]** |
 
 > **[BRAND] The site is not launched when DNS resolves**
 > It is launched when the booking flow, the payment, the email and the client's own inbox have all been seen working on the real domain. Task 10.2 is the launch; task 9.8 is just the switch.
@@ -718,9 +717,9 @@ This SOP is the last of three before launch. It starts where the client approves
 |---|---|---|---|
 | 2026-09-29 | 0.1 | Kyle Zinger | Field-test draft from the notebook's Launch Process pages and the kickoff prompt. Interview answers, the WCAG audit prompt and the promo-code document outstanding; first run is AwayFrames. |
 | 2026-10-06 | 0.2 | Kyle Zinger | Nineteen image placeholders added, weighted to the keys and cutover phases, ahead of the portal upload. |
-| 2026-10-09 | 0.3 | Kyle Zinger | Loom review with AnhTuan. Starts at client approval, not Asana; client sign-off moved to WEB-004. Roles, definitions, troubleshooting and the platform choice removed. Push to production after accessibility; Lighthouse against production. Key directions moved to WEB-004. Privacy pop-up removed. |
+| 2026-10-09 | 0.3 | Kyle Zinger | Loom review with AnhTuan: starts at client approval, Lighthouse runs against production, key directions moved to WEB-004, privacy pop-up removed. |
 | 2026-10-15 | 0.4 | Kyle Zinger | Seven screenshots from the Awayframes pre-launch and cutover added at 2.2, 4.1, 6.2, 8.3, 9.3, 9.6 and 9.10, each replacing its image placeholder. |
-| 2026-10-19 | 0.5 | Kyle Zinger | Terminal commands removed. Tasks that already had a Claude prompt keep only the prompt; tasks 1.3, 2.2, 3.3, 3.5, 6.4, 7.1, 9.7, 9.11 and 10.2 get a new prompt in place of the command. No change to the procedure. |
+| 2026-10-19 | 0.5 | Kyle Zinger | Terminal commands removed; nine tasks get a Claude prompt instead. No change to the procedure. |
 
 ---
 

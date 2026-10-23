@@ -47,7 +47,7 @@ export const shortSlug = (slug: string | null | undefined): string => (slug ?? "
 export const clientNameOf = (t: Ticket): string => (t.client_name ?? "").trim() || shortSlug(t.client_slug);
 
 /** The client's request page; staff see its staff view there (history, Approve). */
-export const requestHref = (t: Ticket): string => `/${shortSlug(t.client_slug)}/help/requests/${t.reference}`;
+export const requestHref = (t: Pick<Ticket, "client_slug" | "reference">): string => `/${shortSlug(t.client_slug)}/help/requests/${t.reference}`;
 
 /**
  * Still open and asked for before today. `needed_by` and `today` are both plain

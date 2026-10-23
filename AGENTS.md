@@ -314,6 +314,14 @@ twice), and every write is best-effort and never thrown — an audit line that f
 an AM as a dashboard that wouldn't save. Landing Page and Pinned Stories keep their own tables and
 persist on every keystroke, so only their **publish** is logged, not each save.
 
+`/log` is the whole **portal change log**, with a Type filter beside Who and Client
+(`src/lib/portal-log-model.ts`, checked by `portal-log-model.check.ts`). Beside the dashboard
+saves it lists **Releases**, read from `git log --first-parent` when the build runs
+(`vite.config.ts` → `define` → `src/lib/portal-releases.ts`, its own lazy chunk), so it is
+exactly what the serving deploy contains; and **Bugs**, the requests a team member raised about
+a portal page (what the dashboard's Report a problem button files) with their status moves from
+`ticket_events`, read through the staff-only `ticket-bug-log.mts`.
+
 **AM emails on form submit:** submitting the Onboarding Form (`/{base}-onboarding`) or the Account
 Access Form (`/{base}-access`) calls `netlify/functions/form-submitted.mts`, which sends the client's
 AM one email per form (cc `FORM_SUBMISSION_CC` — Dustin, Gillian, Makenna, Alicia) through Resend (`RESEND_API_KEY`, `RESEND_FROM`, set in the Netlify UI). The AM

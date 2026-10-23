@@ -27,6 +27,7 @@
  * form and to show whose request is whose; it is never what authorises
  * anything.
  */
+import type { BugEvent, BugTicket } from "@/lib/portal-log-model";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
 import { type DashboardUser, readDashboardUsers, usersToAllowedEmails } from "@/pages/client/dashboard/dashboard-model";
 import type { ApprovalResult, Priority, Ticket, TicketCounts, TicketEvent, TicketFile, TicketTopic } from "@/pages/client/help/help-model";
@@ -310,6 +311,9 @@ export const fetchAllTickets = (opts: { before?: string | null; status?: string;
         ...(opts.status ? { status: opts.status } : {}),
         ...(opts.client_slug ? { client_slug: opts.client_slug } : {}),
     });
+
+/** /log's Bugs: requests the team raised about a portal page, and their timelines. Staff only on the server (ticket-bug-log.mts). */
+export const fetchBugLog = (): Promise<{ bugs: BugTicket[]; events: BugEvent[] }> => callFunction("ticket-bug-log", {});
 
 /** The clients a team member may raise a request for: every dashboard, by name, with the websites it offers. */
 export interface ClientOption {

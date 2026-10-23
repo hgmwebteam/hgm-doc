@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Clock, LayoutAlt01, LinkExternal01, RefreshCw01, Rocket02, Users01, XCircle } from "@untitledui/icons";
 import { AppShell, CollapsedTopBar, IconRail, RailBottom, useNavCollapsed } from "@/components/application/icon-rail";
 import { SignInBackdrop } from "@/components/application/sign-in-backdrop";
@@ -8,24 +8,42 @@ import { Button } from "@/components/base/buttons/button";
 import { Select } from "@/components/base/select/select";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { type DashboardUpdate, listDashboardUpdates } from "@/lib/dashboard-updates";
+import {
+    ALL,
+    type BugEvent,
+    type BugTicket,
+    LOG_TYPES,
+    type LogEntry,
+    type LogFilters,
+    type LogPerson,
+    buildFeed,
+    filterFeed,
+    portalPages,
+} from "@/lib/portal-log-model";
+import type { Release } from "@/lib/portal-releases";
 import { supabase } from "@/lib/supabase";
+import { fetchBugLog } from "@/pages/client/help/help-api";
+import { STATUS_META, displayUrl } from "@/pages/client/help/help-model";
+import { requestHref } from "@/pages/team/client-requests/client-requests-model";
 import { cx } from "@/utils/cx";
 
 /**
- * /log — who changed what on which client dashboard, newest first.
+ * /log — the portal change log: who changed what, newest first.
  *
  * The page exists to answer one question the team asked every morning: what did anyone else
  * change yesterday? A client dashboard is worked on by whoever is free — an AM in the
  * morning, the web team that afternoon — and nothing recorded it, so the only way to find
- * out was to open the dashboard and try to spot the difference.
+ * out was to open the dashboard and try to spot the difference. The portal itself changes
+ * the same way, so the log also carries its releases and the problems the team reported on
+ * its pages (src/lib/portal-log-model.ts has the three sources and the rules).
  *
- * Read-only by design. Entries are written by the dashboard itself as people save (see
- * src/lib/dashboard-updates.ts); nothing on this page can add, edit or remove one. A feed
- * you can write by hand is a feed you can't trust.
+ * Read-only by design. Every entry is written by something else — the dashboard as people
+ * save, git as changes merge, the Help Center as requests move — and nothing on this page can
+ * add, edit or remove one. A feed you can write by hand is a feed you can't trust.
  */
 
 const ALLOWED_DOMAIN = "hiddengem.media";
-const ALL = "__all__";
+const REPO_URL = "https://github.com/hgmwebteam/hgm-doc";
 
 /* Google "G" mark (official multicolor) — same as the dashboard and /log-script gates. */
 const GoogleIcon = ({ className }: { className?: string }) => (
@@ -73,17 +91,17 @@ const SignInGate = ({ email }: { email?: string }) => {
                 <img src="/hgm logo/Logo ON LIGHT.svg" alt="HiddenGem Media" className="h-14 dark:hidden" draggable={false} />
                 <img src="/hgm logo/LOGO ON Dark.svg" alt="HiddenGem Media" className="hidden h-14 dark:block" draggable={false} />
 
-                <h1 className="mt-6 text-lg font-semibold text-primary">Dashboard updates</h1>
+                <h1 className="mt-6 text-lg font-semibold text-primary">Change log</h1>
                 <p className="mt-1 text-sm text-tertiary">
                     {wrongAccount ? (
                         <>
                             You're signed in as <span className="font-medium text-secondary">{email}</span>. This is the team's record of who changed what on
-                            client dashboards, so it's limited to <span className="font-medium text-secondary">@{ALLOWED_DOMAIN}</span> accounts.
+                            the portal, so it's limited to <span className="font-medium text-secondary">@{ALLOWED_DOMAIN}</span> accounts.
                         </>
                     ) : (
                         <>
                             Sign in with your <span className="font-medium text-secondary">@{ALLOWED_DOMAIN}</span> Google account to see what everyone has
-                            changed on the client dashboards.
+                            changed on the portal.
                         </>
                     )}
                 </p>
@@ -139,8 +157,53 @@ const initialsOf = (name: string) =>
 
 /* ── One entry ────────────────────────────────────────────────────── */
 
-const UpdateRow = ({ update, showClient }: { update: DashboardUpdate; showClient: boolean }) => {
-    const client = update.client_name.trim() || update.slug;
+/** The frame every kind shares: who, what they did, when, and where to look. */
+const EntryRow = ({
+    who,
+    action,
+    at,
+    href,
+    external,
+    children,
+}: {
+    who: LogPerson;
+    action: ReactNode;
+    at: string;
+    href: string;
+    external?: boolean;
+    children: ReactNode;
+}) => (
+    <li className="flex gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary">
+        <Avatar size="md" src={who.avatar || undefined} alt={who.name} initials={initialsOf(who.name)} className="mt-0.5 shrink-0" />
+
+        <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="text-sm font-semibold text-primary">{who.name}</span>
+                <span className="text-sm text-tertiary">{action}</span>
+                <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-quaternary">
+                    <Clock className="size-3.5" aria-hidden="true" />
+                    {fmtTime(at)}
+                </span>
+            </div>
+            {children}
+        </div>
+
+        <Button
+            href={href}
+            {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+            color="link-color"
+            size="sm"
+            iconTrailing={LinkExternal01}
+            className="mt-0.5 shrink-0 self-start"
+        >
+            Open
+        </Button>
+    </li>
+);
+
+const ClientName = ({ name, show }: { name: string; show: boolean }) => (show ? <span className="font-medium text-secondary"> {name}</span> : null);
+
+const UpdateRow = ({ entry, update, showClient }: { entry: LogEntry; update: DashboardUpdate; showClient: boolean }) => {
     // Fields are the detail under the section badges — "Colours, Fonts". Sections with no
     // breakdown (the access keys, plain links) contribute nothing rather than an empty pair
     // of brackets.
@@ -150,78 +213,136 @@ const UpdateRow = ({ update, showClient }: { update: DashboardUpdate; showClient
         .join("  ·  ");
 
     return (
-        <li className="flex gap-3 rounded-xl bg-primary p-4 ring-1 ring-secondary">
-            <Avatar
-                size="md"
-                src={update.author_avatar || undefined}
-                alt={update.author_name}
-                initials={initialsOf(update.author_name)}
-                className="mt-0.5 shrink-0"
-            />
-
-            <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <span className="text-sm font-semibold text-primary">{update.author_name}</span>
-                    <span className="text-sm text-tertiary">
-                        {update.kind === "publish" ? "published to" : "updated"}
-                        {showClient && <span className="font-medium text-secondary"> {client}</span>}
-                    </span>
-                    <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-quaternary">
-                        <Clock className="size-3.5" aria-hidden="true" />
-                        {fmtTime(update.created_at)}
-                    </span>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {update.summary && (
-                        <Badge color="brand" size="sm">
-                            {update.summary}
+        <EntryRow
+            who={entry.who}
+            at={entry.at}
+            href={`/${update.slug}`}
+            action={
+                <>
+                    {update.kind === "publish" ? "published to" : "updated"}
+                    <ClientName name={entry.client?.name ?? update.slug} show={showClient} />
+                </>
+            }
+        >
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {update.summary && (
+                    <Badge color="brand" size="sm">
+                        {update.summary}
+                    </Badge>
+                )}
+                {!update.summary &&
+                    update.sections.map((section) => (
+                        <Badge key={section} color="gray" size="sm">
+                            {section}
                         </Badge>
-                    )}
-                    {!update.summary &&
-                        update.sections.map((section) => (
-                            <Badge key={section} color="gray" size="sm">
-                                {section}
-                            </Badge>
-                        ))}
-                </div>
-
-                {fieldLine && <p className="mt-2 text-xs text-pretty text-quaternary">{fieldLine}</p>}
+                    ))}
             </div>
 
-            <Button href={`/${update.slug}`} color="link-color" size="sm" iconTrailing={LinkExternal01} className="mt-0.5 shrink-0 self-start">
-                Open
-            </Button>
-        </li>
+            {fieldLine && <p className="mt-2 text-xs text-pretty text-quaternary">{fieldLine}</p>}
+        </EntryRow>
     );
 };
+
+const ReleaseRow = ({ entry, release }: { entry: LogEntry; release: Release }) => (
+    <EntryRow
+        who={entry.who}
+        at={entry.at}
+        href={release.pr ? `${REPO_URL}/pull/${release.pr}` : `${REPO_URL}/commit/${release.sha}`}
+        external
+        action="released a change to the portal"
+    >
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <Badge color="success" size="sm">
+                Release
+            </Badge>
+            <Badge color="gray" size="sm">
+                {release.pr ? `#${release.pr}` : release.sha}
+            </Badge>
+        </div>
+        <p className="mt-2 text-sm text-pretty text-secondary">{release.title}</p>
+    </EntryRow>
+);
+
+const BugRow = ({ entry, ticket, moved, showClient }: { entry: LogEntry; ticket: BugTicket; moved: BugTicket["status"] | null; showClient: boolean }) => {
+    const page = portalPages(ticket.urls)[0];
+    return (
+        <EntryRow
+            who={entry.who}
+            at={entry.at}
+            href={requestHref(ticket)}
+            action={
+                moved ? (
+                    <>
+                        moved {ticket.reference} to <span className="font-medium text-secondary">{STATUS_META[moved].label}</span>
+                    </>
+                ) : (
+                    <>
+                        reported a problem on
+                        <ClientName name={entry.client?.name ?? ticket.client_slug} show={showClient} />
+                        {!showClient && " this dashboard"}
+                    </>
+                )
+            }
+        >
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Badge color="warning" size="sm">
+                    Bug
+                </Badge>
+                <Badge color="gray" size="sm">
+                    {ticket.reference}
+                </Badge>
+                {!moved && (
+                    <Badge color="gray" size="sm">
+                        Now: {STATUS_META[ticket.status]?.label ?? ticket.status}
+                    </Badge>
+                )}
+            </div>
+            <p className="mt-2 text-sm text-pretty text-secondary">{ticket.title}</p>
+            {!moved && page && <p className="mt-1 truncate text-xs text-quaternary">{displayUrl(page)}</p>}
+        </EntryRow>
+    );
+};
+
+const Entry = ({ entry, showClient }: { entry: LogEntry; showClient: boolean }) =>
+    entry.type === "dashboard" ? (
+        <UpdateRow entry={entry} update={entry.update} showClient={showClient} />
+    ) : entry.type === "release" ? (
+        <ReleaseRow entry={entry} release={entry.release} />
+    ) : (
+        <BugRow entry={entry} ticket={entry.ticket} moved={entry.moved} showClient={showClient} />
+    );
+
+/** Supabase rejects with a plain object carrying `message`, not an Error, so the usual
+ *  instanceof check would swallow the one useful part ("permission denied for table
+ *  dashboard_updates", the case most worth naming). */
+const messageOf = (err: unknown, fallback: string) =>
+    err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string" ? (err as { message: string }).message : fallback;
 
 /* ── The feed ─────────────────────────────────────────────────────── */
 
 const Feed = () => {
     const { collapsed: navCollapsed, toggle: toggleNav } = useNavCollapsed();
     const [updates, setUpdates] = useState<DashboardUpdate[]>([]);
+    const [releases, setReleases] = useState<Release[]>([]);
+    const [bugLog, setBugLog] = useState<{ bugs: BugTicket[]; events: BugEvent[] }>({ bugs: [], events: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [bugError, setBugError] = useState("");
+    const [type, setType] = useState<LogFilters["type"]>(ALL);
     const [who, setWho] = useState<string>(ALL);
     const [which, setWhich] = useState<string>(ALL);
 
+    // Three sources, each allowed to fail alone: the Help Center's function being down must
+    // not hide the dashboard saves, and the other way round. Releases are this build's own
+    // list, in a chunk of their own so no other page carries them.
     const refresh = useCallback(async () => {
-        try {
-            setUpdates(await listDashboardUpdates());
-            setError("");
-        } catch (err) {
-            // Supabase rejects with a plain object carrying `message`, not an Error, so the
-            // usual instanceof check would swallow the one useful part ("permission denied
-            // for table dashboard_updates" — the case most worth naming).
-            const msg =
-                err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string"
-                    ? (err as { message: string }).message
-                    : "Couldn't load the feed.";
-            setError(msg);
-        } finally {
-            setLoading(false);
-        }
+        const [u, b, r] = await Promise.allSettled([listDashboardUpdates(), fetchBugLog(), import("@/lib/portal-releases").then((m) => m.RELEASES)]);
+        if (u.status === "fulfilled") setUpdates(u.value);
+        setError(u.status === "rejected" ? messageOf(u.reason, "Couldn't load the dashboard updates.") : "");
+        if (b.status === "fulfilled") setBugLog({ bugs: b.value.bugs ?? [], events: b.value.events ?? [] });
+        setBugError(b.status === "rejected" ? messageOf(b.reason, "Couldn't load the bug reports.") : "");
+        if (r.status === "fulfilled") setReleases(r.value);
+        setLoading(false);
     }, []);
 
     useEffect(() => {
@@ -237,56 +358,57 @@ const Feed = () => {
         return () => window.removeEventListener("focus", onFocus);
     }, [refresh]);
 
+    const entries = useMemo(() => buildFeed(updates, releases, bugLog.bugs, bugLog.events), [updates, releases, bugLog]);
+
     /** Everyone who appears in the feed, most active first. */
     const people = useMemo(() => {
-        const by = new Map<string, { email: string; name: string; count: number }>();
-        for (const u of updates) {
-            const row = by.get(u.author_email) ?? { email: u.author_email, name: u.author_name, count: 0 };
+        const by = new Map<string, { key: string; name: string; count: number }>();
+        for (const e of entries) {
+            const row = by.get(e.who.key) ?? { key: e.who.key, name: e.who.name, count: 0 };
             row.count += 1;
-            by.set(u.author_email, row);
+            by.set(e.who.key, row);
         }
         return [...by.values()].sort((a, b) => b.count - a.count);
-    }, [updates]);
+    }, [entries]);
 
     /** Every client touched, most recently first (the feed is already newest-first). */
     const clients = useMemo(() => {
-        const by = new Map<string, { slug: string; name: string; count: number }>();
-        for (const u of updates) {
-            const row = by.get(u.slug) ?? { slug: u.slug, name: u.client_name.trim() || u.slug, count: 0 };
-            row.count += 1;
-            by.set(u.slug, row);
-        }
+        const by = new Map<string, { slug: string; name: string }>();
+        for (const e of entries) if (e.client && !by.has(e.client.slug)) by.set(e.client.slug, e.client);
         return [...by.values()];
-    }, [updates]);
+    }, [entries]);
 
-    const filtered = useMemo(
-        () => updates.filter((u) => (who === ALL || u.author_email === who) && (which === ALL || u.slug === which)),
-        [updates, who, which],
-    );
+    const filtered = useMemo(() => filterFeed(entries, { type, who, client: which }), [entries, type, who, which]);
 
     /** Filtered entries in calendar-day buckets, newest day first. */
     const days = useMemo(() => {
-        const out: { key: string; label: string; items: DashboardUpdate[] }[] = [];
-        for (const u of filtered) {
-            const key = dayKey(u.created_at);
+        const out: { key: string; label: string; items: LogEntry[] }[] = [];
+        for (const e of filtered) {
+            const key = dayKey(e.at);
             const last = out[out.length - 1];
-            if (last && last.key === key) last.items.push(u);
-            else out.push({ key, label: dayLabel(u.created_at), items: [u] });
+            if (last && last.key === key) last.items.push(e);
+            else out.push({ key, label: dayLabel(e.at), items: [e] });
         }
         return out;
     }, [filtered]);
 
     const todayCount = days[0]?.label === "Today" ? days[0].items.length : 0;
-    const todayPeople = days[0]?.label === "Today" ? new Set(days[0].items.map((u) => u.author_email)).size : 0;
+    const todayPeople = days[0]?.label === "Today" ? new Set(days[0].items.map((e) => e.who.key)).size : 0;
 
+    const changes = (n: number) => `${n} change${n === 1 ? "" : "s"}`;
+    const typeItems = [
+        { id: ALL, label: "Everything", supportingText: changes(entries.length) },
+        ...LOG_TYPES.map((t) => ({ id: t.id, label: t.label, supportingText: changes(entries.filter((e) => e.type === t.id).length) })),
+    ];
     const peopleItems = [
-        { id: ALL, label: "Everyone", supportingText: `${updates.length} update${updates.length === 1 ? "" : "s"}` },
-        ...people.map((p) => ({ id: p.email, label: p.name, supportingText: `${p.count} update${p.count === 1 ? "" : "s"}` })),
+        { id: ALL, label: "Everyone", supportingText: changes(entries.length) },
+        ...people.map((p) => ({ id: p.key, label: p.name, supportingText: changes(p.count) })),
     ];
     const clientItems = [
         { id: ALL, label: "All clients", supportingText: `${clients.length} dashboard${clients.length === 1 ? "" : "s"}` },
         ...clients.map((c) => ({ id: c.slug, label: c.name, supportingText: c.slug })),
     ];
+    const filtering = type !== ALL || who !== ALL || which !== ALL;
 
     return (
         <AppShell
@@ -295,38 +417,50 @@ const Feed = () => {
             breadcrumb={[
                 { label: "Dashboard", to: "/dashboard", icon: LayoutAlt01 },
                 { label: "Clients", to: "/dashboard?dept=clients", icon: Users01 },
-                { label: "Dashboard updates" },
+                { label: "Change log" },
             ]}
         >
-            {navCollapsed && <CollapsedTopBar title="Dashboard updates" onExpand={toggleNav} />}
+            {navCollapsed && <CollapsedTopBar title="Change log" onExpand={toggleNav} />}
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-secondary p-2">
                 <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
                     <header>
-                        <h1 className="text-display-xs font-semibold text-primary">Dashboard updates</h1>
+                        <h1 className="text-display-xs font-semibold text-primary">Portal change log</h1>
                         <p className="mt-2 max-w-2xl text-sm text-pretty text-tertiary">
-                            Every save on a client dashboard, and who made it. Written automatically as people work, so you can see what a colleague changed
-                            today without opening the dashboard to look for it.
+                            Every save on a client dashboard, every release of the portal, and every problem the team reported on a portal page, with who did
+                            it. Written automatically as people work, so you can see what changed today without going to look for it.
                         </p>
                         <p className="mt-3 text-sm text-secondary">
                             {loading ? (
                                 "Loading…"
                             ) : todayCount ? (
                                 <>
-                                    <span className="font-semibold text-primary">
-                                        {todayCount} update{todayCount === 1 ? "" : "s"}
-                                    </span>{" "}
-                                    today, from {todayPeople} {todayPeople === 1 ? "person" : "people"}.
+                                    <span className="font-semibold text-primary">{changes(todayCount)}</span> today, from {todayPeople}{" "}
+                                    {todayPeople === 1 ? "person" : "people"}.
                                 </>
                             ) : (
-                                "Nothing saved yet today."
+                                "Nothing changed yet today."
                             )}
                         </p>
                     </header>
 
                     {/* ── Filters ── */}
                     <section className="mt-6 rounded-2xl bg-primary p-5 ring-1 ring-secondary">
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <Select
+                                label="Type"
+                                placeholder="Everything"
+                                items={typeItems}
+                                selectedKey={type}
+                                onSelectionChange={(k) => setType((k ?? ALL) as LogFilters["type"])}
+                            >
+                                {(item) => (
+                                    <Select.Item id={item.id} supportingText={item.supportingText}>
+                                        {item.label}
+                                    </Select.Item>
+                                )}
+                            </Select>
+
                             <Select
                                 label="Who"
                                 placeholder="Everyone"
@@ -360,11 +494,12 @@ const Feed = () => {
                             <Button size="sm" color="secondary" iconLeading={RefreshCw01} onClick={() => void refresh()}>
                                 Refresh
                             </Button>
-                            {(who !== ALL || which !== ALL) && (
+                            {filtering && (
                                 <Button
                                     size="sm"
                                     color="tertiary"
                                     onClick={() => {
+                                        setType(ALL);
                                         setWho(ALL);
                                         setWhich(ALL);
                                     }}
@@ -373,29 +508,29 @@ const Feed = () => {
                                 </Button>
                             )}
                             <span className="text-xs text-quaternary">
-                                {filtered.length} of {updates.length} shown
+                                {filtered.length} of {entries.length} shown
                             </span>
                         </div>
                     </section>
 
-                    {error && (
-                        <p className="mt-6 flex items-start gap-2 rounded-xl bg-error-primary p-4 text-sm text-error-primary ring-1 ring-error">
+                    {[error && `Dashboard updates: ${error}`, bugError && `Bugs: ${bugError}`].filter(Boolean).map((msg) => (
+                        <p key={msg} className="mt-6 flex items-start gap-2 rounded-xl bg-error-primary p-4 text-sm text-error-primary ring-1 ring-error">
                             <XCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                            {error}
+                            {msg}
                         </p>
-                    )}
+                    ))}
 
                     {/* ── The feed ── */}
                     {!loading && !error && !filtered.length && (
                         <div className="mt-6 rounded-2xl bg-primary p-10 text-center ring-1 ring-secondary">
                             <Rocket02 className="mx-auto size-6 text-fg-quaternary" aria-hidden="true" />
-                            <p className="mt-3 text-sm font-medium text-secondary">
-                                {updates.length ? "Nothing matches those filters." : "No dashboard updates recorded yet."}
-                            </p>
+                            <p className="mt-3 text-sm font-medium text-secondary">{entries.length ? "Nothing matches those filters." : "Nothing recorded yet."}</p>
                             <p className="mx-auto mt-1 max-w-md text-sm text-pretty text-tertiary">
-                                {updates.length
-                                    ? "Try clearing them — the feed holds the last 300 updates."
-                                    : "The next time anyone presses Save on a client dashboard, it shows up here with their name on it."}
+                                {type === "release" && !releases.length
+                                    ? "This build was made without its git history, so it has no releases to list."
+                                    : entries.length
+                                      ? "Try clearing them. The log keeps the latest 300 dashboard updates and releases, and 100 bug reports."
+                                      : "The next time anyone saves a client dashboard, ships a change or reports a problem, it shows up here with their name on it."}
                             </p>
                         </div>
                     )}
@@ -404,15 +539,13 @@ const Feed = () => {
                         <section key={day.key} className="mt-8">
                             <div className="flex items-center gap-3">
                                 <h2 className={cx("text-sm font-semibold", day.label === "Today" ? "text-brand-secondary" : "text-secondary")}>{day.label}</h2>
-                                <span className="text-xs text-quaternary">
-                                    {day.items.length} update{day.items.length === 1 ? "" : "s"}
-                                </span>
+                                <span className="text-xs text-quaternary">{changes(day.items.length)}</span>
                                 <span className="h-px flex-1 bg-border-secondary" aria-hidden="true" />
                             </div>
 
                             <ul className="mt-3 flex flex-col gap-2">
-                                {day.items.map((u) => (
-                                    <UpdateRow key={u.id} update={u} showClient={which === ALL} />
+                                {day.items.map((e) => (
+                                    <Entry key={e.key} entry={e} showClient={which === ALL} />
                                 ))}
                             </ul>
                         </section>

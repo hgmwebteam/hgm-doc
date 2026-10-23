@@ -88,9 +88,10 @@ because the new version's PDF is missing).
    version's master in the same commit (with no bump, keep the filename, and the
    published files of that version are rebuilt in place).
 6. Add a revision-history row at the **bottom** of the table (rows are authored
-   oldest first): date (today), version, author, one-line change summary. The
-   last row's version must equal `meta.version`; `build.py` fails otherwise. That
-   row's summary is what the portal shows for the version.
+   oldest first): date (today), version, author, one-line change summary of
+   about 160 characters at most: what changed, not how. The last row's version
+   must equal `meta.version`; `build.py` fails otherwise. That row's summary is
+   what the portal shows for the version.
 7. Run `sop_schema.py stamp` so new steps get ids (existing ids never change),
    then strip any id it put on an aside heading.
 8. `python3 sops/tools/build.py <ID>` (add `--no-pdf` without WeasyPrint). If a PDF
@@ -139,7 +140,7 @@ changes:
 
 1. `sop_schema.py validate` passes.
 2. All seven sections present (Purpose and scope, Prerequisites, Procedure,
-   Exceptions and edge cases, Final checklist, Related documents, Revision
+   Exceptions and edge cases, Final checklist, Related SOPs, Revision
    history), or marked "Not applicable — [reason]".
 3. `[NEEDS INPUT]` flags are reported. They are published as visible gaps, so
    close every one you can before the pull request.

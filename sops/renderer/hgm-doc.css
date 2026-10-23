@@ -427,17 +427,15 @@ ul.checklist li::before {
 }
 
 /* ============================ dark band ================================= */
-/* brand-950 (#001534). Closes the document. Pill + italic quote left,
-   contact block right. */
+/* brand-950 (#001534). Closes the document. One centred column: the pill,
+   the line across the full width, then the contact block under it like an
+   attribution. A block, not flex, so it paginates like everything else. */
 .band {
   background: var(--brand-950);
   border-radius: var(--radius-band);
   padding: 13pt 15pt;
   margin-top: 14pt;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20pt;
+  text-align: center;
   break-inside: avoid;
 }
 .band .pill {
@@ -457,10 +455,9 @@ ul.checklist li::before {
   font-size: 9.5pt;
   line-height: 1.45;
   color: rgba(255,255,255,0.88);
-  margin: 0;
-  max-width: 330pt;
+  margin: 0 auto;
 }
-.band .aside { text-align: right; flex: 0 0 auto; }
+.band .aside { margin-top: 8pt; }
 .band .aside .t { color: #fff; font-weight: 600; font-size: 9.5pt; }
 .band .aside .d {
   color: rgba(255,255,255,0.72);

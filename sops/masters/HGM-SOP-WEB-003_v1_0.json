@@ -1,11 +1,11 @@
 {
  "meta": {
-  "eyebrow": "Working draft · standard operating procedure · WEB",
+  "eyebrow": "Standard operating procedure · WEB",
   "title": "Post-launch connections: analytics, search, behaviour tracking and the deploy that carries them",
   "lead": "How a freshly launched site gets its GA4, Search Console and Hotjar wired up and verified, almost all of it through Claude prompts. If you remember one thing: <strong class=\"hl\">an env change is not live until the next build, and nothing is verified until you have seen it in the live HTML</strong>.",
   "sop_id": "HGM-SOP-WEB-003",
   "version": "1.0",
-  "status": "draft",
+  "status": "live",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "effective_date": "2026-09-11",
   "next_review": "2027-03-11",
@@ -657,17 +657,15 @@
   {
    "type": "section",
    "num": "06",
-   "label": "Related documents"
+   "label": "Related SOPs"
   },
   {
    "type": "bullets",
    "items": [
-    "<code>docs/ANALYTICS-SETUP.md</code> in the site repo — the client-facing walkthrough for GA4, Search Console and Hotjar",
     "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-001\">HGM-SOP-WEB-001</a> — env files in 1Password",
     "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-002\">HGM-SOP-WEB-002</a> — take a website change request from Asana to live (branch, preview, merge)",
     "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-004\">HGM-SOP-WEB-004</a> — the build, where the web team is invited to the client's Netlify, Supabase and Resend",
-    "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-005\">HGM-SOP-WEB-005</a> — pre-launch and the cutover, which hands the site to this SOP",
-    "<code>SOP-POST-LAUNCH-CONNECTIONS.md</code> — the Ridge &amp; Falls notes the first draft was converted from"
+    "<a href=\"https://hgmportal.com/sop/HGM-SOP-WEB-005\">HGM-SOP-WEB-005</a> — pre-launch and the cutover, which hands the site to this SOP"
    ]
   },
   {
@@ -694,7 +692,7 @@
      "2026-10-15",
      "0.2",
      "Kyle Zinger",
-     "Loom review layout (house style v1.9). Roles, definitions and troubleshooting removed: terms are explained where first used, and each fix sits in the task it belongs to. Standing rules shortened; prerequisites collapse; an If you are stuck note; a copy-to-Claude button on the final checklist; links to other SOPs open in the portal."
+     "Loom review layout (house style v1.9): roles, definitions and troubleshooting removed, an If you are stuck note added, and links to other SOPs open in the portal."
     ],
     [
      "2026-10-15",
@@ -706,7 +704,7 @@
      "2026-10-19",
      "1.0",
      "Kyle Zinger",
-     "Simplified around Claude prompts. Phase 1 gets main, proves it is live, makes a branch and checks .env.local, and checks the web team is on the client's Netlify, Supabase and Resend. The shallow-clone deploy phase is gone: code goes live through a merge, variables through one connector prompt. GA4 starts by finding the client's account or creating one for them, with no property move. Terminal commands, most expected results, Google Signals, the booking event, the DNS property choice and the ownership map removed. Indexing lists the pages to request. The analytics code check and the structured data check are one prompt each."
+     "Rebuilt around Claude prompts. Code goes live through a merge, GA4 starts from the client's own account, and terminal commands, Google Signals and the ownership map are gone."
     ]
    ]
   },

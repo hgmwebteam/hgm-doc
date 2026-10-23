@@ -15,7 +15,7 @@ Seven sections, `01`–`07`:
 3. Procedure
 4. Exceptions and edge cases
 5. Final checklist
-6. Related documents
+6. Related SOPs
 7. Revision history
 
 **Removed:** Roles and responsibilities, Definitions, Troubleshooting, and the "Where are

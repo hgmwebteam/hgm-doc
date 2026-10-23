@@ -4,7 +4,7 @@
   "title": "Rebuild a live client site as a Next.js and Supabase site",
   "lead": "How an existing client website becomes a new Next.js site built from the HGM template, matched section by section against the original. If you remember one thing: <strong class=\"hl\">the live site is the reference, not your memory</strong> — every section is judged against a saved capture of the original, never against what looks about right on screen.",
   "sop_id": "HGM-SOP-WEB-004",
-  "version": "0.8",
+  "version": "0.9",
   "status": "draft",
   "owner": "Web & Content Specialist (Kyle Zinger)",
   "effective_date": "2026-09-23",
@@ -572,25 +572,34 @@
    "n": "4.9",
    "id": "WEB-004.4.11",
    "t": "Get the GoHighLevel Location ID and private integration token",
-   "d": "In the client's GoHighLevel sub-account, open the business profile and copy the Location ID. Then create a new private integration and copy its token. <strong class=\"hl\">[NEEDS INPUT: Q16 — which scopes to select, and the menu labels in HGM's white-labelled GoHighLevel]</strong>",
-   "expect": "The Location ID matches the one on the client's record in hgmportal.com, and both values are in <code>.env.local</code>.",
+   "d": "In the client's GoHighLevel sub-account, click <strong>Settings</strong> at the bottom of the left side menu. Open <strong>Business Profile</strong> and copy the <strong>Location ID</strong> into <code>GHL_LOCATION_ID</code>. Then open <strong>Private Integrations</strong>, create a new integration named for the client's site (for example <strong>Awayframes Website</strong>), select only <strong>View Contacts</strong> and <strong>Edit Contacts</strong> as its scopes, and create it. Click <strong>Copy</strong> beside the token it shows and paste it into <code>GHL_PIT</code>.",
+   "expect": "The Location ID matches the one on the client's record in hgmportal.com, the token begins <code>pit-</code>, and <code>GHL_LOCATION_ID</code> and <code>GHL_PIT</code> are both set in <code>.env.local</code>.",
    "body": [
     {
      "type": "figure",
      "path": "fig_HGM-SOP-WEB-004_f11-ghl-location-id.jpg",
-     "caption": "GoHighLevel → Settings → Business Profile: the Location ID, with its copy button, top right. (The private-integration scopes picture is still wanted.)"
+     "caption": "GoHighLevel → Settings → Business Profile: the Location ID, with its copy button, top right."
     },
     {
      "type": "panel",
      "kind": "critical",
      "t": "Check which sub-account you are in",
-     "text": "A token from the wrong sub-account sends this client's enquiries and bookings into another client's CRM, and nothing errors."
+     "text": "The sub-account's name is at the top of the left side menu. A token from the wrong sub-account sends this client's enquiries and bookings into another client's CRM, and nothing errors."
     },
     {
-     "type": "panel",
-     "kind": "note",
-     "t": "Image to be added",
-     "text": "<strong>(image to be added)</strong> — The GoHighLevel private integration screen after creation, with the scope list showing. Ring the scope list."
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-004_f13-ghl-private-integrations.png",
+     "caption": "Settings → Private Integrations, under Other settings. Each integration is named for what uses it, so the site's own is easy to find when its token is rotated."
+    },
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-004_f14-ghl-scopes.png",
+     "caption": "The two scopes, View Contacts and Edit Contacts, and nothing else (2 of 180). The site only creates and updates contacts, so the token needs no more."
+    },
+    {
+     "type": "figure",
+     "path": "fig_HGM-SOP-WEB-004_f15-ghl-token.png",
+     "caption": "The token, shown once the integration is created. Click Copy and paste it straight into GHL_PIT. Token hidden here."
     }
    ]
   },
@@ -1325,7 +1334,7 @@
   {
    "type": "section",
    "num": "06",
-   "label": "Related documents"
+   "label": "Related SOPs"
   },
   {
    "type": "para",
@@ -1335,7 +1344,7 @@
    "type": "table",
    "boxed": true,
    "headers": [
-    "Document",
+    "SOP",
     "Covers",
     "When"
    ],
@@ -1426,19 +1435,25 @@
      "2026-10-09",
      "0.6",
      "Kyle Zinger",
-     "Loom review with AnhTuan. Roles, definitions, troubleshooting and the platform choice removed; VS Code only. Where every key comes from (4.6–4.10). Function checks, a changed-original check, and account manager and client review before hand-on (7.10–8.7)."
+     "Loom review with AnhTuan: VS Code only, where every key comes from (4.6–4.10), function checks, and account manager and client review before hand-on."
     ],
     [
      "2026-10-15",
      "0.7",
      "Kyle Zinger",
-     "Three screenshots added: the Resend API keys screen (4.7), the GoHighLevel Location ID (4.9) and Netlify's Add a variable (4.11). Two image placeholders filled; the GoHighLevel scopes picture is still to come."
+     "Three screenshots added: Resend API keys (4.7), the GoHighLevel Location ID (4.9) and Netlify's Add a variable (4.11)."
     ],
     [
      "2026-10-19",
      "0.8",
      "Kyle Zinger",
-     "Terminal commands replaced with Claude prompts (tasks 3.1, 3.2, 3.4 and 5.2). hgmwebteam@gmail.com is invited to every new client Netlify (2.1), Supabase (4.2) and Resend (4.7) account, so the team's automations connect with nothing else to set up; Supabase no longer adds your own account. Resend is the client's account."
+     "Terminal commands replaced with Claude prompts. hgmwebteam@gmail.com is invited to every client's Netlify, Supabase and Resend account."
+    ],
+    [
+     "2026-10-22",
+     "0.9",
+     "Kyle Zinger",
+     "Task 4.9 gives the GoHighLevel route: Location ID into GHL_LOCATION_ID, a private integration with two contacts scopes, its token into GHL_PIT."
     ]
    ]
   },
